@@ -1,0 +1,12 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+        "label": "echoSMS",
+        "type": "shell",
+        // "command": "echo ${env:USERPROFILE}"
+        "command": "echo ${env:PYTHONPATH}"
+        },
+
+    ]
+}

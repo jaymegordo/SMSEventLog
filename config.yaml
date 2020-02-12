@@ -1,0 +1,84 @@
+
+MineSite:
+  - BaseMine
+  - BaseMine_CWC
+  - Bighorn_Build
+  - Bighorn_Opps
+  - CoalValley
+  - CWC_Other
+  - Elkford
+  - FH-Field
+  - FortHills
+  - FortHills_AHS
+  - FortHills_CWC
+  - GahchoKue
+  - RainyRiver
+  - Shovels-63N
+  - ConumaCoal
+  - IOC-RioTinto
+
+# Table header conversion
+Headers:
+  Event Log:
+    Passover: PassoverSort
+    Status: StatusEvent
+    Date Added: DateAdded
+    Date Complete: DateCompleted
+    Issue Category: IssueCategory
+    Sub Category: SubCategory
+    Added By: CreatedBy
+    Time Called to Event: TimeCalled
+
+  Work Orders:
+    Status: StatusWO
+    Wrnty: WarrantyYN
+    Work Order: WorkOrder
+    Customer WO: SuncorWO
+    Customer PO: SuncorPO
+    Part Number: PartNumber
+    Date Opened: DateAdded
+    Date Closed: DateCompleted
+    Added By: CreatedBy
+    Comments: WOComments
+    Comp CO: ComponentCO
+
+  FC Details:
+    Date Complete SMS: DateCompleteSMS
+
+  FC Summary:
+    Action Reqd: Resp
+    Part Number: PartNumber
+    Parts Avail: PartAvailability
+    Release Date: ReleaseDate
+    Expiry Date: ExpiryDate
+    Hrs: Hours
+
+  TSI:
+    Status: StatusTSI
+    Failure Date: DateAdded
+    Info/Repair Date: DateInfo
+    Submission Date: DateTSISubmission
+    TSI No: TSINumber
+    WO: WorkOrder
+    Unit SMR: SMR
+    Part SMR: ComponentSMR
+    Part Name: TSIPartName
+    Part Number: PartNumber
+    Serial No: SNRemoved
+    Details: TSIDetails
+    Author: TSIAuthor
+
+  Component CO:
+    Group CO: GroupCO
+    CO Date: DateAdded
+    Unit SMR: SMR
+    Comp SMR: ComponentSMR
+    SN Removed: SNRemoved
+    SN Installed: SNInstalled
+    Wtny: WarrantyYN
+    SMS WO: WorkOrder
+    Customer WO: SuncorWO
+    Customer PO: SuncorPO
+    Removal Reason: SunCOReason
+    Notes: RemovalReason
+    Confirmed: COConfirmed
