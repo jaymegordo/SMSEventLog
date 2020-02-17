@@ -9,13 +9,15 @@ jupyter = "*"
 
 [packages]
 xlwings = "*"
-pandas = "==1.0.0rc0"
+pandas = "*"
 pypika = "*"
 pyyaml = "*"
 sqlalchemy = "*"
-pyodbc = "*"
+pyodbc = "==4.0.28"
 pyqt5 = "*"
 pywin32 = "*"
+xlrd = "*"
+bs4 = "*"
 
 [requires]
 python_version = "3.8"

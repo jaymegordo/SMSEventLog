@@ -1,6 +1,6 @@
 import sys
 from PyQt5 import QtCore
-from PyQt5.QtCore import QTimer, QSize
+from PyQt5.QtCore import QTimer, QSize, Qt
 from PyQt5.QtWidgets import QWidget, QMessageBox, QApplication, QPushButton, QDesktopWidget, QGridLayout, QLabel, QDialog, QLineEdit, QVBoxLayout, QDialogButtonBox
 
 class App(QWidget):
@@ -60,6 +60,33 @@ class Form(QDialog):
         # Set dialog layout
         self.setLayout(layout)
 
+class MsgBox_Advanced(QDialog):
+    def __init__(self, msg='', title=''):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setMinimumSize(QSize(200, 100))
+        self.setMaximumWidth(600)
+        self.btn = QDialogButtonBox(QDialogButtonBox.Ok)
+        self.btn.clicked.connect(self.close)
+
+        grid = QGridLayout(self)
+        grid.setSpacing(20)
+
+        label = QLabel(msg, self) 
+        label.setAlignment(Qt.AlignLeft)
+        label.setWordWrap(True)
+        grid.addWidget(label, 0, 0)
+        
+        btn = QPushButton('Okay', self)
+        btn.setMaximumWidth(100)
+        btn.clicked.connect(self.close)
+        grid.addWidget(btn, 1, 0, alignment=Qt.AlignRight)
+
+def msgbox(msg='', title='SMS Event Log'):
+    app = get_qt_app()
+    dlg = MsgBox_Advanced(msg=msg, title=title)
+    dlg.exec_()
+
 def show_qt_dialog():
     app = get_qt_app()
     dlg = Form()
@@ -68,19 +95,19 @@ def show_qt_dialog():
     if dlg.result():
         return dlg.edit.text()
 
-def messagebox(msg=''):
+
+def messagebox2(msg=''):
     app = QApplication(sys.argv)
     ex = App(msg=msg)
     # ex.setWindowFlags(ex.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
 
     return app.exec_()
 
-def messagebox2(msg=''):
+def messagebox(msg=''):
     app = get_qt_app()
     msgBox = QMessageBox()
     msgBox.setText(msg)
-    msgBox.setInformativeText("And here is a detailed explanation,"
-                              " or at least the closest you will get.")
+    # msgBox.setInformativeText('Detail text')
     
     msgBox.setMinimumSize(QSize(250, 150))
     msgBox.setWindowTitle('SMS Event Log')

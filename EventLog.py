@@ -1,20 +1,22 @@
+import sys
+from collections import defaultdict
 from datetime import datetime as date
 from datetime import timedelta as delta
 from pathlib import Path
 from urllib import parse
-from collections import defaultdict
-import sys
 
 import pandas as pd
 import pypika as pk
-
-if sys.platform.startswith('win'):
-    import win32api
-    
 import xlwings as xw
 import yaml
 
 import Folders as fl
+import Functions as f
+from userforms import *
+from database import db
+
+if sys.platform.startswith('win'):
+    import win32api
 
 def mac():
     pass
@@ -28,38 +30,25 @@ def mac():
         # value()
         # formula_r1c1() > returns all values in range as list of lists
         # get_address()
-
-
-def topfolder():
-    # TODO: this needs to be dynamic
-    return Path(__file__).parent
-
 def example():
     wb = xw.books('SMS Event Log.xlsm')
     ws = wb.sheets('Event Log')
-    lsto = el.Table(ws=ws)
+    lsto = Table(ws=ws)
 
-def test():
-    # wb = xw.Book.caller()
-    wb = xw.books('testproject.xlsm')
-    # app = wb.app
-    # ans = app.api.InputBox('Tell me the truth: ', 'InputBox of Truth')
-    # msgbox(f'The truth is: {ans}')
-    # q = pk.Table('UnitID').select('Unit', 'Serial')
-    wb.sheets('Python').range('K1').value = 'tttttt'
-    # msgbox(q.get_sql())
-    
-def msgbox(msg='', title='Excel'):
+def test(msg='no message'):    
+    msgbox(msg, title=xw.books.active.name.split('.')[0])
+
+def msgbox_excel(msg='', title='Excel Messagebox'):
     app = xw.apps[xw.apps.keys()[0]]
     win32api.MessageBox(app.hwnd, msg, title)
 
 def book():
     title = 'SMS Event Log.xlsm'
-    title = 'testproject.xlsm'
+    # title = 'testproject.xlsm'
     return xw.books(title)
 
 def refresh_table(title=None):
-    
+    # global db
     startdate = date(2020, 1, 10)
     minesite = 'FortHills'
 
@@ -80,12 +69,19 @@ def refresh_table(title=None):
     elif title == 'Python':
         a = pk.Table('UnitID')
         q = pk.Query.from_(a).select(*cols) \
-            # .where(a.MineSite == minesite)
+            .where(a.MineSite == minesite)
     
-    with fl.DB() as db:
-        df = pd.read_sql(sql=q.get_sql(), con=db.conn)
+    # if db is None:
+    #     db = DB()
+    tbl.df = pd.read_sql(sql=q.get_sql(), con=db.conn)
+    # db.close()
 
-    tbl.to_excel(df=df)
+    # return tbl.df
+    tbl.to_excel()
+
+def colstest(*cols, first=1):
+    for col in cols:
+        print(str(first) + col)
 
 class Table():
     def __init__(self, ws=None, lsto=None, df=None):
@@ -113,25 +109,42 @@ class Table():
 
         self.app = self.wb.app
         self.rng = self.ws.range(address)
-        self.rngheader = self.rng[:1,:]
-        self.rngbody = self.rng[1:,:]
+        self.header = self.rng[:1,:]
+        self.body = self.rng[1:,:]
 
     def get_df(self):
         return self.rng.options(pd.DataFrame, header=True, index=False).value
 
-    def headers_db(self):
-        p = Path(topfolder()) / 'config.yaml'
-        with open(p) as file:
-            m = defaultdict(dict, yaml.full_load(file)['Headers'])[self.ws.name]
+    def rows(self, row):
+        return self.body[row, :].value
 
+    def columns(self, col):
+        return self.body[:, col].value
+
+    def headers_db(self):
+        m = defaultdict(dict, f.getconfig()['Headers'])[self.ws.name]
         cols = self.headers()
 
         return [m[col] if col in m.keys() else col for col in cols]
 
     def headers(self):
-        return self.rngheader.value
+        return self.header.value
+
+    def fixE(self, cols):
+        # clear -E from df columns
+        df = self.df
+        if not isinstance(cols, list): cols = [cols]
+        for col in cols:
+            df[col].loc[df[col].str.contains('E-')] = "'" + df[col]
     
-    def to_excel(self, df):
+    def to_excel(self, df=None):
+        if df is None:
+            df = self.df
+        else:
+            self.df = df
+
+        self.fixE(cols=list(filter(lambda x: x.lower() == 'model', df.columns)))
+        
         app = self.app
         lsto = self.lsto
         app.screen_updating = False
@@ -139,7 +152,7 @@ class Table():
 
         self.clearfilter()
         self.cleartable()
-        self.rngbody.options(index=False, header=False).value = df
+        self.body.options(index=False, header=False).value = df
 
         app.screen_updating = True
         enable_events(app=app, val=True)
@@ -148,24 +161,15 @@ class Table():
         lsto = self.lsto
         if self.win and lsto.autofilter.filtermode:
             lsto.autofilter.showalldata()
-        elif lsto.autofilter_object.autofiltermode():
+        elif not self.win and lsto.autofilter_object.autofiltermode():
             self.ws.api.show_all_data()
 
     def cleartable(self):
-        rng = self.rngbody
+        rng = self.body
         if len(rng.rows) > 1:
             rng[1:,:].delete()
 
         if rng[0].value is None: rng[0].value = ' '
-
-        # ws = self.ws
-        # lsto = self.lsto
-        # dbr = lsto.databodyrange
-        # rng = ws.range(lsto.listcolumns(1).databodyrange.address)
-        # if len(rng) > 1:
-        #     rng[1:].clear_contents()
-        #     dbr.removeduplicates(1)
-        #     lsto.listrows(2).range.delete
 
 def enable_events(app, val=None):
     if sys.platform.startswith('win'):
