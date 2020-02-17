@@ -15,6 +15,7 @@ project.lock.json
 /packages
 /TestResults
 
+/_docs
 /tools/NuGet.exe
 /ApiKeys
 /App_Data
