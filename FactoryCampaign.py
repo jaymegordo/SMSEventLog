@@ -1,61 +1,70 @@
+from collections import defaultdict as dd
 from datetime import datetime as date
 from datetime import timedelta as delta
 from pathlib import Path
+from timeit import default_timer as timer
 
 import pandas as pd
+import pypika as pk
 from bs4 import BeautifulSoup
 
 import Functions as f
 from database import db
-import pypika as pk
-from timeit import default_timer as timer
 
 # from timeit import Timer
 	# t = Timer(lambda: fldr.readsingle(p))
 	# print(t.timeit(number=10))
 
-def CallStoredProc(conn, procName, *args):
-    sql = """DECLARE @ret int
-             EXEC @ret = %s %s
-             SELECT @ret""" % (procName, ','.join(['?'] * len(args)))
-    return int(conn.execute(sql, args).fetchone()[0])
-
 def tblcount(tbl):
-    cursor = db.cursor
+    cursor = db.get_cursor()
     sql = f'Select count(*) From {tbl}'
     return cursor.execute(sql).fetchval()
 
-def importFC(upload=True):
+def importFC(upload=True, df=None):
     start = timer()
     # load all 'xls' files from import folder to df
-    p = Path(f.getconfig()['FilePaths']['Import FC'])
+    p = Path(f.drive + f.config['FilePaths']['Import FC'])
     lst = [f for f in p.glob('*.xls')]
 
     # TODO: msgbox found files: would u like to import?
 
-    df = pd.concat([read_fc(p=p) for p in lst], sort=False)
+    if df is None: df = pd.concat([read_fc(p=p) for p in lst], sort=False)
 
-    print('Loaded FCs from files: {}'.format(f.deltasec(start, timer())))
+    print('Loaded ({}) FCs from {} file(s) in: {}s' \
+        .format(len(df), len(lst), f.deltasec(start, timer())))
 
-    # import to temp staging table in db, then merge non duplicates to FactoryCampaign table
+    # import to temp staging table in db, then merge new rows to FactoryCampaign
     if upload:
-        df.to_sql(name='FactoryCampaignImport', con=db.conn, if_exists='append', index=False)
+        conn = db.engine.raw_connection()
+        cursor = conn.cursor()
+        df.to_sql(name='FactoryCampaignImport', con=db.engine, if_exists='append', index=False)
 
         print('Rows read from import files: {}'.format(len(df)))
 
-        beforecount = tblcount(tbl='FactoryCampaign')
-        rows = db.cursor.execute('mergeFCImport').rowcount
-        db.cursor.commit()
-        rowsadded = tblcount(tbl='FactoryCampaign') - beforecount
+        try:
+            # FactoryCampaign Import
+            rows = dd(int, cursor.execute('mergeFCImport').fetchall())
+            print(dict(rows))
+            print('FactoryCampaign: \n\tRows added: {}\n\tRows updated: {}\n\tKA Completion dates added: {}' \
+                .format(
+                    rows['INSERT'], 
+                    rows['UPDATE'], 
+                    rows['KADatesAdded']))
 
-        print(f'New rows added to FactoryCampaign table: {rowsadded}')
+            # FC Summary Update
+            rows = dd(int, cursor.execute('MergeFCSummary').fetchall())
+            print(dict(rows))
+            print('FC Summary: \n\tRows added: {}\n\tRows updated: {}' \
+                .format(
+                    rows['INSERT'], 
+                    rows['UPDATE']))
+            
+            cursor.commit()
 
-        beforecount = tblcount(tbl='FCSummary')
-        rows = db.cursor.execute('udfMergeFCSummary').rowcount
-        rowsadded = tblcount(tbl='FCSummary') - beforecount
-
-        print(f'New rows added to FCSummary table: {rowsadded}')
-        print('Finished: {}'.format(f.deltasec(start, timer())))
+            print('Finished: {}'.format(f.deltasec(start, timer())))
+        finally:
+            cursor.close()
+            conn.close()
 
         # TODO: msgbox would you like to remove files?
     
