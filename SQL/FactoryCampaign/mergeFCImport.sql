@@ -1,12 +1,18 @@
-ALTER PROCEDURE [dbo].[mergeFCImport] AS
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[mergeFCImport] 
 
+AS
+
+SET ANSI_WARNINGS OFF;
+SET NOCOUNT ON;
 DECLARE @SummaryOfChanges TABLE(Change VARCHAR(20));
-
--- Count DateCompleteKA before/after to return count of changed values
 DECLARE @beforecount INT;
 DECLARE @aftercount INT;
 
-SET @beforecount = (select count(DateCompleteKA) FROM FactoryCampaign);
+SET @beforecount = (select COUNT(DateCompleteKA) FROM FactoryCampaign);
 
 MERGE FactoryCampaign t 
     USING (
@@ -30,13 +36,13 @@ MERGE FactoryCampaign t
 
     OUTPUT $action INTO @SummaryOfChanges;
 
+TRUNCATE TABLE FactoryCampaignImport;
 
 SET @aftercount = (select count(DateCompleteKA) FROM FactoryCampaign);
 
 SELECT Change, COUNT(*) AS CountPerChange
 FROM @SummaryOfChanges
 GROUP BY Change
-UNION SELECT 'KA Dates Added', @aftercount - @beforecount;
+UNION SELECT 'KADatesAdded', @aftercount - @beforecount;
 
-TRUNCATE TABLE FactoryCampaignImport;
 GO

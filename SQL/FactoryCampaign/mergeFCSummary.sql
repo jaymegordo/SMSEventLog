@@ -1,8 +1,10 @@
+-- TODO: Remove 'udfMergeFCSummary' file once change to python is complete
+
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [dbo].[mergeFCSummary]
+ALTER PROCEDURE [dbo].[mergeFCSummary]
 
 AS
 
@@ -15,7 +17,15 @@ MERGE FCSummary t
         SELECT * 
         FROM (
             SELECT 
-                a.FCNumber, a.Subject, a.Classification, a.Hours, a.StartDate, a.EndDate, ROW_NUMBER() OVER(PARTITION BY a.FCNumber ORDER BY a.FCNumber, a.Hours DESC, a.EndDate DESC) RN 
+                a.FCNumber,
+                a.Subject, 
+                a.Classification, 
+                a.Hours, 
+                a.StartDate, 
+                a.EndDate, 
+                ROW_NUMBER() OVER(
+                    PARTITION BY a.FCNumber 
+                    ORDER BY a.FCNumber, a.Hours DESC, a.EndDate DESC) RN 
             FROM FactoryCampaign a
             GROUP BY 
                 a.FCNumber, a.Subject, a.Classification, a.Hours, a.StartDate, a.EndDate) a
