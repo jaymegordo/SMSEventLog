@@ -1,2 +1,1 @@
-_info/ export-ignore
-_info/ linguist-vendored=false
+_info/* linguist-documentation
