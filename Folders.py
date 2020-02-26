@@ -24,7 +24,7 @@ def import_haul(files):
             df = combine_df(lst, ftype='haul')
             print(f'df: {len(df)}, max: {df.datetime.max()}, min: {df.datetime.min()}')
 
-            df.to_sql(name='PLMImport', con=db.conn, if_exists='append')
+            df.to_sql(name='PLMImport', con=db.engine, if_exists='append')
 
             print(unit)
 
@@ -36,7 +36,7 @@ def import_fault(files):
     if not isinstance(files, list): files = [files]
 
     df = combine_df(lst=files, ftype='fault')
-    df.to_sql(name='FaultImport', con=db.conn, if_exists='append', index=False)
+    df.to_sql(name='FaultImport', con=db.engine, if_exists='append', index=False)
 
     rows = db.cursor.execute('ImportFaults').rowcount
     db.cursor.commit()

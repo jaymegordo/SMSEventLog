@@ -27,6 +27,7 @@ appsettings.json
 local.settings.json
 host.json
 .funcignore
+.DS_Store
 
 node_modules
 dist
@@ -49,3 +50,5 @@ Project/__pycache__/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# ignore line endings: git config --global core.autocrlf true

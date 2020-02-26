@@ -1,7 +1,7 @@
 
 FilePaths:
-  Import FC: P:/Regional/SMS West Mining/SMS Event Log/Import FC
-  980E FH: P:/Fort Hills/02. Equipment Files/1. 980E Trucks
+  Import FC: Regional/SMS West Mining/SMS Event Log/Import FC
+  980E FH: Fort Hills/02. Equipment Files/1. 980E Trucks
 
 MineSite:
   - BaseMine
