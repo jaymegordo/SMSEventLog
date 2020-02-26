@@ -1,15 +1,18 @@
+import sys
 from urllib import parse
 
 import pandas as pd
 import pypika as pk
 import sqlalchemy as sa
 
+import pyodbc
+
 global db
 
 # DATABASE
 
 def strConn():
-    # TODO: import this from config file
+    # TODO: import this from config file and encrypt
     driver = '{ODBC Driver 17 for SQL Server}'
     server = 'tcp:jgazure1.database.windows.net,1433'
     database = 'db1'
@@ -20,25 +23,28 @@ def strConn():
 def engine():
     # sqlalchemy.engine.base.Engine
     params = parse.quote_plus(strConn())
-    return sa.create_engine('mssql+pyodbc:///?odbc_connect=%s' % params, fast_executemany=True)
+    return sa.create_engine(f'mssql+pyodbc:///?odbc_connect={params}', fast_executemany=True, pool_pre_ping=True)
 
 class DB(object):
     def __init__(self):
         self.df_unit = None
-        self.conn = engine()
-        self.conn.raw_connection().autocommit = True  # doesn't seem to work rn
-        self.cursor = self.conn.raw_connection().cursor()
+        self.engine = engine()
+        
+        # self.conn.raw_connection().autocommit = True  # doesn't seem to work rn
+        # self.cursor = self.conn.raw_connection().cursor()
         self.__name__ = 'SMS Event Log Database'
         
     def close(self):
         try:
-            self.conn.close()
-            self.cursor.close()
+            self.engine.raw_connection().close()
+            # self.conn.close()
+            # self.cursor.close()
         except:
-            try:
-                self.conn.raw_connection().close()
-            except:
-                pass
+            pass
+            # try:
+            #     self.engine.raw_connection().close()
+            # except:
+            #     pass
 
     def __del__(self):
         self.close()
@@ -48,6 +54,28 @@ class DB(object):
 
     def __exit__(self, *args):
         self.close()
+
+    def get_cursor(self):
+        def setcursor():
+            return self.engine.raw_connection().cursor()
+
+        try:
+            cursor = setcursor()
+        except:
+            e = sys.exc_info()[0]
+            if e.__class__ == pyodbc.ProgrammingError:
+                print(e)
+                self.__init__()
+                cursor = setcursor()
+            elif e.__class__ == pyodbc.OperationalError:
+                print(e)
+                self.__init__()
+                cursor = setcursor()
+            else:
+                print(e)
+        
+        return cursor
+
 
     def getUnit(self, serial, minesite=None):
         df = self.get_df_unit(minesite=minesite)
@@ -68,7 +96,7 @@ class DB(object):
         if not minesite is None:
             q = q.where(a.MineSite == minesite)
             
-        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.conn)
+        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.engine)
         
     # def dfUnit(self):
     #     # old?
