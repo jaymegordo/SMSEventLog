@@ -51,4 +51,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.xlsm
+
 # ignore line endings: git config --global core.autocrlf true

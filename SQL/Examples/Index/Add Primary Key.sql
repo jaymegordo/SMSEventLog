@@ -1,0 +1,2 @@
+Alter Table UnitSMR
+ADD CONSTRAINT Unit_DateSMR PRIMARY KEY CLUSTERED (Unit,DateSMR); 

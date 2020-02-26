@@ -1,0 +1,2 @@
+Alter Table Downtime
+Drop Constraint PK__Downtime__3A18ABDCF00E0F34

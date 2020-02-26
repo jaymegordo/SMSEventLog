@@ -1,0 +1,1 @@
+Select * From udfMASummaryTable ('980E-4%', 'BaseMine', '2019-06-01', 'Month')
