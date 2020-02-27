@@ -22,12 +22,22 @@ def tblcount(tbl):
     return cursor.execute(sql).fetchval()
 
 def importFC(upload=True, df=None):
-    start = timer()
     # load all 'xls' files from import folder to df
     p = Path(f.drive + f.config['FilePaths']['Import FC'])
     lst = [f for f in p.glob('*.xls')]
 
-    # TODO: msgbox found files: would u like to import?
+    if lst:
+        msg = ('Found file(s): \n\t' + 
+            '\n'.join([p.name for p in lst]) +
+            '\n\nWould you like to import?')
+        if not uf.msgbox(msg=msg, yesno=True):
+            return
+    else:
+        msg = 'No files founnd in import folder: \n\n{}'.format(str(p))
+        uf.msg_simple(msg=msg, icon='Warning')
+        return
+    
+    start = timer()
 
     if df is None: df = pd.concat([read_fc(p=p) for p in lst], sort=False)
 
@@ -40,35 +50,36 @@ def importFC(upload=True, df=None):
         cursor = conn.cursor()
         df.to_sql(name='FactoryCampaignImport', con=db.engine, if_exists='append', index=False)
 
-        print('Rows read from import files: {}'.format(len(df)))
+        msg = 'Rows read from import files: {}'.format(len(df))
 
         try:
             # FactoryCampaign Import
             rows = dd(int, cursor.execute('mergeFCImport').fetchall())
-            print(dict(rows))
-            print('FactoryCampaign: \n\tRows added: {}\n\tRows updated: {}\n\tKA Completion dates added: {}' \
+            msg += '\n\nFactoryCampaign: \n\tRows added: {}\n\tRows updated: {}\n\tKA Completion dates added: {}' \
                 .format(
                     rows['INSERT'], 
                     rows['UPDATE'], 
-                    rows['KADatesAdded']))
+                    rows['KADatesAdded'])
 
-            # FC Summary Update
+            # FC Summary - New rows added
             rows = dd(int, cursor.execute('MergeFCSummary').fetchall())
-            print(dict(rows))
-            print('FC Summary: \n\tRows added: {}\n\tRows updated: {}' \
-                .format(
-                    rows['INSERT'], 
-                    rows['UPDATE']))
+            if cursor.nextset():
+                msg += '\n\nFC Summary: \n\tRows added: {} \n\n\t'.format(rows['INSERT'])
+                df2 = f.cursor_to_df(cursor)
+                if len(df2) > 0:
+                    msg += f.left_justified(df2).replace('\n', '\n\t')
             
             cursor.commit()
 
-            print('Finished: {}'.format(f.deltasec(start, timer())))
         finally:
             cursor.close()
             conn.close()
 
-        # TODO: msgbox would you like to remove files?
-    
+        statusmsg = 'Elapsed time: {}s'.format(f.deltasec(start, timer()))
+        msg += '\n\nWould you like to delete files?'
+        if uf.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
+            for p in lst: p.unlink()
+
     return df
 
 
@@ -106,6 +117,8 @@ def read_fc(p):
 
     return df
 
+
+# One time import of machine info from mykomatsu
 def import_ka():
     p = Path('C:/Users/jayme/OneDrive/Desktop/KA Machine Info')
     lst = [f for f in p.glob('*.html')]
