@@ -1,5 +1,3 @@
--- TODO: Remove 'udfMergeFCSummary' file once change to python is complete
-
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -10,7 +8,7 @@ AS
 
 SET ANSI_WARNINGS OFF;
 SET NOCOUNT ON;
-DECLARE @SummaryOfChanges TABLE(Change VARCHAR(20));
+DECLARE @SummaryOfChanges TABLE(Change VARCHAR(20), [FCNumber] VARCHAR(100), [Subject] VARCHAR(200));
 
 MERGE FCSummary t 
     USING (
@@ -45,10 +43,22 @@ MERGE FCSummary t
         VALUES (
             s.FCNumber, s.Subject, s.Classification, s.Hours, s.StartDate, s.EndDate)
         
-    OUTPUT $action INTO @SummaryOfChanges;
+    OUTPUT 
+        -- Can't figure out why, but 'Deleted' seems to work fine for $action='UPDATE' too
+        $action,
+        CASE WHEN $action = 'INSERT' THEN Inserted.FCNumber ELSE Deleted.FCNumber END,
+        CASE WHEN $action = 'INSERT' THEN Inserted.Subject ELSE Deleted.Subject END
+    INTO @SummaryOfChanges;
 
+-- Return two cursors to be used to display confirmation to user
 SELECT Change, COUNT(*) AS CountPerChange
 FROM @SummaryOfChanges
-GROUP BY Change
+GROUP BY Change;
+
+SELECT FCNumber, [Subject] From @SummaryOfChanges
+WHERE Change='INSERT'
+ORDER BY FCNumber;
 
 GO
+
+-- TODO: Remove 'udfMergeFCSummary' file once change to python is complete

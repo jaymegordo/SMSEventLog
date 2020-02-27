@@ -1,8 +1,82 @@
 import sys
-from PyQt5 import QtCore
-from PyQt5.QtCore import QTimer, QSize, Qt
-from PyQt5.QtWidgets import QWidget, QMessageBox, QApplication, QPushButton, QDesktopWidget, QGridLayout, QLabel, QDialog, QLineEdit, QVBoxLayout, QDialogButtonBox
 
+from PyQt5 import QtCore
+from PyQt5.QtCore import QSize, Qt, QTimer
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QApplication, QDesktopWidget, QDialog,
+                             QDialogButtonBox, QGridLayout, QLabel, QLineEdit,
+                             QMessageBox, QPushButton, QVBoxLayout, QWidget)
+
+global title, minsize
+title = 'SMS Event Log'
+minsize = QSize(250, 150)
+
+class MsgBox_Advanced(QDialog):
+    def __init__(self, msg='', title='', yesno=False, statusmsg=None):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setMinimumSize(minsize)
+        self.setMaximumWidth(1000)
+        # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setStyleSheet("QLabel {font: 9pt Courier New}")
+
+        grid = QGridLayout(self)
+        grid.setSpacing(20)
+
+        label = QLabel(msg, self) 
+        label.setAlignment(Qt.AlignLeft)
+        label.setWordWrap(True)
+        grid.addWidget(label, 0, 0, -1, 0)
+        
+        if not yesno:
+            btn = QPushButton('Okay', self)
+            btn.setMaximumWidth(100)
+        else:
+            btn = QDialogButtonBox(QDialogButtonBox.Yes | QDialogButtonBox.No, self)
+            btn.accepted.connect(self.accept)
+            btn.rejected.connect(self.reject)
+        
+        btn.clicked.connect(self.close)
+        grid.addWidget(btn, 1, 1, alignment=Qt.AlignRight)
+
+        if statusmsg:
+            statusbar = QLabel(statusmsg, self) 
+            statusbar.setAlignment(Qt.AlignLeft)
+            grid.addWidget(statusbar, 1, 0)
+
+def msgbox(msg='', yesno=False, statusmsg=None):
+    app = get_qt_app()
+    dlg = MsgBox_Advanced(msg=msg, title=title, yesno=yesno, statusmsg=statusmsg)
+    return dlg.exec_()
+
+def msg_simple(msg='', icon=None, infotext=None):
+    app = get_qt_app()
+    dlg = QMessageBox()
+    dlg.setText(msg)
+    dlg.setWindowTitle(title)
+    dlg.setMinimumSize(minsize)
+    
+    if icon == 'Critical':
+        dlg.setIcon(QMessageBox.Critical)
+    elif icon == 'Warning':
+        dlg.setIcon(QMessageBox.Warning)
+
+    if infotext: dlg.setInformativeText(infotext)
+
+    return dlg.exec_()
+
+def get_qt_app():
+    app = QApplication.instance()
+    app.setWindowIcon(QIcon('_docs/pics/SMS Icon.png'))
+    
+    if app is None:
+        app = QApplication([sys.executable])
+    return app
+
+
+
+
+# UNUSED
 class App(QWidget):
     def __init__(self, msg=''):
         super().__init__()
@@ -11,7 +85,7 @@ class App(QWidget):
         
     def initUI(self):
         print('launching UI')           
-        self.setMinimumSize(QSize(250, 150))
+        self.setMinimumSize(minsize)
         self.setWindowTitle('SMS Event Log')
 
         gridLayout = QGridLayout(self)
@@ -60,33 +134,6 @@ class Form(QDialog):
         # Set dialog layout
         self.setLayout(layout)
 
-class MsgBox_Advanced(QDialog):
-    def __init__(self, msg='', title=''):
-        super().__init__()
-        self.setWindowTitle(title)
-        self.setMinimumSize(QSize(200, 100))
-        self.setMaximumWidth(600)
-        self.btn = QDialogButtonBox(QDialogButtonBox.Ok)
-        self.btn.clicked.connect(self.close)
-
-        grid = QGridLayout(self)
-        grid.setSpacing(20)
-
-        label = QLabel(msg, self) 
-        label.setAlignment(Qt.AlignLeft)
-        label.setWordWrap(True)
-        grid.addWidget(label, 0, 0)
-        
-        btn = QPushButton('Okay', self)
-        btn.setMaximumWidth(100)
-        btn.clicked.connect(self.close)
-        grid.addWidget(btn, 1, 0, alignment=Qt.AlignRight)
-
-def msgbox(msg='', title='SMS Event Log'):
-    app = get_qt_app()
-    dlg = MsgBox_Advanced(msg=msg, title=title)
-    dlg.exec_()
-
 def show_qt_dialog():
     app = get_qt_app()
     dlg = Form()
@@ -96,26 +143,3 @@ def show_qt_dialog():
         return dlg.edit.text()
 
 
-def messagebox2(msg=''):
-    app = QApplication(sys.argv)
-    ex = App(msg=msg)
-    # ex.setWindowFlags(ex.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-
-    return app.exec_()
-
-def messagebox(msg=''):
-    app = get_qt_app()
-    msgBox = QMessageBox()
-    msgBox.setText(msg)
-    # msgBox.setInformativeText('Detail text')
-    
-    msgBox.setMinimumSize(QSize(250, 150))
-    msgBox.setWindowTitle('SMS Event Log')
-    
-    return msgBox.exec_()
-
-def get_qt_app():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([sys.executable])
-    return app

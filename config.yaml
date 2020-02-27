@@ -1,6 +1,7 @@
 
 FilePaths:
-  Import FC: Regional/SMS West Mining/SMS Event Log/Import FC
+  Import FC: Regional\SMS West Mining\SMS Event Log\Import\Factory Campaign
+  Import Unit Hours: Regional\SMS West Mining\SMS Event Log\Import\Unit Hours
   980E FH: Fort Hills/02. Equipment Files/1. 980E Trucks
 
 MineSite:
