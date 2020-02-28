@@ -196,6 +196,7 @@ def gethaulcycles():
 
 def what():
     # not used
+    newestdls = []
     units = ['F{}'.format(n) for n in range(300, 348)]
 
     basepath = 'P:\\Fort Hills\\02. Equipment Files\\1. 980E Trucks'
@@ -240,6 +241,7 @@ def what():
             f.senderror(prnt=True)
 
 def tree(directory):
+    # TODO: maybe move this to functions
     print(f'+ {directory}')
     for path in sorted(directory.rglob('*')):
         depth = len(path.relative_to(directory).parts)
