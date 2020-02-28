@@ -17,7 +17,7 @@ setup(
         'pyqt5',
         'xlrd',
         'bs4'],
-    package_data={'': ['*.yaml', '*.png']}, 
+    package_data={'': ['*.yaml', '*.png', '*.txt']}, 
     author='Jayme Gordon',
     author_email='',
     description='SMS Event Log',
