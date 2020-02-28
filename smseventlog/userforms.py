@@ -4,12 +4,16 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QSize, Qt, QTimer
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QApplication, QDesktopWidget, QDialog,
-                             QDialogButtonBox, QGridLayout, QLabel, QLineEdit,
-                             QMessageBox, QPushButton, QVBoxLayout, QWidget)
+                             QDialogButtonBox, QGridLayout, QInputDialog,
+                             QLabel, QLineEdit, QMessageBox, QPushButton,
+                             QVBoxLayout, QWidget)
 
-global title, minsize
+import functions as f
+
+global title, minsize, minsize_ss
 title = 'SMS Event Log'
-minsize = QSize(250, 150)
+minsize = QSize(200, 100)
+minsize_ss = 'QLabel{min-width: 100px}'
 
 class MsgBox_Advanced(QDialog):
     def __init__(self, msg='', title='', yesno=False, statusmsg=None):
@@ -54,7 +58,7 @@ def msg_simple(msg='', icon=None, infotext=None):
     dlg = QMessageBox()
     dlg.setText(msg)
     dlg.setWindowTitle(title)
-    dlg.setMinimumSize(minsize)
+    # dlg.setStyleSheet(minsize_ss)
     
     if icon == 'Critical':
         dlg.setIcon(QMessageBox.Critical)
@@ -65,12 +69,38 @@ def msg_simple(msg='', icon=None, infotext=None):
 
     return dlg.exec_()
 
+def inputbox(msg='Enter value:', inputmode='Text', items=None):
+    app = get_qt_app()
+    dlg = QInputDialog()
+    dlg.resize(minsize)
+    dlg.setWindowTitle(title)
+    dlg.setLabelText(msg)
+
+    if inputmode == 'Text':
+        dlg.setInputMode(QInputDialog.TextInput)
+    elif inputmode == 'Choice':
+        dlg.setComboBoxItems(items)
+    elif inputmode == 'Int':
+        dlg.setInputMode(QInputDialog.IntInput)
+        dlg.setIntMaximum(10)
+        dlg.setIntMinimum(0)
+
+    ok = dlg.exec_()
+    if inputmode in ('Text', 'Choice'):
+        val = dlg.textValue()
+    elif inputmode == 'Int':
+        val = dlg.intValue()
+
+    return ok, val
+
 def get_qt_app():
     app = QApplication.instance()
-    app.setWindowIcon(QIcon('_docs/pics/SMS Icon.png'))
     
     if app is None:
         app = QApplication([sys.executable])
+        
+    app.setWindowIcon(QIcon(str(f.topfolder / 'data/images/SMS Icon.png')))
+
     return app
 
 
@@ -141,5 +171,3 @@ def show_qt_dialog():
 
     if dlg.result():
         return dlg.edit.text()
-
-

@@ -14,14 +14,10 @@ project.lock.json
 
 /packages
 /TestResults
-
-/_docs
-/tools/NuGet.exe
-/ApiKeys
-/App_Data
-/secrets
 /data
-/docs/.exclude
+/smseventlog/data/db.yaml
+
+
 .secrets
 appsettings.json
 local.settings.json

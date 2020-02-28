@@ -15,7 +15,6 @@ pyyaml = "*"
 sqlalchemy = "*"
 pyodbc = "==4.0.28"
 pyqt5 = "*"
-pywin32 = "*"
 xlrd = "*"
 bs4 = "*"
 
