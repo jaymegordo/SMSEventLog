@@ -15,6 +15,7 @@ if True:
 	import yaml
 	import pypika as pk
 
+	sys.path.append(str(Path(__file__).parent / 'smseventlog'))
 	import eventlog as el
 	import folders as fl
 	import factorycampaign as fc

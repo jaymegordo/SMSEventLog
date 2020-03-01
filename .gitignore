@@ -1,44 +1,22 @@
-bin
-obj
-csx
-.vs
 .vscode
-edge
-Publish
 
-*.user
-*.suo
-*.cscfg
-*.Cache
-project.lock.json
+/archive/.exclude
 
-/packages
-/TestResults
+# setuptools
+/build
+/dist
+*.egg-info
+
 /data
 /smseventlog/data/db.yaml
 
-
-.secrets
-appsettings.json
-local.settings.json
-host.json
-.funcignore
 .DS_Store
 
-node_modules
-dist
 
 # Local python packages
 .python_packages/
 
 # Python Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 Pipfile.lock
 
 # Byte-compiled / optimized / DLL files
@@ -48,5 +26,3 @@ __pycache__/
 *$py.class
 
 *.xlsm
-
-# ignore line endings: git config --global core.autocrlf true

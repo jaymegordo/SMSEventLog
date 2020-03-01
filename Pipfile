@@ -6,6 +6,8 @@ verify_ssl = true
 [dev-packages]
 ipykernel = "*"
 jupyter = "*"
+twine = "*"
+setupext-janitor = "*"
 
 [packages]
 xlwings = "*"

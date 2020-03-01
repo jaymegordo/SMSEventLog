@@ -12,11 +12,9 @@ import yaml
 
 import folders as fl
 import functions as f
-from userforms import *
+import userforms as uf
 from database import db
 
-if sys.platform.startswith('win'):
-    import win32api
 
 def mac():
     pass
@@ -30,17 +28,14 @@ def mac():
         # value()
         # formula_r1c1() > returns all values in range as list of lists
         # get_address()
+
 def example():
     wb = xw.books('SMS Event Log.xlsm')
     ws = wb.sheets('Event Log')
     lsto = Table(ws=ws)
 
 def test(msg='no message'):    
-    msgbox(msg, title=xw.books.active.name.split('.')[0])
-
-def msgbox_excel(msg='', title='Excel Messagebox'):
-    app = xw.apps[xw.apps.keys()[0]]
-    win32api.MessageBox(app.hwnd, msg, title)
+    uf.msgbox(msg, title=xw.books.active.name.split('.')[0])
 
 def book():
     title = 'SMS Event Log.xlsm'
