@@ -9,6 +9,7 @@
 
 /data
 /smseventlog/data/db.yaml
+/smseventlog/data/excel
 
 .DS_Store
 
@@ -26,3 +27,5 @@ __pycache__/
 *$py.class
 
 *.xlsm
+*.css
+smseventlog/api.py

@@ -1,29 +1,13 @@
 #%% IMPORTS
-if True:
-	import cProfile
-	import json
-	import os
-	import sys
-	from datetime import datetime as date
-	from datetime import timedelta as delta
-	from pathlib import Path
-	from time import time
-	from timeit import Timer
+import sys
+from pathlib import Path
 
-	import pandas as pd
-	import xlwings as xw
-	import yaml
-	import pypika as pk
+sys.path.append(str(Path(__file__).parent / 'smseventlog'))
+from smseventlog import *
 
-	sys.path.append(str(Path(__file__).parent / 'smseventlog'))
-	import eventlog as el
-	import folders as fl
-	import factorycampaign as fc
-	import functions as f
-	import userforms as uf
-	from database import db
 
 # %%
+import cProfile
 import pstats
 
 filename = 'profile_stats.stats'

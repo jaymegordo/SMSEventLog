@@ -5,6 +5,7 @@ from pathlib import Path
 
 from setuptools import Command, find_packages, setup
 
+VERSION = '3.0.0a0'
 
 # Remove leftover folders from setuptools
 class CleanCommand(Command):
@@ -35,9 +36,7 @@ class CleanCommand(Command):
             shutil.rmtree(p)
             print('removing folder: {}'.format(str(p)))
 
-
 cmd_classes = dict(clean=CleanCommand)
-VERSION = '3.0.0a0'
 
 # Names of required packages
 requires = [

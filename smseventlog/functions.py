@@ -10,9 +10,14 @@ from pathlib import Path
 import pandas as pd
 import six
 import yaml
-from IPython.display import display
 
 import userforms as uf
+
+try:
+    from IPython.display import display
+except ModuleNotFoundError:
+    pass
+
 
 global drive, config, topfolder
 
@@ -28,6 +33,14 @@ def setconfig():
         m = yaml.full_load(file)
     
     return m
+
+def bump_version(ver, vertype='patch'):
+    if not isinstance(ver, str): ver = ver.base_version
+
+    m = dict(zip(['major', 'minor', 'patch'], [int(i) for i in ver.split('.')]))
+    m[vertype] += 1
+    
+    return '.'.join((str(i) for i in m.values()))
 
 def deltasec(start, end):
     return str(delta(seconds=end - start)).split('.')[0]
