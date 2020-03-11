@@ -103,9 +103,6 @@ def example():
     ws = wb.sheets('Event Log')
     lsto = Table(ws=ws)
 
-def test(msg='no message'):    
-    uf.msgbox(msg, title=xw.books.active.name.split('.')[0])
-
 def book():
     return xw.books(title)
 
@@ -135,7 +132,7 @@ def refresh_table(title=None):
     
     # if db is None:
     #     db = DB()
-    tbl.df = pd.read_sql(sql=q.get_sql(), con=db.conn)
+    tbl.df = pd.read_sql(sql=q.get_sql(), con=db.engine)
     # db.close()
 
     # return tbl.df
@@ -181,6 +178,7 @@ class Table():
         return self.body[:, col].value
 
     def headers_db(self):
+        # translate between excel table header 'nice' names and names in database
         m = defaultdict(dict, f.config['Headers'])[self.ws.name]
         cols = self.headers()
 
@@ -189,8 +187,8 @@ class Table():
     def headers(self):
         return self.header.value
 
-    def fixE(self, cols):
-        # clear -E from df columns
+    def fix_E(self, cols):
+        # clear -E from df columns so excel doesn't translate to scientific
         df = self.df
         if not isinstance(cols, list): cols = [cols]
         for col in cols:
@@ -202,28 +200,28 @@ class Table():
         else:
             self.df = df
 
-        self.fixE(cols=list(filter(lambda x: x.lower() == 'model', df.columns)))
+        self.fix_E(cols=list(filter(lambda x: x.lower() == 'model', df.columns)))
         
         app = self.app
         lsto = self.lsto
         app.screen_updating = False
         enable_events(app=app, val=False)
 
-        self.clearfilter()
-        self.cleartable()
+        self.clear_filter()
+        self.clear_table()
         self.body.options(index=False, header=False).value = df
 
         app.screen_updating = True
         enable_events(app=app, val=True)
 
-    def clearfilter(self):
+    def clear_filter(self):
         lsto = self.lsto
         if self.win and lsto.autofilter.filtermode: # win
             lsto.autofilter.showalldata()
         elif not self.win and lsto.autofilter_object.autofiltermode(): # mac
             self.ws.api.show_all_data()
 
-    def cleartable(self):
+    def clear_table(self):
         rng = self.body
         if len(rng.rows) > 1:
             rng[1:,:].delete()
