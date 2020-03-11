@@ -9,11 +9,80 @@ import pandas as pd
 import pypika as pk
 import xlwings as xw
 import yaml
+from pkg_resources import parse_version
+from timeit import default_timer as timer
 
 import folders as fl
 import functions as f
 import userforms as uf
 from database import db
+
+global title, titlename
+titlename = 'SMS Event Log'
+title = titlename + '.xlsm'
+# title = 'testproject.xlsm'
+
+
+# UPDATE
+def push_update_ui(vertype='patch'):
+    wb = book()
+    # get old version
+    rng = book().sheets('version').range('version')
+    v_current = parse_version(rng.value)
+
+    # update version range
+    v_new = f.bump_version(ver=v_current, vertype=vertype)
+    rng.value = v_new
+
+    # update .txt
+    p = v_txt()
+    p.rename(p.parent / f'{v_new}.txt')
+
+    msg = f'{title} UI updated.\n\nOld: {v_current.base_version}\nNew: {v_new}'
+    # uf.msg_simple(msg=msg)
+    print(msg)
+
+def v_txt():
+    p = Path(__file__).parent / 'data/excel/'
+    return sorted(p.glob('*.txt'))[0]
+
+def v_check():
+    return parse_version(v_txt().name.strip('.txt'))
+
+def v_current():
+    return parse_version(book().sheets('version').range('version').value)
+
+def check_ver_ui():
+    ans = True if v_check() > v_current() else False
+    print(ans)
+    return ans
+
+def check_update_ui():
+    # TODO: make sure this works when run from excel
+    # copy new excel file from site-packages and replace currently active book
+    if check_ver_ui():
+
+        msg = f'A new version of the EventLog UI is available.\n\nCurrent: {v_current()}\nNew: {v_check()}\n\nWould you like to update?'
+        if uf.msgbox(msg=msg, yesno=True):
+
+            # rename current wb
+            start = timer()
+            wb_old = book()
+            app = wb_old.app
+            app.screen_updating = False
+            p_old = Path(book().fullname).parent / f'{titlename}-OLD.xlsm'
+            wb_old.save(path=str(p_old))
+
+            # open new wb
+            p = f.topfolder / f'data/excel/{title}'
+            wb = xw.books.open(p)
+
+            # delete old wb
+            wb_old.close()
+            p_old.unlink()
+            app.screen_updating = True
+            msg = f'wb updated in {f.deltasec(start, timer())}s'
+            uf.msgbox(msg=msg)
 
 
 def mac():
@@ -38,8 +107,6 @@ def test(msg='no message'):
     uf.msgbox(msg, title=xw.books.active.name.split('.')[0])
 
 def book():
-    title = 'SMS Event Log.xlsm'
-    # title = 'testproject.xlsm'
     return xw.books(title)
 
 def refresh_table(title=None):
@@ -74,10 +141,7 @@ def refresh_table(title=None):
     # return tbl.df
     tbl.to_excel()
 
-def colstest(*cols, first=1):
-    for col in cols:
-        print(str(first) + col)
-
+# TABLE - class to bridge excel listobjects, dataframes, and xlwings ranges
 class Table():
     def __init__(self, ws=None, lsto=None, df=None):
         self.win = sys.platform.startswith('win')
@@ -88,10 +152,10 @@ class Table():
                 ws = book().sheets(ws)
 
             if self.win:
-                self.lsto = ws.api.ListObjects(1)
+                self.lsto = ws.api.ListObjects(1)  # win
                 address = self.lsto.range.address
             else:
-                self.lsto = ws.api.list_objects[1]
+                self.lsto = ws.api.list_objects[1] # mac
                 address = self.lsto.range_object.get_address()
 
             self.ws = ws
@@ -154,9 +218,9 @@ class Table():
 
     def clearfilter(self):
         lsto = self.lsto
-        if self.win and lsto.autofilter.filtermode:
+        if self.win and lsto.autofilter.filtermode: # win
             lsto.autofilter.showalldata()
-        elif not self.win and lsto.autofilter_object.autofiltermode():
+        elif not self.win and lsto.autofilter_object.autofiltermode(): # mac
             self.ws.api.show_all_data()
 
     def cleartable(self):
@@ -164,6 +228,7 @@ class Table():
         if len(rng.rows) > 1:
             rng[1:,:].delete()
 
+        # listobject needs to always have 1 non empty row
         if rng[0].value is None: rng[0].value = ' '
 
 def enable_events(app, val=None):
