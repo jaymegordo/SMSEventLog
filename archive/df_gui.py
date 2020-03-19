@@ -1,14 +1,28 @@
 import sys
+
 import pandas as pd
-from PyQt5.QtWidgets import QApplication, QTableView
-from PyQt5.QtCore import QAbstractTableModel, Qt
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QAbstractTableModel, Qt
+from PyQt5.QtWidgets import QApplication, QTableView
+
+import gui as ui
+
+# FEATURES NEEDED
+# click in cells and change value
+# Trigger event on cell edit
+# Trigger event cell selection change
+# Conditional Formatting
+# copy selected cells
+
+# Dark theme
+# launch full screen
+
 
 class DataFrameModel(QtCore.QAbstractTableModel):
     DtypeRole = QtCore.Qt.UserRole + 1000
     ValueRole = QtCore.Qt.UserRole + 1001
 
-    def __init__(self, df=pd.DataFrame(), parent=None):
+    def __init__(self, df=None, parent=None):
         super(DataFrameModel, self).__init__(parent)
         self._dataframe = df
 
@@ -66,43 +80,36 @@ class DataFrameModel(QtCore.QAbstractTableModel):
         }
         return roles
 
+# Main Window
 class Widget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent=None)
         vLayout = QtWidgets.QVBoxLayout(self)
         hLayout = QtWidgets.QHBoxLayout()
-        self.pathLE = QtWidgets.QLineEdit(self)
-        hLayout.addWidget(self.pathLE)
-        self.loadBtn = QtWidgets.QPushButton("Select File", self)
-        hLayout.addWidget(self.loadBtn)
+        # self.pathLE = QtWidgets.QLineEdit(self)
+        # hLayout.addWidget(self.pathLE)
+        # self.loadBtn = QtWidgets.QPushButton("Select File", self)
+        # hLayout.addWidget(self.loadBtn)
+
         vLayout.addLayout(hLayout)
-        self.pandasTv = QtWidgets.QTableView(self)
-        vLayout.addWidget(self.pandasTv)
-        self.loadBtn.clicked.connect(self.loadFile)
-        self.pandasTv.setSortingEnabled(True)
+        self.tbl = QtWidgets.QTableView(self)
+        vLayout.addWidget(self.tbl)
+
+        # self.loadBtn.clicked.connect(self.loadFile)
+        self.tbl.setSortingEnabled(True)
+        self.tbl.setSelectionBehavior(QTableView.SelectRows)
 
     def loadFile(self, df):
-        # fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv)")
-        # self.pathLE.setText(fileName)
-        # df = pd.read_csv(fileName)
         model = DataFrameModel(df)
-        self.pandasTv.setModel(model)
+        self.tbl.setModel(model)
 
 def launch(df):
-    app = QApplication(sys.argv)
+    app = ui.get_qt_app()
     w = Widget()
     w.loadFile(df)
     w.show()
-    sys.exit(app.exec_())
+    return app.exec_()
     
-    # app = QApplication(sys.argv)
-    # model = pandasModel(df)
-    # view = QTableView()
-    # view.setModel(model)
-    # view.resize(800, 600)
-    # view.show()
-    # sys.exit(app.exec_())
-
 if __name__ == '__main__':
     pass
     # launch()

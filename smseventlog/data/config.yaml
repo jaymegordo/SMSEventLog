@@ -24,49 +24,95 @@ MineSite:
   - ConumaCoal
   - IOC-RioTinto
 
+# Convert title to tablename
+TableName:
+  Event Log: EventLog
+  Work Orders: EventLog
+  TSI: EventLog
+  Component CO: EventLog
+  Unit Info: UnitID
+  FC Summary: FCSummary #maybe?
+  FC Details: FactoryCampaign
+
 # Table header conversion
 Headers:
   Event Log:
+    UID: UID
     Passover: PassoverSort
     Status: StatusEvent
+    Unit: Unit
+    Title: Title
+    Description: Description
+    Required: Required
     Date Added: DateAdded
     Date Complete: DateCompleted
     Issue Category: IssueCategory
     Sub Category: SubCategory
+    Cause: Cause
     Added By: CreatedBy
     Time Called to Event: TimeCalled
 
   Work Orders:
+    UID: UID
     Status: StatusWO
     Wrnty: WarrantyYN
     Work Order: WorkOrder
+    Seg: Seg
     Customer WO: SuncorWO
     Customer PO: SuncorPO
+    Model: Model
+    Unit: Unit
+    Serial: Serial
+    Title: Title
     Part Number: PartNumber
+    SMR: SMR
     Date Opened: DateAdded
     Date Closed: DateCompleted
     Added By: CreatedBy
     Comments: WOComments
     Comp CO: ComponentCO
+    DLS: Downloads
+    Pics: Pictures
 
-  FC Details:
-    Date Complete SMS: DateCompleteSMS
-
+  # Columns only used for default headers, not actual query
   FC Summary:
+    FC Number: FCNumber
+    Subject: Subject
+    Type: Classification
     Action Reqd: Resp
+    Hrs: Hours
     Part Number: PartNumber
     Parts Avail: PartAvailability
+    Comments: Comments # not sure
     Release Date: ReleaseDate
     Expiry Date: ExpiryDate
+    Prog:
+    Prog %:
     Hrs: Hours
 
+  FC Details:
+    MineSite: MineSite
+    Model: Model
+    Unit: Unit
+    FC Number: FCNumber
+    Status:
+    Type:
+    Subject:
+    Date Complete SMS: DateCompleteSMS
+    Date Complete KA: DateCompleteKA
+    Expiry Date: ExpiryDate
+    SMR: SMR
+    Notes:
+
   TSI:
+    UID: UID
     Status: StatusTSI
-    Failure Date: DateAdded
-    Info/Repair Date: DateInfo
-    Submission Date: DateTSISubmission
+    Date Added: DateAdded
     TSI No: TSINumber
     WO: WorkOrder
+    Model: Model
+    Unit: Unit
+    Title: Title
     Unit SMR: SMR
     Part SMR: ComponentSMR
     Part Name: TSIPartName
@@ -76,6 +122,12 @@ Headers:
     Author: TSIAuthor
 
   Component CO:
+    UID: UID
+    MineSite: MineSite
+    Model: Model
+    Unit: Unit
+    Component: Component
+    Side: Modifier
     Group CO: GroupCO
     CO Date: DateAdded
     Unit SMR: SMR
@@ -83,9 +135,24 @@ Headers:
     SN Removed: SNRemoved
     SN Installed: SNInstalled
     Wtny: WarrantyYN
+    CapUSD: CapUSD
     SMS WO: WorkOrder
     Customer WO: SuncorWO
     Customer PO: SuncorPO
+    Reman: Reman
     Removal Reason: SunCOReason
     Notes: RemovalReason
     Confirmed: COConfirmed
+  
+  Unit Info:
+    MineSite: MineSite
+    Customer: Customer
+    Model: Model
+    Serial: Serial
+    Engine Serial: EngineSerial
+    Unit: Unit
+    Current SMR: CurrentSMR
+    SMR Measure Date: DateSMR
+    Delivery Date: DeliveryDate
+    Warranty Remaining: Remaining
+    GE Warranty: GE_Remaining

@@ -7,10 +7,11 @@ import pandas as pd
 import pypika as pk
 import sqlalchemy as sa
 import yaml
+from sqlalchemy.orm import sessionmaker
 
 import functions as f
 import pyodbc
-import userforms as uf
+import gui as ui
 
 global db
 
@@ -32,9 +33,14 @@ class DB(object):
         self.__name__ = 'SMS Event Log Database'
         self.df_unit = None
         self.engine = None
+        self.session = None
 
         try:
             self.engine = engine()
+
+            # create session, this is for the ORM part of sqlalchemy
+            Session = sessionmaker(bind=self.engine)
+            self.session = Session()
         except:
             pass
         
@@ -42,7 +48,7 @@ class DB(object):
         if not self.engine is None:
             return self.engine
         else:
-            uf.msg_simple(msg='Database not initialized.', icon='Critical')
+            ui.msg_simple(msg='Database not initialized.', icon='Critical')
         
     def close(self):
         try:
@@ -86,7 +92,6 @@ class DB(object):
         
         return cursor
 
-
     def getUnit(self, serial, minesite=None):
         df = self.get_df_unit(minesite=minesite)
         
@@ -109,6 +114,6 @@ class DB(object):
         self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine())
         
 
-# check if db connection is still open
 print('{}: loading db'.format(__name__))
 db = DB()
+

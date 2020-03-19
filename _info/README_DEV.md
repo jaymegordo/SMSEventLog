@@ -6,7 +6,7 @@
 * [VS Code](https://code.visualstudio.com/download) 
     * Settings Sync
         * Install 'Settings Sync' extension
-        * Sync settings from gist `df540166557c6a601e92630d084aca58`
+        * Sync settings from public gist: `87b79ab2b6d3dc30fcd703f2fe02b421`
 * [Azure Data Studio](https://docs.microsoft.com/en-us/sql/azure-data-studio/download-azure-data-studio)
 * [Github Desktop](https://desktop.github.com/)
     * Install and create a github account
@@ -37,10 +37,6 @@
     * twine
         * `pip install twine`
         * Used to push build wheel to pypi
-    * setupext-janitor
-        * `pip install setupext-janitor`
-        * used in the build process to cleanup leftover files from setup.py
-        * DO NOT RUN `clean --all` within pipenv/virtual env, it will delete it
 
 ## Deployment
 

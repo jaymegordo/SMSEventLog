@@ -9,7 +9,7 @@ import pypika as pk
 from bs4 import BeautifulSoup
 
 import functions as f
-import userforms as uf
+import gui as ui
 from database import db
 
 # from timeit import Timer
@@ -30,11 +30,11 @@ def importFC(upload=True, df=None):
         msg = ('Found file(s): \n\t' + 
             '\n'.join([p.name for p in lst]) +
             '\n\nWould you like to import?')
-        if not uf.msgbox(msg=msg, yesno=True):
+        if not ui.msgbox(msg=msg, yesno=True):
             return
     else:
         msg = 'No files founnd in import folder: \n\n{}'.format(str(p))
-        uf.msg_simple(msg=msg, icon='Warning')
+        ui.msg_simple(msg=msg, icon='Warning')
         return
     
     start = timer()
@@ -77,7 +77,7 @@ def importFC(upload=True, df=None):
 
         statusmsg = 'Elapsed time: {}s'.format(f.deltasec(start, timer()))
         msg += '\n\nWould you like to delete files?'
-        if uf.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
+        if ui.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
             for p in lst: p.unlink()
 
     return df

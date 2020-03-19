@@ -5,8 +5,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent / 'smseventlog'))
 from smseventlog import *
 
+from PyQt5.QtCore import (QDate, QDateTime)
 
-# %%
+
+#%%
 import cProfile
 import pstats
 

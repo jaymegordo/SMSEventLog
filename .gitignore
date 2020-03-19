@@ -5,6 +5,7 @@
 # setuptools
 /build
 /dist
+/src
 *.egg-info
 
 /data

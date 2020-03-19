@@ -11,7 +11,7 @@ import pandas as pd
 import six
 import yaml
 
-import userforms as uf
+import gui as ui
 
 try:
     from IPython.display import display
@@ -33,6 +33,27 @@ def setconfig():
         m = yaml.full_load(file)
     
     return m
+
+def inverse(m):
+    return {v: k for k, v in m.items()}
+
+def convert_headers(title, cols):
+    # convert db cols to view cols
+    m = inverse(config['Headers'][title])
+    return [m[c] for c in cols]
+
+def get_default_headers(title):
+    return list(config['Headers'][title].keys())
+
+def convert_header(title, header):
+    try:
+        return config['Headers'][title][header]
+    except:
+        return header
+
+def is_win():
+    ans = True if sys.platform.startswith('win') else False
+    return ans
 
 def bump_version(ver, vertype='patch'):
     if not isinstance(ver, str): ver = ver.base_version
@@ -91,7 +112,7 @@ def check_db():
 
         # Prompt user for pw
         msg = 'Database credentials encrypted, please enter password.\n(Contact {} if you do not have password).\n\nPassword:'.format(config['Email'])
-        ok, key = uf.inputbox(msg=msg)
+        ok, key = ui.inputbox(msg=msg)
         if ok:
             with open(p2, 'rb') as file:
                 secret_encrypted = file.read()
@@ -102,7 +123,7 @@ def check_db():
                 m2 = json.loads(secret_decrypted)
 
             except:
-                uf.msg_simple(msg='Incorrect password!', icon='Critical')
+                ui.msg_simple(msg='Incorrect password!', icon='Critical')
                 return
 
             with open(p, 'w+') as file:

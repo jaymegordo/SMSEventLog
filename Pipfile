@@ -8,6 +8,8 @@ ipykernel = "*"
 jupyter = "*"
 twine = "*"
 setupext-janitor = "*"
+sqlacodegen = "*"
+fbs = "*"
 
 [packages]
 xlwings = "*"
@@ -19,6 +21,7 @@ pyodbc = "==4.0.28"
 pyqt5 = "*"
 xlrd = "*"
 bs4 = "*"
+qdarkstyle = "*"
 
 [requires]
 python_version = "3.8"
