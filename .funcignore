@@ -1,0 +1,17 @@
+.git*
+.vscode
+_info/
+archive/
+build/
+data/
+dist/
+SQL/
+src/
+local.settings.json
+test
+.git*
+*.css
+launch.py
+LICENSE
+README.md
+setup.py

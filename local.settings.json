@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "DefaultEndpointsProtocol=https;AccountName=smseventlog;AccountKey=m6uK6AZCMmLCvjsOg9HZB4ktTbmLyQOK9cicxs5c9eoOCfTV7wOecjMKxxEi52JTrsTs1X7L9TSQ3x0ru1R2pw==;EndpointSuffix=core.windows.net",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "FUNCTIONS_EXTENSION_VERSION": "~3",
+    "APPINSIGHTS_INSTRUMENTATIONKEY": "5e5691eb-eade-46f8-b68e-5bd49e8bcc1e",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=5e5691eb-eade-46f8-b68e-5bd49e8bcc1e"
+  },
+  "ConnectionStrings": {}
+}
