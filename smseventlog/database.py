@@ -11,14 +11,15 @@ from sqlalchemy.orm import sessionmaker
 
 import functions as f
 import pyodbc
-import gui as ui
+if f.azure_env is None:
+    import gui as ui
 
 global db
 
 # DATABASE
 
 def strConn():
-    if not f.check_db():
+    if f.azure_env is None and not f.check_db():
         return
     m = f.get_db()
     return ';'.join('{}={}'.format(k, v) for k, v in m.items())
@@ -48,7 +49,11 @@ class DB(object):
         if not self.engine is None:
             return self.engine
         else:
-            ui.msg_simple(msg='Database not initialized.', icon='Critical')
+            msg = 'Database not initialized.'
+            if f.azure_env is None:
+                ui.msg_simple(msg=msg, icon='Critical')
+            else:
+                print(msg)
         
     def close(self):
         try:
@@ -57,10 +62,6 @@ class DB(object):
             # self.cursor.close()
         except:
             pass
-            # try:
-            #     self.get_engine().raw_connection().close()
-            # except:
-            #     pass
 
     def __del__(self):
         self.close()

@@ -10,9 +10,9 @@ twine = "*"
 setupext-janitor = "*"
 sqlacodegen = "*"
 fbs = "*"
+xlwings = "*"
 
 [packages]
-xlwings = "*"
 pandas = "*"
 pypika = "*"
 pyyaml = "*"
@@ -22,6 +22,9 @@ pyqt5 = "*"
 xlrd = "*"
 bs4 = "*"
 qdarkstyle = "*"
+exchangelib = "*"
+discord = "*"
+azure-functions = "*"
 
 [requires]
 python_version = "3.8"

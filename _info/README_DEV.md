@@ -10,10 +10,11 @@
 * [Azure Data Studio](https://docs.microsoft.com/en-us/sql/azure-data-studio/download-azure-data-studio)
 * [Github Desktop](https://desktop.github.com/)
     * Install and create a github account
+    * Create empty top level folder 'SMS'
     * git commands
         <!-- todo: link good guide? -->
         * [Guide](https://product.hubspot.com/blog/git-and-github-tutorial-for-beginners)
-        * [initialize local project](https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-clone): `git clone https://github.com/jaymegordo/SMSEventLog`
+        * [initialize local project](https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-clone): `git clone https://github.com/jaymegordo/SMSEventLog .`
         * check current staged files: `git status`
         * ignore line endings (if project is worked on between mac and windows): `git config --global core.autocrlf true`
         * exit logs/messages: `q`
@@ -34,9 +35,11 @@
         * print list of installed packages:
             * `pipenv graph` or
             * `pipenv run pip list`
+        * Create requirements.txt: `pipenv lock -r > requirements.txt`
     * twine
         * `pip install twine`
         * Used to push build wheel to pypi
+* Install pyodbc
 
 ## Deployment
 
@@ -55,3 +58,5 @@
         * test `twine upload --repository testpypi dist/*`
         * live `twine upload dist/*`
     * cleanup all leftover folders: `python setup.py clean --all`
+* Azure Functions
+    * 

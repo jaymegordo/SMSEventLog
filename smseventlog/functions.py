@@ -2,6 +2,7 @@
 import base64
 import functools
 import json
+import os
 import sys
 from datetime import datetime as date
 from datetime import timedelta as delta
@@ -11,15 +12,19 @@ import pandas as pd
 import six
 import yaml
 
-import gui as ui
 
 try:
     from IPython.display import display
 except ModuleNotFoundError:
     pass
 
+global drive, config, topfolder, azure_env
 
-global drive, config, topfolder
+azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
+print('ENVIRONMENT: {}'.format(azure_env))
+
+if azure_env is None:
+    import gui as ui
 
 topfolder = Path(__file__).parent
 if sys.platform.startswith('win'):
@@ -144,5 +149,37 @@ def encode_db(key):
         file.write(encode(key=key, string=json.dumps(m)))
     return True
 
+def discord(msg, channel='jambot'):
+    import requests
+    import discord
+    from discord import Webhook, RequestsWebhookAdapter, File
+
+    p = Path(topfolder) / 'data/ApiKeys/discord.csv'
+    r = pd.read_csv(p, index_col='channel').loc[channel]
+    if channel == 'err': msg += '@here'
+
+    # Create webhook
+    webhook = Webhook.partial(r.id, r.token, adapter=RequestsWebhookAdapter())
+    
+    # split into strings of max 2000 char for discord
+    n = 2000
+    out = [(msg[i:i+n]) for i in range(0, len(msg), n)]
+    
+    for msg in out:
+        webhook.send(msg)
+
+def senderror(msg='', prnt=False):
+    import traceback
+    err = traceback.format_exc().replace('Traceback (most recent call last):\n', '')
+
+    if not msg == '':
+        err = '{}:\n{}'.format(msg, err).replace(':\nNoneType: None', '')
+    
+    err = '*------------------*\n{}'.format(err)
+
+    if prnt or not 'linux' in sys.platform:
+        print(err)
+    else:
+        discord(msg=err, channel='err')
 
 config = setconfig()

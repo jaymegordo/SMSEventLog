@@ -1,3 +1,4 @@
+import json
 import operator
 import sys
 from collections import defaultdict
@@ -9,21 +10,25 @@ from urllib import parse
 
 import pandas as pd
 import pypika as pk
+import sqlalchemy as sa
 import xlwings as xw
 import yaml
-from IPython.display import display
 from pkg_resources import parse_version
 from pypika import Case, Criterion
 from pypika import CustomFunction as cf
 from pypika import Order
 from pypika import functions as fn
-import sqlalchemy as sa
-from IPython.display import display
 
 import folders as fl
 import functions as f
 import gui as ui
 from database import db
+
+try:
+    from IPython.display import display
+except ModuleNotFoundError:
+    pass
+
 
 global title, titlename
 titlename = 'SMS Event Log'
