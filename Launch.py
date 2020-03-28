@@ -23,7 +23,6 @@ filename = 'profile_stats.stats'
 # 						norm=norm)',
 # 						filename = filename)
 
-					
 p = 'P:/Regional/SMS West Mining/SMS Event Log/Import FC/GordoJ3_200215104610_wb1.xls'
 cProfile.run('fc.read_fc(p=p)', filename=filename)
 stats = pstats.Stats(filename)
