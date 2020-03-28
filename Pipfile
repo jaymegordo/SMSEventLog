@@ -11,6 +11,7 @@ setupext-janitor = "*"
 sqlacodegen = "*"
 fbs = "*"
 xlwings = "*"
+pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
 
 [packages]
 pandas = "*"
@@ -25,6 +26,7 @@ qdarkstyle = "*"
 exchangelib = "*"
 discord = "*"
 azure-functions = "*"
+pyinstaller = {file = "https://github.com/pyinstaller/pyinstaller/archive/develop.tar.gz"}
 
 [requires]
 python_version = "3.8"

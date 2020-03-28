@@ -1,35 +1,29 @@
 .python_packages
 .vscode
-/archive/.exclude
+.pyupdater
+archive/.exclude
+pyu-data
 
 # setuptools
-/build
-/dist
-/src
+build
+dist
+src
+target
 *.egg-info
 
-/data
-/smseventlog/data/db.yaml
+smseventlog/data/db.yaml
 smseventlog/data/email.yaml
-/smseventlog/data/excel
+smseventlog/data/excel
 
 .DS_Store
-
-
-# Local python packages
-.python_packages/
-
-# Python Environments
 Pipfile.lock
 
 # Byte-compiled / optimized / DLL files
-Project/__pycache__/
-__pycache__/
+__pycache__
 *.py[cod]
 *$py.class
 
 *.xlsm
 *.css
-smseventlog/api.py
-smseventlog/data/ApiKeys/discord.csv
+smseventlog/data/apikeys/discord.csv
 SMS.zip

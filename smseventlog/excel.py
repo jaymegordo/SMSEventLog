@@ -12,6 +12,7 @@ from . import (
     gui as ui
 )
 
+
 global title, titlename
 titlename = 'SMS Event Log'
 title = titlename + '.xlsm'

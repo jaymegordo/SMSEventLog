@@ -7,11 +7,11 @@ data/
 dist/
 SQL/
 src/
+target/
 local.settings.json
 test
 .git*
 *.css
-launch.py
+*.py
+*.md
 LICENSE
-README.md
-setup.py
