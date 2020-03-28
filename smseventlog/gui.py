@@ -1,14 +1,15 @@
+from timeit import default_timer as timer
+start = timer()
+
 import sys
-from datetime import datetime as date
-from datetime import timedelta as delta
-import dbmodel as dbm
+from datetime import (datetime as date, timedelta as delta)
 
 import numpy as np
 import pandas as pd
 import qdarkstyle
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QFile, QSize, Qt,
-                          QTextStream, QTimer, pyqtSignal)
+from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QFile, QSize,
+                          Qt, QTextStream, QTimer, pyqtSignal)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QApplication, QDateEdit, QDesktopWidget, QDialog,
                              QDialogButtonBox, QGridLayout, QHBoxLayout,
@@ -17,8 +18,11 @@ from PyQt5.QtWidgets import (QApplication, QDateEdit, QDesktopWidget, QDialog,
                              QTableView, QTabWidget, QTextEdit, QVBoxLayout,
                              QWidget)
 
-import eventlog as el
-import functions as f
+from . import (
+    dbmodel as dbm,
+    eventlog as el,
+    functions as f
+)
 
 global title, minsize, minsize_ss
 title = 'SMS Event Log'
@@ -525,6 +529,8 @@ def launch():
     w = MainWindow()
 
     monitor_num = 1 if f.is_win() else 0
+
+    # TODO: use QSetting to remember prev screen geometry
     monitor = QDesktopWidget().screenGeometry(monitor_num)
     w.move(monitor.left(), monitor.top())
     w.showMaximized()
@@ -538,9 +544,8 @@ def get_qt_app():
     if app is None:
         app = QApplication([sys.executable])
         
-    app.setWindowIcon(QIcon(str(f.topfolder / 'data/images/SMS Icon.png')))
+    app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS Icon.png')))
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
     
     return app
-
 

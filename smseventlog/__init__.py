@@ -1,25 +1,28 @@
-import json
-import os
 import sys
-from datetime import datetime as date
-from datetime import timedelta as delta
-from pathlib import Path
-from time import time
-from timeit import Timer
 
-import pandas as pd
-import pypika as pk
-import xlwings as xw
-import yaml
-import sqlalchemy as sa
+__version__ = '3.0.0'
 
-sys.path.append(str(Path(__file__).parent))
-import eventlog as el
-import factorycampaign as fc
-import folders as fl
-import functions as f
-import gui as ui
-import emails as em
-import availability as av
-from dbmodel import *
-from database import db
+if not getattr(sys, 'frozen', False):
+    # when not running from packaged app, import all libraries for easy access in interactive terminal
+    import json
+    from datetime import (datetime as date, timedelta as delta)
+    from pathlib import Path
+    from time import time
+    from timeit import Timer
+
+    import pandas as pd
+    import pypika as pk
+    import xlwings as xw
+    import yaml
+    import sqlalchemy as sa
+
+    from . import (
+        eventlog as el,
+        factorycampaign as fc,
+        folders as fl,
+        functions as f,
+        gui as ui,
+        emails as em,
+        availability as av)
+    from .dbmodel import *
+    from .database import db

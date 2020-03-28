@@ -4,36 +4,51 @@ import functools
 import json
 import os
 import sys
-from datetime import datetime as date
-from datetime import timedelta as delta
+from datetime import (datetime as date, timedelta as delta)
 from pathlib import Path
 
 import pandas as pd
 import six
 import yaml
-
+import logging
 
 try:
     from IPython.display import display
 except ModuleNotFoundError:
     pass
 
-global drive, config, topfolder, azure_env
+global drive, config, topfolder, azure_env, datafolder
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
-print('ENVIRONMENT: {}'.format(azure_env))
-
-if azure_env is None:
-    import gui as ui
-
+if azure_env is None and not 'linux' in sys.platform:
+    from . import gui as ui
+    
 topfolder = Path(__file__).parent
+if getattr(sys, 'frozen', False):
+    topfolder = topfolder.parent
+datafolder = topfolder / 'data'
+
 if sys.platform.startswith('win'):
     drive = 'P:/'
 else:
     drive = '/Volumes/Public/'
+    
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+# for root, dirs, files in os.walk(resource_path('')):
+#     print(root)
+#     for file in files:
+#         print( ' ', file)
+
 
 def setconfig():
-    p = Path(topfolder / 'data/config.yaml')
+    p = Path(datafolder / 'config.yaml')
     with open(p) as file:
         m = yaml.full_load(file)
     
@@ -109,11 +124,11 @@ def decode(key, string):
 
 def check_db():
     # Check if db.yaml exists, if not > decrypt db_secret and create it
-    p = Path(topfolder) / 'data/db.yaml'
+    p = Path(datafolder) / 'db.yaml'
     if p.exists():
         return True
     else:
-        p2 = Path(topfolder) / 'data/db_secret.txt'
+        p2 = Path(datafolder) / 'db_secret.txt'
 
         # Prompt user for pw
         msg = 'Database credentials encrypted, please enter password.\n(Contact {} if you do not have password).\n\nPassword:'.format(config['Email'])
@@ -137,14 +152,14 @@ def check_db():
             return True
 
 def get_db():
-    p = Path(topfolder) / 'data/db.yaml'
+    p = Path(datafolder) / 'db.yaml'
     with open(p) as file:
         m = yaml.full_load(file)
     return m
 
 def encode_db(key):
     m = get_db()
-    p = Path(topfolder) / 'data/db_secret.txt'
+    p = Path(datafolder) / 'db_secret.txt'
     with open(p, 'wb') as file:
         file.write(encode(key=key, string=json.dumps(m)))
     return True
@@ -154,7 +169,7 @@ def discord(msg, channel='jambot'):
     import discord
     from discord import Webhook, RequestsWebhookAdapter, File
 
-    p = Path(topfolder) / 'data/ApiKeys/discord.csv'
+    p = Path(datafolder) / 'apikeys/discord.csv'
     r = pd.read_csv(p, index_col='channel').loc[channel]
     if channel == 'err': msg += '@here'
 

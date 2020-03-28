@@ -1,6 +1,7 @@
 import io
-from datetime import datetime as date
-from datetime import timedelta as delta
+from datetime import (
+    datetime as date,
+    timedelta as delta)
 from pathlib import Path
 
 import exchangelib as ex
@@ -8,14 +9,17 @@ import numpy as np
 import pandas as pd
 import pypika as pk
 import yaml
-from pypika import Case, Criterion
-from pypika import CustomFunction as cf
-from pypika import Order
-from pypika import functions as fn
+from pypika import (
+    Case,
+    Criterion,
+    CustomFunction as cf,
+    Order,
+    functions as fn)
 
-import emails as em
-import functions as f
-from database import db
+from . import (
+    emails as em,
+    functions as f)
+from .database import db
 
 
 def import_single(p):
@@ -24,7 +28,6 @@ def import_single(p):
     import_downtime(df=df, notification=False)
 
 def import_downtime(df=None, notification=True):
-    print('RUNNING import_downtime')
     try:
         if df is None:
             df = combine_email_data()

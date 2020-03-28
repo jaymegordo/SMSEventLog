@@ -4,15 +4,13 @@ from pathlib import Path
 from urllib import parse
 
 import pandas as pd
+import pyodbc
 import pypika as pk
 import sqlalchemy as sa
 import yaml
 from sqlalchemy.orm import sessionmaker
 
-import functions as f
-import pyodbc
-if f.azure_env is None:
-    import gui as ui
+from . import functions as f
 
 global db
 
@@ -50,10 +48,11 @@ class DB(object):
             return self.engine
         else:
             msg = 'Database not initialized.'
-            if f.azure_env is None:
+            try:
+                import gui as ui
                 ui.msg_simple(msg=msg, icon='Critical')
-            else:
-                print(msg)
+            except:
+                pass
         
     def close(self):
         try:
@@ -117,4 +116,3 @@ class DB(object):
 
 print('{}: loading db'.format(__name__))
 db = DB()
-

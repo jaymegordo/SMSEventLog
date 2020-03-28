@@ -8,8 +8,10 @@ from pathlib import Path
 
 import pandas as pd
 
-import functions as f
-from database import db
+from smseventlog import (
+    functions as f
+)
+from smseventlog.database import db
 
 
 def import_haul(files):

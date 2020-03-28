@@ -1,6 +1,6 @@
 # coding: utf-8
-from sqlalchemy import BigInteger, Column, DECIMAL, Date, DateTime, Float, ForeignKey, Index, Integer, SmallInteger, String, Table, Time, Unicode, text
-from sqlalchemy.dialects.mssql import BIT, DATETIME2, MONEY, SMALLDATETIME, TIMESTAMP
+from sqlalchemy import (BigInteger, Column, DECIMAL, Date, DateTime, Float, ForeignKey, Index, Integer, SmallInteger, String, Table, Time, Unicode, text)
+from sqlalchemy.dialects.mssql import (BIT, DATETIME2, MONEY, SMALLDATETIME, TIMESTAMP)
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 

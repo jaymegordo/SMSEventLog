@@ -8,9 +8,11 @@ import pandas as pd
 import pypika as pk
 from bs4 import BeautifulSoup
 
-import functions as f
-import gui as ui
-from database import db
+from . import (
+    functions as f,
+    gui as ui
+)
+from .database import db
 
 # from timeit import Timer
 	# t = Timer(lambda: fldr.readsingle(p))

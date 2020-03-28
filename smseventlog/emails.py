@@ -3,10 +3,10 @@ from pathlib import Path
 import exchangelib as ex
 import yaml
 
-import functions as f
+from . import functions as f
 
 def get_credentials():
-    p = Path(f.topfolder / 'data/email.yaml')
+    p = Path(f.datafolder / 'email.yaml')
     with open(p) as file:
         m = yaml.full_load(file)
     return m
