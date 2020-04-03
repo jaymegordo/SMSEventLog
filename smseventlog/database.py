@@ -6,6 +6,13 @@ from urllib import parse
 import pandas as pd
 import pyodbc
 import pypika as pk
+from pypika import (
+    Case,
+    Criterion,
+    CustomFunction as cf,
+    Order,
+    functions as fn,
+    Query)
 import sqlalchemy as sa
 import yaml
 from sqlalchemy.orm import sessionmaker
@@ -30,9 +37,10 @@ def engine():
 class DB(object):
     def __init__(self):
         self.__name__ = 'SMS Event Log Database'
-        self.df_unit = None
         self.engine = None
         self.session = None
+        self.df_unit = None
+        self.df_fc = None
 
         try:
             self.engine = engine()
@@ -41,7 +49,7 @@ class DB(object):
             Session = sessionmaker(bind=self.engine)
             self.session = Session()
         except:
-            pass
+            print('error setting engine')
         
     def get_engine(self):
         if not self.engine is None:
@@ -49,10 +57,10 @@ class DB(object):
         else:
             msg = 'Database not initialized.'
             try:
-                import gui as ui
+                from . import gui as ui
                 ui.msg_simple(msg=msg, icon='Critical')
             except:
-                pass
+                print('error setting engine')
         
     def close(self):
         try:
@@ -60,7 +68,7 @@ class DB(object):
             # self.conn.close()
             # self.cursor.close()
         except:
-            pass
+            print('error closing raw_connection')
 
     def __del__(self):
         self.close()
@@ -106,12 +114,35 @@ class DB(object):
     def set_df_unit(self, minesite=None):
         a = pk.Table('UnitID')
         cols = ['MineSite', 'Customer', 'Model', 'Unit', 'Serial']
-        q = pk.Query.from_(a).select(*cols)
+        q = Query.from_(a).select(*cols)
         
         if not minesite is None:
             q = q.where(a.MineSite == minesite)
             
         self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine())
+
+    def get_df_fc(self, minesite=None):
+        if self.df_fc is None:
+            self.set_df_fc(minesite=minesite)
+        
+        return self.df_fc
+
+    def set_df_fc(self, minesite=None):
+        a = pk.Table('FactoryCampaign')
+        b = pk.Table('FCSummary')
+        c = pk.Table('UnitID')
+
+        subject = Case().when(b.SubjectShort.notnull(), b.SubjectShort).else_(b.Subject).as_('Subject')
+
+        cols = [a.FCNumber, a.Unit, c.MineSite, subject]
+        q = Query.from_(a).select(*cols) \
+            .left_join(b).on_field('FCNumber') \
+            .left_join(c).on_field('Unit')
+        
+        if not minesite is None:
+            q = q.where(c.MineSite == minesite)
+            
+        self.df_fc = pd.read_sql(sql=q.get_sql(), con=self.get_engine())
         
 
 print('{}: loading db'.format(__name__))

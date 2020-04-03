@@ -1,3 +1,5 @@
+import sys
+
 from collections import defaultdict as dd
 from datetime import datetime as date
 from datetime import timedelta as delta
@@ -25,7 +27,11 @@ def tblcount(tbl):
 
 def importFC(upload=True, df=None):
     # load all 'xls' files from import folder to df
-    p = Path(f.drive + f.config['FilePaths']['Import FC'])
+    if sys.platform.startswith('win'):
+        p = Path(f.drive + f.config['FilePaths']['Import FC'])
+    else:
+        p = Path('/Users/Jayme/OneDrive/Desktop/Import/Factory Campaign')
+        
     lst = [f for f in p.glob('*.xls')]
 
     if lst:

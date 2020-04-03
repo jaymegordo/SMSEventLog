@@ -2,12 +2,11 @@ import operator
 import sys
 from datetime import (datetime as date, timedelta as delta)
 from pathlib import Path
-from urllib import parse
 
 import pandas as pd
 import pypika as pk
 import sqlalchemy as sa
-
+from sqlalchemy import and_
 from pypika import (
     Case,
     Criterion,
@@ -16,16 +15,10 @@ from pypika import (
     functions as fn,
     Query)
 
-# print('EVENTLOG __file__: {}'.format(__file__))
-# print('EVENTLOG __package__: {}'.format(__package__))
-# print('smseventlog in sys.modules: {}'.format('smseventlog' in sys.modules))
-# print('EVENTLOG Current directory: {}'.format(Path.cwd()))
-
 from . import (
     functions as f,
     gui as ui)
 from .database import db
-
 
 try:
     from IPython.display import display
@@ -34,30 +27,40 @@ except ModuleNotFoundError:
 
 
 class Row(object):
-    def __init__(self, tbl, i):
-        self.tbl = tbl # Table class
-        self.df = self.tbl.df
+    def __init__(self, tbl=None, i=None, keys={}, dbtable=None):
+        # create with either: 1. gui.Table + row, or 2. dbtable + keys/values
 
-        self.i = i # row index in df
-        # need to check for multi-column key eventually
-        self.pk = tbl.table.__table__.primary_key.columns.keys()[0] # pk field name eg 'UID'
+        if not tbl is None:
+            self.tbl = tbl # gui.Table class > the 'model' in mvc
+            self.df = self.tbl.df
+            dbtable = tbl.dbtable # dbm.TableName = table definition, NOT table object (eg TableName())
+        
+        if dbtable is None:
+            raise AttributeError('db model table not set!')
 
-        # get ID value from ID field
-        self.id = self.df.iloc[i, self.df.columns.get_loc(self.pk)]
+        self.pks = dbtable.__table__.primary_key.columns.keys() # list of pk field names eg ['UID']
 
-    def update(self, header, val):
-        if self.id is None:
-            raise AttributeError('Need to set id before update!')
+        if not i is None: # update from df
+            for pk in self.pks:
+                keys[pk] = self.df.iloc[i, self.df.columns.get_loc(pk)] # get ID value from ID field
 
-        t, pk, i, id = self.tbl.table, self.pk, self.i, self.id
+        self.keys, self.dbtable = keys, dbtable
 
-        pk_field = getattr(t, pk)
+    def update(self, val, header=None, field=None):
+        # update single value in database, based on unique row, field, value, and primary keys(s)
+        t, keys = self.dbtable, self.keys
 
-        # TODO: maybe check if this needs to always be converted?
-        field = f.convert_header(title=self.tbl.title, header=header)
+        if len(keys) == 0:
+            raise AttributeError('Need to set keys before update!')
+        
+        cond = [getattr(t, pk)==keys[pk] for pk in keys] # list of multiple key:value pairs for AND clause
 
-        sql = sa.update(t).where(pk_field==id).values({field: val})
-        # print(i, val, id, self.df.index[i])
+        # convert table header to db field name
+        if field is None:
+            field = f.convert_header(title=self.tbl.title, header=header)
+
+        sql = sa.update(t).values({field: val}).where(and_(*cond))
+        
         session = db.session
         session.execute(sql)
         session.commit()
@@ -70,10 +73,16 @@ class Row(object):
             id=self.id)
         display(m)
 
-def printModel(model, null=False):
+def model_dict(model, include_none=False):
+    # create dict from table model
     m = {a.key:getattr(model, a.key) for a in sa.inspect(model).mapper.column_attrs}
-    if not null:
+    if not include_none:
         m = {k:v for k,v in m.items() if v is not None}
+    
+    return m
+
+def printModel(model, include_none=False):
+    m = model_dict(model, include_none=include_none)
     display(m)
 
 class Filter():
@@ -117,7 +126,7 @@ def get_df(title=None, fltr=None, defaults=False):
     q = None
 
     # defaults
-    startdate = date(2020,3,6)
+    startdate = date(2020,3,28)
     if defaults and a.get_table_name() == 'EventLog':
         fltr.add(field='DateAdded', val=startdate)
         fltr.add(field='MineSite', val='FortHills')
@@ -192,6 +201,6 @@ def get_df(title=None, fltr=None, defaults=False):
     
     datecols = ['DateAdded', 'DateCompleted', 'TimeCalled', 'DateSMR', 'DeliveryDate']
     df = pd.read_sql(sql=sql, con=db.engine, parse_dates=datecols)
-    df.columns = f.convert_headers(title=title, cols=df.columns)
+    df.columns = f.convert_list_db_view(title=title, cols=df.columns)
 
     return df

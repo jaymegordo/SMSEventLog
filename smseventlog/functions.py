@@ -1,4 +1,4 @@
-# from collections import defaultdict
+from collections import defaultdict
 import base64
 import functools
 import json
@@ -20,8 +20,8 @@ except ModuleNotFoundError:
 global drive, config, topfolder, azure_env, datafolder
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
-if azure_env is None and not 'linux' in sys.platform:
-    from . import gui as ui
+# if azure_env is None and not 'linux' in sys.platform:
+#     from . import gui as ui
     
 topfolder = Path(__file__).parent
 if getattr(sys, 'frozen', False):
@@ -33,20 +33,6 @@ if sys.platform.startswith('win'):
 else:
     drive = '/Volumes/Public/'
     
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
-
-# for root, dirs, files in os.walk(resource_path('')):
-#     print(root)
-#     for file in files:
-#         print( ' ', file)
-
-
 def setconfig():
     p = Path(datafolder / 'config.yaml')
     with open(p) as file:
@@ -57,9 +43,15 @@ def setconfig():
 def inverse(m):
     return {v: k for k, v in m.items()}
 
-def convert_headers(title, cols):
-    # convert db cols to view cols
-    m = inverse(config['Headers'][title])
+def convert_dict_db_view(title, m):
+    # convert dict of db cols to view cols
+    dbcols = list(m.keys())
+    viewcols = convert_list_db_view(title=title, cols=dbcols)
+    return {view:m[db] for view, db in zip(viewcols, dbcols) if view is not None}
+
+def convert_list_db_view(title, cols):
+    # convert list of db cols to view cols, remove cols not in the view
+    m = defaultdict(type(None), inverse(config['Headers'][title]))        
     return [m[c] for c in cols]
 
 def get_default_headers(title):
@@ -124,6 +116,7 @@ def decode(key, string):
 
 def check_db():
     # Check if db.yaml exists, if not > decrypt db_secret and create it
+    from . import gui as ui
     p = Path(datafolder) / 'db.yaml'
     if p.exists():
         return True
