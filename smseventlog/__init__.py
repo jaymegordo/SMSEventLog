@@ -23,6 +23,8 @@ if not getattr(sys, 'frozen', False):
         functions as f,
         gui as ui,
         emails as em,
-        availability as av)
+        availability as av,
+        units as un,
+        reports as rp)
     from .dbmodel import *
     from .database import db
