@@ -1,8 +1,7 @@
 import sys
 
 from collections import defaultdict as dd
-from datetime import datetime as date
-from datetime import timedelta as delta
+from datetime import (datetime as date, timedelta as delta)
 from pathlib import Path
 from timeit import default_timer as timer
 

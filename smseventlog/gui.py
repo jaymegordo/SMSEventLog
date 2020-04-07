@@ -42,6 +42,7 @@ minesite, customer = 'FortHills', 'Suncor'
 # TODO: Add new rows
 # TODO: Filter rows
 # TODO: load tables on tab first selection?
+# TODO: green 'flash' for user confirmation value updated in db
 
 # FUTURE
 # Interact with outlook
@@ -99,6 +100,7 @@ class AddRow(QDialog):
             self.tablename = self.table.tablename
             self.title = self.table.title
         else:
+            # Temp vals
             self.tablename = 'EventLog'
             self.title = 'Event Log'
         
@@ -158,12 +160,15 @@ class AddRow(QDialog):
         for field in self.fields:
             setattr(row, field.col_db, field.get_val())
 
+        # convert row model to dict of values and append to current table
         m = el.model_dict(model=row)
         m = f.convert_dict_db_view(title=self.title, m=m)
         self.table.insertRows(m=m)
 
-        # call row add all to db
-        # add row to db
+        print(int(row.UID))
+        session = db.session
+        session.add(row)
+        session.commit()
 
 class AddEvent(AddRow):
     def __init__(self, parent=None):
@@ -333,18 +338,21 @@ def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
 
     return ok, val
 
+
+
 class Table(QAbstractTableModel):
     def __init__(self, df, parent=None):
         QAbstractTableModel.__init__(self, parent)
         self.parent = parent
         self.title = self.parent.title
         self.tablename = f.config['TableName'][self.title] # name of db model
-        self.dbtable = getattr(dbm, self.tablename) # db model definition NOT instance
+        self.dbtable = getattr(dbm, self.tablename) # db model definition, NOT instance
         
         self.df = df
         self._cols = df.columns
         self.r, self.c = df.shape[0], df.shape[1]
         self.disabled_cols = () # TODO: pass these in
+        self.dtcols = tuple(i for i, val in enumerate(df.dtypes) if val == 'datetime64[ns]')
 
     def insertRows(self, m, parent=None):
         rows = self.rowCount()
@@ -370,15 +378,13 @@ class Table(QAbstractTableModel):
             val = df.iloc[row, col]
 
             if role in (Qt.DisplayRole, Qt.EditRole):
-                if df.dtypes[col] == 'datetime64[ns]':
+                if col in self.dtcols:
                     return val
-
-                if not pd.isnull(val):
+                elif not pd.isnull(val):
                     return str(val)
                 else:
                     return ''
 
-        # else:
         return None
 
     def getColIndex(self, header):
@@ -388,14 +394,14 @@ class Table(QAbstractTableModel):
         return index.row(), index.column()
 
     def update_db(self, index, val):
-        col = index.column()
+        # Update single value from row in database
+        row, col = index.row(), index.column()
         df = self.df
         header = df.columns[col] # view header
 
-        row, col = index.row(), index.column()
         # print(row, df.iloc[row, col], df.iloc[row, 0], df.index[row])
 
-        e = el.Row(tbl=self, i=index.row())
+        e = el.Row(tbl=self, i=row)
         e.update(header=header, val=val)
 
     def setData(self, index, val, role=Qt.EditRole):
@@ -611,10 +617,9 @@ class TableWidget(QWidget):
         view = self.view
         date_delegate = DateColumnDelegate(view)
 
-        for i, val in enumerate(view.model().df.dtypes):
-            if val == 'datetime64[ns]':
-                view.setItemDelegateForColumn(i, date_delegate)
-                view.setColumnWidth(i, 90) # TODO: this should be in the delegate!
+        for i in view.model().dtcols:
+            view.setItemDelegateForColumn(i, date_delegate)
+            view.setColumnWidth(i, 90) # TODO: this should be in the delegate!
 
     def center_columns(self, cols):
         view = self.view
@@ -666,7 +671,6 @@ class TableWidget(QWidget):
         self.set_date_delegates()
         view.resizeRowsToContents()
 
-# Main Window
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()

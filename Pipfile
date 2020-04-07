@@ -12,6 +12,8 @@ sqlacodegen = "*"
 fbs = "*"
 xlwings = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
+weasyprint = "*"
+jinja2 = "*"
 
 [packages]
 pandas = "*"

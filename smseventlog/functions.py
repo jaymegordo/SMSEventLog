@@ -1,6 +1,5 @@
 from collections import defaultdict
 import base64
-import functools
 import json
 import os
 import sys
@@ -83,14 +82,8 @@ def cursor_to_df(cursor):
     cols = [column[0] for column in cursor.description]
     return pd.DataFrame(data=data, columns=cols)
 
-def left_justified(df, header=False):
-    formatters = {}
-    for li in list(df.columns):
-        max = df[li].str.len().max()
-        form = "{{:<{}s}}".format(max)
-        formatters[li] = functools.partial(str.format, form)
-    # display(formatters)
-    return df.to_string(formatters=formatters, index=False, header=header)
+
+    
 
 # simple obfuscation for db connection string
 def encode(key, string):

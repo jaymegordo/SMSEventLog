@@ -113,7 +113,7 @@ class DB(object):
 
     def set_df_unit(self, minesite=None):
         a = pk.Table('UnitID')
-        cols = ['MineSite', 'Customer', 'Model', 'Unit', 'Serial']
+        cols = ['MineSite', 'Customer', 'Model', 'Unit', 'Serial', 'DeliveryDate']
         q = Query.from_(a).select(*cols)
         
         if not minesite is None:
