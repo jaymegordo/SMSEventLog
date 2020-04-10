@@ -1,17 +1,18 @@
 import os
+import sys
 import shutil
 import subprocess
 import time
-from datetime import datetime as date
-from datetime import timedelta as delta
+from datetime import (datetime as date, timedelta as delta)
 from pathlib import Path
+from timeit import default_timer as timer
 
 import pandas as pd
 
-from smseventlog import (
-    functions as f
-)
-from smseventlog.database import db
+from . import (
+    functions as f)
+from .database import db
+
 
 
 def import_haul(files):
@@ -115,12 +116,12 @@ def toSeconds(t):
 
 # FOLDERS
 def unitfolders():
-    p = Path(f.config['FilePaths']['980E FH'])
+    p = Path(f.drive + f.config['FilePaths']['980E FH'])
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
-def recursefolders(searchfolder, exclude, tslower=None, ftype='haul'):
+def recursefolders(searchfolder, exclude, tslower=date(2016, 1, 1).timestamp(), ftype='haul'):
     lst = []
-    if tslower is None: tslower = date(2016, 1, 1).timestamp()
+    # if tslower is None: tslower = date(2016, 1, 1).timestamp()
     # if tsupper is None: tsupper = date.now().timestamp()
 
     # p is Path object
@@ -135,6 +136,87 @@ def recursefolders(searchfolder, exclude, tslower=None, ftype='haul'):
                 lst.extend(recursefolders(p, exclude, tslower=tslower, ftype=ftype))
 
     return lst
+
+def recurse_dls(p_search, depth=0, maxdepth=5):
+    # return list of paths containing 'dsc'
+    lst = []
+
+    if depth <= maxdepth:
+        for p in p_search.iterdir():
+            if p.is_dir():
+                if 'dsc' in p.name:
+                    lst.append(p)
+                
+                lst.extend(recurse_dls(p_search=p, depth=depth + 1, maxdepth=maxdepth))
+    
+    return lst
+
+def fix_dsc(p, unitpath):
+    start = timer()
+    unit = unitpath.name.split(' - ')[0]
+    p_dls = p.parent
+    print(p)
+    print(p_dls)
+
+    # need to make sure there is only one _dsc_ folder in path
+    dsccount = sum(1 for _ in p_dls.glob('*dsc*'))
+
+    # parse date from dsc folder name, eg 328_dsc_20180526-072028
+    # if no dsc, use date created
+    try:
+        sdate = p.name.split('_dsc_')[-1].split('-')[0]
+        dt = date.strptime(sdate, '%Y%m%d')
+    except:
+        # get date from folder date created, platform dependent
+        if sys.platform.startswith('win'):
+            ts = p.stat().st_ctime
+        else:
+            ts = p.stat().st_birthtime
+
+        dt = date.fromtimestamp(ts)
+
+    # rename dls folder: UUU - YYYY-MM-DD - DLS
+    newname = '{} - {} - DLS'.format(unit, dt.strftime('%Y-%m-%d'))
+
+    # TODO: check if dest folder exists, if it does, combine
+
+    p_new = unitpath / f'Downloads/{dt.year}/{newname}'
+    print(p_new)
+    if dsccount > 1:
+        # just move dsc folder, not parent and contents
+        p_source = p
+        p_dest = p_new / p.name
+    else:
+        p_source = p_dls
+        p_dest = p_new
+    
+    print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
+
+
+    if not p_source == p_dest:
+        # if dest folder doesn't exist, renames source to dest
+        # if dest folder does exist, copies source INTO dest
+        print(f'source: {p_source}')
+        print(f'dest: {p_dest}')
+        shutil.move(str(p_source), str(p_dest))
+
+
+def fix_dls(p):
+    unit = p.parts[-1].split(' - ')[0]
+    p_dls = p / 'Downloads'
+    maxdepth = 3
+    lst = recurse_dls(p_search=p_dls, maxdepth=maxdepth)
+    return lst
+    # recurse folders in Downloads till we find DSC
+    # get date of dsc
+    # move to Downloads / year
+
+    # find _dsc_
+        # get unit from top level unit folder
+        # parse date from dsc
+            # if no dsc, use date created
+        # one folder up is dls folder
+        # need to rename dls folder UUU - YYYY-MM-DD - Title?
     
 def scanfolders(ftype='haul'):
     if ftype == 'haul':

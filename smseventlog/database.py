@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import (datetime as date, timedelta as delta)
 from pathlib import Path
 from urllib import parse
 
@@ -143,6 +144,45 @@ class DB(object):
             q = q.where(c.MineSite == minesite)
             
         self.df_fc = pd.read_sql(sql=q.get_sql(), con=self.get_engine())
+
+    def import_df(self, df, imptable, impfunc, notification=True):
+        if df is None:
+            f.discord(msg='No rows in email', channel='sms')
+            return
+
+        try:
+            df.to_sql(imptable, con=self.get_engine(), if_exists='append', index=False)
+
+            cursor = self.get_cursor()
+            rowsadded = cursor.execute(impfunc).rowcount
+            cursor.commit()
+        except:
+            f.senderror()
+        finally:
+            cursor.close()
+
+        msg = '{} imported: {}\nAdded to database: {}'.format(imptable, len(df), rowsadded)
+        print(msg)
+
+        if notification:
+            f.discord(msg=msg, channel='sms')
+    
+    def max_date_db(self, table, field):
+        minesite = 'FortHills'
+        a = pk.Table(table)
+        b = pk.Table('UnitID')
+
+        sql = a.select(fn.Max(a[field])) \
+            .left_join(b).on_field('Unit') \
+            .where(b.MineSite == minesite)
+        
+        try:
+            cursor = db.get_cursor()
+            val = cursor.execute(sql.get_sql()).fetchval()
+        finally:
+            cursor.close()
+        
+        return date.combine(val, date.min.time())
         
 
 print('{}: loading db'.format(__name__))

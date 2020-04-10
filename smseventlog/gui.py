@@ -8,10 +8,10 @@ from datetime import (datetime as date, timedelta as delta)
 import pandas as pd
 import qdarkstyle
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QFile, QSize,
+from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QFile, QPoint, QSettings, QSize,
                           Qt, QTextStream, QTimer, pyqtSignal)
-from PyQt5.QtGui import QIcon, QIntValidator, QFont
-from PyQt5.QtWidgets import (QApplication, QComboBox, QCheckBox, QDateEdit, QDesktopWidget, QDialog,
+from PyQt5.QtGui import QIcon, QIntValidator, QFont, QKeySequence
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QCheckBox, QDateEdit, QDesktopWidget, QDialog,
                              QDialogButtonBox, QFormLayout, QGridLayout, QHBoxLayout,
                              QInputDialog, QLabel, QLineEdit, QMainWindow,
                              QMessageBox, QPushButton, QStyledItemDelegate, QSpinBox,
@@ -43,12 +43,16 @@ minesite, customer = 'FortHills', 'Suncor'
 # TODO: Filter rows
 # TODO: load tables on tab first selection?
 # TODO: green 'flash' for user confirmation value updated in db
+# TODO: Shortcuts to trigger functions > ctrl+shift+R
+# TODO: QSettings > save last used unit
+# TODO: Minesite > global setting
+# TODO: Right click context menu
 
 # FUTURE
 # Interact with outlook
 # Select certain rows to email
 
-
+# DIALOG WINDOWS
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None):
         self.text = text
@@ -90,29 +94,18 @@ class InputField():
         if not self.box is None and not self.default is None:
             self.box.setCurrentText(self.default)
 
-# DIALOG WINDOWS
-class AddRow(QDialog):
-    def __init__(self, parent=None):
+class InputForm(QDialog):
+    def __init__(self, parent=None, title=''):
         super().__init__(parent=parent)
         self.parent = parent
-        if not parent is None:
-            self.table = parent.view.model()
-            self.tablename = self.table.tablename
-            self.title = self.table.title
-        else:
-            # Temp vals
-            self.tablename = 'EventLog'
-            self.title = 'Event Log'
-        
-        self.row = getattr(dbm, self.tablename)()
-
-        self.setWindowTitle('Add Item')
+        self.setWindowTitle(title)
         self.vLayout = QVBoxLayout(self)
         self.formLayout = QFormLayout(self)
         self.formLayout.setLabelAlignment(Qt.AlignLeft)
         self.formLayout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         self.vLayout.addLayout(self.formLayout)
         self.fields = []
+        self.items = None
     
     def show(self):
         btnbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -152,6 +145,54 @@ class AddRow(QDialog):
         if layout is None:
             layout = self.formLayout
         layout.addRow(QLabel(f'{text}:'), box)
+
+    def okay_pressed(self):
+        self.items = self.get_items()
+
+    def get_items(self):
+        # return dict of all field items: values
+        m = {}
+        for field in self.fields:
+            m[field.text] = field.get_val()
+        
+        return m
+
+class InputUserName(InputForm):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent, title='Enter User Name')
+        layout = self.vLayout
+        layout.insertWidget(0, QLabel('Welcome to the SMS Event Log! \
+            \nPlease enter your first and last name to begin:\n'))
+
+        self.add_input(field=InputField(text='First'))
+        self.add_input(field=InputField(text='Last'))
+        self.show()
+    
+    # def okay_pressed(self):
+    #     m = self.get_items()
+    #     print(m)
+
+def show_username():
+    app = get_qt_app()
+    dlg = InputUserName()
+    dlg.exec_()
+    m = dlg.items
+    print(m)
+
+class AddRow(InputForm):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent, title='Add Item')
+
+        if not parent is None:
+            self.table = parent.view.model()
+            self.tablename = self.table.tablename
+            self.title = self.table.title
+        else:
+            # Temp vals
+            self.tablename = 'EventLog'
+            self.title = 'Event Log'
+        
+        self.row = getattr(dbm, self.tablename)()
     
     def okay_pressed(self):
         row = self.row
@@ -250,12 +291,6 @@ class AddUnit(AddRow):
 
         self.show()
     
-def show_add_row():
-    app = get_qt_app()
-    addrow = AddEvent()
-    # addrow = AddUnit()
-    return addrow.exec_()
-
 class MsgBox_Advanced(QDialog):
     def __init__(self, msg='', title='', yesno=False, statusmsg=None, parent=None):
         super().__init__(parent=parent)
@@ -569,6 +604,7 @@ class TableWidget(QWidget):
 
         view = QTableView(self)
         view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
         view.setSelectionBehavior(QTableView.SelectRows)
         view.setWordWrap(True)
         view.horizontalHeader().setDefaultAlignment(Qt.AlignCenter | Qt.Alignment(Qt.TextWordWrap))
@@ -673,17 +709,80 @@ class TableWidget(QWidget):
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__()
+        super(MainWindow, self).__init__()
         self.setWindowTitle(title)
-        self.setMinimumSize(QSize(800, 1000))
-        # width = 1600
-        # self.setGeometry(-1 * width, 30, width, 1000)
+        self.setMinimumSize(QSize(1000, 400))
+
+        # Menu/shortcuts
+        act_username = QAction('Reset Username', self, triggered=self.set_username)
+        act_refresh = QAction('Refresh Table', self, triggered=self.refresh_table)
+        act_refresh.setShortcut(QKeySequence('Ctrl+R'))
+        # act_username.setStatusTip('Exit application')
+        
         bar = self.menuBar()
-        file = bar.addMenu('File')
-        file.addAction('New item')
+        file_ = bar.addMenu('File')
+        file_.addAction('New item')
+        file_.addAction(act_refresh)
+
+        edit_ = bar.addMenu('Edit')
+        edit_.addAction('Edit item')
+        
+        help_ = bar.addMenu('Help')
+        help_.addAction(act_username)
+        
 
         self.main_widget = MainWidget(self)
         self.setCentralWidget(self.main_widget)
+
+        self.settings = QSettings('sms', 'smseventlog')
+        
+        self.resize(self.settings.value('window size', defaultValue=QSize(1200, 1000)))
+        self.move(self.settings.value('window position', defaultValue=QPoint(50, 50)))
+        self.minesite = self.settings.value('minesite', defaultValue='FortHills')
+
+        self.statusBar().showMessage(f'Minesite: {self.minesite}')
+
+    def after_init(self):
+        self.username = self.get_username()
+        self.refresh_table()
+    
+    def current_table(self):
+        return self.main_widget.tabs.currentWidget().table_widget
+
+    def refresh_table(self):
+        self.current_table().refresh()
+        
+    def closeEvent(self, event):
+        s = self.settings
+        s.setValue('window size', self.size())
+        s.setValue('window position', self.pos())
+        s.setValue('minesite', self.minesite)
+    
+    def get_username(self):
+        s = self.settings
+        username = s.value('username', defaultValue=None)
+
+        if username is None:
+            self.set_username()
+            username = self.username
+
+        return username
+    
+    def set_username(self):
+        # show username dialog and save first/last name to settings
+        s = self.settings
+        dlg = InputUserName(self)
+        dlg.exec_()
+        m = dlg.items
+        if not m is None:
+            username = '{} {}'.format(m['First'].strip(), m['Last'].strip()).title()
+        else:
+            username = None
+
+        s.setValue('username', username)
+        self.username = username
+        print(f'setting username: {self.username}')
+        
 
 class MainWidget(QWidget):
     def __init__(self, parent):
@@ -717,12 +816,11 @@ def launch():
 
     monitor_num = 1 if f.is_win() else 0
 
-    # TODO: use QSetting to remember prev screen geometry
-    monitor = QDesktopWidget().screenGeometry(monitor_num)
-    w.move(monitor.left(), monitor.top())
-    w.showMaximized()
+    # monitor = QDesktopWidget().screenGeometry(monitor_num)
+    # w.move(monitor.left(), monitor.top())
+    # w.showMaximized()
     w.show()
-    w.main_widget.tabs.currentWidget().table_widget.refresh()
+    w.after_init()
     return app.exec_()
 
 def get_qt_app():
@@ -736,3 +834,7 @@ def get_qt_app():
     
     return app
 
+def show_item(name):
+    app = get_qt_app()
+    dlg = getattr(sys.modules[__name__], name)()
+    return dlg.exec_()

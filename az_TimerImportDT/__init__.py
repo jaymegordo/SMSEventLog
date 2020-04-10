@@ -12,6 +12,6 @@ import availability as av
 
 def main(mytimer: func.TimerRequest) -> None:
     try:
-        av.import_downtime()
+        av.import_downtime_email()
     except:
         f.senderror()

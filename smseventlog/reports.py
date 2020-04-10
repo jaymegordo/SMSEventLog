@@ -74,8 +74,15 @@ def report_unit_hrs_monthly(month):
     html_tbl = style.hide_index().render()
     template_vars = {'title' : title,
                  'unit_hrs': html_tbl}
-    
     html_out = template.render(template_vars)
 
-    p = Path.home() / f'Desktop/{title}.pdf'
+    p_base = Path.home() / 'Desktop'
+
+    # save pdf
+    p = p_base / f'{title}.pdf'
     HTML(string=html_out).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
+
+    # save csv
+    p = p_base / f'{title}.csv'
+    df.to_csv(p)
+
