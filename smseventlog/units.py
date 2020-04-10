@@ -3,38 +3,63 @@ from datetime import (datetime as date, timedelta as delta)
 from pathlib import Path
 from dateutil.relativedelta import *
 
+import exchangelib as ex
 import pandas as pd
 import pypika as pk
-from pypika import Query
+from pypika import (
+    Case,
+    Criterion,
+    CustomFunction as cf,
+    Order,
+    functions as fn,
+    Query)
 
 from . import (
+    emails as em,
     functions as f)
 from .database import db
 
+global m, cols
+m = dict(imptable='UnitSMRImport', impfunc='ImportUnitSMR')
+cols = ['Unit', 'DateSMR', 'SMR']
+
+def import_unit_hrs_email():
+    maxdate = db.max_date_db(table='UnitSMR', field='DateSMR') + delta(days=1)
+    df = em.combine_email_data(folder='SMR', maxdate=maxdate)
+    df = process_df(df)
+    db.import_df(df=df, imptable=m['imptable'], impfunc=m['impfunc'])
+
+def process_df(df):
+    if df is None: return None
+    df = df[['SAP_Parameter', 'Date', 'Hours']]
+    df.columns = cols
+
+    df.DateSMR = pd.to_datetime(df.DateSMR, format='%Y%m%d')
+    df = df[df.Unit.str.contains('SMR')]
+    df.Unit = df.Unit.str.replace('F0', 'F').str.replace('SMR', '')
+    df = df[df.Unit.str.contains('F3')] # filter only F300 980s for now
+    df.SMR = df.SMR.astype(int)
+
+    return df.reset_index(drop=True)
+
 def import_unit_hrs(p=None):
-    
     if p is None:
         if sys.platform.startswith('win'):
             p = Path(f.drive + f.config['FilePaths']['Import Unit Hours'])
         else:
             p = Path('/Users/Jayme/OneDrive/Desktop/Import/Unit Hours')
+        
+        lst = [f for f in p.glob('*.xls*')]
+        p = lst[0]
 
     df = read_unit_hrs(p=p)
-
-    try:
-        df.to_sql('UnitSMRImport', con=db.engine, if_exists='append', index=False)
-
-        cursor = db.get_cursor()
-        rowsadded = cursor.execute('ImportUnitSMR').rowcount
-        cursor.commit()
-    except:
-        f.senderror()
-
-    print(f'Rows added to unitSMR table: {rowsadded}')
+    db.import_df(df=df, imptable=m['imptable'], impfunc=m['impfunc'], notification=False)
+    # TODO: could ask to delete file after import?
 
 def read_unit_hrs(p):
     df = pd.read_excel(p)
-    df.columns = ['Unit', 'DateSMR', 'SMR', 'Description']
+    columns = cols.append('Description')
+    df.columns = columns
 
     df.SMR = df.SMR.astype(int)
     df.Unit = df.Unit.str.replace('F0', 'F').replace('^0', '', regex=True)
@@ -60,7 +85,7 @@ def df_unit_hrs_monthly(month):
 
     q = Query.from_(a).select(*cols) \
         .left_join(b).on_field('Unit') \
-        .where((a.MineSite==minesite) & (b.DateSMR.isin(dates)))
+        .where((a.MineSite==minesite) & (b.DateSMR.isin(dates) & (a.ExcludeMA.isnull())))
     
     df = pd.read_sql(sql=q.get_sql(), con=db.engine)
 
