@@ -1,9 +1,12 @@
 import io
 from pathlib import Path
+import logging
 
 import exchangelib as ex
 import pandas as pd
 import yaml
+
+log = logging.getLogger(__name__)
 
 from . import functions as f
 
@@ -14,12 +17,13 @@ def get_credentials():
     return m
 
 def create_account(failcount=0):
+    log.info(f'Test logging with named logger works')
     try:
         m = get_credentials()
         credentials = ex.Credentials(m['email'], m['password'])
         account = ex.Account(m['email'], credentials=credentials, autodiscover=True)
     except:
-        print(f'Failed creating account: {failcount}')
+        log.warning(f'Failed creating account: {failcount}')
         failcount +=1
         if failcount <=5:
             account = create_account(failcount=failcount)
@@ -49,6 +53,7 @@ def combine_email_data(folder, maxdate):
     try:
         df = pd.concat([parse_attachment(item.attachments[0]) for item in fltr])
     except:
+        log.warning('No emails found.')
         df = None
 
     return df

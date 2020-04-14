@@ -1,11 +1,13 @@
 {
+  "ConnectionStrings": {},
   "IsEncrypted": false,
   "Values": {
-    "AzureWebJobsStorage": "DefaultEndpointsProtocol=https;AccountName=smseventlog;AccountKey=m6uK6AZCMmLCvjsOg9HZB4ktTbmLyQOK9cicxs5c9eoOCfTV7wOecjMKxxEi52JTrsTs1X7L9TSQ3x0ru1R2pw==;EndpointSuffix=core.windows.net",
-    "FUNCTIONS_WORKER_RUNTIME": "python",
-    "FUNCTIONS_EXTENSION_VERSION": "~3",
     "APPINSIGHTS_INSTRUMENTATIONKEY": "5e5691eb-eade-46f8-b68e-5bd49e8bcc1e",
-    "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=5e5691eb-eade-46f8-b68e-5bd49e8bcc1e"
-  },
-  "ConnectionStrings": {}
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=5e5691eb-eade-46f8-b68e-5bd49e8bcc1e",
+    "AzureWebJobsStorage": "DefaultEndpointsProtocol=https;AccountName=smseventlog;AccountKey=m6uK6AZCMmLCvjsOg9HZB4ktTbmLyQOK9cicxs5c9eoOCfTV7wOecjMKxxEi52JTrsTs1X7L9TSQ3x0ru1R2pw==;EndpointSuffix=core.windows.net",
+    "FUNCTIONS_EXTENSION_VERSION": "~3",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "WEBSITE_RUN_FROM_PACKAGE": "https://smseventlog.blob.core.windows.net/function-releases/20200414154854-82bdb4a1-c51c-45f9-962a-5819beb6573f.squashfs?sv=2018-03-28&sr=b&sig=d%2FmO4LfyxJk9suONuICuX6HtM9xL%2BAFkPMESu8EYsw0%3D&st=2020-04-14T15%3A44%3A50Z&se=2030-04-14T15%3A49%3A50Z&sp=r",
+    "WEBSITE_MOUNT_ENABLED": "1"
+  }
 }

@@ -1,11 +1,12 @@
 #%% IMPORTS
 import sys
 from pathlib import Path
+import logging
+logging.basicConfig(level=logging.WARNING)
 
-sys.path.append(str(Path(__file__).parent / 'smseventlog'))
 from smseventlog import *
 
-from PyQt5.QtCore import (QDate, QDateTime)
+# from PyQt5.QtCore import (QDate, QDateTime)
 
 
 #%%

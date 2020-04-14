@@ -1,21 +1,27 @@
 import logging
 import sys
+import os
 from pathlib import Path
-sys.path.append(str(Path(__file__).parents[1] / 'smseventlog'))
 
 import azure.functions as func
 
-import functions as f
-import availability as av
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+from __app__.smseventlog import (
+    functions as f,
+    availability as av,
+    units as un)
 
 def err():
-    return func.HttpResponse('ERROR: Http function not triggered.', status_code=400)
+    msg = 'Http function not triggered.'
+    log.error(msg)
+    return func.HttpResponse(msg, status_code=400)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a request.')
-
     try:
         action = req.params.get('action')
+        log.info(f'HTTP trigger function processed request: {action}')
         if not action:
             try:
                 req_body = req.get_json()
@@ -24,8 +30,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             else:
                 action = req_body.get('action')
 
-        if action == 'import':
-            av.import_downtime()
+        if action == 'import_downtime':
+            av.import_downtime_email()
+        elif action == 'import_smr':
+            un.import_unit_hrs_email()
         else:
             return err()
         

@@ -9,7 +9,6 @@ from pathlib import Path
 import pandas as pd
 import six
 import yaml
-import logging
 
 try:
     from IPython.display import display
@@ -19,8 +18,6 @@ except ModuleNotFoundError:
 global drive, config, topfolder, azure_env, datafolder
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
-# if azure_env is None and not 'linux' in sys.platform:
-#     from . import gui as ui
     
 topfolder = Path(__file__).parent
 if getattr(sys, 'frozen', False):
@@ -150,7 +147,7 @@ def encode_db(key):
         file.write(encode(key=key, string=json.dumps(m)))
     return True
 
-def discord(msg, channel='jambot'):
+def discord(msg, channel='orders'):
     import requests
     import discord
     from discord import Webhook, RequestsWebhookAdapter, File

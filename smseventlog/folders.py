@@ -14,7 +14,6 @@ from . import (
 from .database import db
 
 
-
 def import_haul(files):
     units = [f'F{n}' for n in range(300, 348)]
 
@@ -189,17 +188,15 @@ def fix_dsc(p, unitpath):
     else:
         p_source = p_dls
         p_dest = p_new
-    
-    print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
-
 
     if not p_source == p_dest:
         # if dest folder doesn't exist, renames source to dest
         # if dest folder does exist, copies source INTO dest
-        print(f'source: {p_source}')
+        print(f'\nsource: {p_source}')
         print(f'dest: {p_dest}')
         shutil.move(str(p_source), str(p_dest))
 
+    print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
 
 def fix_dls(p):
     unit = p.parts[-1].split(' - ')[0]

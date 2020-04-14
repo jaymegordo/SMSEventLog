@@ -4,14 +4,17 @@ import logging
 import azure.functions as func
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parents[1] / 'smseventlog'))
 
-import functions as f
-import availability as av
+from __app__.smseventlog import (
+    functions as f,
+    availability as av)
 
+log = logging.getLogger(__name__)
 
 def main(mytimer: func.TimerRequest) -> None:
     try:
         av.import_downtime_email()
+        log.info('Ran import_downtime_email')
     except:
+        log.info('failed to run')
         f.senderror()

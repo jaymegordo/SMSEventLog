@@ -23,7 +23,7 @@ from .database import db
 def import_single(p):
     df = pd.read_csv(p, header=2)
     df = process_df(df=df)
-    import_downtime(df=df, notification=False)
+    db.import_df(df=df, imptable='DowntimeImport', impfunc='ImportDowntimeTable', notification=False)
 
 def import_downtime_email():
     maxdate = db.max_date_db(table='Downtime', field='ShiftDate') + delta(days=2)

@@ -1,5 +1,6 @@
 import json
 import sys
+import logging
 from datetime import (datetime as date, timedelta as delta)
 from pathlib import Path
 from urllib import parse
@@ -21,11 +22,12 @@ from sqlalchemy.orm import sessionmaker
 from . import functions as f
 
 global db
+log = logging.getLogger(__name__)
 
 # DATABASE
 
 def strConn():
-    if f.azure_env is None and not f.check_db():
+    if not 'linux' in sys.platform and not f.check_db():
         return
     m = f.get_db()
     return ';'.join('{}={}'.format(k, v) for k, v in m.items())
@@ -50,7 +52,7 @@ class DB(object):
             Session = sessionmaker(bind=self.engine)
             self.session = Session()
         except:
-            print('error setting engine')
+            log.error('Couldnt create engine')
         
     def get_engine(self):
         if not self.engine is None:
@@ -61,7 +63,7 @@ class DB(object):
                 from . import gui as ui
                 ui.msg_simple(msg=msg, icon='Critical')
             except:
-                print('error setting engine')
+                log.error('Engine is None!')
         
     def close(self):
         try:
@@ -69,7 +71,7 @@ class DB(object):
             # self.conn.close()
             # self.cursor.close()
         except:
-            print('error closing raw_connection')
+            log.error('Closing raw_connection')
 
     def __del__(self):
         self.close()
@@ -87,6 +89,7 @@ class DB(object):
         try:
             cursor = setcursor()
         except:
+            f.senderror()
             e = sys.exc_info()[0]
             if e.__class__ == pyodbc.ProgrammingError:
                 print(e)
@@ -97,7 +100,7 @@ class DB(object):
                 self.__init__()
                 cursor = setcursor()
             else:
-                print(e)
+                log.error(e)
         
         return cursor
 
@@ -161,8 +164,8 @@ class DB(object):
         finally:
             cursor.close()
 
-        msg = '{} imported: {}\nAdded to database: {}'.format(imptable, len(df), rowsadded)
-        print(msg)
+        msg = f'{imptable}: {rowsadded}'
+        log.info(msg)
 
         if notification:
             f.discord(msg=msg, channel='sms')
