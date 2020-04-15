@@ -1,13 +1,16 @@
+from collections import OrderedDict
 import os
 import sys
 import shutil
 import subprocess
 import time
-from datetime import (datetime as date, timedelta as delta)
+from distutils import dir_util
+from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 from timeit import default_timer as timer
 
 import pandas as pd
+from hurry.filesize import size
 
 from . import (
     functions as f)
@@ -106,22 +109,85 @@ def read_haul(p):
 def parse_fault_time(tstr):
     arr = tstr.split('|')
     t, tz = int(arr[0]), int(arr[1])
-    return date.fromtimestamp(t) + delta(seconds=tz)
+    return dt.fromtimestamp(t) + delta(seconds=tz)
 
 def toSeconds(t):
     x = time.strptime(t, '%H:%M:%S')
     return int(delta(hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec).total_seconds())
 
+def unit_from_path(p):
+    parentname = '1. 980E Trucks'
+
+    for i, val in enumerate(p.parts):
+        if val == parentname:
+            return p.parts[i + 1].split(' - ')[0]
+    
+    return None
+
+
+# STATS csv
+def stats_from_dsc(p):
+    # get stats file path from dsc path
+    try:
+        return list(Path(p/'stats').glob('SERIAL*csv'))[0]
+    except:
+        return None
+        print(f'Couldn\'t read stats: {str(p)}')
+
+def import_stats(lst=None):
+    # use list of most recent dsc and combine into dataframe
+
+    if lst is None:
+        lst = get_recent_dsc(d_lower=dt(2020,1,1))
+
+    df = pd.concat([get_stats(stats_from_dsc(p)) for p in lst])
+
+    return df
+
+def get_stats(p):
+    # read stats csv and convert to single row df, to be combined
+    cols = ['Unit', 'Today\'s date / time', 'PSC code version', 'TCI code version', 'FB187 Serial Number', 'FB187/197 Serial Number', 'Inv 1 Serial number', 'Inv 2 Serial number']
+
+    # dict to convert messy to nice names
+    m = {
+        'Unit': 'Unit',
+        'Today\'s date / time': 'Timestamp',
+        'PSC code version': 'PSC ver',
+        'TCI code version': 'TSC ver',
+        'FB187 Serial Number': 'FB187/197 SN',
+        'FB187/197 Serial Number': 'FB187/197 SN',
+        'Inv 1 Serial number': 'Inv 1 SN',
+        'Inv 2 Serial number': 'Inv 2 SN'}
+
+    cols = list(m.keys())
+
+    try:
+        df = pd.read_csv(p, index_col=0)
+        df = df[df.iloc[:,0].isin(cols[1:])] # exclude unit from find cols
+        df['Unit'] = unit_from_path(p)
+
+        df = df.pivot(index='Unit', columns=df.columns[0], values=df.columns[1])
+        df.rename_axis('Unit', inplace=True, axis=1)
+        df.reset_index(inplace=True)
+
+        df.columns = [m[col] for col in df.columns] # rename to nice cols
+        df = df[list(OrderedDict.fromkeys(m.values()))] # reorder, keeping original
+        df.Timestamp = pd.to_datetime(df.Timestamp)
+    except:
+        print(f'Error getting stats: {str(p)}')
+        df = pd.DataFrame()
+
+    return df
 
 # FOLDERS
 def unitfolders():
     p = Path(f.drive + f.config['FilePaths']['980E FH'])
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
-def recursefolders(searchfolder, exclude, tslower=date(2016, 1, 1).timestamp(), ftype='haul'):
+def recurse_folders(searchfolder, exclude, d_lower=dt(2016, 1, 1), ftype='haul'):
     lst = []
-    # if tslower is None: tslower = date(2016, 1, 1).timestamp()
-    # if tsupper is None: tsupper = date.now().timestamp()
+    # if d_lower is None: d_lower = dt(2016, 1, 1).timestamp()
+    # if tsupper is None: tsupper = dt.now().timestamp()
 
     # p is Path object
     for p in searchfolder.iterdir():
@@ -130,90 +196,178 @@ def recursefolders(searchfolder, exclude, tslower=date(2016, 1, 1).timestamp(), 
 
             if (not (any(s in p.name for s in exclude)
                     or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
-                and p.stat().st_mtime > tslower):
+                and date_modified(p) > d_lower):
                 
-                lst.extend(recursefolders(p, exclude, tslower=tslower, ftype=ftype))
+                lst.extend(recurse_folders(p, exclude, d_lower=d_lower, ftype=ftype))
 
     return lst
 
-def recurse_dls(p_search, depth=0, maxdepth=5):
+def check_parents(p, depth, names):
+    # check path to make sure parents aren't top level folders
+    names = [n.lower() for n in names]
+
+    for parent in list(p.parents)[:depth]:
+        if parent.name.lower() in names:
+            return True
+    
+    return False
+        
+def date_created(p):
+    # get date from folder date created (platform dependent)
+    st = p.stat()
+    ts = st.st_ctime if sys.platform.startswith('win') else st.st_birthtime
+    
+    return dt.fromtimestamp(ts)
+
+def date_modified(p):
+    return dt.fromtimestamp(p.stat().st_mtime)
+
+def copy_folder(p_src, p_dst):
+    # copy folder or file
+    try:
+        if p_src.exists() and not p_src == p_dst:
+            print(f'\nsource: {p_src}')
+            print(f'dest: {p_dst}')
+            src, dst = str(p_src), str(p_dst)
+
+            # if dest folder already exists, need to copy then remove
+            if p_dst.exists() and p_src.is_dir():
+                dir_util.copy_tree(src, dst)
+                shutil.rmtree(src)
+            else:
+                shutil.move(src, dst)
+    except:
+        print(f'Error copying folder: {str(p_src)}')
+
+def zip_folder(p, delete=False, calculate_size=False, p_new=None):
+    # zips target folder in place, optional delete original
+    
+    # zip folder into a new target dir    
+    p_dst = p if p_new is None else p_new
+
+    try:
+        if p.exists():
+            p_new = shutil.make_archive(
+                base_name=str(p_dst),
+                base_dir=str(p.name),
+                root_dir=str(p.parent),
+                format='zip')
+
+            # print file size compression savings
+            if calculate_size:
+                size_pre = sum(f.stat().st_size for f in p.glob('**/*') if f.is_file())
+                size_post = sum(f.stat().st_size for f in p_dst.parent.glob('*.zip'))
+                size_pct = size_post / size_pre
+                print(f'Reduced size to: {size_pct:.1%}\nPre: {size(size_pre)}\nPost: {size(size_post)}')
+            
+            if delete:
+                shutil.rmtree(p)
+    except:
+        print(f'Error zipping folder: {str(p)}')
+    
+    return Path(p_new)
+
+
+# DSC
+def date_from_dsc(p):
+    # parse date from dsc folder name, eg 328_dsc_20180526-072028
+    # if no dsc, use date created
+    try:
+        sdate = p.name.split('_dsc_')[-1].split('-')[0]
+        d = dt.strptime(sdate, '%Y%m%d')
+    except:
+        d = date_created(p)
+    
+    return d
+
+def get_recent_dsc(d_lower=dt(2020,1,1)):
+    # return list of most recent dsc folder from each unit
+    # pass in d_lower to limit search
+    p_units = unitfolders()
+    lst = []
+    
+    for p_unit in p_units:
+        p_dls = p_unit / 'Downloads'
+        lst_unit = recurse_dsc(p_search=p_dls, maxdepth=3, d_lower=d_lower)
+        
+        if lst_unit:
+            lst_unit.sort(key=lambda p: date_from_dsc(p), reverse=True)
+            lst.append(lst_unit[0])
+
+    return lst
+
+def fix_dsc(p, p_unit, zip_=False):
+    start = timer()
+    unit = p_unit.name.split(' - ')[0]
+
+    p_parent = p.parent
+    print(p)
+    print(p_parent.name)
+
+    d = date_from_dsc(p=p)
+
+    # rename dls folder: UUU - YYYY-MM-DD - DLS
+    newname = '{} - {} - DLS'.format(unit, dt.strftime('%Y-%m-%d'))
+
+    p_new = p_unit / f'Downloads/{dt.year}/{newname}'
+    print(p_new)
+
+    # need to make sure there is only one _dsc_ folder in path
+    # make sure dsc isn't within 2 levels of 'Downloads' fodler
+    dsccount = sum(1 for _ in p_parent.glob('*dsc*'))
+
+    if dsccount > 1 or check_parents(p=p, depth=2, names=['downloads']):
+        # just move dsc folder, not parent and contents
+        p_src = p
+        p_dst = p_new / p.name
+    else:
+        p_src = p_parent # folder above _dsc_
+        p_dst = p_new
+
+    # zip and move datapack, then move anything else remaining in the parent dir
+    try:
+        if zip_ and not str(p).endswith('.zip'):
+            p_datapack = p / 'datapack'
+
+            p_zip = zip_folder(
+                p=p_datapack,
+                delete=True,
+                p_new=p_new / p.name / p_datapack.name,
+                calculate_size=False)
+            print(p_zip)
+
+        copy_folder(p_src=p_src, p_dst=p_dst)
+    except:
+        print(f'Error fixing dsc folder: {str(p_src)}')
+
+    print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
+
+def recurse_dsc(p_search, depth=0, maxdepth=5, d_lower=None):
     # return list of paths containing 'dsc'
     lst = []
 
     if depth <= maxdepth:
         for p in p_search.iterdir():
-            if p.is_dir():
-                if 'dsc' in p.name:
-                    lst.append(p)
-                
-                lst.extend(recurse_dls(p_search=p, depth=depth + 1, maxdepth=maxdepth))
+            if 'dsc' in p.name:
+                lst.append(p) # end recursion
+            elif (p.is_dir() and date_created(p) > d_lower):
+                lst.extend(recurse_dsc(
+                    p_search=p,
+                    depth=depth + 1,
+                    maxdepth=maxdepth,
+                    d_lower=d_lower))
     
     return lst
 
-def fix_dsc(p, unitpath):
-    start = timer()
-    unit = unitpath.name.split(' - ')[0]
-    p_dls = p.parent
-    print(p)
-    print(p_dls)
-
-    # need to make sure there is only one _dsc_ folder in path
-    dsccount = sum(1 for _ in p_dls.glob('*dsc*'))
-
-    # parse date from dsc folder name, eg 328_dsc_20180526-072028
-    # if no dsc, use date created
-    try:
-        sdate = p.name.split('_dsc_')[-1].split('-')[0]
-        dt = date.strptime(sdate, '%Y%m%d')
-    except:
-        # get date from folder date created, platform dependent
-        if sys.platform.startswith('win'):
-            ts = p.stat().st_ctime
-        else:
-            ts = p.stat().st_birthtime
-
-        dt = date.fromtimestamp(ts)
-
-    # rename dls folder: UUU - YYYY-MM-DD - DLS
-    newname = '{} - {} - DLS'.format(unit, dt.strftime('%Y-%m-%d'))
-
-    # TODO: check if dest folder exists, if it does, combine
-
-    p_new = unitpath / f'Downloads/{dt.year}/{newname}'
-    print(p_new)
-    if dsccount > 1:
-        # just move dsc folder, not parent and contents
-        p_source = p
-        p_dest = p_new / p.name
-    else:
-        p_source = p_dls
-        p_dest = p_new
-
-    if not p_source == p_dest:
-        # if dest folder doesn't exist, renames source to dest
-        # if dest folder does exist, copies source INTO dest
-        print(f'\nsource: {p_source}')
-        print(f'dest: {p_dest}')
-        shutil.move(str(p_source), str(p_dest))
-
-    print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
-
-def fix_dls(p):
-    unit = p.parts[-1].split(' - ')[0]
-    p_dls = p / 'Downloads'
-    maxdepth = 3
-    lst = recurse_dls(p_search=p_dls, maxdepth=maxdepth)
+def get_dsc(p_unit, maxdepth=3, d_lower=dt(2016,1,1)):
+    # find all dsc folders in top level unit folder / downloads
+    
+    unit = p_unit.name.split(' - ')[0]
+    p_dls = p_unit / 'Downloads'
+    lst = recurse_dsc(p_search=p_dls, maxdepth=maxdepth, d_lower=d_lower)
     return lst
-    # recurse folders in Downloads till we find DSC
-    # get date of dsc
-    # move to Downloads / year
 
-    # find _dsc_
-        # get unit from top level unit folder
-        # parse date from dsc
-            # if no dsc, use date created
-        # one folder up is dls folder
-        # need to rename dls folder UUU - YYYY-MM-DD - Title?
+
     
 def scanfolders(ftype='haul'):
     if ftype == 'haul':
@@ -224,7 +378,7 @@ def scanfolders(ftype='haul'):
         exclude = ['dsc']
     lst1 = unitfolders()
     lst2, files = [], []
-    tslower = date(2017, 1, 1).timestamp()
+    d_lower = dt(2017, 1, 1).timestamp()
 
     # write list of files to txt file on desktop
     # p = Path().home() / f'OneDrive/Desktop/{ftype}.txt'
@@ -240,7 +394,7 @@ def scanfolders(ftype='haul'):
     # only return if folder contains csv files?
     for p in lst2:
         unit = p.parts[4].split(' - ')[0]
-        files.extend(recursefolders(p, exclude, tslower=tslower, ftype=ftype))
+        files.extend(recurse_folders(p, exclude, d_lower=d_lower, ftype=ftype))
         print(f'Unit: {unit}, files: {len(files)}')
     
     return files
@@ -268,10 +422,10 @@ def gethaulcycles():
     folders.append(Path('P:/Fort Hills/02. Equipment Files/1. 980E Trucks/F301 - A40017/Events'))
 
     exclude = ['dsc', 'chk', 'CHK', 'Pictures']
-    tslower = date(2019, 9, 1).timestamp()
+    d_lower = dt(2019, 9, 1).timestamp()
     
     for p in folders:
-        files.extend(recursefolders(p, exclude, tslower))
+        files.extend(recurse_folders(p, exclude, d_lower))
     
     return files
 
