@@ -19,7 +19,7 @@ m = dict(azure_env=azure_env,
 if not (sys_frozen or 'linux' in sys.platform):
     # when not running from packaged app, import all libraries for easy access in interactive terminal
     import json
-    from datetime import (datetime as date, timedelta as delta)
+    from datetime import (datetime as dt, timedelta as delta)
     from pathlib import Path
     from time import time
     from timeit import Timer

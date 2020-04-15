@@ -1,6 +1,6 @@
 import operator
 import sys
-from datetime import (datetime as date, timedelta as delta)
+from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 
 import pandas as pd
@@ -126,7 +126,7 @@ def get_df(title=None, fltr=None, defaults=False):
     q = None
 
     # defaults
-    startdate = date(2020,3,28)
+    startdate = dt(2020,3,28)
     if defaults and a.get_table_name() == 'EventLog':
         fltr.add(field='DateAdded', val=startdate)
         fltr.add(field='MineSite', val='FortHills')

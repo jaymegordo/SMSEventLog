@@ -1,5 +1,5 @@
 import sys
-from datetime import (datetime as date, timedelta as delta)
+from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 from dateutil.relativedelta import *
 
@@ -73,7 +73,7 @@ def df_unit_hrs_monthly(month):
     minesite = 'FortHills'
 
     # convert month (int) to first day of month and next month
-    dtlower = date(date.now().year, month, 1)
+    dtlower = dt(dt.now().year, month, 1)
     dates = []
     dates.append(dtlower)
     dates.append(dtlower + relativedelta(months=1))

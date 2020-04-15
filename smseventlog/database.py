@@ -1,7 +1,7 @@
 import json
 import sys
 import logging
-from datetime import (datetime as date, timedelta as delta)
+from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 from urllib import parse
 
@@ -185,7 +185,7 @@ class DB(object):
         finally:
             cursor.close()
         
-        return date.combine(val, date.min.time())
+        return dt.combine(val, dt.min.time())
         
 
 print('{}: loading db'.format(__name__))

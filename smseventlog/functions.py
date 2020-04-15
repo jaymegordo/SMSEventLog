@@ -3,7 +3,7 @@ import base64
 import json
 import os
 import sys
-from datetime import (datetime as date, timedelta as delta)
+from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 
 import pandas as pd

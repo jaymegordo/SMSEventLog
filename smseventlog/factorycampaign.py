@@ -1,7 +1,7 @@
 import sys
 
 from collections import defaultdict as dd
-from datetime import (datetime as date, timedelta as delta)
+from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 from timeit import default_timer as timer
 
@@ -11,8 +11,8 @@ from bs4 import BeautifulSoup
 
 from . import (
     functions as f,
-    gui as ui
-)
+    gui as ui,
+    reports as rp)
 from .database import db
 
 # from timeit import Timer
@@ -74,10 +74,11 @@ def importFC(upload=True, df=None):
                 msg += '\n\nFC Summary: \n\tRows added: {} \n\n\t'.format(rows['INSERT'])
                 df2 = f.cursor_to_df(cursor)
                 if len(df2) > 0:
-                    msg += f.left_justified(df2).replace('\n', '\n\t')
+                    msg += rp.left_justified(df2).replace('\n', '\n\t')
             
             cursor.commit()
-
+        except:
+            ui.msg_simple(msg='Couldn\'t import FCs!', icon='critical')
         finally:
             cursor.close()
             conn.close()

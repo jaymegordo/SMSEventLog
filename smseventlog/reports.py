@@ -1,5 +1,5 @@
 import functools
-from datetime import datetime as date
+from datetime import datetime as dt
 from datetime import timedelta as delta
 from pathlib import Path
 
@@ -26,7 +26,7 @@ def format_dtype(df, formats):
     # match formats to df.dtypes
     # formats = {'int64': '{:,}'}
     # df.dtypes = {'Unit': dtype('O'),
-                # datetime.date(2020, 3, 1): dtype('int64'),
+                # datetime.dt(2020, 3, 1): dtype('int64'),
     m = {}
     for key, fmt in formats.items():
         m.update({col: fmt for col, val in df.dtypes.to_dict().items() if val==key})
@@ -59,7 +59,7 @@ def report_unit_hrs_monthly(month):
     env = Environment(loader=FileSystemLoader(str(p_reports)))
     template = env.get_template('report_template.html')
 
-    dt = date(date.now().year, month, 1)
+    d = dt(dt.now().year, month, 1)
     title = 'Fort Hills Monthly SMR - {}'.format(dt.strftime('%Y-%m'))
     df = un.df_unit_hrs_monthly(month=month)
 

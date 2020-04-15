@@ -30,6 +30,7 @@ discord = "*"
 azure-functions = "*"
 pyinstaller = {file = "https://github.com/pyinstaller/pyinstaller/archive/develop.tar.gz"}
 openpyxl = "*"
+hurry.filesize = "*"
 
 [requires]
 python_version = "3.8"

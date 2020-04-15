@@ -1,5 +1,5 @@
 
-from datetime import (datetime as date, timedelta as delta)
+from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 
 import exchangelib as ex

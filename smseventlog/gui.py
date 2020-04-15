@@ -3,7 +3,7 @@ start = timer()
 
 import sys
 import time
-from datetime import (datetime as date, timedelta as delta)
+from datetime import (datetime as dt, timedelta as delta)
 
 import pandas as pd
 import qdarkstyle
@@ -330,16 +330,18 @@ def msgbox(msg='', yesno=False, statusmsg=None):
     dlg = MsgBox_Advanced(msg=msg, title=title, yesno=yesno, statusmsg=statusmsg)
     return dlg.exec_()
 
-def msg_simple(msg='', icon=None, infotext=None):
+def msg_simple(msg='', icon='', infotext=None):
     app = get_qt_app()
     dlg = QMessageBox()
     dlg.setText(msg)
     dlg.setWindowTitle(title)
     # dlg.setStyleSheet(minsize_ss)
+
+    icon = icon.lower()
     
-    if icon == 'Critical':
+    if icon == 'critical':
         dlg.setIcon(QMessageBox.Critical)
-    elif icon == 'Warning':
+    elif icon == 'warning':
         dlg.setIcon(QMessageBox.Warning)
 
     if infotext: dlg.setInformativeText(infotext)
@@ -574,12 +576,12 @@ class DateColumnDelegate(QStyledItemDelegate):
 
         if pd.isnull(val):
             # val = QDateTime.currentDateTime().toPyDateTime()
-            val = date.now().date()
+            val = dt.now().dt()
 
         editor.setDate(val)
 
     def setModelData(self, editor, model, index):
-        dt = QDateTime(editor.date()).toPyDateTime()
+        d = QDateTime(editor.dt()).toPyDateTime()
         model.setData(index, dt)
 
     def commitAndCloseEditor(self):
