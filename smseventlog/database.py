@@ -109,6 +109,12 @@ class DB(object):
         
         return df.Unit.loc[df.Serial == serial].values[0]
     
+    def get_unit_val(self, unit, field):
+        self.set_df_unit()
+        dfu = self.df_unit
+
+        return dfu.loc[unit, field]
+
     def get_df_unit(self, minesite=None):
         if self.df_unit is None:
             self.set_df_unit(minesite=minesite)
@@ -123,7 +129,7 @@ class DB(object):
         if not minesite is None:
             q = q.where(a.MineSite == minesite)
             
-        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine())
+        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine()).set_index('Unit', drop=False)
 
     def get_df_fc(self, minesite=None):
         if self.df_fc is None:

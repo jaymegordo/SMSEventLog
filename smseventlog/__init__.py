@@ -35,10 +35,11 @@ if not (sys_frozen or 'linux' in sys.platform):
         factorycampaign as fc,
         folders as fl,
         functions as f,
-        gui as ui,
         emails as em,
         availability as av,
         units as un,
         reports as rp)
+    from .gui import gui as ui    
+    from .gui import dialogs as dlgs
     from .dbmodel import *
     from .database import db

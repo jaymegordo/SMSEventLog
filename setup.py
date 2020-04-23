@@ -50,12 +50,19 @@ requires = [
     'xlrd>=1.2.0',
     'xlwings>=0.18.0']
 
+package_data = {'smseventlog': [
+    'data/images/*',
+    'data/apikeys/*',
+    'data/config.yaml',
+    'data/email.yaml',
+    'data/db_secret.txt']}
+
 setup(
     name='smseventlog', 
     version=VERSION,
     packages=find_packages(),
     install_requires=requires,
-    package_data={'smseventlog': ['data/images/*', 'data/config.yaml', 'data/db_secret.txt']}, 
+    package_data=package_data, 
     author='Jayme Gordon',
     author_email='',
     description='SMS Event Log',

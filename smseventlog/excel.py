@@ -103,7 +103,7 @@ def book():
 # TABLE - class to bridge excel listobjects, dataframes, and xlwings ranges
 class TableExcel():
     def __init__(self, ws=None, lsto=None, df=None):
-        self.win = sys.platform.startswith('win')
+        self.win = f.is_win()
         if not df is None: self.df = df
 
         if not ws is None and lsto is None:
@@ -192,7 +192,7 @@ class TableExcel():
         if rng[0].value is None: rng[0].value = ' '
 
 def enable_events(app, val=None):
-    if sys.platform.startswith('win'):
+    if f.is_win():
         if not val is None:
             app.api.enableevents = val
         else:

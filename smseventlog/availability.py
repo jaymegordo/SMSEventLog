@@ -61,3 +61,8 @@ def parse_date(shiftdate, timedelta):
     
     return shiftdate + timedelta
 
+def ahs_pa_monthly():
+
+    df = pd.read_sql_table(table_name='viewPAMonthly', con=db.get_engine())
+    df = df.pivot(index='Unit', columns='MonthStart', values='Sum_DT')
+    return df

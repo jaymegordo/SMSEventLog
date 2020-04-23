@@ -23,9 +23,9 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtWidgets import QApplication, QTableView
 import sys
 from functools import partial
-import sip
-sip.setapi('QString', 2)
-sip.setapi('QVariant', 2)
+# import sip
+# sip.setapi('QString', 2)
+# sip.setapi('QVariant', 2)
 
 def launch(df):
     root = QApplication(sys.argv)

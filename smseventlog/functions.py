@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 import six
 import yaml
+import sqlalchemy as sa
 
 try:
     from IPython.display import display
@@ -25,9 +26,9 @@ if getattr(sys, 'frozen', False):
 datafolder = topfolder / 'data'
 
 if sys.platform.startswith('win'):
-    drive = 'P:/'
+    drive = Path('P:')
 else:
-    drive = '/Volumes/Public/'
+    drive = Path('/Volumes/Public')
     
 def setconfig():
     p = Path(datafolder / 'config.yaml')
@@ -36,6 +37,7 @@ def setconfig():
     
     return m
 
+# DICT & CONVERSIONS
 def inverse(m):
     return {v: k for k, v in m.items()}
 
@@ -46,9 +48,15 @@ def convert_dict_db_view(title, m):
     return {view:m[db] for view, db in zip(viewcols, dbcols) if view is not None}
 
 def convert_list_db_view(title, cols):
-    # convert list of db cols to view cols, remove cols not in the view
-    m = defaultdict(type(None), inverse(config['Headers'][title]))        
-    return [m[c] for c in cols]
+    # convert list of db cols to view cols, remove cols not in the view?
+    # m = defaultdict(type(None), inverse(config['Headers'][title]))
+    m = inverse(config['Headers'][title])
+    return [m[c] if c in m.keys() else c for c in cols]
+
+def convert_list_view_db(title, cols):
+    # convert list of view cols to db cols
+    m = config['Headers'][title]
+    return [m[c] if c in m.keys() else c for c in cols]
 
 def get_default_headers(title):
     return list(config['Headers'][title].keys())
@@ -58,6 +66,27 @@ def convert_header(title, header):
         return config['Headers'][title][header]
     except:
         return header
+
+def model_dict(model, include_none=False):
+    # create dict from table model
+    m = {a.key:getattr(model, a.key) for a in sa.inspect(model).mapper.column_attrs}
+    if not include_none:
+        m = {k:v for k,v in m.items() if v is not None}
+    
+    return m
+
+def copy_model_attrs(model, target):
+    m = model_dict(model=model, include_none=True)
+    copy_dict_attrs(m=m, target=target)
+
+def copy_dict_attrs(m, target):
+    for k, v in m.items():
+        setattr(target, k.lower(), v)
+
+def pretty_dict(m):
+    return str(m).replace('{', '').replace('}', '').replace(', ', '\n').replace("'", '')
+
+
 
 def is_win():
     ans = True if sys.platform.startswith('win') else False
@@ -80,7 +109,29 @@ def cursor_to_df(cursor):
     return pd.DataFrame(data=data, columns=cols)
 
 
+# PANDAS
+def multiIndex_pivot(df, index=None, columns=None, values=None):
+    # https://github.com/pandas-dev/pandas/issues/23955
+    output_df = df.copy(deep=True)
+
+    if index is None:
+        names = list(output_df.index.names)
+        output_df = output_df.reset_index()
+    else:
+        names = index
+
+    output_df = output_df.assign(tuples_index=[tuple(i) for i in output_df[names].values])
+
+    if isinstance(columns, list):
+        output_df = output_df.assign(tuples_columns=[tuple(i) for i in output_df[columns].values])  # hashable
+        output_df = output_df.pivot(index='tuples_index', columns='tuples_columns', values=values) 
+        output_df.columns = pd.MultiIndex.from_tuples(output_df.columns, names=columns)  # reduced
+    else:
+        output_df = output_df.pivot(index='tuples_index', columns=columns, values=values)
+         
+    output_df.index = pd.MultiIndex.from_tuples(output_df.index, names=names)
     
+    return output_df
 
 # simple obfuscation for db connection string
 def encode(key, string):

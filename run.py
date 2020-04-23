@@ -5,7 +5,7 @@ from pathlib import Path
 
 print('run.py starting')
 
-import smseventlog.gui as ui
+import smseventlog.gui.gui as ui
 
 # Main control function
 if __name__ == '__main__':

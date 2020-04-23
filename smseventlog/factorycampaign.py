@@ -11,24 +11,24 @@ from bs4 import BeautifulSoup
 
 from . import (
     functions as f,
-    gui as ui,
     reports as rp)
 from .database import db
+from .gui import dialogs as dlgs
 
-# from timeit import Timer
-	# t = Timer(lambda: fldr.readsingle(p))
-	# print(t.timeit(number=10))
 
 def tblcount(tbl):
     cursor = db.get_cursor()
     sql = f'Select count(*) From {tbl}'
     return cursor.execute(sql).fetchval()
 
+# TODO: create FC folder on import
+
 def importFC(upload=True, df=None):
     # load all 'xls' files from import folder to df
-    if sys.platform.startswith('win'):
+    if f.is_win():
         p = Path(f.drive + f.config['FilePaths']['Import FC'])
     else:
+        # TODO: this obvs needs to change
         p = Path('/Users/Jayme/OneDrive/Desktop/Import/Factory Campaign')
         
     lst = [f for f in p.glob('*.xls')]
@@ -37,11 +37,11 @@ def importFC(upload=True, df=None):
         msg = ('Found file(s): \n\t' + 
             '\n'.join([p.name for p in lst]) +
             '\n\nWould you like to import?')
-        if not ui.msgbox(msg=msg, yesno=True):
+        if not dlgs.msgbox(msg=msg, yesno=True):
             return
     else:
-        msg = 'No files founnd in import folder: \n\n{}'.format(str(p))
-        ui.msg_simple(msg=msg, icon='Warning')
+        msg = f'No files founnd in import folder: \n\n{p}'
+        dlgs.msg_simple(msg=msg, icon='Warning')
         return
     
     start = timer()
@@ -50,6 +50,8 @@ def importFC(upload=True, df=None):
 
     print('Loaded ({}) FCs from {} file(s) in: {}s' \
         .format(len(df), len(lst), f.deltasec(start, timer())))
+    
+    print(f'upload: {upload}')
 
     # import to temp staging table in db, then merge new rows to FactoryCampaign
     if upload:
@@ -78,17 +80,17 @@ def importFC(upload=True, df=None):
             
             cursor.commit()
         except:
-            ui.msg_simple(msg='Couldn\'t import FCs!', icon='critical')
+            dlgs.msg_simple(msg='Couldn\'t import FCs!', icon='critical')
         finally:
             cursor.close()
             conn.close()
 
         statusmsg = 'Elapsed time: {}s'.format(f.deltasec(start, timer()))
         msg += '\n\nWould you like to delete files?'
-        if ui.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
+        if dlgs.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
             for p in lst: p.unlink()
 
-    return df
+    # return df
 
 
 def read_fc(p):
@@ -97,7 +99,7 @@ def read_fc(p):
     # TODO: Drop CompletionDate > changed to DateCompleteKA, Drop ClaimNumber
 
     with open(p) as html:
-        table = BeautifulSoup(html).findAll('table')[2] # FC data is in 3rd table
+        table = BeautifulSoup(html, features='lxml').findAll('table')[2] # FC data is in 3rd table
 
     cols = [hdr.text for hdr in table.find('thead').find_all('th')]
     data = [[col.text for col in row.findAll('td')] for row in table.findAll('tr')[1:]]

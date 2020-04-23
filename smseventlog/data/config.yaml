@@ -39,7 +39,7 @@ TableName:
   TSI: EventLog
   Component CO: EventLog
   Unit Info: UnitID
-  FC Summary: FCSummary #maybe?
+  FC Summary: viewFactoryCampaign #maybe?
   FC Details: FactoryCampaign
 
 # Table header conversion
@@ -79,7 +79,6 @@ Headers:
     Added By: CreatedBy
     Comments: WOComments
     Comp CO: ComponentCO
-    DLS: Downloads
     Pics: Pictures
 
   # Columns only used for default headers, not actual query

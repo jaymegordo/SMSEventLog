@@ -1,6 +1,6 @@
 
 ## Developer Guide
-
+v
 ### Software
 
 * [VS Code](https://code.visualstudio.com/download) 
@@ -60,3 +60,6 @@
     * cleanup all leftover folders: `python setup.py clean --all`
 * Azure Functions
     * 
+
+* Pyinstaller
+    * `pyinstaller smseventlog.spec --noconfirm`

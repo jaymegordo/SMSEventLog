@@ -44,7 +44,7 @@ def process_df(df):
 
 def import_unit_hrs(p=None):
     if p is None:
-        if sys.platform.startswith('win'):
+        if f.is_win():
             p = Path(f.drive + f.config['FilePaths']['Import Unit Hours'])
         else:
             p = Path('/Users/Jayme/OneDrive/Desktop/Import/Unit Hours')
