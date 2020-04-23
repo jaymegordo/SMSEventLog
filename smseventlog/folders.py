@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import logging
 import os
 import sys
 import shutil
@@ -15,7 +16,127 @@ from hurry.filesize import size
 from . import (
     functions as f)
 from .database import db
+from .gui import dialogs as dlgs
 
+log = logging.getLogger(__name__)
+
+class EventFolder(object):
+    def __init__(self, e):
+        self.dt_format = '%Y-%m-%d'
+
+        f.copy_model_attrs(model=e, target=self)
+
+        # get unit's row from unit table, save to self attributes
+        m = db.get_df_unit().loc[self.unit]
+        f.copy_dict_attrs(m=m, target=self)
+
+        self.set_modelpath() # just needs model and minesite
+        self.year = self.dateadded.year
+
+        wo_blank = 'WO' + ' ' * 14
+        if not self.workorder:
+            self.workorder = wo_blank
+
+        # confirm unit, date, title exist?
+        self.folder_title = self.get_folder_title(self.unit, self.dateadded, self.workorder, self.title)
+
+        unitpath = f'{self.unit} - {self.serial}'
+
+        # TODO: need to get basepaths from db based on minesite
+            # create FilePaths table in db
+            # FortHills - 'Fort Hills/ 02. Equipment Files'
+        self.p_base = f.drive / f'{self.get_basepath()}/{self.modelpath}/{unitpath}/events/{self.year}'
+        self.p_event = self.p_base / self.folder_title
+        self.p_event_blank = self.p_base / self.get_folder_title(self.unit, self.dateadded, wo_blank, self.title)
+
+    def get_basepath(self):
+        return f'Fort Hills/02. Equipment Files'
+
+    def get_folder_title(self, unit, d, wo, title):
+        d_str = d.strftime(self.dt_format)
+        return f'{unit} - {d_str} - {wo} - {title}'
+
+    def show(self):
+        if not self.check_drive():
+            return
+            
+        p = self.p_event
+        p_blank = self.p_event_blank
+
+        if not p.exists():
+            if p_blank.exists():
+                # if wo_blank stills exists but event now has a WO, automatically rename
+                copy_folder(p_src=p_blank, p_dst=p)
+            else:
+                # show folder picker dialog
+                msg = f'Can\'t find folder:\n\'{p.name}\'\n\nWould you like to link it?'
+                if dlgs.msgbox(msg=msg, yesno=True):
+                    p_old = dlgs.get_filepath_from_dialog(p_start=p.parent)
+                    
+                    # if user selected a folder
+                    if p_old:
+                        copy_folder(p_src=p_old, p_dst=p)
+                    
+                if not p.exists():
+                    # if user declined to create OR failed to chose a folder, ask to create
+                    msg = f'Folder:\n\'{p.name}\' \n\ndoesn\'t exist, create now?'
+                    if dlgs.msgbox(msg=msg, yesno=True):
+                        self.create_folder()
+        
+        if p.exists():
+            open_folder(p=p)
+    
+    def create_folder(self, show=True):
+        if not self.check_drive():
+            return
+            
+        try:
+            p = self.p_event
+            p_pics = p / 'Pictures'
+            p_dls = p / 'Downloads'
+
+            if not p.exists():
+                p_pics.mkdir(parents=True)
+                p_dls.mkdir(parents=True)
+
+                if show: self.show()
+        except:
+            msg = 'Can\'t create folder!'
+            dlgs.msg_simple(msg=msg, icon='critical')
+            log.error(msg)
+
+    def check_drive(self):
+        if f.drive.exists():
+            return True
+        else:
+            msg = 'Cannot connect to network drive. \
+                \n\nCheck: \n\t1. VPN is connected\n\t2. Drive is activated \
+                \n\n(To activate drive, open any folder on the drive).'
+            dlgs.msg_simple(msg=msg, icon='warning')
+            return False
+
+    def set_modelpath(self):
+        model = self.model
+        minesite = self.minesite
+
+        # TODO: this is messy, need a better way to map vals
+        if '930' in model:
+            if minesite == 'BaseMine':
+                v = '1. 930E'
+            elif minesite == 'FortHills':
+                v = '2. 930E Trucks'
+        elif '980' in model:
+            if minesite == 'BaseMine':
+                v = '2. 980E'
+            elif minesite == 'FortHills':
+                v = '1. 980E Trucks'
+        elif 'HD1500' in model:
+            v = '3. HD1500'
+        else:
+            v = 'temp'
+            
+        self.modelpath = v
+        
 
 def import_haul(files):
     units = [f'F{n}' for n in range(300, 348)]
@@ -76,7 +197,7 @@ def read_fault(p):
         
         return df
     except:
-        print(f'Failed: {str(p)}')
+        print(f'Failed: {p}')
         return pd.DataFrame(columns=newcols)
 
 def read_haul(p):
@@ -102,7 +223,7 @@ def read_haul(p):
         df.carryback = df.carryback.str.replace(' ', '').astype(float)    
         return df
     except:
-        print(f'Failed: {str(p)}')
+        print(f'Failed: {p}')
         write_import_fail(p)
         return pd.DataFrame(columns=newcols)
 
@@ -115,15 +236,6 @@ def toSeconds(t):
     x = time.strptime(t, '%H:%M:%S')
     return int(delta(hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec).total_seconds())
 
-def unit_from_path(p):
-    parentname = '1. 980E Trucks'
-
-    for i, val in enumerate(p.parts):
-        if val == parentname:
-            return p.parts[i + 1].split(' - ')[0]
-    
-    return None
-
 
 # STATS csv
 def stats_from_dsc(p):
@@ -132,13 +244,13 @@ def stats_from_dsc(p):
         return list(Path(p/'stats').glob('SERIAL*csv'))[0]
     except:
         return None
-        print(f'Couldn\'t read stats: {str(p)}')
+        print(f'Couldn\'t read stats: {p}')
 
 def import_stats(lst=None):
     # use list of most recent dsc and combine into dataframe
 
     if lst is None:
-        lst = get_recent_dsc(d_lower=dt(2020,1,1))
+        lst = get_recent_dsc_all(d_lower=dt(2020,1,1))
 
     df = pd.concat([get_stats(stats_from_dsc(p)) for p in lst])
 
@@ -174,15 +286,30 @@ def get_stats(p):
         df = df[list(OrderedDict.fromkeys(m.values()))] # reorder, keeping original
         df.Timestamp = pd.to_datetime(df.Timestamp)
     except:
-        print(f'Error getting stats: {str(p)}')
+        print(f'Error getting stats: {p}')
         df = pd.DataFrame()
 
     return df
 
 # FOLDERS
 def unitfolders():
-    p = Path(f.drive + f.config['FilePaths']['980E FH'])
+    p = f.drive / f.config['FilePaths']['980E FH']
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
+
+def unitpath_from_unit(unit, unitpaths=None):
+    if unitpaths is None:
+        unitpaths = unitfolders()
+
+    return list(filter(lambda x: unit in str(x), unitpaths))[0]
+
+def unit_from_path(p):
+    parentname = '1. 980E Trucks'
+
+    for i, val in enumerate(p.parts):
+        if val == parentname:
+            return p.parts[i + 1].split(' - ')[0]
+    
+    return None
 
 def recurse_folders(searchfolder, exclude, d_lower=dt(2016, 1, 1), ftype='haul'):
     lst = []
@@ -215,7 +342,7 @@ def check_parents(p, depth, names):
 def date_created(p):
     # get date from folder date created (platform dependent)
     st = p.stat()
-    ts = st.st_ctime if sys.platform.startswith('win') else st.st_birthtime
+    ts = st.st_ctime if f.is_win() else st.st_birthtime
     
     return dt.fromtimestamp(ts)
 
@@ -223,11 +350,9 @@ def date_modified(p):
     return dt.fromtimestamp(p.stat().st_mtime)
 
 def copy_folder(p_src, p_dst):
-    # copy folder or file
+    # copy folder or file (more like a move/rename)
     try:
         if p_src.exists() and not p_src == p_dst:
-            print(f'\nsource: {p_src}')
-            print(f'dest: {p_dst}')
             src, dst = str(p_src), str(p_dst)
 
             # if dest folder already exists, need to copy then remove
@@ -242,12 +367,13 @@ def copy_folder(p_src, p_dst):
 def zip_folder(p, delete=False, calculate_size=False, p_new=None):
     # zips target folder in place, optional delete original
     
-    # zip folder into a new target dir    
+    # zip folder into a new target dir
+    # if p_new is none, just zip in place
     p_dst = p if p_new is None else p_new
 
     try:
         if p.exists():
-            p_new = shutil.make_archive(
+            p_zip = shutil.make_archive(
                 base_name=str(p_dst),
                 base_dir=str(p.name),
                 root_dir=str(p.parent),
@@ -263,10 +389,14 @@ def zip_folder(p, delete=False, calculate_size=False, p_new=None):
             if delete:
                 shutil.rmtree(p)
     except:
-        print(f'Error zipping folder: {str(p)}')
+        print(f'Error zipping folder: {p}')
     
-    return Path(p_new)
+    return Path(p_zip)
 
+def remove_files(lst):
+    for p in lst:
+        if p.exists():
+            p.unlink()
 
 # DSC
 def date_from_dsc(p):
@@ -280,19 +410,28 @@ def date_from_dsc(p):
     
     return d
 
-def get_recent_dsc(d_lower=dt(2020,1,1)):
+def get_recent_dsc_single(p_unit=None, d_lower=dt(2020,1,1), unit=None):
     # return list of most recent dsc folder from each unit
     # pass in d_lower to limit search
+    lst = []
+    if p_unit is None:
+        p_unit = unitpath_from_unit(unit=unit)
+
+    p_dls = p_unit / 'Downloads'
+    lst_unit = recurse_dsc(p_search=p_dls, maxdepth=3, d_lower=d_lower)
+    
+    if lst_unit:
+        lst_unit.sort(key=lambda p: date_from_dsc(p), reverse=True)
+        lst.append(lst_unit[0])
+    
+    return lst
+
+def get_recent_dsc_all(d_lower=dt(2020,1,1)):
     p_units = unitfolders()
     lst = []
     
     for p_unit in p_units:
-        p_dls = p_unit / 'Downloads'
-        lst_unit = recurse_dsc(p_search=p_dls, maxdepth=3, d_lower=d_lower)
-        
-        if lst_unit:
-            lst_unit.sort(key=lambda p: date_from_dsc(p), reverse=True)
-            lst.append(lst_unit[0])
+        lst.extend(get_recent_dsc_single(p_unit=p_unit, d_lower=d_lower))
 
     return lst
 
@@ -301,16 +440,12 @@ def fix_dsc(p, p_unit, zip_=False):
     unit = p_unit.name.split(' - ')[0]
 
     p_parent = p.parent
-    print(p)
-    print(p_parent.name)
-
     d = date_from_dsc(p=p)
 
     # rename dls folder: UUU - YYYY-MM-DD - DLS
-    newname = '{} - {} - DLS'.format(unit, dt.strftime('%Y-%m-%d'))
+    newname = '{} - {} - DLS'.format(unit, d.strftime('%Y-%m-%d'))
 
-    p_new = p_unit / f'Downloads/{dt.year}/{newname}'
-    print(p_new)
+    p_new = p_unit / f'Downloads/{d.year}/{newname}'
 
     # need to make sure there is only one _dsc_ folder in path
     # make sure dsc isn't within 2 levels of 'Downloads' fodler
@@ -325,16 +460,18 @@ def fix_dsc(p, p_unit, zip_=False):
         p_dst = p_new
 
     # zip and move datapack, then move anything else remaining in the parent dir
+    print(f'\nsrc: {p_src}\ndest: {p_dst}')
     try:
-        if zip_ and not str(p).endswith('.zip'):
-            p_datapack = p / 'datapack'
+        if zip_ and \
+            not str(p).endswith('.zip') and \
+            not str(p).endswith('.tar'):
+            # p_datapack = p / 'datapack'
 
             p_zip = zip_folder(
-                p=p_datapack,
+                p=p,
                 delete=True,
-                p_new=p_new / p.name / p_datapack.name,
+                p_new=p_new / p.name,
                 calculate_size=False)
-            print(p_zip)
 
         copy_folder(p_src=p_src, p_dst=p_dst)
     except:
@@ -342,7 +479,7 @@ def fix_dsc(p, p_unit, zip_=False):
 
     print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
 
-def recurse_dsc(p_search, depth=0, maxdepth=5, d_lower=None):
+def recurse_dsc(p_search, depth=0, maxdepth=5, d_lower=dt(2020,1,1)):
     # return list of paths containing 'dsc'
     lst = []
 
@@ -367,8 +504,37 @@ def get_dsc(p_unit, maxdepth=3, d_lower=dt(2016,1,1)):
     lst = recurse_dsc(p_search=p_dls, maxdepth=maxdepth, d_lower=d_lower)
     return lst
 
+def fix_dls(unit=None, d_lower=dt(2020,1,1), p_unit=None, maxdepth=3):
+    if p_unit is None:
+        p_unit = unitpath_from_unit(unit)
 
+    lst = get_dsc(p_unit=p_unit, d_lower=d_lower, maxdepth=maxdepth)
+
+    unit = unit_from_path(p=p_unit)
+    print(f'\n\nStarting unit: {unit}\ndsc folders found: {len(lst)}')
+
+    for p in lst:
+        fix_dsc(p=p, p_unit=p_unit, zip_=True)
+
+def fix_dls_all_units(d_lower=dt(2020,1,1)):
+    unitpaths = unitfolders()
     
+    for p_unit in unitpaths:
+        fix_dls(p_unit=p_unit, d_lower=d_lower)
+
+def zip_recent_dls(units, d_lower=dt(2020,1,1)):
+    # get most recent dsc from list of units and zip parent folder for attaching to TSI
+    if not isinstance(units, list): units = [units]
+    lst = []
+    for unit in units:
+        lst.extend(get_recent_dsc_single(unit=unit, d_lower=d_lower))
+        
+    lst_zip = [zip_folder(p=p.parent, delete=False, calculate_size=True) for p in lst]
+
+    return lst_zip
+
+
+
 def scanfolders(ftype='haul'):
     if ftype == 'haul':
         folders = ['Downloads']
@@ -411,8 +577,14 @@ def write_import_fail(p):
 
 
 # OTHER
-def openfolder(p):
-    subprocess.Popen(f'explorer {p}')
+def open_folder(p):
+    platform = sys.platform
+    if platform.startswith('win'):
+        os.startfile(p)
+    elif platform.startswith('dar'):
+        subprocess.Popen(['open', p])
+    else:
+        subprocess.Popen(['xdg-open', p])
 
 # ARCHIVE
 def gethaulcycles():
