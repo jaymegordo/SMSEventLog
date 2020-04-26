@@ -6,8 +6,6 @@ verify_ssl = true
 [dev-packages]
 ipykernel = "*"
 jupyter = "*"
-twine = "*"
-setupext-janitor = "*"
 sqlacodegen = "*"
 fbs = "*"
 xlwings = "*"
@@ -21,7 +19,6 @@ pypika = "*"
 pyyaml = "*"
 sqlalchemy = "*"
 pyodbc = "==4.0.28"
-pyqt5 = "*"
 xlrd = "*"
 bs4 = "*"
 qdarkstyle = "*"
@@ -30,8 +27,8 @@ discord = "*"
 azure-functions = "*"
 pyinstaller = {file = "https://github.com/pyinstaller/pyinstaller/archive/develop.tar.gz"}
 openpyxl = "*"
-pyobjc = "*"
 hurry = {filesize = "*"}
+pyqt5 = "*"
 
 [requires]
 python_version = "3.8"

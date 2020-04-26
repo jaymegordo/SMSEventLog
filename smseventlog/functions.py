@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 import base64
 import json
@@ -5,6 +6,7 @@ import os
 import sys
 from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
+import traceback
 
 import pandas as pd
 import six
@@ -15,6 +17,8 @@ try:
     from IPython.display import display
 except ModuleNotFoundError:
     pass
+
+log = logging.getLogger(__name__)
 
 global drive, config, topfolder, azure_env, datafolder
 
@@ -133,6 +137,13 @@ def multiIndex_pivot(df, index=None, columns=None, values=None):
     
     return output_df
 
+def sort_df_by_list(df, lst=[]):
+    sorterIndex = dict(zip(lst,range(len(lst))))
+    df['sort'] = df['Type'].map(sorterIndex)
+    df.sort_values(['sort'], ascending=[True], inplace=True)
+    df.drop(columns=['sort'], inplace=True)
+    return df
+
 # simple obfuscation for db connection string
 def encode(key, string):
     encoded_chars = []
@@ -157,7 +168,7 @@ def decode(key, string):
 
 def check_db():
     # Check if db.yaml exists, if not > decrypt db_secret and create it
-    from . import gui as ui
+    # from .gui import gui as ui
     p = Path(datafolder) / 'db.yaml'
     if p.exists():
         return True
@@ -177,7 +188,8 @@ def check_db():
                 m2 = json.loads(secret_decrypted)
 
             except:
-                ui.msg_simple(msg='Incorrect password!', icon='Critical')
+                log.error('incorrect password!')
+                # ui.msg_simple(msg='Incorrect password!', icon='Critical')
                 return
 
             with open(p, 'w+') as file:
@@ -217,8 +229,8 @@ def discord(msg, channel='orders'):
     for msg in out:
         webhook.send(msg)
 
-def senderror(msg='', prnt=False):
-    import traceback
+def send_error(msg='', prnt=False):
+    
     err = traceback.format_exc().replace('Traceback (most recent call last):\n', '')
 
     if not msg == '':

@@ -1,9 +1,7 @@
 
+from . import tables as tbls
 from .__init__ import *
-
-from . import (
-    tables as tbls,
-    dialogs as dlgs)
+from . import dialogs as dlgs
 
 log = logging.getLogger(__name__)
 
@@ -34,18 +32,18 @@ minesite, customer = 'FortHills', 'Suncor'
 
 
 
-def disable_window_animations_mac(window):
-    # We need to access `.winId()` below. This method has an unwanted (and not
-    # very well-documented) side effect: Calling it before the window is shown
-    # makes Qt turn the window into a "native window". This incurs performance
-    # penalties and leads to subtle changes in behaviour. We therefore wait for
-    # the Show event:
-    def eventFilter(target, event):
-        from objc import objc_object
-        view = objc_object(c_void_p=int(target.winId()))
-        NSWindowAnimationBehaviorNone = 2
-        view.window().setAnimationBehavior_(NSWindowAnimationBehaviorNone)
-    FilterEventOnce(window, QEvent.Show, eventFilter)
+# def disable_window_animations_mac(window):
+#     # We need to access `.winId()` below. This method has an unwanted (and not
+#     # very well-documented) side effect: Calling it before the window is shown
+#     # makes Qt turn the window into a "native window". This incurs performance
+#     # penalties and leads to subtle changes in behaviour. We therefore wait for
+#     # the Show event:
+#     def eventFilter(target, event):
+#         from objc import objc_object
+#         view = objc_object(c_void_p=int(target.winId()))
+#         NSWindowAnimationBehaviorNone = 2
+#         view.window().setAnimationBehavior_(NSWindowAnimationBehaviorNone)
+#     FilterEventOnce(window, QEvent.Show, eventFilter)
 
 class FilterEventOnce(QObject):
     def __init__(self, parent, event_type, callback):
@@ -88,22 +86,22 @@ class Table(QAbstractTableModel):
 
     def insertRows(self, m, parent=None):
         rows = self.rowCount()
-        self.beginInsertRows(QtCore.QModelIndex(), rows, rows) # parent, first, last
+        self.beginInsertRows(QModelIndex(), rows, rows) # parent, first, last
         self.df = self.df.append(m, ignore_index=True)
         self.endInsertRows()
 
     def removeRows(self, i, parent=None):
-        self.beginRemoveRows(QtCore.QModelIndex(), i, i) # parent, row, count?
+        self.beginRemoveRows(QModelIndex(), i, i) # parent, row, count?
         df = self.df
         self.df = df.drop(df.index[i]).reset_index(drop=True)
         self.endInsertRows()
 
         # return super().removeRows(self, int, parent=parent)
 
-    def rowCount(self, index=QtCore.QModelIndex()):
+    def rowCount(self, index=QModelIndex()):
         return self.df.shape[0]
 
-    def columnCount(self, index=QtCore.QModelIndex()):
+    def columnCount(self, index=QModelIndex()):
         return self.df.shape[1]
 
     def data(self, index, role=Qt.DisplayRole):
@@ -199,7 +197,6 @@ class Table(QAbstractTableModel):
             ans |= Qt.ItemIsEditable
         
         return ans
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -371,7 +368,6 @@ class MainWindow(QMainWindow):
             # table.model.removeRow(row.i)
 
 
-
 class MainWidget(QWidget):
     def __init__(self, parent):
         super(QWidget, self).__init__(parent)
@@ -379,11 +375,11 @@ class MainWidget(QWidget):
         
         # Initialize tab screen
         tabs = QTabWidget()
-        lst = ['Event Log', 'Work Orders', 'Component CO', 'TSI', 'Unit Info', 'FC Summary']
+        lst = ['Event Log', 'Work Orders', 'Component CO', 'TSI', 'Unit Info', 'FC Summary', 'FC Details']
 
         # Add tabs to widget
         for title in lst:
-            tabs.addTab(getattr(tbls, title.replace(' ',''))(parent=self, title=title), title)
+            tabs.addTab(getattr(tbls, title.replace(' ',''))(parent=self), title)
 
         self.layout.addWidget(tabs)
         self.tabs = tabs
@@ -393,7 +389,7 @@ def launch():
     app = get_qt_app()
     app.setStyle('Fusion')
     w = MainWindow()
-    disable_window_animations_mac(w)
+    # disable_window_animations_mac(w)
 
     # monitor_num = 1 if f.is_win() else 0
 
@@ -422,9 +418,3 @@ def get_mainwindow():
         if isinstance(widget, QMainWindow):
             return widget
     return None
-
-def show_item(name):
-    # show message dialog by name eg ui.show_item('InputUserName')
-    app = get_qt_app()
-    dlg = getattr(sys.modules[__name__], name)()
-    return dlg.exec_()

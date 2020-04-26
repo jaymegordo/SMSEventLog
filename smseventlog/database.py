@@ -23,19 +23,19 @@ from . import functions as f
 
 global db
 log = logging.getLogger(__name__)
-
 # DATABASE
 
-def strConn():
-    if not 'linux' in sys.platform and not f.check_db():
-        return
+def str_conn():
+    # if not 'linux' in sys.platform and not f.check_db():
+    #     return
     m = f.get_db()
-    return ';'.join('{}={}'.format(k, v) for k, v in m.items())
+    db_string = ';'.join('{}={}'.format(k, v) for k, v in m.items())
+    params = parse.quote_plus(db_string)
+    return f'mssql+pyodbc:///?odbc_connect={params}'
     
 def engine():
     # sqlalchemy.engine.base.Engine
-    params = parse.quote_plus(strConn())
-    return sa.create_engine(f'mssql+pyodbc:///?odbc_connect={params}', fast_executemany=True, pool_pre_ping=True)
+    return sa.create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)
 
 class DB(object):
     def __init__(self):
@@ -44,7 +44,7 @@ class DB(object):
         self.session = None
         self.df_unit = None
         self.df_fc = None
-
+        
         try:
             self.engine = engine()
 
@@ -52,24 +52,24 @@ class DB(object):
             Session = sessionmaker(bind=self.engine)
             self.session = Session()
         except:
-            log.error('Couldnt create engine')
+            msg = 'Couldnt create engine'
+            f.send_error(msg=msg)
+            log.error(msg)
         
     def get_engine(self):
         if not self.engine is None:
             return self.engine
         else:
             msg = 'Database not initialized.'
-            try:
-                from . import gui as ui
-                ui.msg_simple(msg=msg, icon='Critical')
-            except:
-                log.error('Engine is None!')
+            # try:
+            #     from .gui.dialogs import dialogs as dlgs
+            #     dlgs.msg_simple(msg=msg, icon='Critical')
+            # except:
+            log.error('Engine is None!')
         
     def close(self):
         try:
             self.get_engine().raw_connection().close()
-            # self.conn.close()
-            # self.cursor.close()
         except:
             log.error('Closing raw_connection')
 
@@ -89,7 +89,7 @@ class DB(object):
         try:
             cursor = setcursor()
         except:
-            f.senderror()
+            f.send_error()
             e = sys.exc_info()[0]
             if e.__class__ == pyodbc.ProgrammingError:
                 print(e)
@@ -166,7 +166,7 @@ class DB(object):
             rowsadded = cursor.execute(impfunc).rowcount
             cursor.commit()
         except:
-            f.senderror()
+            f.send_error()
         finally:
             cursor.close()
 
@@ -194,5 +194,5 @@ class DB(object):
         return dt.combine(val, dt.min.time())
         
 
-print('{}: loading db'.format(__name__))
+print(f'{__name__}: loading db')
 db = DB()

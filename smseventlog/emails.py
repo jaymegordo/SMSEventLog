@@ -7,7 +7,6 @@ import pandas as pd
 import yaml
 
 log = logging.getLogger(__name__)
-
 from . import functions as f
 
 def get_credentials():

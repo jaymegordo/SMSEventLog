@@ -1,17 +1,13 @@
-from collections import defaultdict
-from pkg_resources import parse_version
-from pathlib import Path
 import sys
+from collections import defaultdict
+from pathlib import Path
 from timeit import default_timer as timer
 
 import pandas as pd
 import xlwings as xw
+from pkg_resources import parse_version
 
-from . import (
-    functions as f,
-    gui as ui
-)
-
+from . import functions as f
 
 global title, titlename
 titlename = 'SMS Event Log'
@@ -51,12 +47,13 @@ def check_ver_ui():
     return ans
 
 def check_update_ui():
+    from .gui import dialogs as dlgs
     # TODO: make sure this works when run from excel
     # copy new excel file from site-packages and replace currently active book
     if check_ver_ui():
 
         msg = f'A new version of the EventLog UI is available.\n\nCurrent: {v_current()}\nNew: {v_check()}\n\nWould you like to update?'
-        if ui.msgbox(msg=msg, yesno=True):
+        if dlgs.msgbox(msg=msg, yesno=True):
 
             # rename current wb
             start = timer()
@@ -75,7 +72,7 @@ def check_update_ui():
             p_old.unlink()
             app.screen_updating = True
             msg = f'wb updated in {f.deltasec(start, timer())}s'
-            ui.msgbox(msg=msg)
+            dlgs.msgbox(msg=msg)
 
 
 def mac():

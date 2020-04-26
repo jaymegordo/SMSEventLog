@@ -3,7 +3,7 @@ from datetime import (datetime as dt, timedelta as delta)
 from pathlib import Path
 from dateutil.relativedelta import *
 
-import exchangelib as ex
+# import exchangelib as ex
 import pandas as pd
 import pypika as pk
 from pypika import (
@@ -14,9 +14,8 @@ from pypika import (
     functions as fn,
     Query)
 
-from . import (
-    emails as em,
-    functions as f)
+from . import emails as em
+from . import functions as f
 from .database import db
 
 global m, cols

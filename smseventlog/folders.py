@@ -13,11 +13,11 @@ from timeit import default_timer as timer
 import pandas as pd
 from hurry.filesize import size
 
-from . import (
-    functions as f)
+from . import functions as f
 from .database import db
 from .gui import dialogs as dlgs
 
+import logging
 log = logging.getLogger(__name__)
 
 class EventFolder(object):
@@ -645,7 +645,7 @@ def what():
             
             print('{}: {}'.format(unit, len(haulcycles)))
         except:
-            f.senderror(prnt=True)
+            f.send_error(prnt=True)
 
 def tree(directory):
     # TODO: maybe move this to functions

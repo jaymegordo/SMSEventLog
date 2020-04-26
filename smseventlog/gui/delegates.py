@@ -51,7 +51,7 @@ class EditorDelegate(QStyledItemDelegate):
 
         if isinstance(editor, QTextEdit):
             editor.setText(val)
-            editor.moveCursor(QtGui.QTextCursor.End)
+            editor.moveCursor(QTextCursor.End)
 
     def setModelData(self, editor, model, index):
         # TODO: Check if text has changed, don't commit
