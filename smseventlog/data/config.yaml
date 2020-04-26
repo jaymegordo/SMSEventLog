@@ -3,6 +3,7 @@ FilePaths:
   Import FC: Regional/SMS West Mining/SMS Event Log/Import/Factory Campaign
   Import Unit Hours: Regional/SMS West Mining/SMS Event Log/Import/Unit Hours
   980E FH: Fort Hills/02. Equipment Files/1. 980E Trucks
+  Factory Campaigns: Regional/SMS West Mining/SMS Event Log/Factory Campaigns
 
 Email: jgordon@smsequip.com
 
@@ -39,7 +40,7 @@ TableName:
   TSI: EventLog
   Component CO: EventLog
   Unit Info: UnitID
-  FC Summary: viewFactoryCampaign #maybe?
+  FC Summary: FactoryCampaign
   FC Details: FactoryCampaign
 
 # Table header conversion
