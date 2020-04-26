@@ -1,23 +1,20 @@
 import operator
 import sys
-from datetime import (datetime as dt, timedelta as delta, date)
+from datetime import date
+from datetime import datetime as dt
+from datetime import timedelta as delta
 from pathlib import Path
 
 import pandas as pd
 import pypika as pk
 import sqlalchemy as sa
+from pypika import Case, Criterion
+from pypika import CustomFunction as cf
+from pypika import Order, Query
+from pypika import functions as fn
 from sqlalchemy import and_
-from pypika import (
-    Case,
-    Criterion,
-    CustomFunction as cf,
-    Order,
-    functions as fn,
-    Query)
 
-from . import (
-    functions as f,
-    gui as ui)
+from . import functions as f
 from .database import db
 
 try:
@@ -28,12 +25,13 @@ except ModuleNotFoundError:
 
 def test_fcsummary():
     fltr = Filter(title='FC Summary')
-    fltr.add(field='Classification', val='M', table=pk.Table('FCSummary'))
+    # fltr.add(field='Classification', val='M', table=pk.Table('FCSummary'))
     fltr.add(field='MineSite', val='FortHills', table=pk.Table('UnitID'))
     fltr.add(field='ManualClosed', val=0, table=pk.Table('FCSummaryMineSite'))
     fltr.print_criterion()
 
     df = get_df(fltr=fltr)
+    # return df
 
     # create summary (calc complete %s)
     df2 = pd.DataFrame()
@@ -124,7 +122,7 @@ class Row(object):
         display(m)
 
 def print_model(model, include_none=False):
-    m = model_dict(model, include_none=include_none)
+    m = f.model_dict(model, include_none=include_none)
     display(m)
 
 class Filter():
@@ -133,7 +131,12 @@ class Filter():
         self.title = title
         self.table = pk.Table(f.config['TableName'][title])
 
-    def add(self, field, val=None, opr=operator.eq, term=None, table=None):
+    def add(self, field=None, val=None, vals=None, opr=operator.eq, term=None, table=None):
+        if not vals is None:
+            # not pretty, but pass in field/val with dict a bit easier
+            field = list(vals.keys())[0]
+            val = list(vals.values())[0]
+        
         if table is None:
             table = self.table
             # otherwise must pass in a pk.Table()
@@ -233,18 +236,26 @@ def get_df(title=None, fltr=None, defaults=False):
             .orderby(a.DateAdded, a.Unit)
 
     elif title == 'FC Summary':
-        b, c, d = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID')
+        b, c, d, e = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID', 'EventLog')
 
         # TODO: bit of duplication here with db
-        # subject = Case().when(b.SubjectShort.notnull(), b.SubjectShort).else_(b.Subject).as_('Subject')
-        complete = Case().when((a.Complete==1), 'Y').else_('N').as_('Complete')
-
-        cols = [a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
+        subject = Case().when(b.SubjectShort.notnull(), b.SubjectShort).else_(b.Subject).as_('Subject')
+        complete = Case().when(
+            a.DateCompleteSMS.isnull() & \
+            a.DateCompleteKA.isnull() & \
+            e.DateCompleted.isnull(), 'N').else_('Y').as_('Complete')
+        # customsort = Case() \
+        #     .when(b.Classification=='M', 1) \
+        #     .when(b.Classification=='FAF', 2).else_(3)
+        
+        cols = [a.Unit, a.FCNumber, subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
 
         q = Query.from_(a).select(*cols) \
             .left_join(b).on_field('FCNumber') \
             .left_join(c).on_field('FCNumber') \
-            .left_join(d).on((d.Unit == a.Unit) & (d.MineSite == c.MineSite))
+            .left_join(d).on((d.Unit == a.Unit) & (d.MineSite == c.MineSite)) \
+            .left_join(e).on_field('UID') \
+            .orderby(a.FCNumber)
 
     elif title == 'FC Details':
         # select from viewFactoryCampaign
