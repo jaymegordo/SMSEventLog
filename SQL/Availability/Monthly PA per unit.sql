@@ -1,3 +1,11 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE VIEW [dbo].[viewPAMonthly]
+AS 
+
 SELECT
     d.*,
     DATEDIFF(hh, d.MonthStart, d.MonthEnd) as Hrs_Period,
@@ -18,9 +26,11 @@ FROM (
             LEFT JOIN UnitID b on a.Unit=b.Unit
 
         WHERE
-            a.StartDate>'2019-04-01' and
+            a.StartDate>'2018-06-01' and
             b.MineSite='FortHIlls' and
             b.AHSStart Is NOT NULL
 
         GROUP BY YEAR(a.StartDate), MONTH(a.StartDate), a.Unit) c) d
 -- ORDER BY t.Year, t.Month, t.Unit
+
+GO
