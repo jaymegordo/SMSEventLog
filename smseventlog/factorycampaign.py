@@ -9,9 +9,8 @@ import pandas as pd
 import pypika as pk
 from bs4 import BeautifulSoup
 
-from . import (
-    functions as f,
-    reports as rp)
+from . import functions as f
+from . import reports as rp
 from .database import db
 from .gui import dialogs as dlgs
 
@@ -20,8 +19,6 @@ def tblcount(tbl):
     cursor = db.get_cursor()
     sql = f'Select count(*) From {tbl}'
     return cursor.execute(sql).fetchval()
-
-# TODO: create FC folder on import
 
 def importFC(upload=True, df=None):
     # load all 'xls' files from import folder to df
@@ -35,7 +32,7 @@ def importFC(upload=True, df=None):
 
     if lst:
         msg = ('Found file(s): \n\t' + 
-            '\n'.join([p.name for p in lst]) +
+            '\n\t'.join([p.name for p in lst]) +
             '\n\nWould you like to import?')
         if not dlgs.msgbox(msg=msg, yesno=True):
             return
@@ -50,8 +47,6 @@ def importFC(upload=True, df=None):
 
     print('Loaded ({}) FCs from {} file(s) in: {}s' \
         .format(len(df), len(lst), f.deltasec(start, timer())))
-    
-    print(f'upload: {upload}')
 
     # import to temp staging table in db, then merge new rows to FactoryCampaign
     if upload:
@@ -77,6 +72,8 @@ def importFC(upload=True, df=None):
                 df2 = f.cursor_to_df(cursor)
                 if len(df2) > 0:
                     msg += rp.left_justified(df2).replace('\n', '\n\t')
+                    for fcnumber in df2:
+                        create_fc_folder(fcnumber=fcnumber)
             
             cursor.commit()
         except:
@@ -91,6 +88,13 @@ def importFC(upload=True, df=None):
             for p in lst: p.unlink()
 
     # return df
+
+def create_fc_folder(fcnumber):
+    try:
+        p = f.drive / f.config['FilePaths']['Factory Campaigns'] / fcnumber
+        p.mkdir(parents=True)
+    except:
+        print(f'Couldn\'t make fc path for: {fcnumber}')
 
 
 def read_fc(p):
