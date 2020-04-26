@@ -1,10 +1,10 @@
 import pypika as pk
 
 from .. import factorycampaign as fc
-from . import dialogs as dlgs
 from . import gui as ui
 from .__init__ import *
 from .delegates import AlignDelegate, DateColumnDelegate, EditorDelegate
+from . import dialogs as dlgs
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +44,6 @@ class TableWidget(QWidget):
         self.btnbox = QHBoxLayout()
         self.btnbox.setAlignment(Qt.AlignLeft)
 
-        # TODO: Different tabs will need different buttons
         self.add_button(name='Refresh', func=self.show_refresh)
         self.add_button(name='Add New', func=self.show_addrow)
 
@@ -55,6 +54,10 @@ class TableWidget(QWidget):
         self.view = view
         self.col_widths = {'Title': 150, 'Part Number': 150}
         self.set_default_headers()
+
+        # get default refresh dialog from refreshtables by name
+        from . import refreshtables as rtbls
+        self.refresh_dialog = getattr(rtbls, self.__class__.__name__, rtbls.RefreshTable)
 
     def set_default_headers(self):
         cols = f.get_default_headers(title=self.title)
@@ -70,11 +73,11 @@ class TableWidget(QWidget):
     def show_addrow(self):
         try:
             dlg = dlgs.AddEvent(parent=self)
-            ui.disable_window_animations_mac(dlg)
+            # ui.disable_window_animations_mac(dlg)
             dlg.exec_()
         except:
             msg = 'couldn\'t show AddRow'
-            f.senderror(msg=msg)
+            f.send_error(msg=msg)
             log.error(msg)
 
     def set_fltr(self):
@@ -82,12 +85,12 @@ class TableWidget(QWidget):
 
     def show_refresh(self):
         try:
-            dlg = dlgs.RefreshTable(parent=self)
-            ui.disable_window_animations_mac(dlg)
+            dlg = self.refresh_dialog(parent=self)
+            # ui.disable_window_animations_mac(dlg)
             dlg.exec_()
         except:
             msg = 'couldn\'t show RefreshTable'
-            f.senderror(msg=msg)
+            f.send_error(msg=msg)
             log.error(msg)
 
     def refresh_lastweek(self):
@@ -106,24 +109,21 @@ class TableWidget(QWidget):
         # Accept filter from RefreshTable dialog, load data to table view
 
         if default:
-            try:
+            if hasattr(self, 'set_default_filter'):
                 self.set_default_filter()
-            except:
-                pass
 
         if fltr is None:
             fltr = self.fltr
         
-        fltr.add(field='MineSite', val=self.mainwindow.minesite) # TODO: can't have this here always
+        # fltr.add(field='MineSite', val=self.mainwindow.minesite) # TODO: can't have this here always
         fltr.print_criterion()
         df = el.get_df(title=self.title, fltr=fltr)
-        df = process_df(df=df)
+        
+        if hasattr(self, 'process_df'):
+            df = self.process_df(df=df)
         
         self.set_fltr() # reset filter after every refresh call
         self.display_data(df=df)
-
-    def process_df(self, df):
-        return df # subclass for each table if need to post process after query
 
     def set_date_delegates(self):
         view = self.view
@@ -191,12 +191,13 @@ class TableWidget(QWidget):
         return self.model.create_model(i=i)
 
 class EventLog(TableWidget):
-    def __init__(self, parent=None, title=None):
+    def __init__(self, parent=None, title='Event Log'):
         super().__init__(parent=parent, title=title)
         self.disabled_cols = ('Title')
         self.col_widths.update(dict(Passover=50, Description=800))
     
     def set_default_filter(self):
+        self.fltr.add(field='MineSite', val=self.mainwindow.minesite)
         self.fltr.add(field='StatusEvent', val='complete', opr=operator.ne)
     
     def refresh_allopen(self):
@@ -204,7 +205,7 @@ class EventLog(TableWidget):
         super().refresh_allopen()
         
 class WorkOrders(TableWidget):
-    def __init__(self, parent=None, title=None):
+    def __init__(self, parent=None, title='Work Orders'):
         super().__init__(parent=parent, title=title)
         
         self.col_widths.update({
@@ -215,6 +216,7 @@ class WorkOrders(TableWidget):
             'Comments': 400})
 
     def set_default_filter(self):
+        self.fltr.add(field='MineSite', val=self.mainwindow.minesite)
         self.fltr.add(field='StatusWO', val='open')
 
     def refresh_allopen(self):
@@ -222,17 +224,18 @@ class WorkOrders(TableWidget):
         super().refresh_allopen()
 
 class ComponentCO(TableWidget):
-    def __init__(self, parent=None, title=None):
+    def __init__(self, parent=None, title='Component CO'):
         super().__init__(parent=parent, title=title)
 
 class TSI(TableWidget):
-    def __init__(self, parent=None, title=None):
+    def __init__(self, parent=None, title='TSI'):
         super().__init__(parent=parent, title=title)
         self.disabled_cols = ('WO')
 
         self.col_widths.update(dict(Details=400))
 
     def set_default_filter(self):
+        self.fltr.add(field='MineSite', val=self.mainwindow.minesite)
         self.fltr.add(field='StatusTSI', val='closed', opr=operator.ne)
 
     def refresh_allopen(self):
@@ -240,7 +243,7 @@ class TSI(TableWidget):
         super().refresh_allopen()
 
 class UnitInfo(TableWidget):
-    def __init__(self, parent=None, title=None):
+    def __init__(self, parent=None, title='Unit Info'):
         super().__init__(parent=parent, title=title)
         self.disabled_cols = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty',)
         self.col_widths.update({
@@ -248,44 +251,67 @@ class UnitInfo(TableWidget):
             'GE Warranty': 40})
 
 class FCDetails(TableWidget):
-    def __init__(self, parent=None, title=None):
+    def __init__(self, parent=None, title='FC Details'):
         super().__init__(parent=parent, title=title)
 
 class FCSummary(TableWidget):
-    def __init__(self, parent=None, title=None):
+    def __init__(self, parent=None, title='FC Summary'):
         super().__init__(parent=parent, title=title)
-        
+        self.col_widths.update({
+            'Subject': 250,
+            'Comments': 800,
+            'Action Reqd': 60,
+            'Type': 40,
+            'Part Number': 100,
+            'Parts Avail': 40,
+            'Total Complete': 60,
+            '% Complete': 40})
         self.add_button(name='Import FCs', func=lambda: fc.importFC(upload=True))
 
     def set_default_filter(self):
-        # TODO: add these to refresh form
         fltr = self.fltr
-        fltr.add(field='Classification', val='M', table=pk.Table('FCSummary'))
-        fltr.add(field='MineSite', val='FortHills', table=pk.Table('UnitID'))
-        fltr.add(field='ManualClosed', val=0, table=pk.Table('FCSummaryMineSite'))
-    
+        fltr.add(vals=dict(MineSite=ui.get_minesite()), table=pk.Table('UnitID'))
+        fltr.add(vals=dict(ManualClosed=0), table=pk.Table('FCSummaryMineSite'))
+        # fltr.add(vals=dict(Classification='M'), table=pk.Table('FCSummary'))
+
+    def refresh_allopen(self):
+        self.set_default_filter()
+
+        super().refresh_allopen()
+
     def process_df(self, df):
-        # create summary (calc complete %s)
-        df2 = pd.DataFrame()
-        gb = df.groupby('FC Number')
+        try:
+            # create summary (calc complete %s)
+            df2 = pd.DataFrame()
+            gb = df.groupby('FC Number')
 
-        df2['Total'] = gb['Complete'].count()
-        df2['Complete'] = gb.apply(lambda x: x[x['Complete']=='Y']['Complete'].count())
-        df2['Total Complete'] = df2.Complete.astype(str) + ' / ' +  df2.Total.astype(str)
-        df2['% Complete'] = df2.Complete / df2.Total
-        df2.drop(columns=['Total', 'Complete'], inplace=True)
+            df2['Total'] = gb['Complete'].count()
+            df2['Complete'] = gb.apply(lambda x: x[x['Complete']=='Y']['Complete'].count())
+            df2['Total Complete'] = df2.Complete.astype(str) + ' / ' +  df2.Total.astype(str)
+            df2['% Complete'] = df2.Complete / df2.Total
+            df2.drop(columns=['Total', 'Complete'], inplace=True)
 
-        # pivot
-        index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
-        df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete').reset_index()
+            # pivot - note: can't pivot properly if Hours column (int) is NULL.. just make sure its filled
+            index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
+            df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete').reset_index()
 
-        # merge summary
-        df = df.merge(right=df2, how='left', on='FC Number')
+            # merge summary
+            df = df.merge(right=df2, how='left', on='FC Number')
 
-        # reorder cols after merge
-        cols = list(df)
-        cols.insert(10, cols.pop(cols.index('Total Complete')))
-        cols.insert(11, cols.pop(cols.index('% Complete')))
-        df = df.loc[:, cols]
+            # reorder cols after merge
+            cols = list(df)
+            cols.insert(10, cols.pop(cols.index('Total Complete')))
+            cols.insert(11, cols.pop(cols.index('% Complete')))
+            df = df.loc[:, cols]
+
+            df = f.sort_df_by_list(df=df, lst=['M', 'FAF', 'DO', 'FT'])
+
+        except:
+            f.send_error(msg='Can\'t pivot fc summary dataframe')
 
         return df
+
+class Fake(QDialog):
+    def __init__(self, parent=None, flags=Qt.WindowFlags()):
+        super().__init__(parent=parent, flags=flags)
+        print('fake')
