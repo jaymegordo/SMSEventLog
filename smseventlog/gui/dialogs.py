@@ -1,19 +1,18 @@
 from .__init__ import *
-from . import (
-    gui as ui)
+from . import gui as ui
 
 log = logging.getLogger(__name__)
 
 
-
 class InputField():
-    def __init__(self, text, col_db=None, box=None, dtype='text', default=None):
+    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None):
         self.text = text
-        if col_db is None: col_db = text
+        if col_db is None: col_db = text.replace(' ', '')
         self.col_db = col_db
         self.box = box
         self.dtype = dtype
         self.default = default
+        self.table = table # just for holding and passing to Filter()
     
     def get_val(self):
         box = self.box
@@ -76,7 +75,7 @@ class InputForm(QDialog):
         layout.addWidget(btnbox, alignment=Qt.AlignBottom | Qt.AlignCenter)
         self.btnbox = btnbox
 
-    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True):
+    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None):
         # Add input field to form
         text, dtype = field.text, field.dtype
 
@@ -119,7 +118,13 @@ class InputForm(QDialog):
 
         if layout is None:
             layout = self.formLayout
-        layout.addRow(QLabel(f'{text}:'), boxLayout)
+
+        label = QLabel(f'{text}:')
+
+        if index is None:
+            layout.addRow(label, boxLayout)
+        else:
+            layout.insertRow(index, label, boxLayout)
 
     def accept(self):
         super().accept()
@@ -133,12 +138,12 @@ class InputForm(QDialog):
         
         return m
     
-    def add_items_filter(self, fltr):
+    def add_items_to_filter(self, fltr):
         # loop params, add all to parent filter
         for field in self.fields:
             if field.box.isEnabled():
-                print(f'adding input: {field.col_db}')
-                fltr.add(field=field.col_db, val=field.get_val())
+                print(f'adding input | field={field.col_db}, table={field.table}')
+                fltr.add(field=field.col_db, val=field.get_val(), table=field.table)
 
     def toggle_input(self, state):
         # toggle input field enabled/disabled based on checkbox
@@ -150,50 +155,6 @@ class InputForm(QDialog):
         else:
             box.setEnabled(False)
 
-class RefreshTable(InputForm):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Refresh Table')
-        self.parent = parent
-        layout = self.vLayout
-        df = db.get_df_unit()
-        ms = ui.get_minesite()
-        self.minesite = ms
-        # mw = ui.get_mainwindow()
-
-        self.add_refresh_button(name='Last Month', func=parent.refresh_lastmonth)
-        self.add_refresh_button(name='Last week', func=parent.refresh_lastweek)
-        self.add_refresh_button(name='All Open', func=parent.refresh_allopen)
-
-        self.add_input(field=InputField(text='MineSite', default=ms), items=f.config['MineSite'])
-        self.add_input(field=InputField(text='Unit'), items=list(df[df.MineSite==ms].Unit), checkbox=True, cb_enabled=False)
-        self.add_input(field=InputField(text='Date', dtype='date', col_db='DateAdded'), checkbox=True, cb_enabled=False)
-
-        self.btnbox.accepted.connect(self.okay_pressed)
-        
-        super().show()
-
-    def add_refresh_button(self, name, func):
-        layout = self.vLayout
-        btn = QPushButton(name, self)
-        btn.clicked.connect(self.accept)
-        btn.clicked.connect(func)
-        layout.insertWidget(0, btn)
-    
-    def accept(self):
-        self.add_items_filter(fltr=self.get_fltr())
-        super().accept()
-    
-    def okay_pressed(self):
-        self.parent.refresh()
-    
-    def get_fltr(self):
-        # get filter from parent table or just create default for testing
-        parent = self.parent
-        if not parent is None:
-            return parent.fltr
-        else:
-            return el.Filter(title='Event Log') # default
-   
 class InputUserName(InputForm):
     def __init__(self, parent=None):
         super().__init__(parent=parent, title='Enter User Name')
@@ -244,13 +205,13 @@ class AddEvent(AddRow):
         self.FCNumber = None
         row = self.row
         row.UID = self.create_uid()
-        row.CreatedBy = self.mainwindow.username
+        row.CreatedBy = self.mainwindow.username if not self.mainwindow is None else ''
         row.StatusEvent = 'Work In Progress'
         row.StatusWO = 'Open'
 
         layout = self.vLayout
         df = db.get_df_unit()
-        minesite = self.mainwindow.minesite
+        minesite = self.mainwindow.minesite if not self.mainwindow is None else 'FortHills'
 
         # Checkboxes
         self.cbFC = QCheckBox('FC')
@@ -367,13 +328,13 @@ class MsgBox_Advanced(QDialog):
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = ui.get_qt_app()
     dlg = MsgBox_Advanced(msg=msg, title=ui.title, yesno=yesno, statusmsg=statusmsg)
-    ui.disable_window_animations_mac(dlg)
+    # ui.disable_window_animations_mac(dlg)
     return dlg.exec_()
 
 def msg_simple(msg='', icon='', infotext=None):
     app = ui.get_qt_app()
     dlg = QMessageBox()
-    ui.disable_window_animations_mac(dlg)
+    # ui.disable_window_animations_mac(dlg)
     dlg.setText(msg)
     dlg.setWindowTitle(ui.title)
     # dlg.setStyleSheet(minsize_ss)
@@ -428,3 +389,9 @@ def get_filepath_from_dialog(p_start):
     if s:
         return Path(s)
     return None
+
+def show_item(name, parent=None):
+    # show message dialog by name eg ui.show_item('InputUserName')
+    app = ui.get_qt_app()
+    dlg = getattr(sys.modules[__name__], name)(parent=parent)
+    return dlg.exec_()
