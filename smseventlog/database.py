@@ -42,8 +42,11 @@ class DB(object):
         self.__name__ = 'SMS Event Log Database'
         self.engine = None
         self.session = None
+
+        # TODO: should put these into a better table store
         self.df_unit = None
         self.df_fc = None
+        self.df_component = None
         
         try:
             self.engine = engine()
@@ -104,6 +107,9 @@ class DB(object):
         
         return cursor
 
+    def read_query(self, q):
+        return pd.read_sql(sql=q.get_sql(), con=self.get_engine())
+
     def getUnit(self, serial, minesite=None):
         df = self.get_df_unit(minesite=minesite)
         
@@ -131,9 +137,9 @@ class DB(object):
             
         self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine()).set_index('Unit', drop=False)
 
-    def get_df_fc(self, minesite=None):
+    def get_df_fc(self):
         if self.df_fc is None:
-            self.set_df_fc(minesite=minesite)
+            self.set_df_fc()
         
         return self.df_fc
 
@@ -152,7 +158,15 @@ class DB(object):
         if not minesite is None:
             q = q.where(c.MineSite == minesite)
             
-        self.df_fc = pd.read_sql(sql=q.get_sql(), con=self.get_engine())
+        self.df_fc = self.read_query(q=q)
+    
+    def get_df_component(self):
+        if self.df_component is None:    
+            a = pk.Table('ComponentType')
+            q = Query.from_(a).select('*')
+            self.df_component = self.read_query(q=q)
+
+        return self.df_component
 
     def import_df(self, df, imptable, impfunc, notification=True):
         if df is None:

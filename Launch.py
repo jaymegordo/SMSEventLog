@@ -4,7 +4,35 @@ from pathlib import Path
 import logging
 logging.basicConfig(level=logging.WARNING)
 
-from smseventlog import *
+# from smseventlog import *
+import json
+from time import time
+from timeit import Timer
+
+import pandas as pd
+import pypika as pk
+import xlwings as xw
+import yaml
+import sqlalchemy as sa
+
+from smseventlog import (
+    functions as f,
+    eventlog as el,
+    factorycampaign as fc,
+    folders as fl,
+    emails as em,
+    availability as av,
+    units as un,
+    reports as rp)
+
+from smseventlog.gui import (
+    gui as ui,
+    dialogs as dlgs,
+    refreshtables as rtbls,
+    tables as tbls)
+
+from smseventlog.dbmodel import *
+from smseventlog.database import db
 
 print('**import finished')
 

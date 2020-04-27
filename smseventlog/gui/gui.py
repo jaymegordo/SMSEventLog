@@ -71,7 +71,7 @@ class Table(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent)
         self.parent = parent
         self.title = self.parent.title
-        self.tablename = f.config['TableName'][self.title] # name of db model
+        self.tablename = f.config['TableName']['Update'][self.title] # name of db model
         self.dbtable = getattr(dbm, self.tablename) # db model definition, NOT instance
         
         self.df = df
@@ -204,17 +204,21 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(title)
         self.setMinimumSize(QSize(1000, 400))
 
-        self.main_widget = MainWidget(self)
-        self.setCentralWidget(self.main_widget)
+        tabs = TabWidget(self)
+        self.setCentralWidget(tabs)
 
         self.create_actions()
         self.create_menu()
 
         # Settings
-        self.settings = QSettings('sms', 'smseventlog')
-        self.resize(self.settings.value('window size', defaultValue=QSize(1200, 1000)))
-        self.move(self.settings.value('window position', defaultValue=QPoint(50, 50)))
-        self.minesite = self.settings.value('minesite', defaultValue='FortHills')
+        s = QSettings('sms', 'smseventlog')
+        self.resize(s.value('window size', defaultValue=QSize(1200, 1000)))
+        self.move(s.value('window position', defaultValue=QPoint(50, 50)))
+        self.minesite = s.value('minesite', defaultValue='FortHills')
+        tabs.setCurrentIndex(tabs.get_index(title=s.value('active table', 'Event Log')))
+
+        self.settings = s
+        self.tabs = tabs
 
         # TODO: connect minesite_changed function
         self.statusBar().showMessage(f'Minesite: {self.minesite}')
@@ -225,7 +229,7 @@ class MainWindow(QMainWindow):
         self.active_table().refresh(default=True)
     
     def active_table(self):
-        return self.main_widget.tabs.currentWidget()
+        return self.tabs.currentWidget()
 
     def show_refresh(self):
         self.active_table().show_refresh()
@@ -235,6 +239,7 @@ class MainWindow(QMainWindow):
         s.setValue('window size', self.size())
         s.setValue('window position', self.pos())
         s.setValue('minesite', self.minesite)
+        s.setValue('active table', self.active_table().title)
     
     def get_username(self):
         s = self.settings
@@ -368,21 +373,19 @@ class MainWindow(QMainWindow):
             # table.model.removeRow(row.i)
 
 
-class MainWidget(QWidget):
+class TabWidget(QTabWidget):
     def __init__(self, parent):
-        super(QWidget, self).__init__(parent)
-        self.layout = QVBoxLayout(self)
-        
-        # Initialize tab screen
-        tabs = QTabWidget()
+        super(QTabWidget, self).__init__(parent)
+        self.tabindex = dd(int)
         lst = ['Event Log', 'Work Orders', 'Component CO', 'TSI', 'Unit Info', 'FC Summary', 'FC Details']
-
+        
         # Add tabs to widget
-        for title in lst:
-            tabs.addTab(getattr(tbls, title.replace(' ',''))(parent=self), title)
-
-        self.layout.addWidget(tabs)
-        self.tabs = tabs
+        for i, title in enumerate(lst):
+            self.addTab(getattr(tbls, title.replace(' ',''))(parent=self), title)
+            self.tabindex[title] = i
+    
+    def get_index(self, title):
+        return self.tabindex[title]
 
 
 def launch():

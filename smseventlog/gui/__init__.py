@@ -6,6 +6,7 @@ from datetime import datetime as dt
 from datetime import timedelta as delta
 from timeit import default_timer as timer
 from pathlib import Path
+from collections import defaultdict as dd
 
 import pandas as pd
 import qdarkstyle
@@ -18,7 +19,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                             QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
                             QGridLayout, QHBoxLayout, QInputDialog, QLabel,
                             QLineEdit, QMainWindow, QMenu, QMessageBox,
-                            QPushButton, QSizePolicy, QSpinBox,
+                            QPushButton, QSpacerItem, QSizePolicy, QSpinBox,
                             QStyledItemDelegate, QTableView, QTabWidget,
                             QTextEdit, QVBoxLayout, QWidget)
 

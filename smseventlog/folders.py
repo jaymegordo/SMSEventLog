@@ -1,23 +1,18 @@
-from collections import OrderedDict
-import logging
-import os
-import sys
 import shutil
 import subprocess
 import time
+from collections import OrderedDict
 from distutils import dir_util
-from datetime import (datetime as dt, timedelta as delta)
-from pathlib import Path
 from timeit import default_timer as timer
 
 import pandas as pd
 from hurry.filesize import size
 
 from . import functions as f
+from .__init__ import *
 from .database import db
 from .gui import dialogs as dlgs
 
-import logging
 log = logging.getLogger(__name__)
 
 class EventFolder(object):

@@ -1,7 +1,4 @@
 import functools
-from datetime import datetime as dt
-from datetime import timedelta as delta
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -10,6 +7,7 @@ from weasyprint import HTML
 
 from . import functions as f
 from . import units as un
+from .__init__ import *
 
 
 # Dataframe format
@@ -85,4 +83,3 @@ def report_unit_hrs_monthly(month):
     # save csv
     p = p_base / f'{title}.csv'
     df.to_csv(p)
-

@@ -1,21 +1,15 @@
-import sys
-from datetime import (datetime as dt, timedelta as delta)
-from pathlib import Path
-from dateutil.relativedelta import *
-
 # import exchangelib as ex
 import pandas as pd
 import pypika as pk
-from pypika import (
-    Case,
-    Criterion,
-    CustomFunction as cf,
-    Order,
-    functions as fn,
-    Query)
+from dateutil.relativedelta import *
+from pypika import Case, Criterion
+from pypika import CustomFunction as cf
+from pypika import Order, Query
+from pypika import functions as fn
 
 from . import emails as em
 from . import functions as f
+from .__init__ import *
 from .database import db
 
 global m, cols
@@ -99,5 +93,4 @@ def df_unit_hrs_monthly(month):
     df.reset_index(inplace=True)
 
     return df
-
 

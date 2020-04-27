@@ -1,9 +1,4 @@
 import operator
-import sys
-from datetime import date
-from datetime import datetime as dt
-from datetime import timedelta as delta
-from pathlib import Path
 
 import pandas as pd
 import pypika as pk
@@ -15,6 +10,7 @@ from pypika import functions as fn
 from sqlalchemy import and_
 
 from . import functions as f
+from .__init__ import *
 from .database import db
 
 try:
@@ -22,6 +18,7 @@ try:
 except ModuleNotFoundError:
     pass
 
+log = logging.getLogger(__name__)
 
 def test_fcsummary():
     fltr = Filter(title='FC Summary')
@@ -129,7 +126,7 @@ class Filter():
     def __init__(self, title):
         self.criterion = {}
         self.title = title
-        self.table = pk.Table(f.config['TableName'][title])
+        self.table = pk.Table(f.config['TableName']['Select'][title])
 
     def add(self, field=None, val=None, vals=None, opr=operator.eq, term=None, table=None):
         if not vals is None:
@@ -236,39 +233,37 @@ def get_df(title=None, fltr=None, defaults=False):
             .orderby(a.DateAdded, a.Unit)
 
     elif title == 'FC Summary':
-        b, c, d, e = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID', 'EventLog')
+        b, c, d = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID')
 
-        # TODO: bit of duplication here with db
-        subject = Case().when(b.SubjectShort.notnull(), b.SubjectShort).else_(b.Subject).as_('Subject')
-        complete = Case().when(
-            a.DateCompleteSMS.isnull() & \
-            a.DateCompleteKA.isnull() & \
-            e.DateCompleted.isnull(), 'N').else_('Y').as_('Complete')
-        # customsort = Case() \
-        #     .when(b.Classification=='M', 1) \
-        #     .when(b.Classification=='FAF', 2).else_(3)
+        complete = Case().when(a.Complete==1, 'Y').else_('N').as_('Complete') # just renaming True to Y
         
-        cols = [a.Unit, a.FCNumber, subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
+        cols = [a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
 
         q = Query.from_(a).select(*cols) \
             .left_join(b).on_field('FCNumber') \
             .left_join(c).on_field('FCNumber') \
             .left_join(d).on((d.Unit == a.Unit) & (d.MineSite == c.MineSite)) \
-            .left_join(e).on_field('UID') \
             .orderby(a.FCNumber)
 
     elif title == 'FC Details':
-        # select from viewFactoryCampaign
-        cols = []
+        b, c, d = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID')
+
+        cols = [d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Notes]
+
+        q = Query.from_(a).select(*cols) \
+            .left_join(b).on_field('FCNumber') \
+            .left_join(c).on_field('FCNumber') \
+            .left_join(d).on(d.Unit == a.Unit) \
+            .orderby(a.Unit, a.FCNumber)
 
     elif title == 'Component CO':
         b, c = pk.Tables('UnitID', 'ComponentType')
-        # TODO: Need to filter on UnitID.MineSite, not event log
 
         cols = [a.UID, b.MineSite, b.Model, a.Unit, c.Component, c.Modifier, a.GroupCO, a.DateAdded, a.SMR, a.ComponentSMR, a.SNRemoved, a.SNInstalled, a.WarrantyYN, a.CapUSD, a.WorkOrder, a.SuncorWO, a.SuncorPO, a.Reman, a.SunCOReason, a.RemovalReason, a.COConfirmed]
 
         q = Query.from_(a).select(*cols) \
-            .left_join(b).on_field('Unit').inner_join(c).on_field('Floc') \
+            .left_join(b).on_field('Unit') \
+            .inner_join(c).on_field('Floc') \
             .orderby(a.Unit, a.DateAdded, c.Modifier, a.GroupCO)
 
     if q is None:
@@ -277,13 +272,14 @@ def get_df(title=None, fltr=None, defaults=False):
     q = q.where(Criterion.all(fltr.get_criterion()))
     sql = q.get_sql().replace("'d'", '"d"') # TODO: fix for this was answered
     # print(sql)
-    
-    datecols = ['DateAdded', 'DateCompleted', 'TimeCalled', 'DateSMR', 'DeliveryDate', 'ReleaseDate', 'ExpiryDate']
-    df = pd.read_sql(sql=sql, con=db.engine, parse_dates=datecols)
-    df.columns = f.convert_list_db_view(title=title, cols=df.columns)
+
+    try:
+        df = pd.read_sql(sql=sql, con=db.engine).pipe(f.parse_datecols)
+        df.columns = f.convert_list_db_view(title=title, cols=df.columns)
+    except:
+        msg = 'Couldn\'t get dataframe.'
+        f.send_error(msg=msg)
+        log.error(msg)
+        df = pd.DataFrame()
 
     return df
-
-# df2 = pd.DataFrame()
-# df2['Complete'] = pd.DataFrame(df.iloc[:,10:]=='Y').sum(axis=1) # complete
-# pd.DataFrame(df.iloc[:,10:].notnull()).sum(axis=1) # total

@@ -1,6 +1,3 @@
-import sys
-from collections import defaultdict
-from pathlib import Path
 from timeit import default_timer as timer
 
 import pandas as pd
@@ -8,6 +5,7 @@ import xlwings as xw
 from pkg_resources import parse_version
 
 from . import functions as f
+from .__init__ import *
 
 global title, titlename
 titlename = 'SMS Event Log'
@@ -138,7 +136,7 @@ class TableExcel():
 
     def headers_db(self):
         # translate between excel table header 'nice' names and names in database
-        m = defaultdict(dict, f.config['Headers'])[self.ws.name]
+        m = dd(dict, f.config['Headers'])[self.ws.name]
         cols = self.headers()
 
         return [m[col] if col in m.keys() else col for col in cols]

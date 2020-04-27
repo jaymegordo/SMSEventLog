@@ -38,6 +38,7 @@ class TableWidget(QWidget):
         self.title = title
         self.disabled_cols = []
         self.mainwindow = ui.get_mainwindow()
+        self.minesite = self.mainwindow.minesite
         self.set_fltr()
 
         vLayout = QVBoxLayout(self)
@@ -94,15 +95,19 @@ class TableWidget(QWidget):
             log.error(msg)
 
     def refresh_lastweek(self):
+        self.fltr.add(field='MineSite', val=self.minesite)
         self.fltr.add(field='DateAdded', val=dt.now().date() + delta(days=-7))
         self.refresh()
 
     def refresh_lastmonth(self):
+        # self.sender() = PyQt5.QtWidgets.QAction > could use this to decide on filters
+        self.fltr.add(field='MineSite', val=self.minesite)
         self.fltr.add(field='DateAdded', val=dt.now().date() + delta(days=-30))
         self.refresh()
 
     def refresh_allopen(self):
         # All open is specific to each table.. need to subclass this
+        self.set_default_filter()
         self.refresh()
 
     def refresh(self, fltr=None, default=False):
@@ -194,15 +199,11 @@ class EventLog(TableWidget):
     def __init__(self, parent=None, title='Event Log'):
         super().__init__(parent=parent, title=title)
         self.disabled_cols = ('Title')
-        self.col_widths.update(dict(Passover=50, Description=800))
+        self.col_widths.update(dict(Passover=50, Description=800, Status=100))
     
     def set_default_filter(self):
-        self.fltr.add(field='MineSite', val=self.mainwindow.minesite)
+        self.fltr.add(field='MineSite', val=self.minesite)
         self.fltr.add(field='StatusEvent', val='complete', opr=operator.ne)
-    
-    def refresh_allopen(self):
-        self.set_default_filter()
-        super().refresh_allopen()
         
 class WorkOrders(TableWidget):
     def __init__(self, parent=None, title='Work Orders'):
@@ -216,16 +217,17 @@ class WorkOrders(TableWidget):
             'Comments': 400})
 
     def set_default_filter(self):
-        self.fltr.add(field='MineSite', val=self.mainwindow.minesite)
+        self.fltr.add(field='MineSite', val=self.minesite)
         self.fltr.add(field='StatusWO', val='open')
-
-    def refresh_allopen(self):
-        self.set_default_filter()
-        super().refresh_allopen()
 
 class ComponentCO(TableWidget):
     def __init__(self, parent=None, title='Component CO'):
         super().__init__(parent=parent, title=title)
+        self.col_widths.update(dict(Notes=400))
+
+    def set_default_filter(self):
+        self.fltr.add(vals=dict(MineSite=self.minesite))
+        self.fltr.add(vals=dict(DateAdded=dt.now().date() + delta(days=-30)))
 
 class TSI(TableWidget):
     def __init__(self, parent=None, title='TSI'):
@@ -238,10 +240,6 @@ class TSI(TableWidget):
         self.fltr.add(field='MineSite', val=self.mainwindow.minesite)
         self.fltr.add(field='StatusTSI', val='closed', opr=operator.ne)
 
-    def refresh_allopen(self):
-        self.set_default_filter()
-        super().refresh_allopen()
-
 class UnitInfo(TableWidget):
     def __init__(self, parent=None, title='Unit Info'):
         super().__init__(parent=parent, title=title)
@@ -249,10 +247,19 @@ class UnitInfo(TableWidget):
         self.col_widths.update({
             'Warranty Remaining': 40,
             'GE Warranty': 40})
+    
+    def set_default_filter(self):
+        self.fltr.add(vals=dict(MineSite=self.minesite))
 
 class FCDetails(TableWidget):
     def __init__(self, parent=None, title='FC Details'):
         super().__init__(parent=parent, title=title)
+
+    def set_default_filter(self):
+        fltr = self.fltr
+        fltr.add(vals=dict(MineSite=ui.get_minesite()), table=pk.Table('UnitID'))
+        fltr.add(vals=dict(ManualClosed=0), table=pk.Table('FCSummaryMineSite'))
+        fltr.add(vals=dict(Complete=0))
 
 class FCSummary(TableWidget):
     def __init__(self, parent=None, title='FC Summary'):
@@ -266,6 +273,7 @@ class FCSummary(TableWidget):
             'Parts Avail': 40,
             'Total Complete': 60,
             '% Complete': 40})
+
         self.add_button(name='Import FCs', func=lambda: fc.importFC(upload=True))
 
     def set_default_filter(self):
@@ -273,11 +281,6 @@ class FCSummary(TableWidget):
         fltr.add(vals=dict(MineSite=ui.get_minesite()), table=pk.Table('UnitID'))
         fltr.add(vals=dict(ManualClosed=0), table=pk.Table('FCSummaryMineSite'))
         # fltr.add(vals=dict(Classification='M'), table=pk.Table('FCSummary'))
-
-    def refresh_allopen(self):
-        self.set_default_filter()
-
-        super().refresh_allopen()
 
     def process_df(self, df):
         try:
@@ -311,7 +314,3 @@ class FCSummary(TableWidget):
 
         return df
 
-class Fake(QDialog):
-    def __init__(self, parent=None, flags=Qt.WindowFlags()):
-        super().__init__(parent=parent, flags=flags)
-        print('fake')

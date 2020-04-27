@@ -1,17 +1,13 @@
-import logging
-from collections import defaultdict
 import base64
 import json
-import os
-import sys
-from datetime import (datetime as dt, timedelta as delta)
-from pathlib import Path
 import traceback
 
 import pandas as pd
 import six
-import yaml
 import sqlalchemy as sa
+import yaml
+
+from .__init__ import *
 
 try:
     from IPython.display import display
@@ -142,6 +138,12 @@ def sort_df_by_list(df, lst=[]):
     df['sort'] = df['Type'].map(sorterIndex)
     df.sort_values(['sort'], ascending=[True], inplace=True)
     df.drop(columns=['sort'], inplace=True)
+    return df
+
+def parse_datecols(df):
+    # convert any columns with 'date' or 'time' in header name to datetime
+    datecols = list(filter(lambda x: any(s in x.lower() for s in ('date', 'time')) , df.columns))
+    df[datecols] = df[datecols].apply(pd.to_datetime)
     return df
 
 # simple obfuscation for db connection string

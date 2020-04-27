@@ -1,47 +1,56 @@
 
 FilePaths:
-  Import FC: Regional/SMS West Mining/SMS Event Log/Import/Factory Campaign
-  Import Unit Hours: Regional/SMS West Mining/SMS Event Log/Import/Unit Hours
-  980E FH: Fort Hills/02. Equipment Files/1. 980E Trucks
-  Factory Campaigns: Regional/SMS West Mining/SMS Event Log/Factory Campaigns
+    Import FC: Regional/SMS West Mining/SMS Event Log/Import/Factory Campaign
+    Import Unit Hours: Regional/SMS West Mining/SMS Event Log/Import/Unit Hours
+    980E FH: Fort Hills/02. Equipment Files/1. 980E Trucks
+    Factory Campaigns: Regional/SMS West Mining/SMS Event Log/Factory Campaigns
 
 Email: jgordon@smsequip.com
 
 MineSite:
-  - BaseMine
-  - BaseMine_CWC
-  - Bighorn_Build
-  - Bighorn_Opps
-  - CoalValley
-  - CWC_Other
-  - Elkford
-  - FH-Field
-  - FortHills
-  - FortHills_AHS
-  - FortHills_CWC
-  - GahchoKue
-  - RainyRiver
-  - Shovels-63N
-  - ConumaCoal
-  - IOC-RioTinto
+    - BaseMine
+    - BaseMine_CWC
+    - Bighorn_Build
+    - Bighorn_Opps
+    - CoalValley
+    - CWC_Other
+    - Elkford
+    - FH-Field
+    - FortHills
+    - FortHills_AHS
+    - FortHills_CWC
+    - GahchoKue
+    - RainyRiver
+    - Shovels-63N
+    - ConumaCoal
+    - IOC-RioTinto
 
 WarrantyStatus:
-  - 'Yes'
-  - 'No'
-  - PRP
-  - RAMP
-  - Service
-  - Parts
+    - 'Yes'
+    - 'No'
+    - PRP
+    - RAMP
+    - Service
+    - Parts
 
-# Convert title to tablename
+# Convert title to tablename > can select from views but not update them
 TableName:
-  Event Log: EventLog
-  Work Orders: EventLog
-  TSI: EventLog
-  Component CO: EventLog
-  Unit Info: UnitID
-  FC Summary: FactoryCampaign
-  FC Details: FactoryCampaign
+    Select:
+        Event Log: EventLog
+        Work Orders: EventLog
+        TSI: EventLog
+        Component CO: EventLog
+        Unit Info: UnitID
+        FC Summary: viewFactoryCampaign
+        FC Details: viewFactoryCampaign
+    Update:
+        Event Log: EventLog
+        Work Orders: EventLog
+        TSI: EventLog
+        Component CO: EventLog
+        Unit Info: UnitID
+        FC Summary: FactoryCampaign
+        FC Details: FactoryCampaign
 
 # Table header conversion
 Headers:
@@ -104,7 +113,7 @@ Headers:
     Unit: Unit
     FC Number: FCNumber
     Status:
-    Type:
+    Type: 
     Subject:
     Date Complete SMS: DateCompleteSMS
     Date Complete KA: DateCompleteKA

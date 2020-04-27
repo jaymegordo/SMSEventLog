@@ -1,13 +1,14 @@
 import io
 from pathlib import Path
-import logging
 
 import exchangelib as ex
 import pandas as pd
 import yaml
 
-log = logging.getLogger(__name__)
 from . import functions as f
+from .__init__ import *
+
+log = logging.getLogger(__name__)
 
 def get_credentials():
     p = Path(f.datafolder / 'email.yaml')

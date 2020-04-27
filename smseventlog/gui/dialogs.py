@@ -100,6 +100,7 @@ class InputForm(QDialog):
         
         boxLayout = QHBoxLayout()
         boxLayout.addWidget(box)
+        box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
         # add checkbox to form line to enable/disable field
         if checkbox:
@@ -110,6 +111,10 @@ class InputForm(QDialog):
             cb.stateChanged.connect(self.toggle_input)
             boxLayout.addWidget(cb)
             field.cb = cb
+        else:
+            # add spacer
+            # boxLayout.addSpacerItem(QSpacerItem(24,24,hPolicy=QSizePolicy.Maximum))
+            boxLayout.addSpacing(30)
         
         setattr(self, 'f{}'.format(field.text.replace(' ', '')), field)
         field.box = box
@@ -127,8 +132,13 @@ class InputForm(QDialog):
             layout.insertRow(index, label, boxLayout)
 
     def accept(self):
-        super().accept()
-        self.items = self.get_items()
+        try:
+            super().accept()
+            self.items = self.get_items()
+        except:
+            msg = 'Couldn\'t accept form.'
+            f.send_error(msg)
+            log.error(msg)
 
     def get_items(self):
         # return dict of all field items: values
@@ -152,6 +162,7 @@ class InputForm(QDialog):
 
         if state == Qt.Checked:
             box.setEnabled(True)
+            box.setFocus()
         else:
             box.setEnabled(False)
 
