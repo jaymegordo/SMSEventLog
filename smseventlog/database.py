@@ -168,23 +168,23 @@ class DB(object):
 
         return self.df_component
 
-    def import_df(self, df, imptable, impfunc, notification=True):
+    def import_df(self, df, imptable, impfunc, notification=True, prnt=False):
+        rowsadded = 0
         if df is None:
-            f.discord(msg='No rows in email', channel='sms')
+            f.discord(msg='No rows to import', channel='sms')
             return
 
         try:
-            df.to_sql(imptable, con=self.get_engine(), if_exists='append', index=False)
+            df.to_sql(name=imptable, con=self.get_engine(), if_exists='append', index=False)
 
             cursor = self.get_cursor()
             rowsadded = cursor.execute(impfunc).rowcount
             cursor.commit()
         except:
             f.send_error()
-        finally:
-            cursor.close()
 
         msg = f'{imptable}: {rowsadded}'
+        if prnt: print(msg)
         log.info(msg)
 
         if notification:
