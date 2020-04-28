@@ -15,6 +15,21 @@ from .gui import dialogs as dlgs
 
 log = logging.getLogger(__name__)
 
+def get_config():
+    return {
+        'fault': dict(
+            exclude=['dsc'],
+            duplicate_cols=['unit', 'code', 'time_from'],
+            imptable='FaultImport',
+            impfunc='ImportFaults'),
+        'haul': dict(
+            exclude=['dsc', 'chk', 'CHK', 'Pictures'],
+            duplicate_cols=['unit', 'datetime'],
+            imptable='PLMImport',
+            impfunc='ImportPLM'),
+        'dsc': dict(
+            exclude=[])}
+
 class EventFolder(object):
     def __init__(self, e):
         self.dt_format = '%Y-%m-%d'
@@ -133,45 +148,44 @@ class EventFolder(object):
         self.modelpath = v
         
 
-def import_haul(files):
-    units = [f'F{n}' for n in range(300, 348)]
+# def import_haul(lst_csv):
+#     # read and combine list of csv haulcycle files, import to db
+#     units = [f'F{n}' for n in range(300, 348)]
 
-    for unit in units:
-        lst = list(filter(lambda p: p.parts[4].split(' - ')[0] == unit, files))
+#     for unit in units:
+#         lst = list(filter(lambda p: p.parts[4].split(' - ')[0] == unit, lst_csv))
 
-        if lst:
-            print(f'Starting: {unit}, files: {len(lst)}')
+#         if lst:
+#             print(f'Starting: {unit}, files: {len(lst)}')
 
-            df = combine_df(lst, ftype='haul')
-            print(f'df: {len(df)}, max: {df.datetime.max()}, min: {df.datetime.min()}')
+#             df = combine_df(lst, ftype='haul')
+#             print(f'df: {len(df)}, max: {df.datetime.max()}, min: {df.datetime.min()}')
 
-            df.to_sql(name='PLMImport', con=db.get_engine(), if_exists='append')
+#             df.to_sql(name='PLMImport', con=db.get_engine(), if_exists='append')
 
-            print(unit)
+#             print(unit)
 
-    rows = db.cursor.execute('ImportPLM').rowcount
-    db.cursor.commit()
-    print(f'Rows imported to PLM table: {rows}')
+#     rows = db.cursor.execute('ImportPLM').rowcount
+#     db.cursor.commit()
+#     print(f'Rows imported to PLM table: {rows}')
 
-def import_fault(files):
-    if not isinstance(files, list): files = [files]
+# def import_fault(lst_csv):
+#     # read and combine list of csv fault code files, import to db
+#     if not isinstance(lst_csv, list): lst_csv = [lst_csv]
 
-    df = combine_df(lst=files, ftype='fault')
-    df.to_sql(name='FaultImport', con=db.get_engine(), if_exists='append', index=False)
+#     df = combine_df(lst=lst_csv, ftype='fault')
+#     df.to_sql(name='FaultImport', con=db.get_engine(), if_exists='append', index=False)
 
-    rows = db.cursor.execute('ImportFaults').rowcount
-    db.cursor.commit()
-    print(f'Rows imported to fault table: {rows}')
+#     rows = db.cursor.execute('ImportFaults').rowcount
+#     db.cursor.commit()
+#     print(f'Rows imported to fault table: {rows}')
 
-def combine_df(lst, ftype):    
-    if ftype == 'haul':
-        df = pd.concat([read_haul(p=p) for p in lst], sort=False)
-        subset = ['unit', 'datetime']
-    elif ftype == 'fault':
-        df = pd.concat([read_fault(p=p) for p in lst], sort=False)
-        subset = ['unit', 'code', 'time_from']
+def combine_csv(lst_csv, ftype):
+    # combine list of csvs into single and drop duplicates, based on duplicate cols
+    func = getattr(sys.modules[__name__], f'read_{ftype}')
 
-    df.drop_duplicates(subset=subset, inplace=True)
+    df = pd.concat([func(p=p) for p in lst_csv], sort=False)
+    df.drop_duplicates(subset=get_config()[ftype]['duplicate_cols'], inplace=True)
     return df
 
 def read_fault(p):
@@ -287,13 +301,13 @@ def get_stats(p):
     return df
 
 # FOLDERS
-def unitfolders():
+def get_unitpaths():
     p = f.drive / f.config['FilePaths']['980E FH']
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
 def unitpath_from_unit(unit, unitpaths=None):
     if unitpaths is None:
-        unitpaths = unitfolders()
+        unitpaths = get_unitpaths()
 
     return list(filter(lambda x: unit in str(x), unitpaths))[0]
 
@@ -306,22 +320,44 @@ def unit_from_path(p):
     
     return None
 
-def recurse_folders(searchfolder, exclude, d_lower=dt(2016, 1, 1), ftype='haul'):
+def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype='haul', exclude=[]):
+    # recurse and find fault/haulcycle csv files
     lst = []
-    # if d_lower is None: d_lower = dt(2016, 1, 1).timestamp()
-    # if tsupper is None: tsupper = dt.now().timestamp()
 
-    # p is Path object
-    for p in searchfolder.iterdir():
-        if p.is_dir():
-            lst.extend([f for f in p.glob(f'*{ftype}*.csv')])
+    if depth <= maxdepth:
+        for p in p_search.iterdir():
+            if p.is_dir():
+                lst.extend([f for f in p.glob(f'*{ftype}*.csv')])
 
-            if (not (any(s in p.name for s in exclude)
-                    or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
-                and date_modified(p) > d_lower):
-                
-                lst.extend(recurse_folders(p, exclude, d_lower=d_lower, ftype=ftype))
+                if (not (any(s in p.name for s in exclude)
+                        or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
+                    and date_created(p) > d_lower):
+                    
+                    lst.extend(recurse_folders(
+                        p_search=p,
+                        depth=depth + 1,
+                        maxdepth=maxdepth,
+                        d_lower=d_lower,
+                        ftype=ftype,
+                        exclude=exclude))
 
+    return lst
+
+def recurse_dsc(p_search, d_lower=dt(2020,1,1), depth=0, maxdepth=5):
+    # recurse and find any file/folder paths containing 'dsc'
+    lst = []
+
+    if depth <= maxdepth:
+        for p in p_search.iterdir():
+            if 'dsc' in p.name:
+                lst.append(p) # end recursion
+            elif (p.is_dir() and date_created(p) > d_lower):
+                lst.extend(recurse_dsc(
+                    p_search=p,
+                    depth=depth + 1,
+                    maxdepth=maxdepth,
+                    d_lower=d_lower))
+    
     return lst
 
 def check_parents(p, depth, names):
@@ -408,6 +444,7 @@ def date_from_dsc(p):
 def get_recent_dsc_single(p_unit=None, d_lower=dt(2020,1,1), unit=None):
     # return list of most recent dsc folder from each unit
     # pass in d_lower to limit search
+    # TODO: fix this to use get_list
     lst = []
     if p_unit is None:
         p_unit = unitpath_from_unit(unit=unit)
@@ -422,7 +459,8 @@ def get_recent_dsc_single(p_unit=None, d_lower=dt(2020,1,1), unit=None):
     return lst
 
 def get_recent_dsc_all(d_lower=dt(2020,1,1)):
-    p_units = unitfolders()
+    # return list of most recent dsc folders for all units
+    p_units = get_unitpaths()
     lst = []
     
     for p_unit in p_units:
@@ -431,6 +469,7 @@ def get_recent_dsc_all(d_lower=dt(2020,1,1)):
     return lst
 
 def fix_dsc(p, p_unit, zip_=False):
+    # process/fix single dsc/dls folder
     start = timer()
     unit = p_unit.name.split(' - ')[0]
 
@@ -474,48 +513,35 @@ def fix_dsc(p, p_unit, zip_=False):
 
     print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
 
-def recurse_dsc(p_search, depth=0, maxdepth=5, d_lower=dt(2020,1,1)):
-    # return list of paths containing 'dsc'
-    lst = []
-
-    if depth <= maxdepth:
-        for p in p_search.iterdir():
-            if 'dsc' in p.name:
-                lst.append(p) # end recursion
-            elif (p.is_dir() and date_created(p) > d_lower):
-                lst.extend(recurse_dsc(
-                    p_search=p,
-                    depth=depth + 1,
-                    maxdepth=maxdepth,
-                    d_lower=d_lower))
+# def get_dsc(p_unit, maxdepth=3, d_lower=dt(2016,1,1)):
+#     # TODO: probably remove this
+#     # find all dsc folders in top level unit folder / downloads
     
-    return lst
+#     unit = p_unit.name.split(' - ')[0]
+#     p_dls = p_unit / 'Downloads'
+#     lst = recurse_dsc(p_search=p_dls, maxdepth=maxdepth, d_lower=d_lower)
+#     return lst
 
-def get_dsc(p_unit, maxdepth=3, d_lower=dt(2016,1,1)):
-    # find all dsc folders in top level unit folder / downloads
+# def fix_dls(unit=None, d_lower=dt(2020,1,1), p_unit=None, maxdepth=3):
+#     # fix dls folder for single unit
+#     # TODO: remove this
+#     if p_unit is None:
+#         p_unit = unitpath_from_unit(unit)
+
+#     lst = get_dsc(p_unit=p_unit, d_lower=d_lower, maxdepth=maxdepth)
+
+#     unit = unit_from_path(p=p_unit)
+#     print(f'\n\nStarting unit: {unit}\ndsc folders found: {len(lst)}')
+
+#     for p in lst:
+#         fix_dsc(p=p, p_unit=p_unit, zip_=True)
+
+# def fix_dls_all_units(d_lower=dt(2020,1,1)):
+#     # TODO: delte
+#     unitpaths = get_unitpaths()
     
-    unit = p_unit.name.split(' - ')[0]
-    p_dls = p_unit / 'Downloads'
-    lst = recurse_dsc(p_search=p_dls, maxdepth=maxdepth, d_lower=d_lower)
-    return lst
-
-def fix_dls(unit=None, d_lower=dt(2020,1,1), p_unit=None, maxdepth=3):
-    if p_unit is None:
-        p_unit = unitpath_from_unit(unit)
-
-    lst = get_dsc(p_unit=p_unit, d_lower=d_lower, maxdepth=maxdepth)
-
-    unit = unit_from_path(p=p_unit)
-    print(f'\n\nStarting unit: {unit}\ndsc folders found: {len(lst)}')
-
-    for p in lst:
-        fix_dsc(p=p, p_unit=p_unit, zip_=True)
-
-def fix_dls_all_units(d_lower=dt(2020,1,1)):
-    unitpaths = unitfolders()
-    
-    for p_unit in unitpaths:
-        fix_dls(p_unit=p_unit, d_lower=d_lower)
+#     for p_unit in unitpaths:
+#         fix_dls(p_unit=p_unit, d_lower=d_lower)
 
 def zip_recent_dls(units, d_lower=dt(2020,1,1)):
     # get most recent dsc from list of units and zip parent folder for attaching to TSI
@@ -529,40 +555,60 @@ def zip_recent_dls(units, d_lower=dt(2020,1,1)):
     return lst_zip
 
 
+def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020,1,1), maxdepth=4):
+    # top level control function - pass in single unit or list of units
+        # 1. get list of files (haul, fault, dsc)
+        # 2. Process - import haul/fault or 'fix' dsc eg downloads folder structure
 
-def scanfolders(ftype='haul'):
-    if ftype == 'haul':
-        folders = ['Downloads']
-        exclude = ['dsc', 'chk', 'CHK', 'Pictures']
-    elif ftype == 'fault':
-        folders = ['Downloads']
-        exclude = ['dsc']
-    lst1 = unitfolders()
-    lst2, files = [], []
-    d_lower = dt(2017, 1, 1).timestamp()
+    if not units: # assume ALL units # TODO: make this work for all minesites?
+        units = [f'F{n}' for n in range(300, 348)]
+    elif not isinstance(units, list):
+        units = [units]
 
-    # write list of files to txt file on desktop
-    # p = Path().home() / f'OneDrive/Desktop/{ftype}.txt'
-    # with open(p, 'w') as f:
-    #     for item in lst:
-    #         f.write("%s\n" % item)
+    unitpaths = get_unitpaths() # save so don't need to call multiple times
+    search_folders = list(map(lambda x: x.lower(), search_folders))
 
-    # get specific toplevel folders within unit folders
-    for p in lst1:
-        lst2.extend([x for x in p.iterdir() if x.is_dir() and x.name in folders])
+    lst = []
+    config = get_config()[ftype]
 
-    # recurse and find all other folders inside
-    # only return if folder contains csv files?
-    for p in lst2:
-        unit = p.parts[4].split(' - ')[0]
-        files.extend(recurse_folders(p, exclude, d_lower=d_lower, ftype=ftype))
-        print(f'Unit: {unit}, files: {len(files)}')
+    for unit in units:
+        p_unit = unitpath_from_unit(unit=unit, unitpaths=unitpaths)
+        lst_search = [x for x in p_unit.iterdir() if x.is_dir() and x.name.lower() in search_folders] # start at downloads
+
+        # could search more than just downloads folder (eg event too)
+        for p_search in lst_search:
+            lst.extend(get_list_files(ftype=ftype, p_search=p_search, d_lower=d_lower, maxdepth=maxdepth))
+
+        # process all dsc folders per unit as we find them
+        if ftype == 'dsc':
+            print(f'\n\nProcessing dsc, unit: {unit}\ndsc folders found: {len(lst)}')
+
+            for p in lst:
+                fix_dsc(p=p, p_unit=p_unit, zip_=True)
+            
+            lst = [] # need to reset list, only for dsc, this is a bit sketch
+
+    # collect all csv files for all units first, then import together
+    if ftype in ('haul', 'fault'):
+        if lst:
+            df = combine_csv(lst_csv=lst, ftype=ftype)
+            db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True)
+
+def get_list_files(ftype, p_search, d_lower=dt(2020,1,1), maxdepth=4):
+    # return list of haulcycle, fault, or dsc files/folders
+    print(p_search)
     
-    return files
-
-    # load csv with pd.read_csv, import to database
-    # for p in lst3:
-    #     df = combine_haul(p, unit=unit)
+    lst = []
+    # recurse and find all other folders inside
+    if ftype in ('haul', 'fault'):
+        lst = recurse_folders(p_search=p_search, maxdepth=maxdepth, d_lower=d_lower, exclude=get_config()[ftype]['exclude'], ftype=ftype)
+    elif ftype == 'dsc':
+        lst = recurse_dsc(p_search=p_search, maxdepth=maxdepth, d_lower=d_lower)
+    
+    unit = unit_from_path(p=p_search)
+    print(f'fType: {ftype}, Unit: {unit}, files: {len(lst)}')
+    
+    return lst
 
 def write_import_fail(p):
     failpath = Path().home() / 'OneDrive/Desktop/importfail.txt'
