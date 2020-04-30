@@ -284,7 +284,7 @@ class FCBase(TableWidget):
 
         row = self.model_from_activerow()
         if row is None: return
-        
+
         p = f.drive / f.config['FilePaths']['Factory Campaigns'] / row.FCNumber
 
         if not p.exists():
@@ -295,6 +295,7 @@ class FCBase(TableWidget):
                 return
 
         fl.open_folder(p=p)
+        # test comment
 
 class FCSummary(FCBase):
     def __init__(self, parent=None, title='FC Summary'):
