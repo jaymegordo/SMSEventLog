@@ -34,31 +34,30 @@ class TableView(QTableView):
 class TableWidget(QWidget):
     def __init__(self, parent=None, title=None):
         QWidget.__init__(self, parent)
-        self.parent = parent
-        self.title = title
-        self.disabled_cols = []
-        self.mainwindow = ui.get_mainwindow()
-        self.minesite = self.mainwindow.minesite
-        self.set_fltr()
+        disabled_cols, hide_cols, check_exist_cols, db_col_map = (), (), (), {}
+        col_widths = {'Title': 150, 'Part Number': 150}
+
+        mainwindow = ui.get_mainwindow()
+        minesite = mainwindow.minesite
 
         vLayout = QVBoxLayout(self)
-        self.btnbox = QHBoxLayout()
-        self.btnbox.setAlignment(Qt.AlignLeft)
-
-        self.add_button(name='Refresh', func=self.show_refresh)
-        self.add_button(name='Add New', func=self.show_addrow)
+        btnbox = QHBoxLayout()
+        btnbox.setAlignment(Qt.AlignLeft)
 
         view = TableView(self)
 
-        vLayout.addLayout(self.btnbox)
+        vLayout.addLayout(btnbox)
         vLayout.addWidget(view)
-        self.view = view
-        self.col_widths = {'Title': 150, 'Part Number': 150}
-        self.set_default_headers()
 
         # get default refresh dialog from refreshtables by name
         from . import refreshtables as rtbls
-        self.refresh_dialog = getattr(rtbls, self.__class__.__name__, rtbls.RefreshTable)
+        refresh_dialog = getattr(rtbls, self.__class__.__name__, rtbls.RefreshTable)
+
+        f.set_self(self, vars())
+        self.add_button(name='Refresh', func=self.show_refresh)
+        self.add_button(name='Add New', func=self.show_addrow)
+        self.set_fltr()
+        self.set_default_headers()
 
     def set_default_headers(self):
         cols = f.get_default_headers(title=self.title)
@@ -81,7 +80,7 @@ class TableWidget(QWidget):
             f.send_error(msg=msg)
             log.error(msg)
 
-    def set_fltr(self):
+    def set_fltr(self, title=None):
         self.fltr = el.Filter(title=self.title)
 
     def show_refresh(self):
@@ -121,7 +120,7 @@ class TableWidget(QWidget):
             fltr = self.fltr
         
         # fltr.add(field='MineSite', val=self.mainwindow.minesite) # TODO: can't have this here always
-        fltr.print_criterion()
+        
         df = el.get_df(title=self.title, fltr=fltr)
         
         if hasattr(self, 'process_df'):
@@ -163,11 +162,16 @@ class TableWidget(QWidget):
         for c, width in self.col_widths.items():
             if c in model.df.columns:
                 view.setColumnWidth(model.getColIndex(c), width)
-            
+
+    def hide_columns(self):
+        for col in self.hide_cols:
+            self.view.hideColumn(self.model.getColIndex(col))
+
     def display_data(self, df):
         view = self.view
         title = self.title
         model = ui.Table(df=df, parent=self)
+        self.model = model
         view.setModel(model)
         view.setItemDelegate(EditorDelegate(parent=view))
         view.resizeColumnsToContents()
@@ -176,29 +180,34 @@ class TableWidget(QWidget):
         self.center_columns(cols=cols)
         self.set_column_widths()
         
-        if title in ('Event Log', 'Work Orders', 'TSI', 'Component CO'):
-            view.hideColumn(model.getColIndex('UID'))
-
+        self.hide_columns()
         self.set_date_delegates()
         view.resizeRowsToContents()
-        self.model = model
+        view.horizontalHeader().setFixedHeight(30)
 
     def active_row_index(self):
         rows = self.view.selectionModel().selectedRows() # list of selected rows
-        return rows[0].row()
+        if rows:
+            return rows[0].row()
+        else:
+            msg = 'No row selected in table.'
+            dlgs.msg_simple(msg=msg, icon='warning')
     
     def row_from_activerow(self):
         i = self.active_row_index()
+        if i is None: return
         return el.Row(tbl=self.model, i=i)
 
     def model_from_activerow(self):
         i = self.active_row_index()
+        if i is None: return
         return self.model.create_model(i=i)
 
 class EventLog(TableWidget):
     def __init__(self, parent=None, title='Event Log'):
         super().__init__(parent=parent, title=title)
-        self.disabled_cols = ('Title')
+        self.disabled_cols = ('Title',) # TODO: remove thise
+        self.hide_cols = ('UID',)
         self.col_widths.update(dict(Passover=50, Description=800, Status=100))
     
     def set_default_filter(self):
@@ -208,9 +217,11 @@ class EventLog(TableWidget):
 class WorkOrders(TableWidget):
     def __init__(self, parent=None, title='Work Orders'):
         super().__init__(parent=parent, title=title)
+
+        self.hide_cols = ('UID',)
         
         self.col_widths.update({
-            'Work Order': 80,
+            'Work Order': 90,
             'Customer WO': 80,
             'Customer PO': 80,
             'Comp CO': 50,
@@ -223,6 +234,8 @@ class WorkOrders(TableWidget):
 class ComponentCO(TableWidget):
     def __init__(self, parent=None, title='Component CO'):
         super().__init__(parent=parent, title=title)
+        self.disabled_cols = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
+        self.hide_cols = ('UID',)
         self.col_widths.update(dict(Notes=400))
 
     def set_default_filter(self):
@@ -232,7 +245,8 @@ class ComponentCO(TableWidget):
 class TSI(TableWidget):
     def __init__(self, parent=None, title='TSI'):
         super().__init__(parent=parent, title=title)
-        self.disabled_cols = ('WO')
+        self.disabled_cols = ('WO',)
+        self.hide_cols = ('UID',)
 
         self.col_widths.update(dict(Details=400))
 
@@ -243,7 +257,8 @@ class TSI(TableWidget):
 class UnitInfo(TableWidget):
     def __init__(self, parent=None, title='Unit Info'):
         super().__init__(parent=parent, title=title)
-        self.disabled_cols = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty',)
+        
+        self.disabled_cols = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty')
         self.col_widths.update({
             'Warranty Remaining': 40,
             'GE Warranty': 40})
@@ -251,22 +266,44 @@ class UnitInfo(TableWidget):
     def set_default_filter(self):
         self.fltr.add(vals=dict(MineSite=self.minesite))
 
-class FCDetails(TableWidget):
-    def __init__(self, parent=None, title='FC Details'):
+class FCBase(TableWidget):
+    def __init__(self, parent=None, title='FCBase'):
         super().__init__(parent=parent, title=title)
+
+        self.add_button(name='Import FCs', func=lambda: fc.importFC(upload=True))
+        self.add_button(name='View FC Folder', func=self.view_fc_folder)
 
     def set_default_filter(self):
         fltr = self.fltr
         fltr.add(vals=dict(MineSite=ui.get_minesite()), table=pk.Table('UnitID'))
         fltr.add(vals=dict(ManualClosed=0), table=pk.Table('FCSummaryMineSite'))
-        fltr.add(vals=dict(Complete=0))
+    
+    def view_fc_folder(self):
+        if not fl.drive_exists():
+            return
 
-class FCSummary(TableWidget):
+        row = self.model_from_activerow()
+        if row is None: return
+        
+        p = f.drive / f.config['FilePaths']['Factory Campaigns'] / row.FCNumber
+
+        if not p.exists():
+            msg = f'FC folder: \n\n{p} \n\ndoes not exist, create now?'
+            if dlgs.msgbox(msg=msg, yesno=True):
+                p.mkdir(parents=True)
+            else:
+                return
+
+        fl.open_folder(p=p)
+
+class FCSummary(FCBase):
     def __init__(self, parent=None, title='FC Summary'):
         super().__init__(parent=parent, title=title)
+        self.hide_cols = ('MineSite',)
+        self.disabled_cols = ('FC Number', 'Total Complete', '% Complete') # also add all unit cols?
         self.col_widths.update({
             'Subject': 250,
-            'Comments': 800,
+            'Comments': 600,
             'Action Reqd': 60,
             'Type': 40,
             'Part Number': 100,
@@ -274,13 +311,16 @@ class FCSummary(TableWidget):
             'Total Complete': 60,
             '% Complete': 40})
 
-        self.add_button(name='Import FCs', func=lambda: fc.importFC(upload=True))
+        # TODO: add dropdown menu for Type, Action Reqd, Parts Avail
 
-    def set_default_filter(self):
-        fltr = self.fltr
-        fltr.add(vals=dict(MineSite=ui.get_minesite()), table=pk.Table('UnitID'))
-        fltr.add(vals=dict(ManualClosed=0), table=pk.Table('FCSummaryMineSite'))
-        # fltr.add(vals=dict(Classification='M'), table=pk.Table('FCSummary'))
+        # map table col to update table in db if not default
+        tbl_b = 'FCSummaryMineSite'
+        self.db_col_map = {
+            'Action Reqd': tbl_b,
+            'Parts Avail': tbl_b,
+            'Comments': tbl_b}
+        
+        self.check_exist_cols = tuple(self.db_col_map.keys()) # rows for these cols may not exist yet in db
 
     def process_df(self, df):
         try:
@@ -303,14 +343,29 @@ class FCSummary(TableWidget):
 
             # reorder cols after merge
             cols = list(df)
-            cols.insert(10, cols.pop(cols.index('Total Complete')))
-            cols.insert(11, cols.pop(cols.index('% Complete')))
+            endcol = 10
+            cols.insert(endcol + 1, cols.pop(cols.index('Total Complete')))
+            cols.insert(endcol + 2, cols.pop(cols.index('% Complete')))
             df = df.loc[:, cols]
 
-            df = f.sort_df_by_list(df=df, lst=['M', 'FAF', 'DO', 'FT'])
+            df = f.sort_df_by_list(df=df, lst=['M', 'FAF', 'DO', 'FT'], lst_col='Type', sort_cols='FC Number')
 
         except:
             f.send_error(msg='Can\'t pivot fc summary dataframe')
 
         return df
 
+class FCDetails(FCBase):
+    def __init__(self, parent=None, title='FC Details'):
+        super().__init__(parent=parent, title=title)
+        self.disabled_cols = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject')
+        self.col_widths.update({
+            'Complete': 60,
+            'Closed': 60,
+            'Type': 60,
+            'Subject': 400,
+            'Notes': 400})
+
+    def set_default_filter(self):
+        super().set_default_filter()
+        self.fltr.add(vals=dict(Complete=0))
