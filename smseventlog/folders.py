@@ -28,7 +28,9 @@ def get_config():
             imptable='PLMImport',
             impfunc='ImportPLM'),
         'dsc': dict(
-            exclude=[])}
+            exclude=[]),
+        'tr3': dict(
+            exclude=['dsc', 'chk', 'CHK', 'Pictures'])}
 
 class EventFolder(object):
     def __init__(self, e):
@@ -67,7 +69,7 @@ class EventFolder(object):
         return f'{unit} - {d_str} - {wo} - {title}'
 
     def show(self):
-        if not self.check_drive():
+        if not drive_exists():
             return
             
         p = self.p_event
@@ -76,7 +78,7 @@ class EventFolder(object):
         if not p.exists():
             if p_blank.exists():
                 # if wo_blank stills exists but event now has a WO, automatically rename
-                copy_folder(p_src=p_blank, p_dst=p)
+                move_folder(p_src=p_blank, p_dst=p)
             else:
                 # show folder picker dialog
                 msg = f'Can\'t find folder:\n\'{p.name}\'\n\nWould you like to link it?'
@@ -85,7 +87,7 @@ class EventFolder(object):
                     
                     # if user selected a folder
                     if p_old:
-                        copy_folder(p_src=p_old, p_dst=p)
+                        move_folder(p_src=p_old, p_dst=p)
                     
                 if not p.exists():
                     # if user declined to create OR failed to chose a folder, ask to create
@@ -94,10 +96,10 @@ class EventFolder(object):
                         self.create_folder()
         
         if p.exists():
-            open_folder(p=p)
+            open_folder(p=p, check_drive=False)
     
-    def create_folder(self, show=True):
-        if not self.check_drive():
+    def create_folder(self, show=True, ask_show=False):
+        if not drive_exists():
             return
             
         try:
@@ -109,21 +111,16 @@ class EventFolder(object):
                 p_pics.mkdir(parents=True)
                 p_dls.mkdir(parents=True)
 
-                if show: self.show()
+                if ask_show:
+                    msg = 'Event folder created. Would you like to open?'
+                    if dlgs.msgbox(msg=msg, yesno=True):
+                        self.show()
+                elif show:
+                    self.show()
         except:
             msg = 'Can\'t create folder!'
             dlgs.msg_simple(msg=msg, icon='critical')
             log.error(msg)
-
-    def check_drive(self):
-        if f.drive.exists():
-            return True
-        else:
-            msg = 'Cannot connect to network drive. \
-                \n\nCheck: \n\t1. VPN is connected\n\t2. Drive is activated \
-                \n\n(To activate drive, open any folder on the drive).'
-            dlgs.msg_simple(msg=msg, icon='warning')
-            return False
 
     def set_modelpath(self):
         model = self.model
@@ -147,38 +144,6 @@ class EventFolder(object):
             
         self.modelpath = v
         
-
-# def import_haul(lst_csv):
-#     # read and combine list of csv haulcycle files, import to db
-#     units = [f'F{n}' for n in range(300, 348)]
-
-#     for unit in units:
-#         lst = list(filter(lambda p: p.parts[4].split(' - ')[0] == unit, lst_csv))
-
-#         if lst:
-#             print(f'Starting: {unit}, files: {len(lst)}')
-
-#             df = combine_df(lst, ftype='haul')
-#             print(f'df: {len(df)}, max: {df.datetime.max()}, min: {df.datetime.min()}')
-
-#             df.to_sql(name='PLMImport', con=db.get_engine(), if_exists='append')
-
-#             print(unit)
-
-#     rows = db.cursor.execute('ImportPLM').rowcount
-#     db.cursor.commit()
-#     print(f'Rows imported to PLM table: {rows}')
-
-# def import_fault(lst_csv):
-#     # read and combine list of csv fault code files, import to db
-#     if not isinstance(lst_csv, list): lst_csv = [lst_csv]
-
-#     df = combine_df(lst=lst_csv, ftype='fault')
-#     df.to_sql(name='FaultImport', con=db.get_engine(), if_exists='append', index=False)
-
-#     rows = db.cursor.execute('ImportFaults').rowcount
-#     db.cursor.commit()
-#     print(f'Rows imported to fault table: {rows}')
 
 def combine_csv(lst_csv, ftype):
     # combine list of csvs into single and drop duplicates, based on duplicate cols
@@ -324,10 +289,17 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
     # recurse and find fault/haulcycle csv files
     lst = []
 
+    if depth == 0 and ftype == 'tr3':
+        # this is sketch, but need to find files in top level dir too
+        lst.extend([f for f in p_search.glob(f'*.tr3')])
+
     if depth <= maxdepth:
         for p in p_search.iterdir():
             if p.is_dir():
-                lst.extend([f for f in p.glob(f'*{ftype}*.csv')])
+                if ftype in ('fault', 'haul'):
+                    lst.extend([f for f in p.glob(f'*{ftype}*.csv')])
+                elif ftype == 'tr3':
+                    lst.extend([f for f in p.glob(f'*.tr3')])
 
                 if (not (any(s in p.name for s in exclude)
                         or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
@@ -380,7 +352,7 @@ def date_created(p):
 def date_modified(p):
     return dt.fromtimestamp(p.stat().st_mtime)
 
-def copy_folder(p_src, p_dst):
+def move_folder(p_src, p_dst):
     # copy folder or file (more like a move/rename)
     try:
         if p_src.exists() and not p_src == p_dst:
@@ -394,6 +366,16 @@ def copy_folder(p_src, p_dst):
                 shutil.move(src, dst)
     except:
         print(f'Error copying folder: {str(p_src)}')
+
+def copy_file(p_src, p_dst):
+    p = p_dst.parent
+    if not p.exists():
+        p.mkdir(parents=True)
+
+    if not p_dst.exists():
+        shutil.copyfile(str(p_src), str(p_dst))
+    else:
+        print(f'File already exists: {p_dst.name}')
 
 def zip_folder(p, delete=False, calculate_size=False, p_new=None):
     # zips target folder in place, optional delete original
@@ -468,6 +450,14 @@ def get_recent_dsc_all(d_lower=dt(2020,1,1)):
 
     return lst
 
+def move_tr3(p):
+    unit = unit_from_path(p) # assuming in unit folder
+
+    p_dst_base = Path('/Users/Jayme/OneDrive/SMS Equipment/Share/tr3 export')
+    p_dst = p_dst_base / f'{unit}/{p.name}'
+
+    copy_file(p_src=p, p_dst=p_dst)
+
 def fix_dsc(p, p_unit, zip_=False):
     # process/fix single dsc/dls folder
     start = timer()
@@ -507,41 +497,11 @@ def fix_dsc(p, p_unit, zip_=False):
                 p_new=p_new / p.name,
                 calculate_size=False)
 
-        copy_folder(p_src=p_src, p_dst=p_dst)
+        move_folder(p_src=p_src, p_dst=p_dst)
     except:
         print(f'Error fixing dsc folder: {str(p_src)}')
 
     print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
-
-# def get_dsc(p_unit, maxdepth=3, d_lower=dt(2016,1,1)):
-#     # TODO: probably remove this
-#     # find all dsc folders in top level unit folder / downloads
-    
-#     unit = p_unit.name.split(' - ')[0]
-#     p_dls = p_unit / 'Downloads'
-#     lst = recurse_dsc(p_search=p_dls, maxdepth=maxdepth, d_lower=d_lower)
-#     return lst
-
-# def fix_dls(unit=None, d_lower=dt(2020,1,1), p_unit=None, maxdepth=3):
-#     # fix dls folder for single unit
-#     # TODO: remove this
-#     if p_unit is None:
-#         p_unit = unitpath_from_unit(unit)
-
-#     lst = get_dsc(p_unit=p_unit, d_lower=d_lower, maxdepth=maxdepth)
-
-#     unit = unit_from_path(p=p_unit)
-#     print(f'\n\nStarting unit: {unit}\ndsc folders found: {len(lst)}')
-
-#     for p in lst:
-#         fix_dsc(p=p, p_unit=p_unit, zip_=True)
-
-# def fix_dls_all_units(d_lower=dt(2020,1,1)):
-#     # TODO: delte
-#     unitpaths = get_unitpaths()
-    
-#     for p_unit in unitpaths:
-#         fix_dls(p_unit=p_unit, d_lower=d_lower)
 
 def zip_recent_dls(units, d_lower=dt(2020,1,1)):
     # get most recent dsc from list of units and zip parent folder for attaching to TSI
@@ -559,6 +519,8 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
     # top level control function - pass in single unit or list of units
         # 1. get list of files (haul, fault, dsc)
         # 2. Process - import haul/fault or 'fix' dsc eg downloads folder structure
+    
+    if ftype == 'tr3': search_folders.append('vibe tests') # bit sketch
 
     if not units: # assume ALL units # TODO: make this work for all minesites?
         units = [f'F{n}' for n in range(300, 348)]
@@ -582,11 +544,11 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
         # process all dsc folders per unit as we find them
         if ftype == 'dsc':
             print(f'\n\nProcessing dsc, unit: {unit}\ndsc folders found: {len(lst)}')
-
-            for p in lst:
-                fix_dsc(p=p, p_unit=p_unit, zip_=True)
-            
+            for p in lst: fix_dsc(p=p, p_unit=p_unit, zip_=True)
             lst = [] # need to reset list, only for dsc, this is a bit sketch
+        elif ftype == 'tr3':
+            for p in lst: move_tr3(p=p)
+            lst = []
 
     # collect all csv files for all units first, then import together
     if ftype in ('haul', 'fault'):
@@ -595,12 +557,12 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
             db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True)
 
 def get_list_files(ftype, p_search, d_lower=dt(2020,1,1), maxdepth=4):
-    # return list of haulcycle, fault, or dsc files/folders
+    # return list of haulcycle, fault, tr3, or dsc files/folders
     print(p_search)
     
     lst = []
     # recurse and find all other folders inside
-    if ftype in ('haul', 'fault'):
+    if ftype in ('haul', 'fault', 'tr3'):
         lst = recurse_folders(p_search=p_search, maxdepth=maxdepth, d_lower=d_lower, exclude=get_config()[ftype]['exclude'], ftype=ftype)
     elif ftype == 'dsc':
         lst = recurse_dsc(p_search=p_search, maxdepth=maxdepth, d_lower=d_lower)
@@ -618,7 +580,20 @@ def write_import_fail(p):
 
 
 # OTHER
-def open_folder(p):
+def drive_exists():
+    if f.drive.exists():
+        return True
+    else:
+        msg = 'Cannot connect to network drive. \
+            \n\nCheck: \n\t1. VPN is connected\n\t2. Drive is activated \
+            \n\n(To activate drive, open any folder on the drive).'
+        dlgs.msg_simple(msg=msg, icon='warning')
+        return False
+
+def open_folder(p, check_drive=False):
+    if check_drive and not drive_exists():
+        return
+
     platform = sys.platform
     if platform.startswith('win'):
         os.startfile(p)
