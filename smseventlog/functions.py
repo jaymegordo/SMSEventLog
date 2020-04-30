@@ -61,9 +61,12 @@ def convert_list_view_db(title, cols):
 def get_default_headers(title):
     return list(config['Headers'][title].keys())
 
-def convert_header(title, header):
+def convert_header(title, header, inverse_=False):
+    m = config['Headers'][title]
+    if inverse_: m = inverse(m)
+
     try:
-        return config['Headers'][title][header]
+        return m[header]
     except:
         return header
 
@@ -85,6 +88,11 @@ def copy_dict_attrs(m, target):
 
 def pretty_dict(m):
     return str(m).replace('{', '').replace('}', '').replace(', ', '\n').replace("'", '')
+
+def set_self(obj, m):
+    # convenience func to assign an object's func's local vars to self
+    for k, v in m.items():
+        setattr(obj, k, v)
 
 
 
@@ -133,10 +141,15 @@ def multiIndex_pivot(df, index=None, columns=None, values=None):
     
     return output_df
 
-def sort_df_by_list(df, lst=[]):
-    sorterIndex = dict(zip(lst,range(len(lst))))
-    df['sort'] = df['Type'].map(sorterIndex)
-    df.sort_values(['sort'], ascending=[True], inplace=True)
+def sort_df_by_list(df, lst, lst_col, sort_cols=[]):
+    # sort specific column by list, with option to include other columns first
+    sorterIndex = dict(zip(lst, range(len(lst))))
+    df['sort'] = df[lst_col].map(sorterIndex)
+
+    if not isinstance(sort_cols, list): sort_cols = [sort_cols]
+    sort_cols.insert(0, 'sort')
+    
+    df.sort_values(sort_cols, inplace=True)
     df.drop(columns=['sort'], inplace=True)
     return df
 
