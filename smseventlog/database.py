@@ -116,6 +116,7 @@ class DB(object):
         return df.Unit.loc[df.Serial == serial].values[0]
     
     def get_unit_val(self, unit, field):
+        # TODO: bit messy, should have better structure to get any val from saved table
         self.set_df_unit()
         dfu = self.df_unit
 

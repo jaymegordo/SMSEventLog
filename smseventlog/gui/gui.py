@@ -69,20 +69,20 @@ def get_minesite():
 class Table(QAbstractTableModel):
     def __init__(self, df, parent=None):
         QAbstractTableModel.__init__(self, parent)
-        self.parent = parent
-        self.title = self.parent.title
-        self.tablename = f.config['TableName']['Update'][self.title] # name of db model
-        self.dbtable = getattr(dbm, self.tablename) # db model definition, NOT instance
+        title = parent.title
+        tablename = f.config['TableName']['Update'][title] # name of db model
+        dbtable = getattr(dbm, tablename) # db model definition, NOT instance
         
-        self.df = df
-        self._cols = list(df.columns)
-        self.r, self.c = df.shape[0], df.shape[1]
+        _cols = list(df.columns)
+        r, c = df.shape
         
         # create tuple of ints from parent's list of disabled table headers
-        self.disabled_cols = tuple(i for i, col in enumerate(self._cols) if col in parent.disabled_cols)
+        disabled_cols = tuple(i for i, col in enumerate(_cols) if col in parent.disabled_cols)
         
         # tuple of ints for date cols
-        self.dt_cols = tuple(i for i, val in enumerate(df.dtypes) if val == 'datetime64[ns]')
+        dt_cols = tuple(i for i, val in enumerate(df.dtypes) if val == 'datetime64[ns]')
+
+        f.set_self(self, vars())
 
     def insertRows(self, m, parent=None):
         rows = self.rowCount()
@@ -130,15 +130,19 @@ class Table(QAbstractTableModel):
 
     def update_db(self, index, val):
         # Update single value from row in database
-        # TODO: not used, this could maybe move to TableWidget
+        # TODO: this could maybe move to TableWidget?
         row, col = index.row(), index.column()
-        df = self.df
+        df, parent = self.df, self.parent
         header = df.columns[col] # view header
 
         # print(row, df.iloc[row, col], df.iloc[row, 0], df.index[row])
+        db_col_map = parent.db_col_map
+        dbtable = self.dbtable if not header in db_col_map else getattr(dbm, db_col_map[header])
 
-        e = el.Row(tbl=self, i=row)
-        e.update_single(header=header, val=val)
+        check_exists = False if not header in parent.check_exist_cols else True
+
+        e = el.Row(tbl=self, dbtable=dbtable, i=row)
+        e.update_single(header=header, val=val, check_exists=check_exists)
     
     def create_model(self, i):
         # Not used currently
@@ -170,9 +174,14 @@ class Table(QAbstractTableModel):
         return True
 
     def headerData(self, p_int, orientation, role):
+        cols = self._cols
+
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return self._cols[p_int]
+                if p_int < len(cols):
+                    return cols[p_int]
+                else:
+                    return ''
             elif orientation == Qt.Vertical:
                 return p_int
 
@@ -204,17 +213,17 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(title)
         self.setMinimumSize(QSize(1000, 400))
 
-        tabs = TabWidget(self)
-        self.setCentralWidget(tabs)
-
-        self.create_actions()
-        self.create_menu()
-
         # Settings
         s = QSettings('sms', 'smseventlog')
         self.resize(s.value('window size', defaultValue=QSize(1200, 1000)))
         self.move(s.value('window position', defaultValue=QPoint(50, 50)))
         self.minesite = s.value('minesite', defaultValue='FortHills')
+
+        self.create_actions()
+        self.create_menu()
+
+        tabs = TabWidget(self)
+        self.setCentralWidget(tabs)
         tabs.setCurrentIndex(tabs.get_index(title=s.value('active table', 'Event Log')))
 
         self.settings = s
@@ -268,11 +277,11 @@ class MainWindow(QMainWindow):
 
     def view_folder(self):
         row = self.active_table().row_from_activerow()
+        if row is None: return
         e = row.create_model_from_db()
         # el.print_model(e)
 
-        ef = fl.EventFolder(e=e)
-        ef.show()
+        fl.EventFolder(e=e).show()
 
     def create_menu(self):
         bar = self.menuBar()
@@ -339,6 +348,7 @@ class MainWindow(QMainWindow):
             return
 
         row = table.row_from_activerow()
+        if row is None: return
         row.update(vals=dict(StatusTSI='Open', TSIAuthor=self.username))
         # TODO: maybe show status message to confirm TSI opened?
 
@@ -348,6 +358,7 @@ class MainWindow(QMainWindow):
         if table.title == 'TSI':
             e = table.model_from_activerow()
             row = table.row_from_activerow()
+            if row is None: return
 
             # TODO: bit sketch, should give model to row first then access from dict only?
             m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
@@ -363,6 +374,7 @@ class MainWindow(QMainWindow):
         table = self.active_table()
         e = table.model_from_activerow()
         row = table.row_from_activerow()
+        if row is None: return
 
         m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
 

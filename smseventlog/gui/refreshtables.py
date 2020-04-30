@@ -150,7 +150,7 @@ class FCSummary(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['all open', 'minesite_unit', 'type', 'manualclosed', 'model', 'Unit']
+        features = ['all open', 'minesite_unit', 'fc number', 'type', 'manualclosed', 'model', 'Unit']
         self.add_features(features=features)
 
 class FCDetails(RefreshTable):
@@ -171,7 +171,7 @@ class ComponentCO(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['minesite_unit', 'component', 'model', 'unit']
+        features = ['minesite_unit', 'component', 'model', 'unit', 'start date', 'end date']
         self.add_features(features=features)
 
 

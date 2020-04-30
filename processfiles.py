@@ -29,7 +29,7 @@ if __name__ == '__main__':
     args = CLI.parse_args()
     units, ftype = args.units, args.ftype
     rng = args.range
-    d_lower = dt(2020,1,1)
+    d_lower = dt(2019,1,1)
 
     if rng:
         lower = int(rng[0].replace('F', ''))

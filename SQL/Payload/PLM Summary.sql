@@ -42,7 +42,11 @@ WITH t as (
             THEN 1 ELSE 0 END) as No_GE_Code
 
     FROM viewPLM a
-    WHERE a.DateTime>='2019-10-01'
+    WHERE
+        a.DateTime>='2016-11-01' and
+        a.Unit='F308'
+
+
     GROUP BY a.Unit
 )
 

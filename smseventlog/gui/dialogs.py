@@ -180,6 +180,7 @@ class InputUserName(InputForm):
 class AddRow(InputForm):
     def __init__(self, parent=None):
         super().__init__(parent=parent, title='Add Item')
+        self.m = {} # need dict for extra cols not in dbm table model
 
         if not parent is None:
             self.table = parent.view.model()
@@ -194,17 +195,18 @@ class AddRow(InputForm):
     
     def accept(self):
         super().accept()
-        row = self.row
+        row, m = self.row, self.m
         
         # add fields to dbmodel from form fields
         for field in self.fields:
             setattr(row, field.col_db, field.get_val())
-
+            
         # convert row model to dict of values and append to current table
-        m = f.model_dict(model=row)
+        m.update(f.model_dict(model=row))
         m = f.convert_dict_db_view(title=self.title, m=m)
         self.table.insertRows(m=m)
 
+        # TODO: probably merge this with Row class? > update all?
         print(int(row.UID))
         session = db.session
         session.add(row)
@@ -251,12 +253,12 @@ class AddEvent(AddRow):
     
     def link_fc(self):
         # add event's UID to FC in FactoryCampaign table
-        unit = self.fUnit.get_val()
+        unit = self.row.Unit
         row = el.Row(keys=dict(FCNumber=self.FCNumber, Unit=unit), dbtable=dbm.FactoryCampaign)
         row.update(vals={'UID': self.uid})
 
     def create_fc(self):
-        unit = self.fUnit.get_val()
+        unit = self.row.Unit
 
         if self.cbFC.isChecked():
             # TODO: This can eventually go into its own function
@@ -274,16 +276,20 @@ class AddEvent(AddRow):
                 self.cbFC.setChecked(False)
     
     def accept(self):
+        row, m = self.row, self.m
+        unit = self.fUnit.get_val()
+        m['Model'] = db.get_unit_val(unit=unit, field='Model') # add these values to display in table
+        m['Serial'] = db.get_unit_val(unit=unit, field='Serial')
+        el.print_model(model=row)
+
         super().accept()
-        # TODO: add model/serial to model before adding to table row
-        # TODO: Need to link FC!
+
         if self.cbFC.isChecked():
-            # self.link_fc()
-            pass
+            self.link_fc()
         
         if self.cbEventFolder.isChecked():
-            # TODO: Create event folder
-            pass
+            ef = fl.EventFolder(e=row)
+            ef.create_folder(ask_show=True)
 
 class AddUnit(AddRow):
     def __init__(self, parent=None):

@@ -9,6 +9,8 @@ from . import functions as f
 from . import units as un
 from .__init__ import *
 
+global p_reports
+p_reports = Path(__file__).parents[1] / 'reports'
 
 # Dataframe format
 def left_justified(df, header=False):
@@ -52,7 +54,6 @@ def set_style(df):
     return style
 
 def report_unit_hrs_monthly(month):
-    p_reports = Path(__file__).parents[1] / 'reports'
 
     env = Environment(loader=FileSystemLoader(str(p_reports)))
     template = env.get_template('report_template.html')
@@ -83,3 +84,55 @@ def report_unit_hrs_monthly(month):
     # save csv
     p = p_base / f'{title}.csv'
     df.to_csv(p)
+
+def get_df():
+    # get raw df
+
+    # process/shape?
+
+    # style
+
+    # set col formats
+    
+    return
+
+# Fleet Monthly Report
+def fleet_monthly_report(month):
+
+    # create template
+        # table of contents?
+
+    # get all dfs
+
+    # SMR hrs - done
+    df_smr = un.df_unit_hrs_monthly(month=month)
+
+    # Availability
+        # df - Monthly avail summary > get from db - done
+        # chart - rolling availability > create from df, exists in db?
+        # df - MA shortfalls > maybe need to create this?
+        # df - year to date? maybe just df of monthly rolling?
+        # chart/df - top x downtime reasons
+
+    # PLM
+        # Will need to manually import all units before running report for now. > wont have dls till much later..
+        # df - summary table - total loads, total payload, fleet mean payload
+        # chart - monthly rolling summary
+        # df - summary loads per unit, need to identify max payload date..
+    
+    # Component CO
+        # df - all components replaced in month
+        # df - CO forecast??
+
+    # FCs
+        # df - New FCs released
+        # df - Full summary page
+        # df - FCs completed during the month summary per fc/count
+        # df - list of outstandanding mandatory FCs
+
+
+    # match df.html to template slots
+
+    # save as pdf
+    
+    return
