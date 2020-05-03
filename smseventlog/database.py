@@ -20,6 +20,7 @@ import yaml
 from sqlalchemy.orm import sessionmaker
 
 from . import functions as f
+from . import queries as qr
 
 global db
 log = logging.getLogger(__name__)
@@ -33,31 +34,33 @@ def str_conn():
     params = parse.quote_plus(db_string)
     return f'mssql+pyodbc:///?odbc_connect={params}'
     
-def engine():
+def get_engine():
     # sqlalchemy.engine.base.Engine
     return sa.create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)
 
 class DB(object):
     def __init__(self):
-        self.__name__ = 'SMS Event Log Database'
-        self.engine = None
-        self.session = None
+        __name__ = 'SMS Event Log Database'
+        engine = None
+        session = None
 
         # TODO: should put these into a better table store
-        self.df_unit = None
-        self.df_fc = None
-        self.df_component = None
+        df_unit = None
+        df_fc = None
+        df_component = None
+        dfs = {}
         
         try:
-            self.engine = engine()
+            engine = get_engine()
 
             # create session, this is for the ORM part of sqlalchemy
-            Session = sessionmaker(bind=self.engine)
-            self.session = Session()
+            session = sessionmaker(bind=engine)()
         except:
             msg = 'Couldnt create engine'
             f.send_error(msg=msg)
             log.error(msg)
+        
+        f.set_self(self, vars())
         
     def get_engine(self):
         if not self.engine is None:
@@ -115,6 +118,34 @@ class DB(object):
         
         return df.Unit.loc[df.Serial == serial].values[0]
     
+    def get_df(self, query, refresh=True, default=False):
+        # get df by name and save for later reuse
+        dfs = self.dfs
+        title = query.title
+        df = dfs.get(title, None)
+
+        if default and hasattr(query, 'set_default_filter'):
+            query.set_default_filter()
+
+        if df is None or refresh:
+            try:
+                query.fltr.print_criterion()
+                df = pd.read_sql(sql=query.get_sql(), con=self.get_engine()).pipe(f.parse_datecols)
+                df.columns = f.convert_list_db_view(title=title, cols=df.columns)
+
+                if hasattr(query, 'process_df'):
+                    df = query.process_df(df=df)
+
+                dfs[title] = df
+                query.set_fltr() # reset filter after every refresh call
+            except:
+                msg = 'Couldn\'t get dataframe.'
+                f.send_error(msg=msg)
+                log.error(msg)
+                df = pd.DataFrame()
+
+        return df
+
     def get_unit_val(self, unit, field):
         # TODO: bit messy, should have better structure to get any val from saved table
         self.set_df_unit()
@@ -136,7 +167,7 @@ class DB(object):
         if not minesite is None:
             q = q.where(a.MineSite == minesite)
             
-        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine()).set_index('Unit', drop=False)
+        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine()).set_index('Unit', drop=False).pipe(f.parse_datecols)
 
     def get_df_fc(self):
         if self.df_fc is None:
