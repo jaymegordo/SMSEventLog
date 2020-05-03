@@ -4,20 +4,25 @@ from pathlib import Path
 import logging
 logging.basicConfig(level=logging.WARNING)
 
+from datetime import (date, datetime as dt, timedelta as delta)
+
 # from smseventlog import *
 import json
 from time import time
 from timeit import Timer
 
 import pandas as pd
+import numpy as np
 import pypika as pk
 import xlwings as xw
 import yaml
 import sqlalchemy as sa
+from appscript import *
 
 from smseventlog import (
     functions as f,
     eventlog as el,
+    queries as qr,
     factorycampaign as fc,
     folders as fl,
     emails as em,

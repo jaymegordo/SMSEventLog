@@ -389,15 +389,23 @@ class TabWidget(QTabWidget):
     def __init__(self, parent):
         super(QTabWidget, self).__init__(parent)
         self.tabindex = dd(int)
-        lst = ['Event Log', 'Work Orders', 'Component CO', 'TSI', 'Unit Info', 'FC Summary', 'FC Details']
+        
+        m = f.config['TableName']['Class'] # get list of table classes from config
         
         # Add tabs to widget
-        for i, title in enumerate(lst):
-            self.addTab(getattr(tbls, title.replace(' ',''))(parent=self), title)
+        for i, title in enumerate(m):
+            self.addTab(getattr(tbls, title)(parent=self), m[title])
             self.tabindex[title] = i
+        
+        self.currentChanged.connect(self.save_activetab)
+
     
     def get_index(self, title):
         return self.tabindex[title]
+    
+    def save_activetab(self):
+        s = self.parent().settings
+        s.setValue('active table', self.currentWidget().title)
 
 
 def launch():

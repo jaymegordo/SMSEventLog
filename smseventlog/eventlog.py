@@ -1,12 +1,12 @@
-import operator
+
 
 import pandas as pd
 import pypika as pk
 import sqlalchemy as sa
-from pypika import Case, Criterion
-from pypika import CustomFunction as cf
-from pypika import Order, Query
-from pypika import functions as fn
+# from pypika import Case, Criterion
+# from pypika import CustomFunction as cf
+# from pypika import Order, Query
+# from pypika import functions as fn
 from sqlalchemy import and_, literal
 
 from . import functions as f
@@ -105,53 +105,8 @@ class Row(object):
             id=self.id)
         display(m)
 
-class Filter():
-    def __init__(self, title):
-        self.criterion = {}
-        self.title = title
-        self.table = pk.Table(f.config['TableName']['Select'][title])
 
-    def add(self, field=None, val=None, vals=None, opr=operator.eq, term=None, table=None):
-        if not vals is None:
-            # not pretty, but pass in field/val with dict a bit easier
-            field = list(vals.keys())[0]
-            val = list(vals.values())[0]
-        
-        if table is None:
-            table = self.table
-            # otherwise must pass in a pk.Table()
-            
-        field_ = table.field(field)
-
-        if not term is None:
-            ct = getattr(field_, term)()
-        elif isinstance(val, str):
-            if '%' in val:
-                ct = field_.like(val)
-            else:
-                ct = opr(field_, val)
-        elif isinstance(val, int):
-            ct = opr(field_, val)
-        elif isinstance(val, (dt, date)):
-            # TODO: opp gt (greater than)
-            ct = field_ >= val
-        
-        self.add_criterion(ct=ct)
-    
-    def add_criterion(self, ct):
-        # check for duplicate criterion, use str(ct) as dict key for actual ct
-        # can also use this to pass in a completed pk criterion eg (pk.Table().field() == val)
-        self.criterion[str(ct)] = ct
-    
-    def get_criterion(self):
-        return self.criterion.values()
-
-    def print_criterion(self):
-        print(self.title)
-        for ct in self.criterion.values():
-            print('\t', list(ct.tables_)[0], ct)
-
-def get_df(title=None, fltr=None, defaults=False):
+def get_df(title=None, fltr=None):
     if fltr is None:
         if title is None:
             raise NameError('Missing Filter, title cannot be None!')
@@ -161,12 +116,6 @@ def get_df(title=None, fltr=None, defaults=False):
     a = fltr.table # pypika Table
     q = None
 
-    # defaults
-    startdate = dt(2020,3,28)
-    if defaults and a.get_table_name() == 'EventLog':
-        fltr.add(field='DateAdded', val=startdate)
-        fltr.add(field='MineSite', val='FortHills')
-
     if title == 'Event Log':
         cols = ['UID', 'PassoverSort', 'StatusEvent', 'Unit', 'Title', 'Description', 'DateAdded', 'DateCompleted', 'IssueCategory', 'SubCategory', 'Cause', 'CreatedBy']
 
@@ -174,8 +123,6 @@ def get_df(title=None, fltr=None, defaults=False):
                 .orderby(a.DateAdded, a.Unit)
 
     elif title == 'Unit Info':
-        if defaults:
-            fltr.add(field='model', val='980E%')
 
         isNumeric = cf('ISNUMERIC', ['val'])
         left = cf('LEFT', ['val', 'num'])

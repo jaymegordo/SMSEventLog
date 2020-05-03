@@ -602,6 +602,25 @@ def open_folder(p, check_drive=False):
     else:
         subprocess.Popen(['xdg-open', p])
 
+import subprocess
+
+def get_app_name(appNamesList, app):
+    for appName in appNamesList:
+        if app in appName:
+            return appName
+    return ""
+
+
+def open_app(name):
+    # p = subprocess.Popen(["ls",  "/Applications/"], stdout=subprocess.PIPE)
+    # appNames = p.communicate()[0].split('\n')
+    # appName = get_app_name(appNames, name)
+
+    if not name == '':
+        p = subprocess.Popen(["open", "-n", "/Applications/" + name], stdout=subprocess.PIPE)
+    else:
+        print('No app with that name installed')
+
 # ARCHIVE
 def gethaulcycles():
     folders, files = [], []

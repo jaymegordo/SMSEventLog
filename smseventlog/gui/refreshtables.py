@@ -121,9 +121,9 @@ class RefreshTable(InputForm):
         # get filter from parent table or just create default for testing
         parent = self.parent
         if not parent is None:
-            return parent.fltr
+            return parent.query.fltr
         else:
-            return el.Filter(title='Event Log') # default
+            return qr.EventLog().fltr # default
 
 class EventLog(RefreshTable):
     def __init__(self, parent=None):
