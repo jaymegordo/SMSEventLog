@@ -16,16 +16,35 @@ from .database import db
 
 def import_single(p):
     df = pd.read_csv(p, header=2)
-    df = process_df(df=df)
+    df = process_df_downtime(df=df)
     db.import_df(df=df, imptable='DowntimeImport', impfunc='ImportDowntimeTable', notification=False)
 
 def import_downtime_email():
     maxdate = db.max_date_db(table='Downtime', field='ShiftDate') + delta(days=2)
-    df = em.combine_email_data(folder='Downtime', maxdate=maxdate)
-    df = process_df(df=df)
+    df = em.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Downtime')
+    df = process_df_downtime(df=df)
     db.import_df(df=df, imptable='DowntimeImport', impfunc='ImportDowntimeTable')
 
-def process_df(df):
+def import_dt_exclusions_email():
+    maxdate = db.max_date_db(table='DowntimeExclusions', field='Date') + delta(days=2)
+    df = em.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Availability', header=0)  
+    df = process_df_exclusions(df=df)
+    db.import_df(df=df, imptable='DowntimeExclusionsImport', impfunc='ImportDowntimeExclusions')
+
+def process_df_exclusions(df):
+    if df is None: return None
+
+    df = df[['EqmtUnit', 'TC08', 'Duration', 'DateEmail']]
+    df.columns = ['Unit', 'OutOfSystem', 'Total', 'Date']
+    df.Unit = df.Unit.str.replace('F0', 'F')
+    df.Date = pd.to_datetime(df.Date)
+    df['Hours'] = 24 - (df.Total - df.OutOfSystem) # hours = actual out of system hrs
+    df = df[df.Hours > 0] # units can only have MAX 24 hrs out of system
+    df['MA'] = 1 # assume all exclusions always apply to MA and PA, will have to manually change when needed
+    df.drop(columns=['OutOfSystem', 'Total'], inplace=True)
+    return df
+
+def process_df_downtime(df):
     if df is None: return None
     df = df[df.EqmtModel=='Komatsu 980E-OS'] # filter haul trucks only
 
