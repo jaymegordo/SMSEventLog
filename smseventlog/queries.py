@@ -13,7 +13,7 @@ from .__init__ import *
 
 class Filter():
     def __init__(self, base_table):
-        criterion = {}
+        criterion, fields = {}, {}
         f.set_self(self, vars())
 
     def add(self, field=None, val=None, vals=None, opr=operator.eq, term=None, table=None):
@@ -47,8 +47,27 @@ class Filter():
         # check for duplicate criterion, use str(ct) as dict key for actual ct
         # can also use this to pass in a completed pk criterion eg (pk.Table().field() == val)
         self.criterion[str(ct)] = ct
+
+        if hasattr(ct, 'left'):
+            field = ct.left.name
+        elif hasattr(ct, 'term'):
+            field = list(ct.term.fields_())[0].name
+
+        self.fields[field.lower()] = ct
     
-    def get_criterion(self):
+    def check_criterion(self, field):
+        # check if field is in criterion fields - not sure if I need this
+        lst = list(filter(lambda x: field.lower() in x.lower(), self.criterion))
+        ans = True if lst else False
+        return ans
+    
+    def get_criterion(self, field):
+        # return criterion containing selected field 
+        lst = list(filter(lambda x: field.lower() in x.lower(), self.criterion))
+        ans = lst[0] if lst else None
+        return ans
+
+    def get_all_criterion(self):
         return self.criterion.values()
 
     def print_criterion(self):
@@ -68,48 +87,57 @@ class QueryBase(object):
         if hasattr(self, 'process_criterion'):
             self.process_criterion()
 
-        ct = self.fltr.get_criterion()
+        ct = self.fltr.get_all_criterion()
         return self.q.where(Criterion.all(ct)).get_sql().replace("'d'", '"d"') # TODO: fix for this was answered
     
     def set_fltr(self):
         self.fltr = Filter(base_table=self.base_table)
 
-class EventLog(QueryBase):
+class EventLogBase(QueryBase):
     def __init__(self):
         super().__init__()
-        a = self.base_table
+        a, b = self.base_table, pk.Table('UnitID')
+        f.set_self(self, vars())
+    
+    def set_minesite(self):
+        self.fltr.add(vals=dict(MineSite=self.minesite), table=pk.Table('UnitID'))
+    
+    def set_default_filter(self):
+        self.set_minesite()
+        self.set_allopen()
+
+class EventLog(EventLogBase):
+    def __init__(self):
+        super().__init__()
+        a, b = self.a, self.b
 
         cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy]
 
         self.q = Query.from_(a).select(*cols) \
+                .left_join(b).on_field('Unit') \
                 .orderby(a.DateAdded, a.Unit)
-
-    def set_default_filter(self):
-        self.fltr.add(field='MineSite', val=self.minesite)
+    
+    def set_allopen(self):
         self.fltr.add(field='StatusEvent', val='complete', opr=operator.ne)
 
-class WorkOrders(QueryBase):
+class WorkOrders(EventLogBase):
     def __init__(self):
         super().__init__()
-
-        a = self.base_table
-        b = pk.Table('UnitID')
+        a, b = self.a, self.b
 
         cols = [a.UID, a.StatusWO, a.WarrantyYN, a.WorkOrder, a.Seg, a.SuncorWO, a.SuncorPO, b.Model, a.Unit, b.Serial, a.Title, a.PartNumber, a.SMR, a.DateAdded, a.DateCompleted, a.CreatedBy, a.WOComments, a.ComponentCO, a.Pictures]
 
         self.q = Query.from_(a).select(*cols) \
                     .left_join(b).on_field('Unit') \
                     .orderby(a.DateAdded, a.Unit)
-
-    def set_default_filter(self):
-        self.fltr.add(field='MineSite', val=self.minesite)
+   
+    def set_allopen(self):
         self.fltr.add(field='StatusWO', val='open')
 
-class ComponentCO(QueryBase):
+class ComponentCO(EventLogBase):
     def __init__(self):
         super().__init__()
-        a = self.base_table
-        b, c = pk.Tables('UnitID', 'ComponentType')
+        a, b, c = self.a, self.b, pk.Table('ComponentType')
 
         cols = [a.UID, b.MineSite, b.Model, a.Unit, c.Component, c.Modifier, a.GroupCO, a.DateAdded, a.SMR, a.ComponentSMR, a.SNRemoved, a.SNInstalled, a.WarrantyYN, a.CapUSD, a.WorkOrder, a.SuncorWO, a.SuncorPO, a.Reman, a.SunCOReason, a.RemovalReason, a.COConfirmed]
 
@@ -119,13 +147,16 @@ class ComponentCO(QueryBase):
             .orderby(a.Unit, a.DateAdded, c.Modifier, a.GroupCO)
 
     def set_default_filter(self):
-        self.fltr.add(vals=dict(MineSite=self.minesite))
+        super().set_default_filter()
         self.fltr.add(vals=dict(DateAdded=dt.now().date() + delta(days=-30)))
 
-class TSI(QueryBase):
+    def set_allopen(self):
+        self.fltr.add(field='COConfirmed', val='False')
+
+class TSI(EventLogBase):
     def __init__(self):
         super().__init__()
-        a, b = self.base_table, pk.Table('UnitID')
+        a, b = self.a, self.b
 
         cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, a.Unit, b.Model, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.TSIDetails, a.TSIAuthor]
 
@@ -135,8 +166,7 @@ class TSI(QueryBase):
             .left_join(b).on_field('Unit') \
             .orderby(a.DateAdded, a.Unit)
 
-    def set_default_filter(self):
-        self.fltr.add(field='MineSite', val=self.minesite)
+    def set_allopen(self):
         self.fltr.add(field='StatusTSI', val='closed', opr=operator.ne)
 
 class UnitInfo(QueryBase):
@@ -169,18 +199,20 @@ class FCBase(QueryBase):
         super().__init__()
     
     def set_default_filter(self):
-        fltr = self.fltr
-        fltr.add(vals=dict(MineSite=self.minesite), table=pk.Table('UnitID'))
-        fltr.add(vals=dict(ManualClosed=0), table=pk.Table('FCSummaryMineSite'))
+        self.fltr.add(vals=dict(MineSite=self.minesite), table=pk.Table('UnitID'))
+        self.set_allopen()
+    
+    def set_allopen(self):
+        self.fltr.add(vals=dict(ManualClosed=0), table=pk.Table('FCSummaryMineSite'))
 
     def process_criterion(self):
         # need to always filter manualclosed to 'OR is null'
         t = pk.Table('FCSummaryMineSite')
         fltr = self.fltr
 
-        lst = list(filter(lambda x: 'manualclosed' in x.lower(), fltr.criterion))
-        if lst:
-            fltr.criterion[lst[0]] |= t.ManualClosed.isnull()
+        ct = fltr.get_criterion(field='manualclosed')
+        if not ct is None:
+            fltr.criterion[ct] |= t.ManualClosed.isnull() # need to operate on the original dict, not copy ct
 
 class FCSummary(FCBase):
     def __init__(self):
