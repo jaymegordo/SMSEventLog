@@ -95,23 +95,31 @@ class TableWidget(QWidget):
             f.send_error(msg=msg)
             log.error(msg)
 
-    def refresh_lastweek(self):
-        self.fltr.add(field='MineSite', val=self.minesite)
-        self.fltr.add(field='DateAdded', val=dt.now().date() + delta(days=-7))
+    def refresh_lastweek(self, default=False):
+        fltr = self.query.fltr
+        if default:
+            self.query.set_minesite()
+        fltr.add(field='DateAdded', val=dt.now().date() + delta(days=-7))
         self.refresh()
 
-    def refresh_lastmonth(self):
+    def refresh_lastmonth(self, default=False):
         # self.sender() = PyQt5.QtWidgets.QAction > could use this to decide on filters
-        self.fltr.add(field='MineSite', val=self.minesite)
-        self.fltr.add(field='DateAdded', val=dt.now().date() + delta(days=-30))
+        fltr = self.query.fltr
+        if default:
+            self.query.set_minesite()
+        fltr.add(field='DateAdded', val=dt.now().date() + delta(days=-30))
         self.refresh()
 
-    def refresh_allopen(self):
-        self.query.minesite = ui.get_minesite() # set this before a defaults refresh, bit sketch for now
-        self.refresh(default=True)
+    def refresh_allopen(self, default=False):
+        query = self.query
+        if hasattr(query, 'set_allopen'):
+            query.set_allopen()
+
+        self.refresh(default=default)
 
     def refresh(self, default=False):
         # RefreshTable dialog will have modified query's fltr, load data to table view
+
         df = db.get_df(query=self.query, default=default)
 
         if not len(df) == 0:
@@ -297,14 +305,24 @@ class FCSummary(FCBase):
     def email_new_fc(self):
         # get df of current row
         df = self.df_from_activerow().iloc[:, :10]
+        df.replace('\n', '<br>', inplace=True, regex=True)
         style = rp.set_style(df=df)
+        formats = {'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
+        m = rp.format_dtype(df=df, formats=formats)
+        style.format(m)
+
+        fcnumber = df['FC Number'].iloc[0]
+        subject = df.Subject.iloc[0]
+        title = f'New FC - {fcnumber} - {subject}'
+
+        body = f'Hello,<br><br>New FC Released:<br><br>{style.hide_index().render()}'
 
         # get email list from db
         df2 = db.get_df(query=qr.EmailList())
-        lst = list(df2[df2.MineSite==self.minesite].Email)
+        lst = list(df2[(df2.MineSite==self.minesite) & (df2['FC Summary'].notnull())].Email)
 
         # show new email
-        msg = em.Message(subject='Test email', body=style.hide_index().render(), to_recip=lst)
+        msg = em.Message(subject=title, body=body, to_recip=lst)
 
         # attach files in fc folder
         p = self.get_fc_folder()
