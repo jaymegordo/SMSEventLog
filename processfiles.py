@@ -25,17 +25,37 @@ CLI.add_argument(
     type=str,
     default=[])
 
+CLI.add_argument( # process units in 5 batches of 10
+    '--batch',  
+    type=int,
+    default=None)
+
+CLI.add_argument(
+    '--startdate',  
+    type=str,
+    default=None)
+
 if __name__ == '__main__':
-    args = CLI.parse_args()
-    units, ftype = args.units, args.ftype
-    rng = args.range
-    d_lower = dt(2019,1,1)
+    def get_units(lower, upper):
+        return [f'F{unit}' for unit in range(lower, upper + 1)]
+    
+    a = CLI.parse_args()
+    units, ftype, rng, startdate, batch = a.units, a.ftype, a.range, a.startdate, a.batch
+    
+    if startdate:
+        d = dt.strptime(startdate, '%Y-%m-%d')
+    else:
+        d = dt(2019,1,1)
+    
+    if batch:
+        lower = 300 + (batch - 1) * 10
+        upper = lower + 9
+        units = get_units(lower, upper)
 
     if rng:
         lower = int(rng[0].replace('F', ''))
         upper = int(rng[-1].replace('F', ''))
-
-        units = [f'F{unit}' for unit in range(lower, upper + 1)]
+        units = get_units(lower, upper)
     
     print(f'ftype: {ftype}, units: {units}')
-    fl.process_files(ftype=ftype, units=units, d_lower=d_lower)
+    fl.process_files(ftype=ftype, units=units, d_lower=d)
