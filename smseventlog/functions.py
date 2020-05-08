@@ -89,10 +89,13 @@ def copy_dict_attrs(m, target):
 def pretty_dict(m):
     return str(m).replace('{', '').replace('}', '').replace(', ', '\n').replace("'", '')
 
-def set_self(obj, m):
+def set_self(obj, m, prnt=False):
     # convenience func to assign an object's func's local vars to self
     for k, v in m.items():
-        setattr(obj, k, v)
+        if prnt: print('\t', k, v)
+
+        if not k == '__class__':
+            setattr(obj, k, v)
 
 
 
@@ -158,6 +161,7 @@ def parse_datecols(df):
     datecols = list(filter(lambda x: any(s in x.lower() for s in ('date', 'time')) , df.columns))
     df[datecols] = df[datecols].apply(pd.to_datetime)
     return df
+
 
 # simple obfuscation for db connection string
 def encode(key, string):

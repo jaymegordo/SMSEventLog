@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 def main(mytimer: func.TimerRequest) -> None:
     try:
         av.import_downtime_email()
+        av.import_dt_exclusions_email()
         log.info('Ran import_downtime_email')
     except:
         log.info('failed to run')

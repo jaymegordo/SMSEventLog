@@ -8,9 +8,7 @@ import yaml
 from . import functions as f
 from .__init__ import *
 
-if f.is_win():
-    pass
-else:
+if sys.platform.startswith('dar'):
     from appscript import app, k
     from mactypes import Alias
 
@@ -40,13 +38,14 @@ def get_account():
     account = create_account()
     return account
 
-def parse_attachment(attachment, header=2):
+def parse_attachment(attachment, d=None, header=2):
     result = str(attachment.content, 'UTF-8')
     data = io.StringIO(result)
     df = pd.read_csv(data, header=header)
+    df['DateEmail'] = d # only used for dt exclusions email, it doesnt have date field
     return df
 
-def combine_email_data(folder, maxdate):
+def combine_email_data(folder, maxdate, subject=None, header=2):
     a = get_account()
     fldr = a.root / 'Top of Information Store' / folder
     tz = ex.EWSTimeZone.localzone()
@@ -56,8 +55,15 @@ def combine_email_data(folder, maxdate):
         datetime_received__range=(
             tz.localize(ex.EWSDateTime.from_datetime(maxdate)),
             tz.localize(ex.EWSDateTime.now())))
+
+    if not subject is None:
+        fltr = fltr.filter(subject__contains=subject)
+
     try:
-        df = pd.concat([parse_attachment(item.attachments[0]) for item in fltr])
+        df = pd.concat([parse_attachment(
+            item.attachments[0],
+            header=header,
+            d=item.datetime_received.date() + delta(days=-1)) for item in fltr])
     except:
         log.warning('No emails found.')
         df = None

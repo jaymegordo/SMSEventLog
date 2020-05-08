@@ -129,20 +129,22 @@ class DB(object):
 
         if df is None or refresh:
             try:
-                query.fltr.print_criterion()
+                print('Refreshing table')
                 df = pd.read_sql(sql=query.get_sql(), con=self.get_engine()).pipe(f.parse_datecols)
+                query.fltr.print_criterion()
                 df.columns = f.convert_list_db_view(title=title, cols=df.columns)
 
                 if hasattr(query, 'process_df'):
                     df = query.process_df(df=df)
 
                 dfs[title] = df
-                query.set_fltr() # reset filter after every refresh call
             except:
                 msg = 'Couldn\'t get dataframe.'
                 f.send_error(msg=msg)
                 log.error(msg)
                 df = pd.DataFrame()
+
+            query.set_fltr() # reset filter after every refresh call
 
         return df
 

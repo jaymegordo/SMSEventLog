@@ -303,7 +303,7 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
 
                 if (not (any(s in p.name for s in exclude)
                         or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
-                    and date_created(p) > d_lower):
+                    and date_modified(p) > d_lower):
                     
                     lst.extend(recurse_folders(
                         p_search=p,
@@ -323,7 +323,7 @@ def recurse_dsc(p_search, d_lower=dt(2020,1,1), depth=0, maxdepth=5):
         for p in p_search.iterdir():
             if 'dsc' in p.name:
                 lst.append(p) # end recursion
-            elif (p.is_dir() and date_created(p) > d_lower):
+            elif (p.is_dir() and date_modified(p) > d_lower):
                 lst.extend(recurse_dsc(
                     p_search=p,
                     depth=depth + 1,
@@ -593,6 +593,9 @@ def drive_exists():
 def open_folder(p, check_drive=False):
     if check_drive and not drive_exists():
         return
+    
+    if not p.exists():
+        return
 
     platform = sys.platform
     if platform.startswith('win'):
@@ -601,8 +604,6 @@ def open_folder(p, check_drive=False):
         subprocess.Popen(['open', p])
     else:
         subprocess.Popen(['xdg-open', p])
-
-import subprocess
 
 def get_app_name(appNamesList, app):
     for appName in appNamesList:

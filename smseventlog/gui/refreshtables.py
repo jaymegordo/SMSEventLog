@@ -46,17 +46,12 @@ class RefreshTable(InputForm):
 
         elif name == 'last month':
             add_refresh_button(name=title, func=parent.refresh_lastmonth)
-            
-        elif name == 'minesite':
-            lst = self.clean_series(s=db.get_df_unit().MineSite)
-            title = 'MineSite'
-            add_input(field=IPF(text=title, default=ms), items=lst, checkbox=True)
-            
+                       
         elif name == 'minesite_config':
             title = 'MineSite'
             add_input(field=IPF(text=title, default=ms), items=f.config[title], checkbox=True)
 
-        elif name == 'minesite_unit':
+        elif name == 'minesite':
             table = pk.Table('UnitID')
             lst = self.clean_series(s=db.get_df_unit().MineSite)
             add_input(field=IPF(text='MineSite', default=ms, table=table), items=lst, checkbox=True)
@@ -108,12 +103,13 @@ class RefreshTable(InputForm):
         layout = self.vLayout
         btn = QPushButton(name, self)
         btn.setMaximumWidth(60)
-        btn.clicked.connect(self.accept)
-        btn.clicked.connect(func)
         layout.insertWidget(0, btn)
+        btn.clicked.connect(self.add_items_to_filter)
+        btn.clicked.connect(super().accept)
+        btn.clicked.connect(func)
     
     def accept(self):
-        self.add_items_to_filter(fltr=self.get_fltr())
+        self.add_items_to_filter()
         self.parent.refresh()
         super().accept()
     
@@ -125,26 +121,29 @@ class RefreshTable(InputForm):
         else:
             return qr.EventLog().fltr # default
 
-class EventLog(RefreshTable):
+class EventLogBase(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['last month', 'last week', 'all open', 'minesite_config', 'unit', 'start date', 'end date']
+        features = ['last month', 'last week', 'all open', 'minesite', 'unit', 'model', 'start date', 'end date']
         self.add_features(features=features)
 
-class WorkOrders(RefreshTable):
+class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['last month', 'last week', 'all open', 'minesite_config', 'unit', 'start date', 'end date']
-        self.add_features(features=features)
-
-class TSI(RefreshTable):
+class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['last month', 'last week', 'all open', 'minesite', 'unit', 'start date', 'end date']
-        self.add_features(features=features)
+class ComponentCO(EventLogBase):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.add_features(features=['component'])
+
+class TSI(EventLogBase):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
 
 class FCSummary(RefreshTable):
     def __init__(self, parent=None):
@@ -167,11 +166,11 @@ class UnitInfo(RefreshTable):
         features = ['minesite', 'model']
         self.add_features(features=features)
 
-class ComponentCO(RefreshTable):
+class EmailList(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['minesite_unit', 'component', 'model', 'unit', 'start date', 'end date']
+        features = ['minesite']
         self.add_features(features=features)
 
 

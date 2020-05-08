@@ -15,56 +15,15 @@ minesite, customer = 'FortHills', 'Suncor'
 # Conditional Formatting
 # copy selected cells
 
-# TODO: Mark columns as non editable
 # TODO: Keyboard shortcuts > ctrl + down, right
 # TODO: cell dropdown menu
 # TODO: column bold
-
 # TODO: Filter rows
-# TODO: load tables on tab first selection?
 # TODO: green 'flash' for user confirmation value updated in db
 # TODO: Show 'details' menu > QListView?
 # TODO: change minesite > ctrl+shift+M
 
-# FUTURE
-# Interact with outlook
-# Select certain rows to email
 
-
-
-# def disable_window_animations_mac(window):
-#     # We need to access `.winId()` below. This method has an unwanted (and not
-#     # very well-documented) side effect: Calling it before the window is shown
-#     # makes Qt turn the window into a "native window". This incurs performance
-#     # penalties and leads to subtle changes in behaviour. We therefore wait for
-#     # the Show event:
-#     def eventFilter(target, event):
-#         from objc import objc_object
-#         view = objc_object(c_void_p=int(target.winId()))
-#         NSWindowAnimationBehaviorNone = 2
-#         view.window().setAnimationBehavior_(NSWindowAnimationBehaviorNone)
-#     FilterEventOnce(window, QEvent.Show, eventFilter)
-
-class FilterEventOnce(QObject):
-    def __init__(self, parent, event_type, callback):
-        super().__init__(parent)
-        self._event_type = event_type
-        self._callback = callback
-        parent.installEventFilter(self)
-    def eventFilter(self, target, event):
-        if event.type() == self._event_type:
-            self.parent().removeEventFilter(self)
-            self._callback(target, event)
-        return False
-
-
-def get_minesite():
-    # get minesite from mainwindow, or use global default for dev
-    mainwindow = get_mainwindow()
-    if not mainwindow is None:
-        return mainwindow.minesite
-    else:
-        return minesite
 
 class Table(QAbstractTableModel):
     def __init__(self, df, parent=None):
@@ -218,6 +177,7 @@ class MainWindow(QMainWindow):
         self.resize(s.value('window size', defaultValue=QSize(1200, 1000)))
         self.move(s.value('window position', defaultValue=QPoint(50, 50)))
         self.minesite = s.value('minesite', defaultValue='FortHills')
+        self.settings = s
 
         self.create_actions()
         self.create_menu()
@@ -226,7 +186,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(tabs)
         tabs.setCurrentIndex(tabs.get_index(title=s.value('active table', 'Event Log')))
 
-        self.settings = s
         self.tabs = tabs
 
         # TODO: connect minesite_changed function
@@ -278,7 +237,7 @@ class MainWindow(QMainWindow):
     def view_folder(self):
         row = self.active_table().row_from_activerow()
         if row is None: return
-        e = row.create_model_from_db()
+        e = row.create_model_from_db() # TODO: this won't work with mixed tables eg FCSummary
         # el.print_model(e)
 
         fl.EventFolder(e=e).show()
@@ -313,11 +272,14 @@ class MainWindow(QMainWindow):
 
         # TODO: only add these to context menu with specific tables, eg not FC Summary?
         t = self.active_table
-        self.act_refresh_allopen = QAction('Refresh All Open', self, triggered=lambda: t().refresh_allopen())
+        self.act_refresh_allopen = QAction('Refresh All Open', self, 
+            triggered=lambda: t().refresh_allopen(default=True))
         self.act_refresh_allopen.setShortcut(QKeySequence('Ctrl+Shift+R'))
         
-        self.act_refresh_lastweek = QAction('Refresh Last Week', self, triggered=lambda: t().refresh_lastweek())
-        self.act_refresh_lastmonth = QAction('Refresh Last Month', self, triggered=lambda: t().refresh_lastmonth())
+        self.act_refresh_lastweek = QAction('Refresh Last Week', self, 
+            triggered=lambda: t().refresh_lastweek(default=True))
+        self.act_refresh_lastmonth = QAction('Refresh Last Month', self, 
+            triggered=lambda: t().refresh_lastmonth(default=True))
 
         self.act_viewfolder = QAction('View Folder', self, triggered=self.view_folder)
         self.act_viewfolder.setShortcut(QKeySequence('Ctrl+V'))
@@ -384,7 +346,6 @@ class MainWindow(QMainWindow):
             table.model.removeRows(i=row.i)
             # table.model.removeRow(row.i)
 
-
 class TabWidget(QTabWidget):
     def __init__(self, parent):
         super(QTabWidget, self).__init__(parent)
@@ -395,11 +356,10 @@ class TabWidget(QTabWidget):
         # Add tabs to widget
         for i, title in enumerate(m):
             self.addTab(getattr(tbls, title)(parent=self), m[title])
-            self.tabindex[title] = i
+            self.tabindex[m[title]] = i
         
         self.currentChanged.connect(self.save_activetab)
 
-    
     def get_index(self, title):
         return self.tabindex[title]
     
@@ -441,3 +401,37 @@ def get_mainwindow():
         if isinstance(widget, QMainWindow):
             return widget
     return None
+
+def get_minesite():
+    # get minesite from mainwindow, or use global default for dev
+    mainwindow = get_mainwindow()
+    if not mainwindow is None:
+        return mainwindow.minesite
+    else:
+        return minesite
+
+# ARCHIVE
+def disable_window_animations_mac(window):
+    # We need to access `.winId()` below. This method has an unwanted (and not
+    # very well-documented) side effect: Calling it before the window is shown
+    # makes Qt turn the window into a "native window". This incurs performance
+    # penalties and leads to subtle changes in behaviour. We therefore wait for
+    # the Show event:
+    def eventFilter(target, event):
+        from objc import objc_object
+        view = objc_object(c_void_p=int(target.winId()))
+        NSWindowAnimationBehaviorNone = 2
+        view.window().setAnimationBehavior_(NSWindowAnimationBehaviorNone)
+    FilterEventOnce(window, QEvent.Show, eventFilter)
+
+class FilterEventOnce(QObject):
+    def __init__(self, parent, event_type, callback):
+        super().__init__(parent)
+        self._event_type = event_type
+        self._callback = callback
+        parent.installEventFilter(self)
+    def eventFilter(self, target, event):
+        if event.type() == self._event_type:
+            self.parent().removeEventFilter(self)
+            self._callback(target, event)
+        return False

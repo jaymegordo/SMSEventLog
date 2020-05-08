@@ -148,8 +148,9 @@ class InputForm(QDialog):
         
         return m
     
-    def add_items_to_filter(self, fltr):
+    def add_items_to_filter(self):
         # loop params, add all to parent filter
+        fltr = self.parent.query.fltr
         for field in self.fields:
             if field.box.isEnabled():
                 print(f'adding input | field={field.col_db}, table={field.table}')
