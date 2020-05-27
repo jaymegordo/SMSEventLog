@@ -92,7 +92,6 @@ def create_fc_folder(fcnumber):
     except:
         print(f'Couldn\'t make fc path for: {fcnumber}')
 
-
 def read_fc(p):
     # Raw FC data comes from KA as an html page disguised as an xls
     # TODO: Drop ServiceLetterDate > same as StartDate

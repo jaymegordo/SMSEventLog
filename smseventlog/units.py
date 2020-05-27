@@ -1,7 +1,6 @@
 # import exchangelib as ex
 import pandas as pd
 import pypika as pk
-from dateutil.relativedelta import *
 from pypika import Case, Criterion
 from pypika import CustomFunction as cf
 from pypika import Order, Query
@@ -9,6 +8,7 @@ from pypika import functions as fn
 
 from . import emails as em
 from . import functions as f
+from . import reports as rp
 from .__init__ import *
 from .database import db
 
@@ -71,8 +71,8 @@ def df_unit_hrs_monthly(month):
     dates.append(dtlower)
     dates.append(dtlower + relativedelta(months=1))
 
-    a = pk.Table('UnitID')
-    b = pk.Table('UnitSMR')
+    a = T('UnitID')
+    b = T('UnitSMR')
     
     cols = [a.Unit, b.DateSMR, b.SMR]
 

@@ -1,7 +1,7 @@
 from .__init__ import *
 from . import gui as ui
 from .dialogs import InputForm, InputField
-import pypika as pk
+from pypika import Table as T
 
 log = logging.getLogger(__name__)
 
@@ -52,27 +52,27 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title, default=ms), items=f.config[title], checkbox=True)
 
         elif name == 'minesite':
-            table = pk.Table('UnitID')
-            lst = self.clean_series(s=db.get_df_unit().MineSite)
+            table = T('UnitID')
+            lst = db.get_list_minesite()
             add_input(field=IPF(text='MineSite', default=ms, table=table), items=lst, checkbox=True)
             
         elif name == 'unit':
             df = db.get_df_unit()
-            lst = self.clean_series(s=df[df.MineSite==ms].Unit)
+            lst = f.clean_series(s=df[df.MineSite==ms].Unit)
             add_input(field=IPF(text=title), items=lst, checkbox=True, cb_enabled=False)
             
         elif name == 'model':
             df = db.get_df_unit()
-            lst = self.clean_series(s=df[df.MineSite==ms].Model)
+            lst = f.clean_series(s=df[df.MineSite==ms].Model)
             add_input(field=IPF(text=title), items=lst, checkbox=True, cb_enabled=False)
             
         elif name == 'type':
-            table=pk.Table('FCSummary')
+            table=T('FCSummary')
             add_input(field=IPF(text=title, col_db='Classification', table=table), items=['M', 'FAF', 'DO', 'FT'], checkbox=True, cb_enabled=False)
             
         elif name == 'fc number':
             df = db.get_df_fc()
-            lst = self.clean_series(s=df[df.MineSite==ms].FCNumber)
+            lst = f.clean_series(s=df[df.MineSite==ms].FCNumber)
             add_input(field=IPF(text=title), items=lst, checkbox=True, cb_enabled=False)
         
         elif name == 'fc complete':
@@ -80,7 +80,7 @@ class RefreshTable(InputForm):
             
         elif name == 'manualclosed':
             title = 'Manual Closed'
-            table = pk.Table('FCSummaryMineSite')
+            table = T('FCSummaryMineSite')
             add_input(field=IPF(text=title, default='False', table=table), items=['False', 'True'], checkbox=True)
             
         elif name == 'start date':
@@ -88,16 +88,13 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title, dtype='date', col_db='DateAdded'), checkbox=True, cb_enabled=False)
             
         elif name == 'end date':
-            add_input(field=IPF(text=title, dtype='date', col_db='DateCompleted'), checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text=title, dtype='date', col_db='DateCompleted', opr=op.le), checkbox=True, cb_enabled=False)
 
         elif name == 'component':
             df = db.get_df_component()
-            lst = self.clean_series(df.Component)
-            table = pk.Table('ComponentType')
+            lst = f.clean_series(df.Component)
+            table = T('ComponentType')
             add_input(field=IPF(text=title, table=table), items=lst, checkbox=True, cb_enabled=False)
-
-    def clean_series(self, s):
-        return sorted(list(s.replace('', pd.NA).dropna().unique()))
 
     def add_refresh_button(self, name, func):
         layout = self.vLayout
@@ -149,14 +146,14 @@ class FCSummary(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['all open', 'minesite_unit', 'fc number', 'type', 'manualclosed', 'model', 'Unit']
+        features = ['all open', 'minesite', 'fc number', 'type', 'manualclosed', 'model', 'Unit']
         self.add_features(features=features)
 
 class FCDetails(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['all open', 'minesite_unit', 'fc number', 'type', 'manualclosed', 'fc complete', 'model', 'unit']
+        features = ['all open', 'minesite', 'fc number', 'type', 'manualclosed', 'fc complete', 'model', 'unit']
         self.add_features(features=features)
 
 class UnitInfo(RefreshTable):

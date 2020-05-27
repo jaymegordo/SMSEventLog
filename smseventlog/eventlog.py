@@ -3,10 +3,6 @@
 import pandas as pd
 import pypika as pk
 import sqlalchemy as sa
-# from pypika import Case, Criterion
-# from pypika import CustomFunction as cf
-# from pypika import Order, Query
-# from pypika import functions as fn
 from sqlalchemy import and_, literal
 
 from . import functions as f
@@ -21,16 +17,16 @@ except ModuleNotFoundError:
 log = logging.getLogger(__name__)
 
 class Row():
-    def __init__(self, tbl=None, i=None, keys=None, dbtable=None):
+    def __init__(self, table_model=None, i=None, keys=None, dbtable=None):
         # create with either: 1. gui.Table + row, or 2. dbtable + keys/values
         # tbl = gui.Table class > the 'model' in mvc
         if keys is None: keys = {} # don't know why, but set_self doesnt work if keys={}
         
-        if not tbl is None:
-            df = tbl.df
-            title = tbl.title
+        if not table_model is None:
+            df = table_model.df
+            title = table_model.table_widget.title
             if dbtable is None:
-                dbtable = tbl.dbtable # dbm.TableName = table definition, NOT table object (eg TableName())
+                dbtable = table_model.table_widget.get_dbtable() # dbm.TableName = table definition, NOT table object (eg TableName())
         
         if dbtable is None:
             raise AttributeError('db model table not set!')
@@ -105,7 +101,6 @@ class Row():
             pk=self.pk,
             id=self.id)
         display(m)
-
 
 
 def print_model(model, include_none=False):
