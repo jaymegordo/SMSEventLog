@@ -1,26 +1,14 @@
 import json
-import sys
-import logging
-from datetime import (datetime as dt, timedelta as delta)
-from pathlib import Path
 from urllib import parse
 
-import pandas as pd
 import pyodbc
-import pypika as pk
-from pypika import (
-    Case,
-    Criterion,
-    CustomFunction as cf,
-    Order,
-    functions as fn,
-    Query)
 import sqlalchemy as sa
 import yaml
 from sqlalchemy.orm import sessionmaker
 
 from . import functions as f
 from . import queries as qr
+from .__init__ import *
 
 global db
 log = logging.getLogger(__name__)
@@ -130,7 +118,11 @@ class DB(object):
         if df is None or refresh:
             try:
                 print('Refreshing table')
-                df = pd.read_sql(sql=query.get_sql(), con=self.get_engine()).pipe(f.parse_datecols)
+                # print(query.get_sql())
+                df = pd.read_sql(sql=query.get_sql(), con=self.get_engine()) \
+                    .pipe(f.parse_datecols) \
+                    .pipe(f.convert_df_view_cols, m=query.view_cols)
+
                 query.fltr.print_criterion()
                 df.columns = f.convert_list_db_view(title=title, cols=df.columns)
 
@@ -155,6 +147,13 @@ class DB(object):
 
         return dfu.loc[unit, field]
 
+    def get_list_minesite(self):
+        lst_minesite = getattr(self, 'lst_minesite', None)
+        if lst_minesite is None:
+            self.lst_minesite = f.clean_series(s=self.get_df_unit().MineSite)
+
+        return self.lst_minesite
+    
     def get_df_unit(self, minesite=None):
         if self.df_unit is None:
             self.set_df_unit(minesite=minesite)
@@ -162,7 +161,7 @@ class DB(object):
         return self.df_unit
 
     def set_df_unit(self, minesite=None):
-        a = pk.Table('UnitID')
+        a = T('UnitID')
         cols = ['MineSite', 'Customer', 'Model', 'Unit', 'Serial', 'DeliveryDate']
         q = Query.from_(a).select(*cols)
         
@@ -178,9 +177,9 @@ class DB(object):
         return self.df_fc
 
     def set_df_fc(self, minesite=None):
-        a = pk.Table('FactoryCampaign')
-        b = pk.Table('FCSummary')
-        c = pk.Table('UnitID')
+        a = T('FactoryCampaign')
+        b = T('FCSummary')
+        c = T('UnitID')
 
         subject = Case().when(b.SubjectShort.notnull(), b.SubjectShort).else_(b.Subject).as_('Subject')
 
@@ -196,9 +195,12 @@ class DB(object):
     
     def get_df_component(self):
         if self.df_component is None:    
-            a = pk.Table('ComponentType')
+            a = T('ComponentType')
             q = Query.from_(a).select('*')
-            self.df_component = self.read_query(q=q)
+            df = self.read_query(q=q)
+            df['Combined'] = df[['Component', 'Modifier']].apply(lambda x: f'{x[0]}, {x[1]}' if not x[1] is None else x[0], axis=1)
+
+            self.df_component = df
 
         return self.df_component
 
@@ -226,8 +228,8 @@ class DB(object):
     
     def max_date_db(self, table, field):
         minesite = 'FortHills'
-        a = pk.Table(table)
-        b = pk.Table('UnitID')
+        a = T(table)
+        b = T('UnitID')
 
         sql = a.select(fn.Max(a[field])) \
             .left_join(b).on_field('Unit') \
