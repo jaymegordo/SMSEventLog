@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 import logging
+from collections import defaultdict as dd
 logging.basicConfig(level=logging.WARNING)
 
 from datetime import (date, datetime as dt, timedelta as delta)
@@ -28,13 +29,15 @@ from smseventlog import (
     emails as em,
     availability as av,
     units as un,
-    reports as rp)
+    reports as rp,
+    charts as ch)
 
 from smseventlog.gui import (
     gui as ui,
     dialogs as dlgs,
     refreshtables as rtbls,
-    tables as tbls)
+    tables as tbls,
+    datamodel as dm)
 
 from smseventlog.dbmodel import *
 from smseventlog.database import db

@@ -30,6 +30,9 @@ openpyxl = "*"
 hurry = {filesize = "*"}
 pyqt5 = "*"
 appscript = "*"
+plotly = "*"
+seaborn = "*"
+matplotlib = "*"
 
 [requires]
 python_version = "3.8"

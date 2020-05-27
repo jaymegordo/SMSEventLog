@@ -53,6 +53,7 @@ class WidgetedCell(object):
     def __repr__(self):
         return repr(self.widget)
 
+
 class DataFrameModel(QtCore.QAbstractTableModel):
     """ data model for a DataFrame class """
 
@@ -67,10 +68,10 @@ class DataFrameModel(QtCore.QAbstractTableModel):
         self._resort = lambda : None # Null resort functon
 
 
-    def setDataFrame(self, dataFrame):
+    def setDataFrame(self, df):
         """Set or change pd DataFrame to show"""
-        self.df = dataFrame
-        self._orig_df = dataFrame.copy()
+        self.df = df
+        self._orig_df = df.copy()
         self._pre_dyn_filter_df = None # Clear dynamic filter
 
     @property
@@ -243,6 +244,7 @@ class DataFrameModel(QtCore.QAbstractTableModel):
         self._resort = lambda: None
         self._pre_dyn_filter_df = None
 
+
 class DataFrameSortFilterProxyModel(QtCore.QSortFilterProxyModel):
     def __init__(self):
         super(DataFrameSortFilterProxyModel, self).__init__()
@@ -336,6 +338,7 @@ class DataFrameSortFilterProxyModel(QtCore.QSortFilterProxyModel):
 
     def setFilterFixedString(self, *args):
         raise NotImplementedError("Use setFilterString, setFilterList, or setFilterFunc instead")
+
 
 class DynamicFilterLineEdit(QtWidgets.QLineEdit):
     """Filter textbox for a DataFrameTable"""
@@ -544,13 +547,13 @@ class FilterListMenuWidget(QtWidgets.QWidgetAction):
         self.parent().blockSignals(False)
         self.parent()._enable_widgeted_cells()
 
+# dont need this?
 class DataFrameItemDelegate(QtWidgets.QStyledItemDelegate):
     """Implements WidgetedCell"""
 
     def __init__(self):
         super(DataFrameItemDelegate, self).__init__()
         self._cell_widget_states = {}
-
 
     def createEditor(self, parent, option, index):
         data = index.data(DataFrameModel.RawDataRole)
@@ -573,8 +576,7 @@ class DataFrameItemDelegate(QtWidgets.QStyledItemDelegate):
                     pass
             return widget
         else:
-            return super(DataFrameItemDelegate, self).createEditor(parent, option, index)
-
+            return super().createEditor(parent, option, index)
 
     def setModelData(self, widget, model, index):
         # Try to save the state of the widget
@@ -586,15 +588,14 @@ class DataFrameItemDelegate(QtWidgets.QStyledItemDelegate):
         true_index = index.data(DataFrameModel.RawIndexRole)
         self._cell_widget_states[true_index] = widget_state
 
-
-
     def paint(self, painter, option, index):
         d = index.data(DataFrameModel.RawDataRole)
         if isinstance(d, WidgetedCell):
             # Don't paint, create editor instead
             return None
         else:
-            return super(DataFrameItemDelegate, self).paint(painter, option, index)
+            return super().paint(painter, option, index)
+
 
 class DataFrameWidget(QtWidgets.QTableView):
 
@@ -635,7 +636,7 @@ class DataFrameWidget(QtWidgets.QTableView):
         if df is None:
             df = pd.DataFrame()
         self._data_model.setDataFrame(df)
-        #self.setSortingEnabled(True)
+        self.setSortingEnabled(True)
 
         # Create header menu bindings
         self.horizontalHeader().setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -688,7 +689,6 @@ class DataFrameWidget(QtWidgets.QTableView):
 
         return menu
 
-
     def contextMenuEvent(self, event):
         """Implements right-clicking on cell.
         NOTE: You probably want to overrite make_cell_context_menu, not this
@@ -740,7 +740,6 @@ class DataFrameWidget(QtWidgets.QTableView):
 
         menu.exec_(self.mapToGlobal(pos))
 
-
     def setDataFrame(self, df):
         self._data_model.setDataFrame(df)
         self.resizeColumnsToContents()
@@ -754,6 +753,7 @@ class DataFrameWidget(QtWidgets.QTableView):
     @property
     def df(self):
         return self._data_model.df
+
     @df.setter
     def df(self, dataFrame):
         # Use the "hard setting" of the dataframe because anyone who's interacting with the
@@ -766,7 +766,7 @@ class DataFrameWidget(QtWidgets.QTableView):
             self.copy()
         else:
             # Pass up
-            super(DataFrameWidget, self).keyPressEvent(event)
+            super().keyPressEvent(event)
 
     def copy(self):
         """Copy selected cells into copy-buffer"""
@@ -792,14 +792,13 @@ class DataFrameWidget(QtWidgets.QTableView):
         # Send to clipboard
         QtGui.QApplication.clipboard().setText(s)
 
-
     def _icon(self, icon_name):
         """Convinence function to get standard icons from Qt"""
         if not icon_name.startswith('SP_'):
             icon_name = 'SP_' + icon_name
         icon = getattr(QtWidgets.QStyle, icon_name, None)
         if icon is None:
-            raise Exception("Unknown icon %s" % icon_name)
+            raise Exception(f'Unknown icon {icon_name}')
         return self.style().standardIcon(icon)
 
     def _on_click(self, index):
@@ -817,6 +816,8 @@ class DataFrameWidget(QtWidgets.QTableView):
                 d = model.data(idx, DataFrameModel.RawDataRole)
                 if isinstance(d, WidgetedCell):
                     self.openPersistentEditor(idx)
+
+
 
 class DataFrameApp(QtWidgets.QMainWindow):
     """Sample DataFrameTable Application"""
@@ -851,12 +852,11 @@ class ExampleWidgetForWidgetedCell(QtWidgets.QComboBox):
     the WidgetedCell framework can create and destory your widget as needed.
     """
     def __init__(self, parent):
-        super(ExampleWidgetForWidgetedCell, self).__init__(parent)
+        super().__init__(parent)
         self.addItem("Option A")
         self.addItem("Option B")
         self.addItem("Option C")
         self.setCurrentIndex(0)
-
 
     def getWidgetedCellState(self):
         return self.currentIndex()

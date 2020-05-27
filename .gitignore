@@ -11,6 +11,8 @@ src
 target
 *.egg-info
 
+reports/saved
+reports/images
 smseventlog/data/db.yaml
 smseventlog/data/email.yaml
 smseventlog/data/excel
@@ -26,3 +28,6 @@ __pycache__
 *.xlsm
 smseventlog/data/apikeys/discord.csv
 SMS.zip
+smseventlog/data/csv/avail_email.csv
+avail.html
+html_out.html
