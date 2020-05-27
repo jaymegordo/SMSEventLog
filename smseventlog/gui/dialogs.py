@@ -5,14 +5,9 @@ log = logging.getLogger(__name__)
 
 
 class InputField():
-    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None):
-        self.text = text
+    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None):
         if col_db is None: col_db = text.replace(' ', '')
-        self.col_db = col_db
-        self.box = box
-        self.dtype = dtype
-        self.default = default
-        self.table = table # just for holding and passing to Filter()
+        f.set_self(self, vars())
     
     def get_val(self):
         box = self.box
@@ -154,12 +149,13 @@ class InputForm(QDialog):
         for field in self.fields:
             if field.box.isEnabled():
                 print(f'adding input | field={field.col_db}, table={field.table}')
-                fltr.add(field=field.col_db, val=field.get_val(), table=field.table)
+                fltr.add(field=field.col_db, val=field.get_val(), table=field.table, opr=field.opr)
 
     def toggle_input(self, state):
         # toggle input field enabled/disabled based on checkbox
         source = self.sender()
         box = source.box
+        # TODO need to subclass QCombobox and reload items on toggle? signal/slot somehow?
 
         if state == Qt.Checked:
             box.setEnabled(True)
@@ -181,18 +177,20 @@ class InputUserName(InputForm):
 class AddRow(InputForm):
     def __init__(self, parent=None):
         super().__init__(parent=parent, title='Add Item')
-        self.m = {} # need dict for extra cols not in dbm table model
+        m = {} # need dict for extra cols not in dbm table model
 
         if not parent is None:
-            self.table = parent.view.model()
-            self.tablename = self.table.tablename
-            self.title = self.table.title
+            table_model = parent.view.model()
+            # tablename = parent.dbtable
+            title = parent.title
+            row = parent.dbtable()
         else:
             # Temp vals
-            self.tablename = 'EventLog'
-            self.title = 'Event Log'
+            tablename = 'EventLog'
+            title = 'Event Log'
+            row = getattr(dbm, tablename)
         
-        self.row = getattr(dbm, self.tablename)()
+        f.set_self(self, vars())
     
     def accept(self):
         super().accept()
@@ -205,7 +203,7 @@ class AddRow(InputForm):
         # convert row model to dict of values and append to current table
         m.update(f.model_dict(model=row))
         m = f.convert_dict_db_view(title=self.title, m=m)
-        self.table.insertRows(m=m)
+        self.table_model.insertRows(m=m)
 
         # TODO: probably merge this with Row class? > update all?
         print(int(row.UID))
@@ -216,7 +214,7 @@ class AddRow(InputForm):
 class AddEvent(AddRow):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.FCNumber = None
+        FCNumber = None
         row = self.row
         row.UID = self.create_uid()
         row.CreatedBy = self.mainwindow.username if not self.mainwindow is None else ''
@@ -228,18 +226,18 @@ class AddEvent(AddRow):
         minesite = self.mainwindow.minesite if not self.mainwindow is None else 'FortHills'
 
         # Checkboxes
-        self.cbFC = QCheckBox('FC')
-        self.cbFC.stateChanged.connect(self.create_fc)
-        self.cbEventFolder = QCheckBox('Create Event Folder')
-        self.cbEventFolder.setChecked(True)
+        cbFC = QCheckBox('FC')
+        cbFC.stateChanged.connect(self.create_fc)
+        cbEventFolder = QCheckBox('Create Event Folder')
+        cbEventFolder.setChecked(True)
 
         self.add_input(field=InputField(text='MineSite', default=minesite), items=f.config['MineSite'])
         self.add_input(field=InputField(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
         self.add_input(field=InputField(text='SMR', dtype='int'))
         self.add_input(field=InputField(text='Date', dtype='date', col_db='DateAdded'))
 
-        self.formLayout.addRow('', self.cbFC)
-        self.formLayout.addRow('', self.cbEventFolder)
+        self.formLayout.addRow('', cbFC)
+        self.formLayout.addRow('', cbEventFolder)
 
         self.add_input(field=InputField(text='Title', dtype='textbox'))
         self.add_input(field=InputField(text='Warranty Status', col_db='WarrantyYN'), items=f.config['WarrantyStatus'])
@@ -247,6 +245,7 @@ class AddEvent(AddRow):
         self.add_input(field=InputField(text='WO Customer', col_db='SuncorWO'))
         self.add_input(field=InputField(text='PO Customer', col_db='SuncorPO'))
 
+        f.set_self(self, vars())
         self.show()
     
     def create_uid(self):
@@ -308,7 +307,45 @@ class AddUnit(AddRow):
         self.add_input(field=InputField(text='Delivery Date', dtype='date', col_db='DeliveryDate'))
 
         self.show()
-    
+
+class ChangeMinesite(InputForm):
+    def __init__(self, parent=None, title='Change MineSite'):
+        super().__init__(parent=parent, title=title)
+        lst = db.get_list_minesite()
+        self.add_input(field=InputField('MineSite', default=ui.get_minesite()), items=lst)
+
+        self.fMineSite.box.setFocus()
+        self.show()
+
+    def accept(self):
+        super().accept()
+        if not self.parent is None:
+            self.parent.minesite = self.fMineSite.get_val()
+
+class ComponentCO(InputForm):
+    def __init__(self, parent=None, title='Select Component'):
+        super().__init__(parent=parent, title=title)
+        # TODO model > equipclass
+
+        df = db.get_df_component()
+        lst = f.clean_series(s=df.Combined)
+        self.add_input(field=InputField('Component'), items=lst)
+
+        f.set_self(self, vars())
+
+    def accept(self):
+        super().accept()
+        df = self.df
+        val = self.fComponent.get_val()
+        print(val)
+        floc = df[df.Combined==val].Floc.values[0]
+        print(floc)
+
+        if not self.parent is None:
+            row = self.parent.row_from_activerow()
+            row.update(vals=dict(Floc=floc, ComponentCO=True))
+
+
 class MsgBox_Advanced(QDialog):
     def __init__(self, msg='', title='', yesno=False, statusmsg=None, parent=None):
         super().__init__(parent=parent)
@@ -342,6 +379,7 @@ class MsgBox_Advanced(QDialog):
         hLayout.addWidget(statusbar)
         hLayout.addWidget(btn, alignment=Qt.AlignRight)
         layout.addLayout(hLayout)
+
 
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = ui.get_qt_app()
