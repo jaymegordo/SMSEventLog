@@ -29,6 +29,7 @@ def import_dt_exclusions_email():
     maxdate = db.max_date_db(table='DowntimeExclusions', field='Date') + delta(days=2)
     df = em.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Availability', header=0)  
     df = process_df_exclusions(df=df)
+    return df
     db.import_df(df=df, imptable='DowntimeExclusionsImport', impfunc='ImportDowntimeExclusions')
 
 def process_df_exclusions(df):
