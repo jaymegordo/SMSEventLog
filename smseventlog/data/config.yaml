@@ -7,6 +7,23 @@ FilePaths:
 
 Email: jgordon@smsequip.com
 
+color:
+    bg:
+        maroon: '#9e2121'
+        lightyellow: '#FFFFCC'
+        lightgreen: '#99FF99'
+        lightblue: '#CCECFF'
+        darkgreen: '#6db56d'
+        darkblue: '#6494b0'
+        goodgreen: '#C6EFCE'
+        good: '#c6e3ef'
+        bad: '#FFC7CE'
+    text:
+        goodgreen: '#006100'
+        good: '#003961'
+        bad: '#9C0006'
+    thead: '#265474'
+
 MineSite:
     - BaseMine
     - BaseMine_CWC
@@ -40,28 +57,24 @@ TableName:
         WorkOrders: Work Orders
         TSI: TSI
         ComponentCO: Component CO
+        ComponentCOReport: Component CO
         UnitInfo: Unit Info
+        NewFCs: FC Summary
         FCSummary: FC Summary
         FCDetails: FC Details
         EmailList: Email List
+        Availability: Availability
     Select:
-        Event Log: EventLog
-        Work Orders: EventLog
-        TSI: EventLog
-        Component CO: EventLog
-        Unit Info: UnitID
-        FC Summary: viewFactoryCampaign
-        FC Details: viewFactoryCampaign
-        Email List: EmailList
+        EventLogBase: EventLog
+        FCBase: viewFactoryCampaign
+        UnitInfo: UnitID
+        EmailList: EmailList
+        AvailTopDowns: Downtime
+        AvailBase: Downtime
     Update:
-        Event Log: EventLog
-        Work Orders: EventLog
-        TSI: EventLog
-        Component CO: EventLog
-        Unit Info: UnitID
-        FC Summary: FCSummary
-        FC Details: FactoryCampaign
-        Email List: EmailList
+        FCSummary: FCSummary
+        FCDetails: FactoryCampaign
+        NewFCs: FCSummary # dont actually need this, remove somehow
 
 # Table header conversion
 Headers:
@@ -200,3 +213,16 @@ Headers:
         RAMP: RAMP
         Service: Service
         Parts: Parts
+    
+    Availability:
+        Unit: Unit
+        ShiftDate: ShiftDate
+        StartDate: StartDate
+        EndDate: EndDate
+        Duration: Duration
+        SMS: SMS
+        Suncor: Suncor
+        CategoryAssigned: CategoryAssigned
+        DownReason: Reason
+        Comment: Comment
+        Assigned: Assigned
