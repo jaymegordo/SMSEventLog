@@ -29,8 +29,8 @@ if sys.platform.startswith('win'):
     drive = Path('P:')
 else:
     drive = Path('/Volumes/Public')
-    
-def setconfig():
+
+def set_config():
     p = Path(datafolder / 'config.yaml')
     with open(p) as file:
         m = yaml.full_load(file)
@@ -41,6 +41,11 @@ def setconfig():
 def inverse(m):
     return {v: k for k, v in m.items()}
 
+def convert_df_view_cols(df, m):
+    # convert db cols to view cols from dict of conversions. keep original if new col not in dict
+    df.columns = [m[c] if c in m.keys() else c for c in df.columns]
+    return df
+
 def convert_dict_db_view(title, m):
     # convert dict of db cols to view cols
     dbcols = list(m.keys())
@@ -50,8 +55,12 @@ def convert_dict_db_view(title, m):
 def convert_list_db_view(title, cols):
     # convert list of db cols to view cols, remove cols not in the view?
     # m = defaultdict(type(None), inverse(config['Headers'][title]))
-    m = inverse(config['Headers'][title])
-    return [m[c] if c in m.keys() else c for c in cols]
+    m = config['Headers'].get(title, None)
+    if not m is None:
+        m = inverse(m)
+        return [m[c] if c in m.keys() else c for c in cols]
+    else:
+        return cols
 
 def convert_list_view_db(title, cols):
     # convert list of view cols to db cols
@@ -89,12 +98,12 @@ def copy_dict_attrs(m, target):
 def pretty_dict(m):
     return str(m).replace('{', '').replace('}', '').replace(', ', '\n').replace("'", '')
 
-def set_self(obj, m, prnt=False):
+def set_self(obj, m, prnt=False, exclude=()):
     # convenience func to assign an object's func's local vars to self
     for k, v in m.items():
         if prnt: print('\t', k, v)
 
-        if not k == '__class__':
+        if not (k == '__class__' or k in exclude):
             setattr(obj, k, v)
 
 
@@ -162,6 +171,17 @@ def parse_datecols(df):
     df[datecols] = df[datecols].apply(pd.to_datetime)
     return df
 
+def convert_dtypes(df, cols, col_type):
+    if not isinstance(cols, list): cols = [cols]
+    for col in cols:
+        df[col] = df[col].astype(col_type)
+    return df
+
+def clean_series(s, convert_str=False):
+    if convert_str:
+        s = s.astype(str)
+        
+    return sorted(list(s.replace('', pd.NA).dropna().unique()))
 
 # simple obfuscation for db connection string
 def encode(key, string):
@@ -187,7 +207,7 @@ def decode(key, string):
 
 def check_db():
     # Check if db.yaml exists, if not > decrypt db_secret and create it
-    # from .gui import gui as ui
+    from .gui import gui as ui
     p = Path(datafolder) / 'db.yaml'
     if p.exists():
         return True
@@ -262,4 +282,4 @@ def send_error(msg='', prnt=False):
     else:
         discord(msg=err, channel='err')
 
-config = setconfig()
+config = set_config()
