@@ -1,53 +1,124 @@
+/* gloria blue: 0033A0 */
+/* komatsu yellos: F7A800 */
+
+@media print {
+    .pagebreak { page-break-before: always; }
+}
+@page {
+    margin-top: 70px;
+    margin-bottom: 60px;
+    margin-right: 60px;
+    margin-left: 60px;
+}
+@page {
+    @top-left {
+        content: element(header);
+    }
+}
+@page {
+    @bottom-right {
+        content: element(footer);
+    }
+}
+
+#header {
+    position: running(header);
+    content: url("./images/SMS Logo.png");
+    transform:  scale(0.15) translate(50px, 60px);
+    transform-origin: left;
+}
+#footer_image {
+    position: running(footer_image);
+    content: url("./images/SMS Footer.png");
+    transform: scale(0.632 0.6) translateY(-30px);
+    transform-origin: right;
+}
+#pagenum {
+    position: running(pagenum);
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 9px;
+    font-style: italic;
+    text-align: right;
+    transform: translateY(-35px)
+}
+#footer {
+    position: running(footer);
+    content: element(footer_image) element(pagenum);
+    transform-origin: right bottom;
+    transform: translateY(-10px);
+}
+.bottom_title {
+    display: flex;
+    height: 950px;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    vertical-align: middle;
+    /* background-color: red; */
+}
+.splitscreen {
+    display: flex;
+}
+.splitscreen .left {
+    flex: 1;
+}
+.splitscreen .right {
+    flex: 1;
+    margin-left: 10px;
+}
+img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
 html {
-  font-family: Tahoma, Geneva, sans-serif;
-  font-size: 12px;
-}
-
-h2 {
-  font-size: 16px;
-}
-
-table {
     font-family: Tahoma, Geneva, sans-serif;
+    font-size: 12px;
+}
+h1, h2, h3, h4, h5 {
+    page-break-after: avoid;
+    margin: 3px;
+}
+h2 {
+    font-size: 16px;
+    color: #265474;
+    margin-bottom: 8px;
+}
+h3 {
+    font-size: 13px;
+    color: #3675a2;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+   
+table {
+    table-layout: auto;
+    width: auto;
     border: 1px solid #000000;
     background-color: #FFFFFF;
-    width: auto;
-    text-align: auto;
     border-collapse: collapse;
-    margin-top: auto;
-    margin-bottom: 20px;
+    margin-top: 0px;
+    margin-bottom: 16px;
+    page-break-inside: avoid;
+    font-size: 10.5px;
   }
   table td, table th {
-    border: 1px solid #464646;
     padding: 3px 5px;
   }
-  /* table tbody td { */
-    /* font-size: 13px;
-  } */
   table tr:nth-child(even) {
-    background: #E4E4E4;
+    background: #E4E4E4; 
   }
   table thead {
     background: #265474;
-    border-bottom: 2px solid #000000;
-    /* font-weight: bold; */
+    border-bottom: 1px solid #000000;
   }
   table thead th {
-    /* font-size: 15px; */
     font-weight: bold;
     color: #FFFFFF;
     text-align: center;
   }
-  table tfoot td {
-    font-size: 14px;
-  }
-  table tfoot links {
-    text-align: right;
-  }
-  table tfoot links a{
-    display: inline-block;
-    background: #1C6EA4;
-    color: #FFFFFF;
-    padding: 2px 8px;
-    border-radius: 5px;
-  }
+  tr {
+    page-break-inside:avoid;
+    page-break-after:auto }
