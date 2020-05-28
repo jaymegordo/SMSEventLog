@@ -16,6 +16,48 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
+class DBTransaction():
+    def __init__(self, table_model, update_cols):
+        # bulk update values from table_model to database
+        # need dbtable, df or list of dicts containing appropriate pks and vals to update
+        if not isinstance(update_cols, list): update_cols = [update_cols]
+        update_vals = []
+
+        table_widget = table_model.table_widget
+        title = table_widget.title
+        dbtable = table_widget.get_dbtable()
+        pks = dbtable.__table__.primary_key.columns.keys()
+
+        all_cols = f.convert_list_db_view(title=title, cols=pks) # convert db to view cols first
+        all_cols.extend(update_cols)
+
+        f.set_self(self, vars())
+
+    def add_df(self, df):
+        # pass in df with all rows to update, then filter update_cols + pk_cols
+        df = df[self.all_cols]
+        df = f.convert_df_db_cols(title=self.title, df=df)
+        self.update_vals = df.to_dict(orient='records')
+
+    def add_row(self, row_ix):
+        # TODO probably need to work with values passed in manually, maybe won't use this, df is pretty gr8
+        df = self.df
+
+        # convert all col_ixs to db_field names and attach values to update
+        m = {}
+        for col_ix in self.col_nums:
+            view_header = df.columns[col_ix]
+            db_field = f.convert_header(title=self.title, header=view_header, inverse_=True)
+            m[db_field] = df.iloc[row_ix, col_ix]
+        
+        self.update_vals.append(m)
+    
+    def update_all(self):
+        s = db.session
+        s.bulk_update_mappings(self.dbtable, self.update_vals)
+        s.commit()
+        print(f'bulk update: {len(self.update_vals)}')
+
 class Row():
     def __init__(self, table_model=None, i=None, keys=None, dbtable=None):
         # create with either: 1. gui.Table + row, or 2. dbtable + keys/values
