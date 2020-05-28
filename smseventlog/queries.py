@@ -694,7 +694,7 @@ class Availability(AvailBase):
 class AvailShortfalls(AvailBase):
     def __init__(self, parent, minesite='FortHills', kw=None):
         super().__init__(minesite=minesite, kw=kw)
-        # need to have availsummary as parent
+        # NOTE needs to have availsummary parent
         self.formats.update({
             'MA Target': '{:.2%}',
             'MA': '{:.2%}',

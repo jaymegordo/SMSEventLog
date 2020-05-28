@@ -50,21 +50,20 @@ class CellDelegate(QStyledItemDelegate):
 
         if isinstance(editor, QTextEdit):
             editor.setText(val)
-            editor.moveCursor(QTextCursor.End)
+
+            # move cursor to end for long items, else highlight everything for quicker editing
+            if len(str(val)) > 20:
+                editor.moveCursor(QTextCursor.End)
+            else:
+                editor.selectAll()
 
     def setModelData(self, editor, model, index):
-        # TODO: Check if text has changed, don't commit
         model.setData(index=index, val=editor.toPlainText(), role=Qt.EditRole)
 
-    # def closeEditor(self, QWidget, hint=QAbstractItemDelegate.NoHint):
-    #     return super().closeEditor(QWidget, hint=hint)
-
     def close_editor(self):
-        print('close_editor')
         self.closeEditor.emit(self.editor, QStyledItemDelegate.NoHint)
 
     def commitAndCloseEditor(self):
-        print('commit and closed editor')
         editor = self.editor
         self.commitData.emit(editor)
         self.closeEditor.emit(editor, QStyledItemDelegate.NoHint)
@@ -178,12 +177,12 @@ class DateDelegateBase(CellDelegate):
         size = super().sizeHint(option, index)
         return QSize(self.width, size.height())
 
-    def displayText(self, value, locale):
-        # print(value, type(value))
-        if isinstance(value, dt) and not pd.isnull(value):
-            return value.strftime(self.display_format)
-        else:
-            return ''
+    # def displayText(self, value, locale):
+    #     # print(value, type(value))
+    #     if isinstance(value, dt) and not pd.isnull(value):
+    #         return value.strftime(self.display_format)
+    #     else:
+    #         return ''
 
     def createEditor(self, parent, option, index):
         self.index = index

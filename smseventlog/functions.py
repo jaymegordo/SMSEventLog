@@ -41,8 +41,17 @@ def set_config():
 def inverse(m):
     return {v: k for k, v in m.items()}
 
+def get_dict_view_db(title):
+    return config['Headers'][title]
+
 def convert_df_view_cols(df, m):
     # convert db cols to view cols from dict of conversions. keep original if new col not in dict
+    df.columns = [m[c] if c in m.keys() else c for c in df.columns]
+    return df
+
+def convert_df_db_cols(title, df):
+    # convert df with view_cols to db_cols from dict of conversions. keep original if new col not in dict
+    m = get_dict_view_db(title)
     df.columns = [m[c] if c in m.keys() else c for c in df.columns]
     return df
 

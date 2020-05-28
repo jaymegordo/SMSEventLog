@@ -12,6 +12,9 @@ from .. import reports as rp
 
 log = logging.getLogger(__name__)
 
+# TODO change how multiple selection works, don't select all rows
+# TODO row selection - highlight behind existing cell colors
+
 class TableView(QTableView):
     dataFrameChanged = pyqtSignal()
     cellClicked = pyqtSignal(int, int)
@@ -23,7 +26,7 @@ class TableView(QTableView):
 
         disabled_cols, hide_cols, check_exist_cols, datetime_cols = (), (), (), ()
         col_widths = {'Title': 150, 'Part Number': 150}
-        highlight_funcs, highlight_vals = dd(type(None)), {} # NOTE use all lowercase!
+        highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, {}, {} # NOTE use all lowercase!
         colors = f.config['color']
         
         # set up initial empty model
@@ -79,9 +82,16 @@ class TableView(QTableView):
         for col in cols:
             self.highlight_funcs[col] = func
 
+    def add_col_funcs(self, cols, func):
+        # add same col trigger func to multiple cols
+        if not isinstance(cols, list): cols = [cols]
+        for col in cols:
+            self.col_func_triggers[col] = func
+
     def highlight_alternating(self, df, row_ix, col_ix, role, **kw):
         # use count of unique values mod 2 to highlight alternating groups of values
         # TODO only works if column is sorted by unit
+        # TODO convert row_name to row_ix
         alt_row_num = len(df.iloc[:row_ix + 1, col_ix].unique()) % 2
 
         if alt_row_num == 0 and role == Qt.BackgroundRole:
@@ -145,12 +155,17 @@ class TableView(QTableView):
         date_delegate = DateDelegate(self)
 
         for i in model.dt_cols:
+            col_name = model.headerData(i)
+            self.formats[col_name] = '{:%Y-%m-%d}'
             self.setItemDelegateForColumn(i, date_delegate)
 
         # if the parent table_widget has specified datetime cols
         if self.datetime_cols:
             datetime_delegate = DateTimeDelegate(self)
             for i in model.datetime_cols:
+                col_name = model.headerData(i)
+                print(col_name)
+                self.formats[col_name] = '{:%Y-%m-%d     %H:%M}'
                 self.setItemDelegateForColumn(i, datetime_delegate)
 
     def center_columns(self, cols):
@@ -219,6 +234,13 @@ class TableView(QTableView):
             menu.exec_(self.mapToGlobal(pos))
         except:
             f.send_error(msg='Couldnt show header menu')
+
+    def create_index_activerow(self, col_name, row_ix=None):
+        # create QModelIndex from currently selected row
+        model = self.model()
+        if row_ix is None:
+            row_ix = self.active_row_index()
+        return model.createIndex(row_ix, model.get_column_idx(col_name))
 
     def active_row_index(self):
         rows = self.selectionModel().selectedRows() # list of selected rows
@@ -420,52 +442,80 @@ class TableWidget(QWidget):
         dbtable = self.dbtable if header is None or not header in m else getattr(dbm, m[header])
         return dbtable
 
-class EventLog(TableWidget):
+    def email_table(self, subject='', body='', email_list=[], df=None):
+        model = self.view.model()
+        if df is None:
+            df = model.df
+        
+        style = rp.set_style(df=df)
+        style.apply(model.get_background_colors_from_df, axis=None)
+        style.format(self.view.formats)
+
+        s = []
+        s.append(dict(
+            selector='table',
+            props=[('border', '1px solid black')]))
+        s.append(dict(
+            selector='tr:nth-child(even)',
+            props=[('background', f.config['color']['bg']['greyrow'])])) 
+        style.table_styles.extend(s)
+
+        body = f'{body}<br><br>{style.hide_index().render()}' # add in table to body msg
+        
+        # show new email
+        msg = em.Message(subject=subject, body=body, to_recip=email_list)
+
+class EventLogBase(TableWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        view = self.view
+        view.highlight_funcs['Status'] = view.highlight_by_val
+        view.hide_cols = ('UID',)
+        view.highlight_vals.update({
+            'closed': 'goodgreen',
+            'open': 'bad',
+            'complete': 'goodgreen',
+            'work in progress': 'lightorange',
+            'waiting customer': 'lightorange',
+            'monitor': 'lightyellow',
+            'planned': 'lightyellow',
+            'waiting parts (up)': 'lightyellow',
+            'waiting parts (down)': 'bad',
+            'x': 'good'})
+
+class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
         view.disabled_cols = ('Title',) # TODO: remove thise
-        view.hide_cols = ('UID',)
         view.col_widths.update(dict(Passover=50, Description=800, Status=100))
+        view.highlight_funcs['Passover'] = view.highlight_by_val
         
-class WorkOrders(TableWidget):
+class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.hide_cols = ('UID',)       
+        view = self.view 
         view.col_widths.update({
             'Work Order': 90,
             'Customer WO': 80,
             'Customer PO': 80,
             'Comp CO': 50,
             'Comments': 400})
-        
-        view.highlight_funcs['Status'] = view.highlight_by_val
-        view.highlight_vals.update({
-            'closed': 'goodgreen',
-            'open': 'bad'})
 
-class ComponentCO(TableWidget):
+class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
         view.disabled_cols = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
-        view.hide_cols = ('UID',)
         view.col_widths.update(dict(Notes=400))
         view.highlight_funcs['Unit'] = view.highlight_alternating
     
-class TSI(TableWidget):
+class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
         view.disabled_cols = ('WO',)
-        view.hide_cols = ('UID',)
         view.col_widths.update(dict(Details=400))
-
-        view.highlight_funcs['Status'] = view.highlight_by_val
-        view.highlight_vals.update({
-            'closed': 'goodgreen',
-            'open': 'bad'})
 
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
@@ -592,10 +642,11 @@ class Availability(TableWidget):
         view.col_widths.update(dict(Comment=600))
         view.highlight_funcs['Unit'] = view.highlight_alternating
         view.add_highlight_funcs(cols=['CategoryAssigned', 'Assigned'], func=view.highlight_by_val)
+        view.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
         # create cell dropdown for CategoryAssigned
         # TODO move this to an after_init, first time tab selected
-        p = f.datafolder / 'csv/avail_assigned.csv'
+        p = f.datafolder / 'csv/avail_resp.csv'
         df = pd.read_csv(p)
         combo_delegate = ComboDelegate(parent=view, items=f.clean_series(s=df.CategoryAssigned))
         model = view.model()
@@ -606,32 +657,45 @@ class Availability(TableWidget):
             's1 service': 'lightyellow',
             's4 service': 'lightblue',
             's5 service': 'lightgreen',
-            '0': 'lightyellow'})
+            '0': 'lightyellow',
+            'collecting info': 'lightyellow'})
 
-        self.add_action(name='Filter Assigned', func=self.filter_assigned, shortcut='Ctrl+Shift+A', btn=True)
-        self.add_action(name='Assign Suncor', func=self.assign_suncor, shortcut='Ctrl+Shift+Z')
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
+        self.add_action(name='Filter Assigned', func=self.filter_assigned, shortcut='Ctrl+Shift+A', btn=True)
+        self.add_action(name='Update Unassigned', func=self.update_unassigned, btn=True)
+        self.add_action(name='Assign Suncor', func=self.assign_suncor, shortcut='Ctrl+Shift+Z')
+        self.add_action(name='Show Unit EL', func=self.filter_unit_eventlog, shortcut='Ctrl+Shift+F', btn=True)
 
-        # TODO func auto set SMS/Suncor duration if other changes?
-    
+    def update_duration(self, index):
+        # Set SMS/Suncor duration if other changes
+        model = index.model()
+        col_name = model.headerData(i=index.column())
+
+        duration = model.df.iloc[index.row(), model.get_column_idx('Duration')]
+        val = index.data(role=TableModel.RawDataRole)
+
+        if col_name == 'SMS':
+            update_col = model.get_column_idx('Suncor')
+        elif col_name == 'Suncor':
+            update_col = model.get_column_idx('SMS')
+
+        update_index = index.siblingAtColumn(update_col)
+        update_val = duration - val
+        model.setData(index=update_index, val=update_val, triggers=False)
+
+    def get_email_list(self):
+        # get email list from csv
+        p = f.datafolder / 'csv/avail_email.csv'
+        df2 = pd.read_csv(p)
+        return list(df2[df2.Daily==1].Email)
+
+    def email_table(self):
+        super().email_table(email_list=self.get_email_list())
+
     def email_assignments(self):
         model = self.view.model()
         df = model.df
         df = df[df.Assigned==0].iloc[:, :-1]
-        style = rp.set_style(df=df)
-        style.apply(model.get_background_colors_from_df, axis=None)
-        
-        s = []
-        s.append(dict(
-            selector='table',
-            props=[('border', '1px solid black')]))
-        s.append(dict(
-            selector='tr:nth-child(even)',
-            props=[('background', 'red')])) #'#E4E4E4'
-        style.table_styles.extend(s)
-
-        # Date formats
-        # cell borders
 
         s = df.ShiftDate
         fmt = '%Y-%m-%d'
@@ -641,27 +705,32 @@ class Availability(TableWidget):
         else:
             dates = maxdate.strftime(fmt)
 
-        title = f'Downtime Assignment | {dates}'
+        subject = f'Downtime Assignment | {dates}'
 
-        body = f'Good Morning,<br><br>See below for current downtime assignments. Please correct and respond with any updates as necessary.<br><br>{style.hide_index().render()}'
+        body = f'Good Morning,<br><br>See below for current downtime assignments. Please correct and respond with any updates as necessary.'
 
-        p = f.topfolder.parent / 'avail.html'
-        with open(str(p), 'w+') as file:
-            file.write(style.render())
+        # p = f.topfolder.parent / 'avail.html'
+        # with open(str(p), 'w+') as file:
+        #     file.write(style.render())
 
-        # get email list from csv
-        p = f.datafolder / 'csv/avail_email.csv'
-        df2 = pd.read_csv(p)
-        lst = list(df2[df2.Daily==1].Email)
-
-        # show new email
-        msg = em.Message(subject=title, body=body, to_recip=lst)
+        super().email_table(subject=subject, body=body, email_list=self.get_email_list(), df=df)
         
     def update_unassigned(self):
-        # TODO save assigned=False back to db
-        # get dataframe, filter to unassigned
-        # bulk update (need to build this)
-        return
+        model = self.view.model()
+        cols = ['Duration', 'SMS', 'Suncor', 'CategoryAssigned', 'Comment']
+        txn = el.DBTransaction(table_model=model, update_cols=cols)
+        
+        df = model.df
+        df = df[df.Assigned==0]
+
+        msg = f'Would you like to update [{len(df)}] records in the database?'
+        if not dlgs.msgbox(msg=msg, yesno=True):
+            return
+
+        txn.add_df(df)
+        txn.update_all()
+        
+        dlgs.msg_simple(msg='Records updated.')
     
     def filter_assigned(self):
         model = self.view.model()
@@ -674,9 +743,25 @@ class Availability(TableWidget):
             self.filter_state = False
     
     def assign_suncor(self):
-        # TODO func ctrl+shift+Z to auto assign suncor
-        # loop selected rows
-        return
+        # func ctrl+shift+Z to auto assign suncor
+        # TODO loop selected rows and bulk update
+        view = self.view
+        model = view.model()
+
+        index = view.create_index_activerow(col_name='Suncor')
+        duration = model.df.iloc[index.row(), model.get_column_idx('Duration')]
+        model.setData(index=index, val=duration)
+    
+    def filter_unit_eventlog(self):
+        # filter eventlog to currently selected unit and jump to table
+        view = self.view
+        unit = view.create_index_activerow('Unit').data()
+
+        title = 'Event Log'
+        tabs = self.mainwindow.tabs
+        table_widget = tabs.get_widget(title)
+        table_widget.view.model().filter_by_items(col_name='Unit', include=[unit])
+        tabs.activate_tab(title)
 
 class FilterMenu(QMenu):
     def __init__(self, parent=None):
@@ -690,7 +775,7 @@ class DynamicFilterLineEdit(QLineEdit):
         _always_dynamic = kwargs.pop('always_dynamic', False)
         super().__init__(*args, **kwargs)
 
-        col_to_filter, _orig_df, _host = None, None, None
+        col_to_filter, _df_orig, _host = None, None, None
         f.set_self(self, vars())
 
     def bind_dataframewidget(self, host, col_ix):
@@ -781,7 +866,7 @@ class FilterListMenuWidget(QWidgetAction):
         self.lst_widget.clear()
         model = self.parent.model()
 
-        df = model._orig_df
+        df = model._df_orig
         col = df.columns[self.col_ix]
         
         full_col = f.clean_series(s=df[col], convert_str=True) # All Entries possible in this column

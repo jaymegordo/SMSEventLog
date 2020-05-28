@@ -12,8 +12,8 @@ class TableModel(QAbstractTableModel):
         # table model must be created from TableWidget()/TableView() parent
         
         _df = pd.DataFrame()
-        _orig_df = pd.DataFrame()
-        _pre_dyn_filter_df = None
+        _df_orig = pd.DataFrame()
+        _df_pre_dyn_filter = None
         _resort = lambda : None # Null resort functon
         _cols = []
         table_widget = parent.parent #sketch
@@ -31,8 +31,8 @@ class TableModel(QAbstractTableModel):
 
     def set_df(self, df):
         # Set or change pd DataFrame to show
-        _orig_df = df.copy()
-        _pre_dyn_filter_df = None # Clear dynamic filter
+        _df_orig = df.copy()
+        _df_pre_dyn_filter = None # Clear dynamic filter
         _cols = list(df.columns)
         parent = self.parent
 
@@ -67,9 +67,9 @@ class TableModel(QAbstractTableModel):
     @pyqtSlot()
     def beginDynamicFilter(self):
         """Effects of using the "filter" function will not become permanent until endDynamicFilter called"""
-        if self._pre_dyn_filter_df is None:
+        if self._df_pre_dyn_filter is None:
             print("NEW DYNAMIC FILTER MODEL")
-            self._pre_dyn_filter_df = self.df.copy()
+            self._df_pre_dyn_filter = self.df.copy()
         else:
             # Already dynamically filtering, so don't override that
             print("SAME DYNAMIC FILTER MODEL")
@@ -79,25 +79,25 @@ class TableModel(QAbstractTableModel):
     def endDynamicFilter(self):
         """Makes permanent the effects of the dynamic filter"""
         print(" * * * RESETING DYNAMIC")
-        self._pre_dyn_filter_df = None
+        self._df_pre_dyn_filter = None
 
     @pyqtSlot()
     def cancelDynamicFilter(self):
         """Cancel the dynamic filter"""
-        self.df = self._pre_dyn_filter_df.copy()
-        self._pre_dyn_filter_df = None
+        self.df = self._df_pre_dyn_filter.copy()
+        self._df_pre_dyn_filter = None
 
-    def headerData(self, p_int, orientation, role=Qt.DisplayRole):
+    def headerData(self, i, orientation=Qt.Horizontal, role=Qt.DisplayRole):
         cols = self._cols
 
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                if p_int < len(cols):
-                    return cols[p_int]
+                if i < len(cols):
+                    return cols[i]
                 else:
                     return ''
             elif orientation == Qt.Vertical:
-                return p_int
+                return i
 
         return None
 
@@ -106,8 +106,8 @@ class TableModel(QAbstractTableModel):
         # print(df.shape, df.tail())
         # print(df.columns)
         rows = []
-        for row_ix in df.index:
-            rows.append(tuple(self.data(raw_index=(row_ix, df.columns.get_loc(col)), role=Qt.BackgroundRole) for col in df.columns))
+        for row_name in df.index:
+            rows.append(tuple(self.data(raw_index_names=(row_name, col_name), role=Qt.BackgroundRole) for col_name in df.columns))
 
         df = pd.DataFrame(data=rows, columns=df.columns, index=df.index)
         # print(df.shape, df.tail())
@@ -126,42 +126,65 @@ class TableModel(QAbstractTableModel):
         
         return df
 
-    def data(self, index=None, role=Qt.DisplayRole, raw_index=None):
+    def data(self, index=None, role=Qt.DisplayRole, raw_index=None, raw_index_names=None):
         # TableView asks the model for data to display, edit, paint etc
-        # Qt.TextAlignmentRole
-        # Qt.BackgroundRole
-        # Qt.ForegroundRole #QBrush/QColor
+        # TODO create 'display' dataframe of all string values, 'background df' etc
         df = self.df
+        row, col, row_name, col_name = None, None, None, None
 
         if not index is None and index.isValid():
             row, col = self.getRowCol(index)
         elif not raw_index is None:
             row, col = raw_index[0], raw_index[1]
+        elif not raw_index_names is None:
+            row_name, col_name = raw_index_names[0], raw_index_names[1]
         else:
             return None
 
-        val = df.iloc[row, col]
+        if col_name is None:
+            col_name = df.columns[col]
+
+        if not row is None:
+            try:
+                val = df.iloc[row, col]
+            except IndexError:
+                print(f'index error: {row, col}')
+                return
+        elif not row_name is None:
+            val = df.loc[row_name, col_name]
 
         # TODO find way to speed this up as much as possible
-        if role in (Qt.DisplayRole, Qt.EditRole):
-            if col in self.dt_cols or col in self.datetime_cols:
-                return val
-            elif not pd.isnull(val):
-                return str(val)
+        if role == Qt.DisplayRole:
+            if not pd.isnull(val):
+                fmt = self.parent.formats.get(col_name, None)
+                if not fmt is None:
+                    return fmt.format(val)
+                else:
+                    return str(val)
             else:
                 return ''
-        
-        if role == Qt.TextAlignmentRole:
+                
+        elif role in (TableModel.RawDataRole, Qt.EditRole):
+            # if col in self.dt_cols or col in self.datetime_cols:
+            return val
+            
+        elif role == Qt.TextAlignmentRole:
             if isinstance(val, int) or isinstance(val, float):
                 return Qt.AlignVCenter + Qt.AlignRight
-        
-        if role in (Qt.BackgroundRole, Qt.ForegroundRole):
+
+        elif role in (Qt.BackgroundRole, Qt.ForegroundRole):
             # ask table_widget for cell color given df, row, col
-            func = self.parent.highlight_funcs[df.columns[col]]
+
+            if row is None:
+                row = df.index.get_loc(row_name)
+            if col is None:
+                col = df.columns.get_loc(col_name)
+
+            func = self.parent.highlight_funcs[col_name]
             if not func is None:
                 return func(**dict(df=df, row_ix=row, col_ix=col, val=val, role=role))
 
-        if role == TableModel.RawIndexRole:
+        elif role == TableModel.RawIndexRole:
             r = self.df.index[row]
             c = self.df.columns[col]
             return (r, c)
@@ -185,17 +208,46 @@ class TableModel(QAbstractTableModel):
         
         return ans
 
-    def setData(self, index, val, role=Qt.EditRole):
+    def setData(self, index, val, role=Qt.EditRole, triggers=True):
+        # TODO Check if text has changed, don't commit
+        # TODO queue updates in batch!!
         if index.isValid():
-            if role == Qt.EditRole:
-                row, col = self.getRowCol(index)
-                df = self.df
-                df.iloc[row, col] = val
+            try:
+                if role == Qt.EditRole:
+                    row, col = self.getRowCol(index)
+                    df = self.df
 
-                self.update_db(index=index, val=val)
-                self.dataChanged.emit(index, index)
+                    dtype = str(df.dtypes[col]).lower()
+                    # TODO build a better dict to convert all these.. need to work with datetime delegate
+                    # m = {'datetime64[ns]': '')
 
-                # return True
+                    if dtype == 'object':
+                        val = str(val)
+                    elif dtype == 'float64':
+                        val = float(val)
+                    elif dtype == 'int64':
+                        val = int(val)
+
+                    df.iloc[row, col] = val
+
+                    # keep original df copy in sync for future filtering
+                    row_index_name = df.iloc[row].name
+                    self._df_orig.loc[row_index_name, df.columns[col]] = val
+
+                    self.update_db(index=index, val=val)
+                    self.dataChanged.emit(index, index)
+
+                    # stop other funcs from updating in a loop
+                    if triggers:
+                        func = self.parent.col_func_triggers.get(self.headerData(col), None)
+                        if not func is None:
+                            func(index=index)
+                    
+                    return True
+            except:
+                f.send_error(msg=f'Couldn\'t update data in model: {val}')
+        
+        return False
 
 
     def sort(self, col_ix, order):
@@ -215,8 +267,8 @@ class TableModel(QAbstractTableModel):
         contains the needle. EX: a needle of "Ab" will show rows with
         "absolute" and "REABSOLVE"."""
 
-        if self._pre_dyn_filter_df is not None:
-            df = self._pre_dyn_filter_df.copy()
+        if self._df_pre_dyn_filter is not None:
+            df = self._df_pre_dyn_filter.copy()
         else:
             df = self.df
 
@@ -232,7 +284,7 @@ class TableModel(QAbstractTableModel):
         self._resort()
 
     def filter_by_items(self, include, col_ix=None, col_name=None):
-        df = self._orig_df
+        df = self._df_orig
         if col_ix is None:
             col_ix = self.get_column_idx(col=col_name)
             
@@ -248,9 +300,9 @@ class TableModel(QAbstractTableModel):
         self._resort()
 
     def reset(self):
-        self.df = self._orig_df.copy()
+        self.df = self._df_orig.copy()
         self._resort = lambda: None
-        self._pre_dyn_filter_df = None
+        self._df_pre_dyn_filter = None
 
     def get_column_idx(self, col):
         return self.df.columns.get_loc(col)
@@ -307,7 +359,6 @@ class TableModel(QAbstractTableModel):
         df = self.df
         self.df = df.drop(df.index[i]).reset_index(drop=True)
         self.endInsertRows()
-
 
     def rowCount(self, index=QModelIndex()):
         return self.df.shape[0]

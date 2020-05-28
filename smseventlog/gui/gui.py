@@ -70,6 +70,10 @@ class MainWindow(QMainWindow):
     def active_table_widget(self):
         return self.tabs.currentWidget()
     
+    def get_table_widget(self, name):
+
+        return
+    
     def active_table(self):
         return self.active_table_widget().view
 
@@ -136,14 +140,17 @@ class MainWindow(QMainWindow):
         edit_ = bar.addMenu('Edit')
         edit_.addAction('Edit item')
         
-        help_ = bar.addMenu('Help')
-        help_.addAction(self.act_username)
+        table_ = bar.addMenu('Table')
+        table_.addAction(self.act_email_table)
 
         rows_ = bar.addMenu('Rows')
         rows_.addAction(self.act_open_tsi)
         rows_.addAction(self.act_remove_tsi)
         rows_.addAction(self.act_delete_event)
         rows_.addAction(self.act_update_component)
+
+        help_ = bar.addMenu('Help')
+        help_.addAction(self.act_username)
 
     def create_actions(self):
         # Menu/shortcuts
@@ -174,7 +181,9 @@ class MainWindow(QMainWindow):
         act_viewfolder.setShortcut(QKeySequence('Ctrl+Shift+V'))
 
         act_update_component = QAction('Update Component', self, triggered=lambda: t().show_component())
-
+        act_email_table = QAction('Email Table', self, 
+            triggered=lambda: t().email_table())
+            
         f.set_self(self, vars())
 
     def contextMenuEvent(self, event):
@@ -222,7 +231,7 @@ class MainWindow(QMainWindow):
                 (This will only set the TSI Status to Null, not delete the event).'
             if dlgs.msgbox(msg=msg, yesno=True):
                 row.update(vals=dict(StatusTSI=None))
-                table.model.removeRows(i=row.i)
+                view.model.removeRows(i=row.i)
     
     def delete_event(self):
         # TODO: need to figure out why this adds 2 blank rows after delete
@@ -255,6 +264,14 @@ class TabWidget(QTabWidget):
 
     def get_index(self, title):
         return self.tabindex[title]
+    
+    def get_widget(self, title):
+        i = self.get_index(title)
+        return self.widget(i)
+    
+    def activate_tab(self, title):
+        i = self.get_index(title)
+        self.setCurrentIndex(i)
     
     def save_activetab(self):
         s = self.parent().settings
