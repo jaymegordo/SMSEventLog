@@ -1,4 +1,5 @@
 from . import gui as ui
+from .datamodel import TableModel
 from .__init__ import *
 
 log = logging.getLogger(__name__)
@@ -46,10 +47,10 @@ class CellDelegate(QStyledItemDelegate):
         return editor          
 
     def setEditorData(self, editor, index):
-        val = index.model().data(index)
+        val = index.data(role=Qt.EditRole)
 
         if isinstance(editor, QTextEdit):
-            editor.setText(val)
+            editor.setText(str(val))
 
             # move cursor to end for long items, else highlight everything for quicker editing
             if len(str(val)) > 20:
@@ -88,6 +89,7 @@ class ComboWidget(QComboBox):
         self.setEditable(True)
         self.setDuplicatesEnabled(False)
         self.escapePressed.connect(self.delegate.close_editor)
+        self.returnPressed.connect(self.delegate.commitAndCloseEditor)
 
     def keyPressEvent(self, event):       
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -102,11 +104,17 @@ class ComboWidget(QComboBox):
                 self.escapePressed.emit()
         return super().eventFilter(obj, event)
     
+    def commit_list_data(self):
+        # need to manually set the editors's index/value when list item is pressed, then commit
+        self.setCurrentIndex(self.view().currentIndex().row())
+        self.delegate.commitAndCloseEditor()
+
     def showPopup(self):
         # need event filter to catch combobox view's ESC event and close editor completely
         super().showPopup()
         view = self.view()
         view.installEventFilter(self)
+        view.pressed.connect(self.commit_list_data)
 
     def getWidgetedCellState(self):
         return self.currentIndex()
@@ -121,11 +129,16 @@ class ComboDelegate(CellDelegate):
         _cell_widget_states = {}
         f.set_self(self, vars())
 
+    def initStyleOption(self, option, index):
+        option.displayAlignment = Qt.AlignCenter
+        super().initStyleOption(option, index)
+
     def createEditor(self, parent, option, index):
         self.index = index
         editor = ComboWidget(parent=parent, delegate=self)
         editor.addItems(self.items)
-        editor.setMinimumWidth(editor.minimumSizeHint().width())
+        # editor.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        editor.setMinimumWidth(editor.minimumSizeHint().width() - 20)
 
         self.editor = editor
         return editor
@@ -150,7 +163,7 @@ class ComboDelegate(CellDelegate):
             editor.setCurrentIndex(num)
             editor.lineEdit().selectAll()
             # editor.showPopup()
-            editor.currentIndexChanged.connect(self.commitAndCloseEditor)
+            # editor.currentIndexChanged.connect(self.commitAndCloseEditor)
         except:
             f.send_error()
 
@@ -198,7 +211,7 @@ class DateDelegateBase(CellDelegate):
         return editor
 
     def setEditorData(self, editor, index):
-        val = index.model().data(index, Qt.EditRole)
+        val = index.data(role=TableModel.RawDataRole)
 
         if pd.isnull(val):
             # val = QDateTime.currentDateTime().toPyDateTime()
