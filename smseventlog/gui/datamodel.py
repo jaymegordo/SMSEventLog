@@ -1,5 +1,8 @@
 from .__init__ import *
 
+# irow, icol = row/column integer locations eg 3, 5
+# row, col = row/column index names eg (if no actual index) 3, 'StartDate'
+
 class TableModel(QAbstractTableModel):
 
     RawDataRole = 64
@@ -22,9 +25,6 @@ class TableModel(QAbstractTableModel):
         color_back = Qt.magenta
 
         f.set_self(self, vars(), exclude='df')
-
-        # self.layoutChanged.connect(lambda: print('layoutChanged!'))
-        # self.layoutChanged.connect(parent.resizeRowsToContents)
 
         if not df is None:
             self.set_df(df=df)
@@ -68,7 +68,7 @@ class TableModel(QAbstractTableModel):
     def beginDynamicFilter(self):
         """Effects of using the "filter" function will not become permanent until endDynamicFilter called"""
         if self._df_pre_dyn_filter is None:
-            print("NEW DYNAMIC FILTER MODEL")
+            print('Begin new dynamic filter')
             self._df_pre_dyn_filter = self.df.copy()
         else:
             # Already dynamically filtering, so don't override that
@@ -113,59 +113,57 @@ class TableModel(QAbstractTableModel):
         # print(df.shape, df.tail())
 
         # convert QColor back to hex
-        for row_ix in df.index:
+        for irow in df.index:
             for col in df.columns:
-                val = df.loc[row_ix, col]
+                val = df.loc[irow, col]
                 #print(idx)
 
                 if isinstance(val, QColor):
                     val_str = func(val.name())
                 else:
                     val_str = func(val)
-                df.loc[row_ix, col] = val_str
+                df.loc[irow, col] = val_str
         
         return df
 
     def data(self, index=None, role=Qt.DisplayRole, raw_index=None, raw_index_names=None):
         # TableView asks the model for data to display, edit, paint etc
+        # convert index integer values to index names for df._get_value() > fastest lookup
         # TODO create 'display' dataframe of all string values, 'background df' etc
         df = self.df
-        row, col, row_name, col_name = None, None, None, None
+        irow, icol, row, col = None, None, None, None
 
         if not index is None and index.isValid():
-            row, col = self.getRowCol(index)
+            irow, icol = self.getRowCol(index)
         elif not raw_index is None:
-            row, col = raw_index[0], raw_index[1]
+            irow, icol = raw_index[0], raw_index[1]
         elif not raw_index_names is None:
-            row_name, col_name = raw_index_names[0], raw_index_names[1]
+            row, col = raw_index_names[0], raw_index_names[1]
         else:
             return None
 
-        if col_name is None:
-            col_name = df.columns[col]
+        if col is None:
+            row, col = df.index[irow], df.columns[icol]
 
-        if not row is None:
-            try:
-                val = df.iloc[row, col]
-            except IndexError:
-                print(f'index error: {row, col}')
-                return
-        elif not row_name is None:
-            val = df.loc[row_name, col_name]
+        val = df._get_value(row, col)
 
-        # TODO find way to speed this up as much as possible
         if role == Qt.DisplayRole:
             if not pd.isnull(val):
-                fmt = self.parent.formats.get(col_name, None)
+                fmt = self.parent.formats.get(col, None)
                 if not fmt is None:
                     return fmt.format(val)
                 else:
                     return str(val)
             else:
                 return ''
-                
-        elif role in (TableModel.RawDataRole, Qt.EditRole):
-            # if col in self.dt_cols or col in self.datetime_cols:
+        
+        elif role == Qt.EditRole:
+            if not pd.isnull(val):
+                return val
+            else:
+                return ''
+
+        elif role == TableModel.RawDataRole:
             return val
             
         elif role == Qt.TextAlignmentRole:
@@ -173,21 +171,13 @@ class TableModel(QAbstractTableModel):
                 return Qt.AlignVCenter + Qt.AlignRight
 
         elif role in (Qt.BackgroundRole, Qt.ForegroundRole):
-            # ask table_widget for cell color given df, row, col
-
-            if row is None:
-                row = df.index.get_loc(row_name)
-            if col is None:
-                col = df.columns.get_loc(col_name)
-
-            func = self.parent.highlight_funcs[col_name]
+            # ask table_widget for cell color given df, irow, icol
+            func = self.parent.highlight_funcs[col]
             if not func is None:
-                return func(**dict(df=df, row_ix=row, col_ix=col, val=val, role=role))
+                return func(**dict(df=df, row=row, col=col, val=val, role=role))
 
         elif role == TableModel.RawIndexRole:
-            r = self.df.index[row]
-            c = self.df.columns[col]
-            return (r, c)
+            return (row, col)
 
         return None
 
@@ -214,10 +204,11 @@ class TableModel(QAbstractTableModel):
         if index.isValid():
             try:
                 if role == Qt.EditRole:
-                    row, col = self.getRowCol(index)
+                    irow, icol = self.getRowCol(index)
+                    row, col = index.data(role=self.RawIndexRole)
                     df = self.df
 
-                    dtype = str(df.dtypes[col]).lower()
+                    dtype = str(df.dtypes[icol]).lower()
                     # TODO build a better dict to convert all these.. need to work with datetime delegate
                     # m = {'datetime64[ns]': '')
 
@@ -228,18 +219,17 @@ class TableModel(QAbstractTableModel):
                     elif dtype == 'int64':
                         val = int(val)
 
-                    df.iloc[row, col] = val
+                    df.loc[row, col] = val
 
                     # keep original df copy in sync for future filtering
-                    row_index_name = df.iloc[row].name
-                    self._df_orig.loc[row_index_name, df.columns[col]] = val
+                    self._df_orig.loc[row, col] = val
 
                     self.update_db(index=index, val=val)
                     self.dataChanged.emit(index, index)
 
                     # stop other funcs from updating in a loop
                     if triggers:
-                        func = self.parent.col_func_triggers.get(self.headerData(col), None)
+                        func = self.parent.col_func_triggers.get(col, None)
                         if not func is None:
                             func(index=index)
                     
@@ -249,19 +239,18 @@ class TableModel(QAbstractTableModel):
         
         return False
 
-
-    def sort(self, col_ix, order):
+    def sort(self, icol, order):
         if len(self.df) == 0:
             return
 
         self.df = self.df.sort_values( 
-            self._cols[col_ix],
+            self._cols[icol],
             ascending=order==Qt.AscendingOrder)
 
         # Set sorter to current sort (for future filtering)
-        self._resort = partial(self.sort, col_ix, order)
+        self._resort = partial(self.sort, icol, order)
 
-    def filter(self, col_ix, needle):
+    def filter(self, icol, needle):
         """Filter DataFrame view.  Case Insenstive.
         Fitlers the DataFrame view to include only rows who's value in col
         contains the needle. EX: a needle of "Ab" will show rows with
@@ -272,30 +261,29 @@ class TableModel(QAbstractTableModel):
         else:
             df = self.df
 
-        col = df.columns[col_ix]
+        col = df.columns[icol]
 
         # Create lowercase string version of column as series
         s_lower = df[col].astype('str').str.lower()
 
         needle = str(needle).lower()
 
-        self.df = df[s_lower.str.contains(needle)]
+        self.df = df[s_lower.str.contains(needle)].copy()
 
         self._resort()
 
-    def filter_by_items(self, include, col_ix=None, col_name=None):
+    def filter_by_items(self, items, icol=None, col=None):
         df = self._df_orig
-        if col_ix is None:
-            col_ix = self.get_column_idx(col=col_name)
-            
-        col = self.df.columns[col_ix]
+        if col is None:
+            col = df.columns[icol]
+
         s_col = df[col].astype('str')
-        self.df = df[s_col.isin(include)]
+        self.df = df[s_col.isin(items)].copy()
         self._resort()
 
-    def filter_by_func(self, col_ix, func):
+    def filter_by_func(self, icol, func):
         df = self.df
-        col = self.df.columns[col_ix]
+        col = self.df.columns[icol]
         self.df = df[func(df[col])]
         self._resort()
 
