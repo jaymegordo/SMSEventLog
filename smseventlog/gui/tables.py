@@ -14,6 +14,9 @@ log = logging.getLogger(__name__)
 
 # TODO change how multiple selection works, don't select all rows
 # TODO row selection - highlight behind existing cell colors
+# TODO trigger on title changed?
+# TODO trigger on componentCO changed
+# TODO function bulk update multiple values in row (availability)
 
 class TableView(QTableView):
     dataFrameChanged = pyqtSignal()
@@ -88,11 +91,11 @@ class TableView(QTableView):
         for col in cols:
             self.col_func_triggers[col] = func
 
-    def highlight_alternating(self, df, row_ix, col_ix, role, **kw):
+    def highlight_alternating(self, df, row, col, role, **kw):
         # use count of unique values mod 2 to highlight alternating groups of values
         # TODO only works if column is sorted by unit
-        # TODO convert row_name to row_ix
-        alt_row_num = len(df.iloc[:row_ix + 1, col_ix].unique()) % 2
+        irow, icol = df.index.get_loc(row), df.columns.get_loc(col)
+        alt_row_num = len(df.iloc[:irow + 1, icol].unique()) % 2
 
         if alt_row_num == 0 and role == Qt.BackgroundRole:
             return QColor(self.colors['bg']['maroon'])
@@ -112,6 +115,19 @@ class TableView(QTableView):
                     else:
                         color_code = self.colors['text'].get(color_name, None)
                         return QColor(color_code)
+
+    def highlight_pics(self, val, role, **kw):
+        if val > 0:
+            color = 'goodgreen'
+        else:
+            color = 'bad'
+
+        if role == Qt.BackgroundRole:
+            color_code = self.colors['bg'][color]
+        elif role == Qt.ForegroundRole:
+            color_code = self.colors['text'][color]
+        
+        return QColor(color_code)
 
     def resizeRowsToContents(self):
         sender = self.sender()
@@ -143,7 +159,8 @@ class TableView(QTableView):
         self.set_date_delegates()
         self.resizeColumnsToContents()
 
-        cols = ['Passover', 'Unit', 'Status', 'Wrnty', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
+        cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
+        # TODO should set textalignrole for these columns instead
         self.center_columns(cols=cols)
         self.set_column_widths()
 
@@ -164,9 +181,14 @@ class TableView(QTableView):
             datetime_delegate = DateTimeDelegate(self)
             for i in model.datetime_cols:
                 col_name = model.headerData(i)
-                print(col_name)
                 self.formats[col_name] = '{:%Y-%m-%d     %H:%M}'
                 self.setItemDelegateForColumn(i, datetime_delegate)
+
+    def set_combo_delegate(self, col_name, items):
+        model = self.model()
+        combo_delegate = ComboDelegate(parent=self, items=items)
+        c = model.get_column_idx(col=col_name)
+        self.setItemDelegateForColumn(c, combo_delegate)
 
     def center_columns(self, cols):
         model = self.model()
@@ -200,13 +222,13 @@ class TableView(QTableView):
         try:
             model = self.model()
             menu = FilterMenu(self)
-            col_ix = self.header.logicalIndexAt(pos)
+            icol = self.header.logicalIndexAt(pos)
 
-            if col_ix == -1: return # out of bounds
+            if icol == -1: return # out of bounds
 
             # Filter Menu Action
-            menu.addAction(DynamicFilterMenuAction(self, menu, col_ix))
-            menu.addAction(FilterListMenuWidget(self, menu, col_ix))
+            menu.addAction(DynamicFilterMenuAction(self, menu, icol))
+            menu.addAction(FilterListMenuWidget(self, menu, icol))
             menu.addAction(self._icon('DialogResetButton'),
                             'Clear Filter',
                             model.reset)
@@ -214,18 +236,18 @@ class TableView(QTableView):
             # Sort Ascending/Decending Menu Action
             menu.addAction(self._icon('TitleBarShadeButton'),
                             'Sort Ascending',
-                        partial(model.sort, col_ix=col_ix, order=Qt.AscendingOrder))
+                        partial(model.sort, icol=icol, order=Qt.AscendingOrder))
             menu.addAction(self._icon('TitleBarUnshadeButton'),
                             'Sort Descending',
-                        partial(model.sort, col_ix=col_ix, order=Qt.DescendingOrder))
+                        partial(model.sort, icol=icol, order=Qt.DescendingOrder))
             menu.addSeparator()
 
             # Hide
-            menu.addAction(f'Hide Column: {model.headerData(col_ix, Qt.Horizontal)}', partial(self.hideColumn, col_ix))
+            menu.addAction(f'Hide Column: {model.headerData(icol, Qt.Horizontal)}', partial(self.hideColumn, icol))
 
             # Show column to left and right
             for i in (-1, 1):
-                col = col_ix + i
+                col = icol + i
                 if self.isColumnHidden(col):
                     menu.addAction(f'Unhide Column: {model.headerData(col, Qt.Horizontal)}',
                                     partial(self.showColumn, col))
@@ -235,12 +257,12 @@ class TableView(QTableView):
         except:
             f.send_error(msg='Couldnt show header menu')
 
-    def create_index_activerow(self, col_name, row_ix=None):
+    def create_index_activerow(self, col_name, irow=None):
         # create QModelIndex from currently selected row
         model = self.model()
-        if row_ix is None:
-            row_ix = self.active_row_index()
-        return model.createIndex(row_ix, model.get_column_idx(col_name))
+        if irow is None:
+            irow = self.active_row_index()
+        return model.createIndex(irow, model.get_column_idx(col_name))
 
     def active_row_index(self):
         rows = self.selectionModel().selectedRows() # list of selected rows
@@ -443,6 +465,7 @@ class TableWidget(QWidget):
         return dbtable
 
     def email_table(self, subject='', body='', email_list=[], df=None):
+        # TODO optional attach excel file
         model = self.view.model()
         if df is None:
             df = model.df
@@ -480,8 +503,18 @@ class EventLogBase(TableWidget):
             'monitor': 'lightyellow',
             'planned': 'lightyellow',
             'waiting parts (up)': 'lightyellow',
+            'missing info': 'lightyellow',
             'waiting parts (down)': 'bad',
             'x': 'good'})
+        
+        view.formats.update({
+            'Unit SMR': '{:,.0f}',
+            'Comp SMR': '{:,.0f}',
+            'Part SMR': '{:,.0f}',
+            'SMR': '{:,.0f}'})
+
+        items = f.config['Lists'][f'{self.name}Status']
+        view.set_combo_delegate(col_name='Status', items=items)
 
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
@@ -498,9 +531,16 @@ class WorkOrders(EventLogBase):
         view.col_widths.update({
             'Work Order': 90,
             'Customer WO': 80,
-            'Customer PO': 80,
+            'Customer PO': 90,
             'Comp CO': 50,
-            'Comments': 400})
+            'Comments': 400,
+            'Seg': 30})
+        
+        view.highlight_funcs['Pics'] = view.highlight_pics
+
+        lists = f.config['Lists']
+        view.set_combo_delegate(col_name='Wrnty', items=lists['WarrantyType'])
+        view.set_combo_delegate(col_name='Comp CO', items=lists['TrueFalse'])
 
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
@@ -644,20 +684,16 @@ class Availability(TableWidget):
         view.add_highlight_funcs(cols=['CategoryAssigned', 'Assigned'], func=view.highlight_by_val)
         view.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
-        # create cell dropdown for CategoryAssigned
         # TODO move this to an after_init, first time tab selected
         p = f.datafolder / 'csv/avail_resp.csv'
         df = pd.read_csv(p)
-        combo_delegate = ComboDelegate(parent=view, items=f.clean_series(s=df.CategoryAssigned))
-        model = view.model()
-        c = model.get_column_idx(col='CategoryAssigned')
-        view.setItemDelegateForColumn(c, combo_delegate)
+        view.set_combo_delegate(col_name='CategoryAssigned', items=f.clean_series(s=df.CategoryAssigned))
 
         view.highlight_vals.update({
             's1 service': 'lightyellow',
             's4 service': 'lightblue',
             's5 service': 'lightgreen',
-            '0': 'lightyellow',
+            '0': 'greyrow',
             'collecting info': 'lightyellow'})
 
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
@@ -736,7 +772,7 @@ class Availability(TableWidget):
         model = self.view.model()
         
         if not hasattr(self, 'filter_state') or not self.filter_state:
-            model.filter_by_items(col_name='Assigned', include=[str(0)])
+            model.filter_by_items(col='Assigned', items=[str(0)])
             self.filter_state = True
         else:
             model.reset()
@@ -760,13 +796,12 @@ class Availability(TableWidget):
         title = 'Event Log'
         tabs = self.mainwindow.tabs
         table_widget = tabs.get_widget(title)
-        table_widget.view.model().filter_by_items(col_name='Unit', include=[unit])
+        table_widget.view.model().filter_by_items(col='Unit', items=[unit])
         tabs.activate_tab(title)
 
 class FilterMenu(QMenu):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-
 
 class DynamicFilterLineEdit(QLineEdit):
     # Filter textbox for a DataFrameTable
@@ -778,11 +813,11 @@ class DynamicFilterLineEdit(QLineEdit):
         col_to_filter, _df_orig, _host = None, None, None
         f.set_self(self, vars())
 
-    def bind_dataframewidget(self, host, col_ix):
+    def bind_dataframewidget(self, host, icol):
         # Bind tihs DynamicFilterLineEdit to a DataFrameTable's column
 
         self.host = host
-        self.col_to_filter = col_ix
+        self.col_to_filter = icol
         self.textChanged.connect(self._update_filter)
 
     @property
@@ -809,13 +844,13 @@ class DynamicFilterLineEdit(QLineEdit):
 
     def _update_filter(self, text):
         # Called everytime we type in the filter box
-        col_ix = self.col_to_filter
+        icol = self.col_to_filter
 
-        self.host.model().filter(col_ix, text)
+        self.host.model().filter(icol, text)
 
 class DynamicFilterMenuAction(QWidgetAction):
     """Filter textbox in column-header right-click menu"""
-    def __init__(self, parent, menu, col_ix):
+    def __init__(self, parent, menu, icol):
         super().__init__(parent)
 
         parent_menu = menu
@@ -825,7 +860,7 @@ class DynamicFilterMenuAction(QWidgetAction):
         layout = QHBoxLayout()
         label = QLabel('Filter')
         text_box = DynamicFilterLineEdit()
-        text_box.bind_dataframewidget(self.parent(), col_ix)
+        text_box.bind_dataframewidget(self.parent(), icol)
         text_box.returnPressed.connect(self._close_menu)
 
         layout.addWidget(label)
@@ -841,7 +876,7 @@ class DynamicFilterMenuAction(QWidgetAction):
 
 class FilterListMenuWidget(QWidgetAction):
     """Filter textbox in column-right click menu"""
-    def __init__(self, parent, menu, col_ix):
+    def __init__(self, parent, menu, icol):
         super().__init__(parent)
 
         # Build Widgets
@@ -867,7 +902,7 @@ class FilterListMenuWidget(QWidgetAction):
         model = self.parent.model()
 
         df = model._df_orig
-        col = df.columns[self.col_ix]
+        col = df.columns[self.icol]
         
         full_col = f.clean_series(s=df[col], convert_str=True) # All Entries possible in this column
         disp_col = f.clean_series(s=model.df[col], convert_str=True) # Entries currently displayed
@@ -947,15 +982,15 @@ class FilterListMenuWidget(QWidgetAction):
         ###
         # Filter dataframe according to list
         ###
-        include = []
+        items = []
         for i in range(count):
             i = lst_widget.item(i)
             if i is self._action_select_all: continue
             if i.checkState() == Qt.Checked:
-                include.append(str(i.text()))
+                items.append(str(i.text()))
 
         parent = self.parent
         parent.blockSignals(True)
-        parent.model().filter_by_items(include, col_ix=self.col_ix)
+        parent.model().filter_by_items(items, icol=self.icol)
         parent.blockSignals(False)
         parent._enable_widgeted_cells()

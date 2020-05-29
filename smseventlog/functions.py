@@ -42,7 +42,12 @@ def inverse(m):
     return {v: k for k, v in m.items()}
 
 def get_dict_view_db(title):
-    return config['Headers'][title]
+    # return dict of {view_col: db_col}
+    return config['Headers'].get(title, {})
+
+def get_dict_db_view(title):
+    # return dict of {db_col: view_col}
+    return inverse(get_dict_view_db(title))
 
 def convert_df_view_cols(df, m):
     # convert db cols to view cols from dict of conversions. keep original if new col not in dict

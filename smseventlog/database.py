@@ -124,7 +124,6 @@ class DB(object):
                     .pipe(f.convert_df_view_cols, m=query.view_cols)
 
                 query.fltr.print_criterion()
-                df.columns = f.convert_list_db_view(title=title, cols=df.columns)
 
                 if hasattr(query, 'process_df'):
                     df = query.process_df(df=df)

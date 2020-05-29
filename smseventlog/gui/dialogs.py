@@ -39,7 +39,7 @@ class InputField():
     
     def set_default(self):
         if not self.box is None and not self.default is None:
-            self.box.setCurrentText(self.default)
+            self.set_val(val=self.default)
 
 class InputForm(QDialog):
     def __init__(self, parent=None, title=''):
@@ -240,7 +240,7 @@ class AddEvent(AddRow):
         self.formLayout.addRow('', cbEventFolder)
 
         self.add_input(field=InputField(text='Title', dtype='textbox'))
-        self.add_input(field=InputField(text='Warranty Status', col_db='WarrantyYN'), items=f.config['WarrantyStatus'])
+        self.add_input(field=InputField(text='Warranty Status', col_db='WarrantyYN'), items=f.config['Lists']['WarrantyType'])
         self.add_input(field=InputField(text='Work Order', col_db='WorkOrder'))
         self.add_input(field=InputField(text='WO Customer', col_db='SuncorWO'))
         self.add_input(field=InputField(text='PO Customer', col_db='SuncorPO'))

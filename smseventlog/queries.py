@@ -8,6 +8,8 @@ from . import dbmodel as dbm
 from . import functions as f
 from .__init__ import *
 
+# Queries control how data is queried/filtered from database.
+# Can be consumed by tables/views, reports, etc
 
 class Filter():
     def __init__(self, parent):
@@ -84,7 +86,7 @@ class Filter():
 
 class QueryBase(object):
     def __init__(self, minesite='FortHills', kw=None):
-        view_cols, formats = {}, {}
+        formats = {}
         background_gradients = []
         cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         sql, df = None, pd.DataFrame()
@@ -107,6 +109,9 @@ class QueryBase(object):
         if not select_tablename is None:
             update_tablename = m['Update'].get(name, select_tablename)
             update_table = getattr(dbm, update_tablename, None)
+
+        # set dict for db > view_col conversion later
+        view_cols = f.get_dict_db_view(title=title)
 
         f.set_self(self, vars())
         self.set_fltr()
@@ -235,8 +240,6 @@ class ComponentCOReport(ComponentCOBase):
     def __init__(self, kw):
         super().__init__(kw=kw)
 
-        # self.formats.update({
-        #     'Life Remaining': '{:,.0f}'})
         self.view_cols.update(
             BenchSMR='Bench SMR')
 
@@ -656,7 +659,7 @@ class Availability(AvailBase):
         a = self.a
         date_col = 'ShiftDate'
 
-        assigned = Case().when(a.CategoryAssigned.isnull(), 0).else_(1).as_('Assigned')
+        assigned = Case().when(a.CategoryAssigned.isnull() | a.SMS.isnull() | a.Suncor.isnull(), 0).else_(1).as_('Assigned')
         cols = [a.Unit, a.ShiftDate, a.StartDate, a.EndDate, a.Duration, a.SMS, a.Suncor, a.CategoryAssigned, a.DownReason, a.Comment, assigned]
 
         q = self.q \

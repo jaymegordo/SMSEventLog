@@ -11,16 +11,15 @@ minsize_ss = 'QLabel{min-width: 100px}'
 minesite, customer = 'FortHills', 'Suncor'
 
 # FEATURES NEEDED
-# Conditional Formatting
-# copy selected cells
-
-# TODO: Keyboard shortcuts > ctrl + down, right
-# TODO: cell dropdown menu
-# TODO: column bold
-# TODO: Filter rows
-# TODO: green 'flash' for user confirmation value updated in db
-# TODO: Show 'details' menu > QListView?
-
+# TODO copy selected cells
+# TODO Keyboard shortcuts > ctrl + down, right
+# TODO column bold
+# TODO green 'flash' for user confirmation value updated in db
+# TODO Show 'details' menu > QListView?
+# TODO remember state of refresh dialogs
+# TODO refresh dialog tab order
+# TODO save previous query and run when tab first selected
+# TODO selected rows highlight behind existing colors
 
 
 class MainWindow(QMainWindow):
@@ -30,15 +29,15 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         self.setWindowTitle(title)
         self.setMinimumSize(QSize(1000, 400))
+        self.minesite_changed.connect(self.update_statusbar)
 
         # Settings
         s = QSettings('sms', 'smseventlog')
         self.resize(s.value('window size', defaultValue=QSize(1200, 1000)))
         self.move(s.value('window position', defaultValue=QPoint(50, 50)))
-        self._minesite = s.value('minesite', defaultValue='FortHills')
+        self.minesite = s.value('minesite', defaultValue='FortHills')
         self.settings = s
 
-        self.minesite_changed.connect(self.update_statusbar)
 
         self.create_actions()
         self.create_menu()
@@ -69,11 +68,7 @@ class MainWindow(QMainWindow):
     
     def active_table_widget(self):
         return self.tabs.currentWidget()
-    
-    def get_table_widget(self, name):
-
-        return
-    
+       
     def active_table(self):
         return self.active_table_widget().view
 
@@ -183,7 +178,7 @@ class MainWindow(QMainWindow):
         act_update_component = QAction('Update Component', self, triggered=lambda: t().show_component())
         act_email_table = QAction('Email Table', self, 
             triggered=lambda: t().email_table())
-            
+
         f.set_self(self, vars())
 
     def contextMenuEvent(self, event):

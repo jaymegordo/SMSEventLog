@@ -44,13 +44,38 @@ MineSite:
     - ConumaCoal
     - IOC-RioTinto
 
-WarrantyStatus:
-    - 'Yes'
-    - 'No'
-    - PRP
-    - RAMP
-    - Service
-    - Parts
+Lists:
+    WarrantyType:
+        - 'Yes'
+        - 'No'
+        - PRP
+        - RAMP
+        - Service
+        - Parts
+    EventLogStatus:
+        - Complete
+        - Monitor
+        - Waiting Parts (UP)
+        - Waiting Parts (DOWN)
+        - Waiting Customer
+        - Work In Progress
+    WorkOrdersStatus:
+        - Open
+        - Closed
+        - Cancelled
+        - Missing Info
+        - Planned
+    TSIStatus:
+        - Open
+        - Closed
+        - Missing Info
+    ComponentCOStatus:
+        - 'True'
+        - 'False'
+    TrueFalse:
+        - 'True'
+        - 'False'
+
 
 # Convert title to tablename > can select from views but not update them
 TableName:
@@ -187,7 +212,7 @@ Headers:
         Reman: Reman
         Removal Reason: SunCOReason
         Notes: RemovalReason
-        Confirmed: COConfirmed
+        Status: COConfirmed
 
     Unit Info:
         MineSite: MineSite

@@ -39,16 +39,16 @@ class DBTransaction():
         df = f.convert_df_db_cols(title=self.title, df=df)
         self.update_vals = df.to_dict(orient='records')
 
-    def add_row(self, row_ix):
+    def add_row(self, irow):
         # TODO probably need to work with values passed in manually, maybe won't use this, df is pretty gr8
         df = self.df
 
         # convert all col_ixs to db_field names and attach values to update
         m = {}
-        for col_ix in self.col_nums:
-            view_header = df.columns[col_ix]
+        for icol in self.col_nums:
+            view_header = df.columns[icol]
             db_field = f.convert_header(title=self.title, header=view_header, inverse_=True)
-            m[db_field] = df.iloc[row_ix, col_ix]
+            m[db_field] = df.iloc[irow, icol]
         
         self.update_vals.append(m)
     
