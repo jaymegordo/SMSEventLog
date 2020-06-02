@@ -20,14 +20,19 @@ RETURNS TABLE
 AS
 RETURN
 
-Select 
-Sum(SMS) SumSMS,
-(Sum(Target_MA * HrsPeriod_MA)) / NULLIF(Sum(HrsPeriod_MA), 0) Target_MA,
-(Sum(HrsPeriod_MA) - Sum(SMS)) / NULLIF(Sum(HrsPeriod_MA), 0) SMS_MA
--- (Sum(HrsPeriod) - Sum(Total)) / NULLIF(Sum(HrsPeriod), 0) PA,
--- Sum(HrsPeriod) HrsPeriod
+SELECT 
+    a.*,
+    ROUND((a.SMS_MA - a.Target_MA) * HrsPeriod_MA, 0) Target_Hrs_Variance
 
-From dbo.udfMAReport (@DateLower, @DateUpper, @Model, @MineSite, @ExcludeMA, @AHSActive, @SplitAHS)
+FROM ( 
+    SELECT
+        Sum(SMS) SumSMS,
+        (Sum(Target_MA * HrsPeriod_MA)) / NULLIF(Sum(HrsPeriod_MA), 0) Target_MA,
+        (Sum(HrsPeriod_MA) - Sum(SMS)) / NULLIF(Sum(HrsPeriod_MA), 0) SMS_MA,
+        Sum(HrsPeriod_MA) HrsPeriod_MA,
+        (Sum(HrsPeriod_PA) - Sum(Total)) / NULLIF(Sum(HrsPeriod_PA), 0) PA,
+        Sum(HrsPeriod_PA) HrsPeriod_PA
 
+    FROM dbo.udfMAReport (@DateLower, @DateUpper, @Model, @MineSite, @ExcludeMA, @AHSActive, @SplitAHS)) as a
 
 GO
