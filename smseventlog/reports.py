@@ -61,7 +61,7 @@ def set_style(df):
         props=[('padding', '2.5px 5px')]))
     s.append(dict(
         selector='table',
-        props=[('border', '1px solid #000000'), ('margin-top', '0px'), ('margin-bottom', '16px')]))
+        props=[('border', '1px solid #000000'), ('margin-top', '0px'), ('margin-bottom', '2px')]))
 
     numeric_mask = df.dtypes.apply(lambda x: issubclass(np.dtype(str(x).lower()).type, np.number))
     date_mask = df.dtypes.apply(lambda x: issubclass(np.dtype(str(x).lower()).type, np.datetime64))
@@ -70,7 +70,7 @@ def set_style(df):
     s.extend(set_column_style(mask=~numeric_mask, props=('text-align', 'left')))
     s.extend(set_column_style(mask=date_mask, props=('text-align', 'center')))
 
-    # Style
+    # Style 265474
     style = df.style \
         .format(lambda x: '{:,.0f}'.format(x) if x > 1e3 else '{:,.2f}'.format(x), # default number format
                     subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
@@ -117,7 +117,7 @@ def report_unit_hrs_monthly(month):
 class Report(object):
     def __init__(self):
         # dict of {df_name: {func: func_definition, kw: **kw, df=None}}
-        dfs, charts, sections = {}, {}, dd(list)
+        dfs, charts, sections, exec_summary = {}, {}, {}, {}
         f.set_self(self, vars())
 
     def get_section(self, name):
@@ -126,17 +126,10 @@ class Report(object):
                 if item['name'] == name:
                     return item
 
-    def add_df(self, sec, name, func=None, query=None, kw={}, display=True, has_chart=False):
-        self.dfs[name] = dict(name=name, func=func, query=query, kw=kw, df=None, df_html=None, display=display, has_chart=has_chart)
-        self.sections[sec].append(dict(name=name, type='df'))
-    
-    def add_chart(self, sec, name, func, linked=False):
-        # pass name of existing df AND chart function
-        self.charts[name] = dict(name=name, func=func, path='')
-
-        # don't add to its own section if linked to display beside a df
-        if not linked:
-            self.sections[sec].append(dict(name=name, type='chart'))
+    def load_sections(self, secs):
+        if not isinstance(secs, list): secs = [secs]
+        for sec_name in secs:
+            getattr(sys.modules[__name__], sec_name)(report=self)
 
     def load_all_dfs(self, saved=False):
         # call each df's function with its args and assign to df
@@ -192,14 +185,15 @@ class Report(object):
     def render_dfs(self):
         # convert all dataframes to html for rendering in html template
         for m in self.dfs.values():
-            style = self.style_df(name=m['name'])
-            m['df_html'] = style.hide_index().render()
+            if m['display']:
+                style = self.style_df(name=m['name'])
+                m['df_html'] = style.hide_index().render()
     
     def render_charts(self):
         # render all charts from dfs, save as svg image
         for m in self.charts.values():
             df = self.dfs[m['name']]['df']
-            fig = m['func'](df=df)
+            fig = m['func'](df=df, title=m['title'])
 
             p = p_reports / 'images/{}.svg'.format(m['name'])
             m['path'] = str(p)
@@ -218,14 +212,19 @@ class Report(object):
     def create_pdf(self, p_base=None):
         self.render_dfs()
         self.render_charts()
+        if hasattr(self, 'set_exec_summary'):
+            self.set_exec_summary()
 
         env = Environment(loader=FileSystemLoader(str(p_reports)))
         template = env.get_template('report_template.html')
 
+        dfs_filtered = {k:v for k, v in self.dfs.items() if v['display']} # filter out non-display dfs
+
         template_vars = dict(
+            exec_summary=self.exec_summary,
             title=self.title,
             sections=self.sections,
-            dfs=self.dfs,
+            dfs=dfs_filtered,
             charts=self.charts)
 
         html_out = template.render(template_vars)
@@ -243,50 +242,235 @@ class TestReport(Report):
     def __init__(self):
         super().__init__()
         title = 'Test Report'
+        self.current_period = 'April 2020'
+
+        ex = self.exec_summary
+        ex['Availability'] =  {
+            self.current_period: {
+                'Physical Availability': '69.0%',
+                'Mechanical Availability': '90.0%',
+                'Target MA': '92.0%'
+            },
+            'YTD': {
+                'Physical Availability': '69.0%',
+                'Mechanical Availability': '90.0%',
+                'Target MA': '92.0%'
+            },
+            'Top 3 downtime categories': {
+                'Engine': '30%',
+                'S4 Service': '22%',
+                'S5 Service': '21%'
+            }
+        }
+
+        ex['Components'] = {
+            'Changeouts': {
+                'Planned': 26,
+                'Break-in': 11}}
+
+        ex['Factory Campaigns'] = {
+            'Outstanding': {
+                'M': 44,
+                'FAF/FT': 13,
+                'Labour Hours': 1234
+            },
+            'Completed': {
+                'M': 13,
+                'FAF/FT': 3,
+                'Labour Hours': 123
+            }
+        }
         f.set_self(self, vars())
 
 class FleetMonthlyReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
         super().__init__()
         
-        if d is None: d = dt.now() + delta(days=-30)
+        if d is None: d = dt.now() + delta(days=-31)
         d_rng = first_last_month(d=d)
+        d_rng_ytd = (dt(dt.now().year, 1, 1) , d_rng[1])
 
         period = d_rng[0].strftime('%Y-%m')
         title = f'{minesite} Fleet Monthly Report - {period}'
+        f.set_self(self, vars())
 
-        month = 4
-        add_df, add_chart = self.add_df, self.add_chart
+        secs = ['UnitSMR', 'Availability', 'Components', 'FCs']
+        self.load_sections(secs)
 
-        sec = 'Unit SMR'
-        add_df(sec=sec, name='Unit SMR', func=un.df_unit_hrs_monthly, kw=dict(month=month)) # TODO change month
+    def set_exec_summary(self):
+        gq = self.get_query
+        ex = self.exec_summary
+
+        ex['Availability'] = gq('Fleet Availability').exec_summary()
+        ex['Availability'].update(gq('Fleet Availability YTD').exec_summary())
+        ex['Availability'].update(gq(self.sections['Availability'].name_topdowns).exec_summary())
         
-        sec = 'Availability'
-        summary = qr.AvailSummary(d_rng=d_rng)
-        add_df(sec=sec, name='Summary', query=summary)
+        ex['Components'] = gq('Component Changeout History').exec_summary()
 
-        n = 10
-        name_temp = f'Top {n} Downtime Categories'
-        add_df(sec=sec, name=name_temp, query=qr.AvailTopDowns(kw=dict(d_rng=d_rng, minesite=minesite, n=n)), has_chart=True)
-        add_chart(sec=sec, name=name_temp, func=ch.chart_topdowns, linked=True)
+        ex['Factory Campaigns'] = gq('FC Summary').exec_summary()
+        ex['Factory Campaigns'].update(gq('Completed FCs').exec_summary())
 
-        add_df(sec=sec, name='12 Month Rolling MA', query=qr.AvailRolling(d_rng=d_rng), has_chart=True)
-        add_chart(sec=sec, name='12 Month Rolling MA', func=ch.chart_avail_rolling, linked=True)
 
-        add_df(sec=sec, name='Shortfalls', query=qr.AvailShortfalls(parent=summary, kw=dict(d_rng=d_rng)))
+class Section():
+    # sections only add subsections
+    def __init__(self, title, report):
         
-        sec = 'Components'
-        add_df(sec=sec, name='Component Changeout History', query=qr.ComponentCOReport(kw=dict(d_rng=d_rng, minesite=minesite)))
-
-        sec = 'Factory Campaigns'
-        add_df(sec=sec, name='New FCs', query=qr.NewFCs(d_rng=d_rng, minesite=minesite))
-        add_df(sec=sec, name='Completed FCs', query=qr.FCComplete(d_rng=d_rng, minesite=minesite))
-
-        fcsummary = qr.FCSummaryReport() # need to pass parent query to FC summary 2 to use its df
-        add_df(sec=sec, name='FC Summary', query=fcsummary, kw=dict(default=True))
-        add_df(sec=sec, name='FC Summary (2)', query=qr.FCSummaryReport2(parent=fcsummary))
+        report.sections[title] = self # add self to parent report
+        sub_sections = {}
+        d_rng, d_rng_ytd, minesite = report.d_rng, report.d_rng_ytd, report.minesite
 
         f.set_self(self, vars())
+
+class UnitSMR(Section):
+    def __init__(self, report):
+        super().__init__(title='SMR Hours', report=report)
+
+        d = report.d_rng[0]
+        month = d.month
+        sec = SubSection('SMR Hours Operated', self) \
+            .add_df(
+                func=un.df_unit_hrs_monthly,
+                kw=dict(month=month),
+                caption='SMR hours operated during the report period.') # TODO change month, make query
+
+class Availability(Section):
+    def __init__(self, report):
+        super().__init__(title='Availability', report=report)
+
+        n = 10
+        d_rng, d_rng_ytd, ms = self.d_rng, self.d_rng_ytd, self.minesite
+
+        summary = qr.AvailSummary(d_rng=d_rng)
+        summary_ytd = qr.AvailSummary(d_rng=d_rng_ytd)
+        sec = SubSection('Fleet Availability', self) \
+            .add_df(
+                query=summary,
+                caption='Unit availability performance vs MA targets.') \
+            .add_df(
+                name='Fleet Availability YTD', 
+                query=summary_ytd, 
+                display=False) \
+            .add_chart(
+                func=ch.chart_fleet_ma,
+                caption='Unit mechanical availabilty performance vs MA target (report period).') \
+            .add_chart(
+                name='Fleet Availability YTD',
+                func=ch.chart_fleet_ma,
+                title='Fleet MA - Actual vs Target (YTD)',
+                caption='Unit mechanical availabilty performance vs MA target (YTD period).')
+
+
+        title_topdowns = f'Downtime Categories'
+        name_topdowns = f'Top {n} {title_topdowns}'
+        name_topdowns_ytd = f'{name_topdowns} (YTD)'
+
+        sec = SubSection(title_topdowns, self) \
+            .add_df(
+                name=name_topdowns,
+                query=qr.AvailTopDowns(kw=dict(d_rng=d_rng, minesite=ms, n=n)), 
+                has_chart=True,
+                caption=f'Top {n} downtime categories (report period).') \
+            .add_chart(
+                name=name_topdowns,
+                func=ch.chart_topdowns, 
+                linked=True) \
+            .add_df(
+                name=name_topdowns_ytd, 
+                query=qr.AvailTopDowns(kw=dict(d_rng=d_rng_ytd, minesite=ms, n=n)), 
+                has_chart=True,
+                caption=f'Top {n} downtime categories (YTD period).') \
+            .add_chart(
+                name=name_topdowns_ytd, 
+                func=ch.chart_topdowns,
+                title=name_topdowns_ytd, 
+                linked=True)
+
+        sec = SubSection('Availability History', self) \
+            .add_df(
+                query=qr.AvailRolling(d_rng=d_rng), 
+                has_chart=False,
+                caption='12 month rolling availability performance vs targets.') \
+            .add_chart(
+                func=ch.chart_avail_rolling,
+                linked=False,
+                caption='12 month rolling availability vs downtime hours.')
+        sec.force_pb = True
+
+        sec = SubSection('MA Shortfalls', self) \
+            .add_df(
+                query=qr.AvailShortfalls(parent=summary, kw=dict(d_rng=d_rng)),
+                caption='Detailed description of major downtime events (>12 hrs) for units which did not meet MA target.')
+        
+        f.set_self(self, vars())
+
+class Components(Section):
+    def __init__(self, report):
+        super().__init__(title='Components', report=report)
+
+        sec = SubSection('Component Changeout History', self) \
+            .add_df(
+                query=qr.ComponentCOReport(kw=dict(d_rng=self.d_rng, minesite=self.minesite)),
+                caption='Major component changeout history. Life achieved is the variance between benchmark SMR and SMR at changeout.')
+
+class FCs(Section):
+    def __init__(self, report):
+        super().__init__(title='Factory Campaigns', report=report)
+        d_rng, minesite = self.d_rng, self.minesite
+
+        sec = SubSection('New FCs', self) \
+            .add_df(
+                name='New FCs',
+                query=qr.NewFCs(d_rng=d_rng, minesite=minesite),
+                caption='All new FCs released during the report period.')
+        
+        sec = SubSection('Completed FCs', self) \
+            .add_df(
+                query=qr.FCComplete(d_rng=d_rng, minesite=minesite),
+                caption='FCs completed during the report period.')
+
+        fcsummary = qr.FCSummaryReport() # need to pass parent query to FC summary 2 to use its df
+        sec = SubSection('FC Summary', self) \
+            .add_df(
+                query=fcsummary, kw=dict(default=True),
+                caption='Completion status of currently open FCs.') \
+            .add_df(
+                name='FC Summary (2)',
+                query=qr.FCSummaryReport2(parent=fcsummary),
+                caption='Completion status of FCs per unit. (Extension of previous table, mandatory FCs highlighted navy blue).')
+
+class SubSection():
+    # subsections add dfs/charts/paragraphs
+    def __init__(self, title, section):
+        
+        section.sub_sections[title] = self # add self to parent's section
+        report = section.report
+        elements = []
+        force_pb = False
+        f.set_self(self, vars())
+
+    def add_df(self, name=None, func=None, query=None, kw={}, display=True, has_chart=False, caption=None):
+        if name is None:
+            name = self.title
+
+        self.report.dfs[name] = dict(name=name, func=func, query=query, kw=kw, df=None, df_html=None, display=display, has_chart=has_chart)
+
+        if display:
+            self.elements.append(dict(name=name, type='df', caption=caption))
+        
+        return self
+    
+    def add_chart(self, func, name=None, linked=False, title=None, caption=None):
+        if name is None:
+            name = self.title
+        
+        # pass name of existing df AND chart function
+        self.report.charts[name] = dict(name=name, func=func, path='', title=title)
+
+        # don't add to its own section if linked to display beside a df
+        if not linked:
+            self.elements.append(dict(name=name, type='chart', caption=caption))
+        
+        return self
 
 
 
@@ -316,3 +500,9 @@ def first_last_month(d):
 
 # FCs
     # df - list of outstandanding mandatory FCs
+
+                        # {% if dfs[elem.name].has_chart %}
+                        #     {% set wi = '40%' %}
+                        # {% else %}
+                        #     {% set wi = 'auto' %}
+                        # {% endif %}

@@ -21,6 +21,49 @@
     }
 }
 
+.level_2_list{
+    font-weight: normal;
+    padding-top: 5px;
+    list-style-type: none;
+    text-indent: -20px;
+}
+.two_col_list{
+    width:300px;
+    font-weight: normal;
+    padding-top: 5px;
+    /* padding-left: 10px; */
+    padding-bottom: 10px;
+    text-indent: 10px;
+}
+ul span + span { float:right;}
+
+/* Table of Contents lists */
+ol {
+    list-style-type: none;
+    counter-reset: item;
+    margin: 10px;
+    padding: 0;
+  }
+  ol > li {
+    display: table;
+    counter-increment: item;
+    margin-bottom: 0.6em;
+  } 
+  ol > li:before {
+    content: counters(item, ".") ". ";
+    display: table-cell;
+    padding-right: 0.6em;    
+  }
+  li ol > li {
+    margin: 0;
+  }
+  li ol > li:before {
+    content: counters(item, ".") " ";
+  }
+  a {
+      color: black;
+  }
+
 #header {
     position: running(header);
     content: url("./images/SMS Logo.png");
@@ -52,47 +95,90 @@
     height: 950px;
     width: 100%;
     justify-content: center;
+    /* justify-content: space-between; */
     align-items: center;
     vertical-align: middle;
-    /* background-color: red; */
+    flex-direction: column;
+    background-color: red;
+    text-align: center;
+    /* word-wrap: none; */
 }
-.splitscreen {
-    display: flex;
-}
-.splitscreen .left {
-    flex: 1;
-}
-.splitscreen .right {
-    flex: 1;
-    margin-left: 10px;
-}
-img {
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
-}
+
 
 html {
     font-family: Tahoma, Geneva, sans-serif;
-    font-size: 12px;
+    /* font-size: 12px; */
+    font-size: 12pt;
+
 }
 h1, h2, h3, h4, h5 {
     page-break-after: avoid;
-    margin: 3px;
+    margin: 0px;
 }
 h2 {
-    font-size: 16px;
+    font-size: 16pt;
     color: #265474;
     margin-bottom: 8px;
 }
 h3 {
-    font-size: 13px;
+    font-size: 13pt;
     color: #3675a2;
     margin-top: 4px;
     margin-bottom: 4px;
 }
-   
+
+.splitscreen {
+    display: flex;
+}
+.splitscreen .left {
+    flex: 0.45;
+    display: inline-block;
+    /* border: 1px dotted green; */
+    min-width: 0;
+    /* max-width: 40%; */
+}
+.splitscreen .right {
+    flex: 0.55;
+    margin-left: 10px;
+    /* display: block; */
+    width: auto;
+    /* border: 1px dotted rgb(255, 0, 255); */
+}
+div {
+    margin-bottom: 16px;
+    margin-left: auto;
+    margin-right: auto;
+    width: auto;
+    max-width: 100%;
+}
+figure img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    /* border: 1px dotted rgb(0, 255, 145); */
+}
+
+figure {
+    margin: 0;
+    display: block;
+    /* border: 1px dotted red; */
+    width: auto;
+    max-width: 100%;
+}
+figcaption {
+    font-style: italic;
+    font-size: 11px;
+    text-align: center;
+    max-width: 100%;
+    /* border: 1px dotted blue; */
+}
+.figcaption_tbl {
+    text-align: left !important;
+    /* border: 1px dotted blue; */
+    width: 100% !important;
+}
+
 table {
     table-layout: auto;
     width: auto;
@@ -100,9 +186,10 @@ table {
     background-color: #FFFFFF;
     border-collapse: collapse;
     margin-top: 0px;
-    margin-bottom: 16px;
+    margin-bottom: 2px;
     page-break-inside: avoid;
     font-size: 10.5px;
+    display: inline-block;
   }
   table td, table th {
     padding: 3px 5px;
@@ -111,7 +198,7 @@ table {
     background: #E4E4E4; 
   }
   table thead {
-    background: #265474;
+    background: #244062;
     border-bottom: 1px solid #000000;
   }
   table thead th {

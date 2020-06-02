@@ -43,11 +43,10 @@ class Filter():
                 else:
                     if opr is None: opr = op.eq
                     ct = opr(field_, val)
-            elif isinstance(val, int):
+            elif isinstance(val, (int, float)):
                 if opr is None: opr = op.eq
                 ct = opr(field_, val)
             elif isinstance(val, (dt, date)):
-                # TODO: opp gt (greater than)
                 if opr is None: opr = op.ge
                 ct = opr(field_, val)
         
@@ -57,6 +56,8 @@ class Filter():
         # check for duplicate criterion, use str(ct) as dict key for actual ct
         # can also use this to pass in a completed pk criterion eg (T().field() == val)
         self.criterion[str(ct)] = ct
+        if isinstance(ct, pk.terms.ComplexCriterion):
+            return # cant use fields in complexcriterion for later access but whatever
 
         if hasattr(ct, 'left'):
             field = ct.left.name
@@ -264,6 +265,18 @@ class ComponentCOReport(ComponentCOBase):
         subset = pd.IndexSlice[df['Life Achieved'].notnull(), 'Life Achieved']
         style.background_gradient(cmap=self.cmap.reversed(), subset=subset, axis=None)
 
+    def exec_summary(self):
+        m = {}
+        df = self.df
+        s = df['Removal Reason']
+        mask = s == 'High Hour Changeout' # TODO may need to change this criteria
+
+        m['Changeouts'] = {
+            'Planned': s[mask].count(),
+            'Unplanned': s[~mask].count()
+        }
+        return m
+
 class TSI(EventLogBase):
     def __init__(self):
         super().__init__()
@@ -312,8 +325,8 @@ class UnitInfo(QueryBase):
         self.fltr.add(vals=dict(MineSite=self.minesite))
 
 class FCBase(QueryBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, kw=None):
+        super().__init__(kw=kw)
         a = self.select_table
         b, c, d = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID')
 
@@ -340,9 +353,12 @@ class FCBase(QueryBase):
         if not ct is None:
             fltr.criterion[ct] |= t.ManualClosed.isnull() # need to operate on the original dict, not copy ct
 
+    def sort_by_fctype(self, df):
+        return f.sort_df_by_list(df=df, lst=['M', 'FAF', 'DO', 'FT'], lst_col='Type', sort_cols='FC Number')
+
 class FCSummary(FCBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, kw=None):
+        super().__init__(kw=kw)
 
         self.formats.update({
             '% Complete': '{:.2%}',
@@ -352,10 +368,13 @@ class FCSummary(FCBase):
 
         complete = Case().when(a.Complete==1, 'Y').else_('N').as_('Complete') # just renaming True to Y
         
-        self.cols = [d.MineSite, a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
+        cols = [d.MineSite, a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
+        f.set_self(self, vars())
 
     def process_df(self, df):
         # pivot raw df for fc summary table
+        self.df_orig = df.copy()
+
         try:
             # create summary (calc complete %s)
             df2 = pd.DataFrame()
@@ -381,7 +400,8 @@ class FCSummary(FCBase):
             cols.insert(endcol + 2, cols.pop(cols.index('% Complete')))
             df = df.loc[:, cols]
 
-            df = f.sort_df_by_list(df=df, lst=['M', 'FAF', 'DO', 'FT'], lst_col='Type', sort_cols='FC Number')
+            df.pipe(self.sort_by_fctype)
+            
 
         except:
             f.send_error(msg='Can\'t pivot fc summary dataframe')
@@ -389,13 +409,14 @@ class FCSummary(FCBase):
         return df      
 
 class FCSummaryReport(FCSummary):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, kw=None):
+        super().__init__(kw=kw)
     
     def get_df(self, default=False):
-        from .database import db
-        df = db.get_df(query=self, default=default)
-        self.df = df
+        # from .database import db
+        # df = db.get_df(query=self, default=default)
+        df = super().get_df(default=default)
+        # self.df = df
         return df[df.columns[:8]]
 
     def process_df(self, df):
@@ -405,6 +426,25 @@ class FCSummaryReport(FCSummary):
     
     def update_style(self, style, df):
         style.background_gradient(cmap=self.cmap.reversed(), subset='% Complete', axis=None)
+        style.apply(highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number'])
+
+    def exec_summary(self):
+        m, m2 = {}, {}
+        df = self.df_orig
+        df = df[df.Complete=='N']
+        s = df.Type
+        mandatory_incomplete = df[s == 'M'].Type.count()
+        # all_else_incomplete = df[s != 'M'].Type.count()
+        hrs_incomplete = df[s == 'M'].Hrs.sum()
+
+        m['Outstanding (Mandatory)'] = {
+            'Count': mandatory_incomplete,
+            'Labour Hours': '{:,.0f}'.format(hrs_incomplete)
+        }
+        # m['Completed'] {
+
+        # }
+        return m
 
 class FCSummaryReport2(FCSummary):
     def __init__(self, parent):
@@ -414,7 +454,7 @@ class FCSummaryReport2(FCSummary):
     
     def get_df(self, default=False):
         df = self.parent.df.copy()
-        df.drop(df.columns[1:8], axis=1, inplace=True)
+        df.drop(df.columns[1:8].drop('Type'), axis=1, inplace=True) # drop other cols except Type
         self.df = df
         return df
 
@@ -422,6 +462,7 @@ class FCSummaryReport2(FCSummary):
         # color y/n values green/red
         subset = pd.IndexSlice[:, df.columns[1:]]
         style.apply(highlight_yn, subset=subset, axis=None)
+        style.apply(highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number'])
 
         # rotate unit column headers vertical
         unit_col = 2
@@ -440,7 +481,8 @@ class FCSummaryReport2(FCSummary):
                 ('padding', '0px 0px'),
                 ('text-align', 'center')]))
         
-        style.set_table_styles(s)
+        style.table_styles.extend(s)
+        style.hide_columns(['Type'])
 
 class FCDetails(FCBase):
     def __init__(self):
@@ -479,13 +521,27 @@ class FCComplete(FCBase):
         # get all FCs complete during month, datecompletesms
         # group by FC number, count
 
-        self.cols = [a.FCNumber, a.Subject, fn.Count(a.FCNumber).as_('Count')]
+        self.cols = [a.FCNumber.as_('FC Number'), a.Classification.as_('Type'), a.Subject, fn.Count(a.FCNumber).as_('Completed')]
         self.q = self.q \
-            .groupby(a.FCNumber, a.Subject)
+            .groupby(a.FCNumber, a.Subject, a.Classification) \
+            .orderby(a.Classification)
 
         self.add_fltr_args([
             dict(vals=dict(DateCompleteSMS=d_rng), term='between'),
             dict(vals=dict(MineSite=minesite), table=d)])
+    
+    def process_df(self, df):
+        return df.pipe(self.sort_by_fctype)
+    
+    def exec_summary(self):
+        m = {}
+        df = self.df
+        mask = df.Type == 'M'
+        m['Completed'] = {
+            'Mandatory': df[mask].Completed.sum(),
+            'All others': df[~mask].Completed.sum()
+        }
+        return m
 
 class EmailList(QueryBase):
     def __init__(self):
@@ -530,7 +586,6 @@ class AvailTopDowns(AvailBase):
         cols = [a.CategoryAssigned, total, sum_sms, sum_suncor]
 
         q = self.q \
-            .left_join(b).on_field('Unit') \
             .groupby(a.CategoryAssigned) \
             .orderby(total) \
         
@@ -554,6 +609,17 @@ class AvailTopDowns(AvailBase):
         self.add_fltr_args([
             dict(vals=dict(ShiftDate=d_rng), term='between'),
             dict(vals=dict(MineSite=minesite), table=T('UnitID'))])
+
+    def exec_summary(self):
+        m, m2 = {}, {}
+        df = self.df
+
+        for i in range(3):
+            m2[df.loc[i, 'Category']] = '{:,.0f} hrs, {:.1%}'.format(df.loc[i, 'SMS'], df.loc[i, 'SMS %'])
+
+        m['Top 3 downtime categories'] = m2
+
+        return m
 
 class AvailSummary(QueryBase):
     def __init__(self, d_rng, model='980%', minesite='FortHills'):
@@ -586,6 +652,26 @@ class AvailSummary(QueryBase):
     def process_df(self, df):
         return self.add_totals(df)
     
+    def exec_summary(self):
+        totals, d_rng = self.totals, self.d_rng
+        days = (d_rng[1] - d_rng[0]).days
+
+        if days > 31:
+            current_period = 'YTD'
+        elif days > 7:
+            current_period = d_rng[0].strftime('%B %Y')
+        else:
+            current_period = d_rng[1].strftime('Week %W')
+
+        m = {}
+        m[current_period] = {
+                'Physical Availability': '{:.2%}'.format(totals['PA']),
+                'Mechanical Availability': '{:.2%}'.format(totals['MA']),
+                'Target MA': '{:.2%}'.format(totals['MA Target'])
+            }
+
+        return m
+
     def sum_prod(self, df, col1, col2):
         # create sumproduct for weighted MA and PA %s
         return (df[col1] * df[col2]).sum() / df[col2].sum()
@@ -602,6 +688,8 @@ class AvailSummary(QueryBase):
             'PA': self.sum_prod(df, 'PA', 'Hrs Period PA'),
             'Hrs Period MA': df['Hrs Period MA'].sum(),
             'Hrs Period PA': df['Hrs Period PA'].sum()}
+
+        self.totals = m
         
         return df.append(m, ignore_index=True)
     
@@ -628,11 +716,14 @@ class AvailRolling(QueryBase):
 
         self.view_cols.update(
             Target_MA='MA Target',
-            SMS_MA='MA')
+            SMS_MA='MA',
+            Target_Hrs_Variance='Target Hrs Variance')
 
         self.formats.update({
             'MA Target': '{:.2%}',
-            'MA': '{:.2%}'})
+            'MA': '{:.2%}',
+            'PA': '{:.2%}',
+            'Target Hrs Variance': '{:,.0f}'})
 
         args = dict(
             model=model,
@@ -647,19 +738,25 @@ class AvailRolling(QueryBase):
     
     def process_df(self, df):
         df['Month'] = df.DateLower.dt.strftime('%Y-%m')
-        df = df[['Month', 'SumSMS', 'MA Target', 'MA']]
+        df = df[['Month', 'SumSMS', 'MA Target', 'MA', 'Target Hrs Variance', 'PA']]
         return df
     
     def update_style(self, style, df):
-        style.apply(highlight_greater, subset=['MA Target', 'MA'], axis=None)
+        style.apply(highlight_greater, subset=['MA Target', 'MA', 'Target Hrs Variance'], axis=None)
+        s = []
+        s.append(dict(
+            selector=f'th.col_heading:nth-child(5)',
+            props=[ 
+                ('width', '60px')]))
+        style.table_styles.extend(s)
 
 class Availability(AvailBase):
     def __init__(self, minesite='FortHills', kw=None):
         super().__init__(minesite=minesite, kw=kw)
         a = self.a
         date_col = 'ShiftDate'
-
-        assigned = Case().when(a.CategoryAssigned.isnull() | a.SMS.isnull() | a.Suncor.isnull(), 0).else_(1).as_('Assigned')
+        ct_allopen = a.CategoryAssigned.isnull() | a.SMS.isnull() | a.Suncor.isnull()
+        assigned = Case().when(ct_allopen, 0).else_(1).as_('Assigned')
         cols = [a.Unit, a.ShiftDate, a.StartDate, a.EndDate, a.Duration, a.SMS, a.Suncor, a.CategoryAssigned, a.DownReason, a.Comment, assigned]
 
         q = self.q \
@@ -675,7 +772,10 @@ class Availability(AvailBase):
         self.set_lastweek()
 
     def set_allopen(self):
-        self.fltr.add(field='CategoryAssigned', term='isnull')
+        self.set_minesite()
+        self.fltr.add(ct=self.ct_allopen)
+        self.fltr.add(vals=dict(Duration=0.01), opr=op.gt)
+
     
     def process_df(self, df):
         p = f.datafolder / 'csv'
@@ -766,8 +866,10 @@ def highlight_greater(df):
 
     df1 = pd.DataFrame(data='background: inherit', index=df.index, columns=df.columns)
     df1['MA'] = np.where(m, format_cell(bg['good'], t['good']), format_cell(bg['bad'], t['bad']))
-    if 'Unit' in df.columns:
-        df1['Unit'] = df1['MA']
+    
+    for col in ('Unit', 'Target Hrs Variance'):
+        if col in df.columns:
+            df1[col] = df1['MA']
     return df1
 
 def highlight_yn(df):
@@ -776,7 +878,26 @@ def highlight_yn(df):
 
     m1, m2 = df=='Y', df=='N' # create two boolean masks
 
-    where = pd.np.where
+    where = np.where
     data = where(m1, format_cell(bg['good'], t['good']), where(m2, format_cell(bg['bad'], t['bad']), 'background: inherit'))
 
     return pd.DataFrame(data=data, index=df.index, columns=df.columns)
+
+def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols=None):
+    m = f.config['color']
+    bg, t = m['bg'], m['text']
+
+    if t_color is None:
+        t_color = 'black'
+
+    m = df[target_col]==val
+
+    df1 = pd.DataFrame(data='background: inherit', index=df.index, columns=df.columns)
+
+    df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), 'background: inherit')
+
+    if other_cols:
+        for col in other_cols:
+            df1[col] = df1[target_col]
+
+    return df1

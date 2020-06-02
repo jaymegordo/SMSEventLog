@@ -11,46 +11,119 @@
     <footer id="footer"></footer>
 
     <section id="title" class="pagebreak">
-        <div class="bottom_title">
-            <h1 >{{ title }}</h1>
+        <div style="margin-top: 300px;">
+            <h1 style="text-align: center; margin-bottom: 50px;">{{ title }}</h1>
+            <img src="images/Truck Logo.png" style="display: block; margin-left:auto; margin-right: auto;" />
         </div>
     </section>
-    
-    {% for sec_name in sections %} <!-- loop sectioon keys -->
+
+    {% if exec_summary.keys() | length > 0 %}
+    <section id="exec_summary" class="pagebreak">
         <div>
-        <section id="{{ sec_name }}" class="pagebreak">
-            <h2>{{loop.index}}. {{ sec_name }}</h2>
-            {% set loop1 = loop.index %}
+        <h2>Executive Summary</h2>
+
+        <ol style="font-weight: bold;">
+        {% for name, level_2 in exec_summary.items() %}
+            <li>{{ name }}
+                <ul class="level_2_list ">
+                {% for name, level_3 in level_2.items() %}
+                    <li>{{ name }}
+                        <ul class="two_col_list">
+                        {% for name, val in level_3.items() %}
+                            <li>
+                                <span>{{ name }}</span>
+                                <span>{{ val }}</span>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    </li>
+                {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+        </ol>
+        </div>
+    </section>
+    {% endif %}
+
+    <section id="TOC", class="pagebreak">
+        <h2>Table of Contents</h2>
+        <ol>
+            {% for name, sec in sections.items() %}
+            <li><a href="#{{ name }}">{{ name }}</a>
+                <ol>
+                    {% for name, subsec in sec.sub_sections.items() %}
+                    <li>
+                        <a href="#{{ name }}">{{ name }}</a>
+                    </li>
+                    {% endfor %}
+                </ol>
+            </li>
+            {% endfor %}
+        </ol>
+    </section>
+
+    {% for sec in sections.values() %} <!-- loop sections -->
+        <section id="{{ sec.title }}" class="pagebreak">
+            {% set i1 = loop.index %}
+            <h2>{{ i1 }}. {{ sec.title }}</h2>
             
-            {% for item_dict in sections[sec_name] %} <!-- loop list of dict items in section -->
-                {% if item_dict.type == 'df' %}
-                    {% set name = item_dict.name %}
-
-                {% if sections[sec_name]|length > 1 %}
-                    <h3>{{loop1 }}.{{loop.index}} {{ name }}</h3>
+            {% for sub_sec in sec.sub_sections.values() %} <!-- loop subsections -->
+                {% set num_tables = namespace(value=0) %}
+                {% set num_charts = namespace(value=0) %}
+                {% set i2 = loop.index %}
+                {% set sub_sec_num = i1 ~ '.' ~ i2 %}
+                {% if sub_sec.force_pb %}
+                    <div style="page-break-before: always;">
+                {% else %}
+                    <div>
                 {% endif %}
 
-                <div class="splitscreen">
-                    <div class="left">
-                    {{ dfs[item_dict.name].df_html }}
-                    </div>
-                    
-                    {% if dfs[name].has_chart %}
-                        <div class="right">
-                        <img src="{{ charts[name].path }}" /> 
-                        </div>
+                <h3 id="{{ sub_sec.title }}">{{ sub_sec_num }} {{ sub_sec.title }}</h3>
+
+                {% for elem in sub_sec.elements %} <!-- loop df/chart elements -->
+                    <div>
+                    {% if elem.type == 'df' %}
+                        {% set num_tables.value = num_tables.value + 1 %}
+                        {% if dfs[elem.name].has_chart %}
+                            {% set num_charts.value = num_charts.value + 1 %}
+                            <div class="splitscreen">
+                                <div class="left">
+                                    <figure class="figure_tbl">
+                                        {{ dfs[elem.name].df_html }}
+                                        <figcaption class="figcaption_tbl">Table {{ sub_sec_num }}-{{ num_tables.value }} - {{ elem.caption }}</figcaption>
+                                    </figure>
+                                </div>
+                                
+                                <div class="right">
+                                    <figure>
+                                        <img src="{{ charts[elem.name].path }}" />
+                                        <figcaption>Figure {{ sub_sec_num }}-{{ num_charts.value }} - {{ elem.caption }}</figcaption>
+                                    </figure>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div >
+                                <figure style="display: inline-block;">
+                                    {{ dfs[elem.name].df_html }}
+                                    <figcaption class="figcaption_tbl">Table {{ sub_sec_num }}-{{ num_tables.value }} - {{ elem.caption }}</figcaption>
+                                </figure>
+                            </div>
+                        {% endif %}
+
+                    {% elif elem.type == 'chart' %}
+                        {% set num_charts.value = num_charts.value + 1 %}
+                        <figure>
+                            <img src="{{ charts[elem.name].path }}" />
+                            <figcaption>Figure {{ sub_sec_num }}-{{ num_charts.value }} - {{ elem.caption }}</figcaption>
+                        </figure>
                     {% endif %}
-
-                {% elif item_dict.type == 'chart' %}
-                    <img src="{{ charts[name].path }}" class="img"/>
-                {% endif %}
-
+                    </div>
+                {% endfor %}
                 </div>
             {% endfor %}
         </section>
-        </div>
     {% endfor %}
-    
 </body>
 </html>
 <!-- <div><b><br><br>SMS:<br><br><br><br><br>Suncor:</b></div>
