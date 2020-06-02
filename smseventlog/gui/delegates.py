@@ -168,7 +168,12 @@ class ComboDelegate(CellDelegate):
             f.send_error()
 
     def setModelData(self, editor, model, index):
-        model.setData(index=index, val=editor.currentText(), role=Qt.EditRole)
+        val = editor.currentText()
+        if val in self.items:
+            model.setData(index=index, val=editor.currentText(), role=Qt.EditRole)
+        else:
+            pass
+            # TODO find way to let user know, without annoying popup
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -181,14 +186,14 @@ class DateDelegateBase(CellDelegate):
         option.displayAlignment = Qt.AlignCenter
         super().initStyleOption(option, index)
     
-    def paint(self, painter, option, index):
-        # option.backgroundBrush = QBrush(Qt.red)
-        option.backgroundBrush.setColor(QColor(100, 200, 100, 200))
-        super().paint(painter, option, index)
+    # def paint(self, painter, option, index):
+    #     # option.backgroundBrush = QBrush(Qt.red)
+    #     option.backgroundBrush.setColor(QColor(100, 200, 100, 200))
+    #     super().paint(painter, option, index)
 
-    def sizeHint(self, option, index):
-        size = super().sizeHint(option, index)
-        return QSize(self.width, size.height())
+    # def sizeHint(self, option, index):
+    #     size = super().sizeHint(option, index)
+    #     return QSize(self.width, size.height())
 
     # def displayText(self, value, locale):
     #     # print(value, type(value))

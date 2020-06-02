@@ -4,7 +4,6 @@ from .__init__ import *
 # row, col = row/column index names eg (if no actual index) 3, 'StartDate'
 
 class TableModel(QAbstractTableModel):
-
     RawDataRole = 64
     RawIndexRole = 65
     DateRole = 66
@@ -126,7 +125,7 @@ class TableModel(QAbstractTableModel):
         
         return df
 
-    def data(self, index=None, role=Qt.DisplayRole, raw_index=None, raw_index_names=None):
+    def data(self, index=None, role=RawDataRole, raw_index=None, raw_index_names=None):
         # TableView asks the model for data to display, edit, paint etc
         # convert index integer values to index names for df._get_value() > fastest lookup
         # TODO create 'display' dataframe of all string values, 'background df' etc
@@ -163,7 +162,7 @@ class TableModel(QAbstractTableModel):
             else:
                 return ''
 
-        elif role == TableModel.RawDataRole:
+        elif role == self.RawDataRole:
             return val
             
         elif role == Qt.TextAlignmentRole:
@@ -176,7 +175,7 @@ class TableModel(QAbstractTableModel):
             if not func is None:
                 return func(**dict(df=df, row=row, col=col, val=val, role=role))
 
-        elif role == TableModel.RawIndexRole:
+        elif role == self.RawIndexRole:
             return (row, col)
 
         return None

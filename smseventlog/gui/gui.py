@@ -291,6 +291,8 @@ def get_qt_app():
         
     app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS Icon.png')))
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+    font = QFont('Calibri', 15)
+    app.setFont(font)
     
     return app
 

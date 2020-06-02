@@ -353,7 +353,6 @@ class MsgBox_Advanced(QDialog):
         self.setWindowTitle(title)
         self.setMinimumSize(ui.minsize)
         self.setMaximumWidth(1000)
-        self.setStyleSheet('QLabel {font: 14pt Courier New}')
 
         layout = QVBoxLayout(self)
 

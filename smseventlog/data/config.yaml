@@ -10,6 +10,7 @@ Email: jgordon@smsequip.com
 color:
     bg:
         maroon: '#9e2121'
+        lightred: '#F8696B'
         lightyellow: '#FFFFCC'
         lightgreen: '#99FF99'
         lightorange: '#ffbf7a'
@@ -20,11 +21,17 @@ color:
         good: '#c6e3ef'
         bad: '#FFC7CE'
         greyrow: '#E4E4E4'
+        darkgrey: '#999999'
+        navyblue: '#244062'
+        skyblue: '#91c3ff'
+        orange: '#f08a37'
     text:
         goodgreen: '#006100'
         good: '#003961'
         bad: '#9C0006'
-    thead: '#265474'
+        black: 'black'
+        white: 'white'
+    thead: '#244062'
 
 MineSite:
     - BaseMine

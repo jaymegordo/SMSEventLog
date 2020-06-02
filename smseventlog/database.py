@@ -130,7 +130,7 @@ class DB(object):
 
                 dfs[title] = df
             except:
-                msg = 'Couldn\'t get dataframe.'
+                msg = f'Couldn\'t get dataframe: {query.name}'
                 f.send_error(msg=msg)
                 log.error(msg)
                 df = pd.DataFrame()

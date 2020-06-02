@@ -156,8 +156,8 @@ class TableView(QTableView):
         self.model().set_df(df=df)
             
         self.hide_columns()
-        self.set_date_delegates()
         self.resizeColumnsToContents()
+        self.set_date_delegates()
 
         cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
         # TODO should set textalignrole for these columns instead
@@ -172,22 +172,24 @@ class TableView(QTableView):
         date_delegate = DateDelegate(self)
 
         for i in model.dt_cols:
-            col_name = model.headerData(i)
-            self.formats[col_name] = '{:%Y-%m-%d}'
+            col = model.headerData(i)
+            self.formats[col] = '{:%Y-%m-%d}'
+            self.setColumnWidth(i, date_delegate.width)
             self.setItemDelegateForColumn(i, date_delegate)
 
         # if the parent table_widget has specified datetime cols
         if self.datetime_cols:
             datetime_delegate = DateTimeDelegate(self)
             for i in model.datetime_cols:
-                col_name = model.headerData(i)
-                self.formats[col_name] = '{:%Y-%m-%d     %H:%M}'
+                self.setColumnWidth(i, datetime_delegate.width)
+                col = model.headerData(i)
+                self.formats[col] = '{:%Y-%m-%d     %H:%M}'
                 self.setItemDelegateForColumn(i, datetime_delegate)
 
-    def set_combo_delegate(self, col_name, items):
+    def set_combo_delegate(self, col, items):
         model = self.model()
         combo_delegate = ComboDelegate(parent=self, items=items)
-        c = model.get_column_idx(col=col_name)
+        c = model.get_column_idx(col=col)
         self.setItemDelegateForColumn(c, combo_delegate)
 
     def center_columns(self, cols):
@@ -514,7 +516,7 @@ class EventLogBase(TableWidget):
             'SMR': '{:,.0f}'})
 
         items = f.config['Lists'][f'{self.name}Status']
-        view.set_combo_delegate(col_name='Status', items=items)
+        view.set_combo_delegate(col='Status', items=items)
 
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
@@ -539,8 +541,8 @@ class WorkOrders(EventLogBase):
         view.highlight_funcs['Pics'] = view.highlight_pics
 
         lists = f.config['Lists']
-        view.set_combo_delegate(col_name='Wrnty', items=lists['WarrantyType'])
-        view.set_combo_delegate(col_name='Comp CO', items=lists['TrueFalse'])
+        view.set_combo_delegate(col='Wrnty', items=lists['WarrantyType'])
+        view.set_combo_delegate(col='Comp CO', items=lists['TrueFalse'])
 
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
@@ -565,6 +567,9 @@ class UnitInfo(TableWidget):
         view.col_widths.update({
             'Warranty Remaining': 40,
             'GE Warranty': 40})
+        view.formats.update({
+            'Current SMR': '{:,.0f}',
+            'Engine Serial': '{:.0f}'})
 
 class FCBase(TableWidget):
     def __init__(self, parent=None):
@@ -684,10 +689,15 @@ class Availability(TableWidget):
         view.add_highlight_funcs(cols=['CategoryAssigned', 'Assigned'], func=view.highlight_by_val)
         view.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
+        view.formats.update({
+            'Duration': '{:,.2f}',
+            'SMS': '{:,.2f}',
+            'Suncor': '{:,.2f}'})
+
         # TODO move this to an after_init, first time tab selected
         p = f.datafolder / 'csv/avail_resp.csv'
         df = pd.read_csv(p)
-        view.set_combo_delegate(col_name='CategoryAssigned', items=f.clean_series(s=df.CategoryAssigned))
+        view.set_combo_delegate(col='CategoryAssigned', items=f.clean_series(s=df.CategoryAssigned))
 
         view.highlight_vals.update({
             's1 service': 'lightyellow',
@@ -698,7 +708,7 @@ class Availability(TableWidget):
 
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
         self.add_action(name='Filter Assigned', func=self.filter_assigned, shortcut='Ctrl+Shift+A', btn=True)
-        self.add_action(name='Update Unassigned', func=self.update_unassigned, btn=True)
+        self.add_action(name='Save Assignments', func=self.save_assignments, btn=True)
         self.add_action(name='Assign Suncor', func=self.assign_suncor, shortcut='Ctrl+Shift+Z')
         self.add_action(name='Show Unit EL', func=self.filter_unit_eventlog, shortcut='Ctrl+Shift+F', btn=True)
 
@@ -751,7 +761,7 @@ class Availability(TableWidget):
 
         super().email_table(subject=subject, body=body, email_list=self.get_email_list(), df=df)
         
-    def update_unassigned(self):
+    def save_assignments(self):
         model = self.view.model()
         cols = ['Duration', 'SMS', 'Suncor', 'CategoryAssigned', 'Comment']
         txn = el.DBTransaction(table_model=model, update_cols=cols)
@@ -799,6 +809,8 @@ class Availability(TableWidget):
         table_widget.view.model().filter_by_items(col='Unit', items=[unit])
         tabs.activate_tab(title)
 
+
+# FILTER MENU
 class FilterMenu(QMenu):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
