@@ -209,3 +209,24 @@ table {
   tr {
     page-break-inside:avoid;
     page-break-after:auto }
+
+.signature_table {
+    table-layout: fixed;
+    font-size: 12pt;
+    font-weight: normal;
+    text-align: center;
+    line-height: 100px;
+    width: 500px;
+}
+.signature_table td:nth-child(1) {
+    width: 100px;
+}
+.signature_table td:nth-child(2) {
+    width: 100%;
+}
+.signature_table td {
+    border: 1px black solid;
+}
+.signature_table tr:nth-child(even) {
+    background: none; 
+  }
