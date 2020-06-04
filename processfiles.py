@@ -20,8 +20,8 @@ CLI.add_argument(
     default=[])
 
 CLI.add_argument(
-    "--range",  # name on the CLI - drop the `--` for positional/required parameters
-    nargs="*",  # 0 or more values expected => creates a list
+    "--range",  
+    nargs="*",  
     type=str,
     default=[])
 

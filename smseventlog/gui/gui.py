@@ -275,9 +275,7 @@ class TabWidget(QTabWidget):
 
 def launch():
     app = get_qt_app()
-    app.setStyle('Fusion')
     w = MainWindow()
-    # disable_window_animations_mac(w)
 
     w.show()
     w.after_init()
@@ -291,6 +289,7 @@ def get_qt_app():
         
     app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS Icon.png')))
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+    app.setStyle('Fusion')
     font = QFont('Calibri', 15)
     app.setFont(font)
     

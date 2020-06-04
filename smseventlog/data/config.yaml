@@ -189,6 +189,7 @@ Headers:
         WO: WorkOrder
         Model: Model
         Unit: Unit
+        Serial: Serial
         Title: Title
         Unit SMR: SMR
         Part SMR: ComponentSMR

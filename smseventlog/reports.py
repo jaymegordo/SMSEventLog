@@ -1,19 +1,21 @@
 import functools
 
 import numpy as np
-
+from bs4 import BeautifulSoup
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
+from . import charts as ch
 from . import functions as f
 from . import queries as qr
 from . import units as un
 from .__init__ import *
 from .database import db
-from . import charts as ch
 
 global p_reports
 p_reports = Path(__file__).parents[1] / 'reports'
+
+# TODO auto email w/ email lists
 
 # Dataframe format
 def left_justified(df, header=False):
@@ -47,9 +49,24 @@ def set_column_style(mask, props):
 
     return s
 
+def set_column_widths(style, vals, hidden_index=True):
+    # vals is dict of col_name: width > {'Column Name': 200}
+    s = []
+    offset = 1 if hidden_index else 0
+
+    for col_name, width in vals.items():
+        icol = style.data.columns.get_loc(col_name) + offset
+        s.append(dict(
+            selector=f'th.col_heading:nth-child({icol})',
+            props=[('width', f'{width}px')]))
+    
+    style.table_styles.extend(s)
+    return style
+
 def set_style(df):
     # Dataframe general column alignment/number formatting
-    df.replace('\n', '<br>', inplace=True, regex=True)
+    cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
+    df[cols].replace('\n', '<br>', inplace=True, regex=True)
 
     s = []
     m = f.config['color']
@@ -80,45 +97,30 @@ def set_style(df):
     
     return style
 
-def report_unit_hrs_monthly(month):
-    env = Environment(loader=FileSystemLoader(str(p_reports)))
-    template = env.get_template('report_template.html')
-
-    d = dt(dt.now().year, month, 1)
-    title = 'Fort Hills Monthly SMR - {}'.format(d.strftime('%Y-%m'))
-    df = un.df_unit_hrs_monthly(month=month)
-
-    style = set_style(df)
-
-    # specific number formats
-    formats = {'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
-    m = format_dtype(df=df, formats=formats)
-    style.format(m)
-    
-    style.set_properties(subset=['Unit'], **{'font-weight': 'bold'})
-    style.set_properties(subset=['Unit', 'Serial'], **{'text-align':'center'})
-
-    html_tbl = style.hide_index().render()
-    template_vars = {'title' : title,
-                 'unit_hrs': html_tbl}
-    html_out = template.render(template_vars)
-
-    p_base = Path.home() / 'Desktop'
-
-    # save pdf
-    p = p_base / f'{title}.pdf'
-    HTML(string=html_out).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
-
-    # save csv
-    p = p_base / f'{title}.csv'
-    df.to_csv(p)
 
 
 class Report(object):
-    def __init__(self):
+    def __init__(self, d=None):
         # dict of {df_name: {func: func_definition, kw: **kw, df=None}}
         dfs, charts, sections, exec_summary = {}, {}, {}, {}
+
+        if d is None: d = dt.now() + delta(days=-31)
+        d_rng = first_last_month(d=d)
+        d_rng_ytd = (dt(dt.now().year, 1, 1) , d_rng[1])
+
+        include_items = dict(
+            title_page=False,
+            truck_logo=False,
+            exec_summary=False,
+            table_contents=False,
+            signature_block=False)
+        
         f.set_self(self, vars())
+
+    def add_items(self, items):
+        if not isinstance(items, list): items = [items]
+        for item in items:
+            self.include_items.update({item: True})
 
     def get_section(self, name):
         for sec in self.sections.values():
@@ -225,7 +227,8 @@ class Report(object):
             title=self.title,
             sections=self.sections,
             dfs=dfs_filtered,
-            charts=self.charts)
+            charts=self.charts,
+            include_items=self.include_items)
 
         html_out = template.render(template_vars)
         with open('html_out.html', 'w+') as file:
@@ -284,18 +287,15 @@ class TestReport(Report):
 
 class FleetMonthlyReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
-        super().__init__()
-        
-        if d is None: d = dt.now() + delta(days=-31)
-        d_rng = first_last_month(d=d)
-        d_rng_ytd = (dt(dt.now().year, 1, 1) , d_rng[1])
-
-        period = d_rng[0].strftime('%Y-%m')
+        super().__init__(d=d)
+      
+        period = self.d_rng[0].strftime('%Y-%m')
         title = f'{minesite} Fleet Monthly Report - {period}'
         f.set_self(self, vars())
 
         secs = ['UnitSMR', 'Availability', 'Components', 'FCs']
         self.load_sections(secs)
+        self.add_items(['title_page', 'truck_logo', 'exec_summary', 'table_contents'])
 
     def set_exec_summary(self):
         gq = self.get_query
@@ -310,7 +310,30 @@ class FleetMonthlyReport(Report):
         ex['Factory Campaigns'] = gq('FC Summary').exec_summary()
         ex['Factory Campaigns'].update(gq('Completed FCs').exec_summary())
 
+class MonthlySMRReport(Report):
+    def __init__(self, d=None, minesite='FortHills'):
+        super().__init__(d=d)
+        
+        period = self.d_rng[0].strftime('%Y-%m')
+        title = f'{minesite} Monthly SMR - {period}'
+        f.set_self(self, vars())
 
+        self.load_sections('UnitSMR')
+        self.add_items(['title_page', 'signature_block'])
+    
+    def create_pdf(self, p_base=None, csv=False):
+        super().create_pdf(p_base=p_base)
+        if csv:
+            self.save_csv()
+    
+    def save_csv(self):
+        p_base = Path.home() / 'Desktop'
+        p = p_base / f'{self.title}.csv'
+        
+        df = self.get_df('SMR Hours Operated')
+        df.to_csv(p)
+
+# REPORT SECTIONS
 class Section():
     # sections only add subsections
     def __init__(self, title, report):
@@ -480,14 +503,6 @@ def first_last_month(d):
     return (d_lower, d_upper)
         
 
-
-# Availability
-    # df - Monthly avail summary > get from db - done
-    # chart - rolling availability > create from df, exists in db?
-    # df - MA shortfalls > maybe need to create this?
-    # df - year to date? maybe just df of monthly rolling?
-    # chart/df - top x downtime reasons
-
 # PLM
     # Will need to manually import all units before running report for now. > wont have dls till much later..
     # df - summary table - total loads, total payload, fleet mean payload
@@ -495,14 +510,4 @@ def first_last_month(d):
     # df - summary loads per unit, need to identify max payload date..
 
 # Component CO
-    # df - all components replaced in month > get component co query, filter by month
     # df - CO forecast??
-
-# FCs
-    # df - list of outstandanding mandatory FCs
-
-                        # {% if dfs[elem.name].has_chart %}
-                        #     {% set wi = '40%' %}
-                        # {% else %}
-                        #     {% set wi = 'auto' %}
-                        # {% endif %}

@@ -126,6 +126,7 @@ class ComboDelegate(CellDelegate):
     def __init__(self, parent, items):
         super().__init__(parent)
 
+        items_lower = [item.lower() for item in items]
         _cell_widget_states = {}
         f.set_self(self, vars())
 
@@ -168,9 +169,11 @@ class ComboDelegate(CellDelegate):
             f.send_error()
 
     def setModelData(self, editor, model, index):
-        val = editor.currentText()
-        if val in self.items:
-            model.setData(index=index, val=editor.currentText(), role=Qt.EditRole)
+        # convert any matching string to good value even if case mismatched
+        val_lower = str(editor.currentText()).lower()
+        if val_lower in self.items_lower:
+            val = self.items[self.items_lower.index(val_lower)]
+            model.setData(index=index, val=val, role=Qt.EditRole)
         else:
             pass
             # TODO find way to let user know, without annoying popup

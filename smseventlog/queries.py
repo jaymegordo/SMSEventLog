@@ -92,6 +92,7 @@ class QueryBase(object):
         cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         sql, df = None, pd.DataFrame()
         m = f.config['TableName']
+        color = f.config['color']
         name = self.__class__.__name__
 
         # loop base classes to get first working title, need this to map view_cols
@@ -224,6 +225,10 @@ class ComponentCOBase(EventLogBase):
     def set_default_filter(self):
         super().set_default_filter()
         self.fltr.add(vals=dict(DateAdded=dt.now().date() + delta(days=-30)))
+    
+    def set_fltr(self):
+        super().set_fltr()
+        self.fltr.add(vals=dict(ComponentCO='True'))
 
     def set_allopen(self):
         self.fltr.add(field='COConfirmed', val='False')
@@ -282,7 +287,7 @@ class TSI(EventLogBase):
         super().__init__()
         a, b = self.a, self.b
 
-        cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, a.Unit, b.Model, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.TSIDetails, a.TSIAuthor]
+        cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, b.Model, a.Unit, b.Serial, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.TSIDetails, a.TSIAuthor]
         
         q = Query.from_(a) \
             .left_join(b).on_field('Unit') \
@@ -708,7 +713,7 @@ class AvailSummary(QueryBase):
         style.apply(highlight_greater, subset=['MA Target', 'MA', 'Unit'], axis=None)
 
         bg = f.config['color']['thead']
-        style.apply(lambda x: [f'background: {bg};color: white' if not x.index[i] in ('Unit', 'MA') else 'background: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1)
+        style.apply(lambda x: [f'background-color: {bg};color: white' if not x.index[i] in ('Unit', 'MA') else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1)
         
 class AvailRolling(QueryBase):
     def __init__(self, d_rng, model='980%', minesite='FortHills'):
@@ -742,13 +747,9 @@ class AvailRolling(QueryBase):
         return df
     
     def update_style(self, style, df):
-        style.apply(highlight_greater, subset=['MA Target', 'MA', 'Target Hrs Variance'], axis=None)
-        s = []
-        s.append(dict(
-            selector=f'th.col_heading:nth-child(5)',
-            props=[ 
-                ('width', '60px')]))
-        style.table_styles.extend(s)
+        from . import reports as rp
+        style.apply(highlight_greater, subset=['MA Target', 'MA', 'Target Hrs Variance'], axis=None) \
+            .pipe(rp.set_column_widths, vals={'Target Hrs Variance': 60})
 
 class Availability(AvailBase):
     def __init__(self, minesite='FortHills', kw=None):
@@ -776,7 +777,18 @@ class Availability(AvailBase):
         self.fltr.add(ct=self.ct_allopen)
         self.fltr.add(vals=dict(Duration=0.01), opr=op.gt)
 
-    
+    def get_stylemap(self, df):
+        # convert irow, icol stylemap to indexes
+        if df.shape[0] <=0:
+            return {}
+
+        style = df.style
+        cmap = LinearSegmentedColormap.from_list('red_white', ['white', self.color['bg']['lightred']])
+        style.background_gradient(cmap=cmap, subset=['Duration', 'SMS', 'Suncor'], axis=None)
+        style._compute()
+        return f.convert_stylemap_index(style=style)
+        # print(f.first_n(m, 5))
+ 
     def process_df(self, df):
         p = f.datafolder / 'csv'
         df_assigned = pd.read_csv(p / 'avail_assigned.csv')
@@ -855,7 +867,7 @@ def table_with_args(table, args):
     return f'{table}({str_args})'
 
 def format_cell(bg, t):
-    return f'background: {bg};color: {t};'
+    return f'background-color: {bg};color: {t};'
 
 def highlight_greater(df):
     # Highlight cells good or bad where MA > MA Target
@@ -864,7 +876,7 @@ def highlight_greater(df):
 
     m = df['MA'] > df['MA Target']
 
-    df1 = pd.DataFrame(data='background: inherit', index=df.index, columns=df.columns)
+    df1 = pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
     df1['MA'] = np.where(m, format_cell(bg['good'], t['good']), format_cell(bg['bad'], t['bad']))
     
     for col in ('Unit', 'Target Hrs Variance'):
@@ -879,7 +891,7 @@ def highlight_yn(df):
     m1, m2 = df=='Y', df=='N' # create two boolean masks
 
     where = np.where
-    data = where(m1, format_cell(bg['good'], t['good']), where(m2, format_cell(bg['bad'], t['bad']), 'background: inherit'))
+    data = where(m1, format_cell(bg['good'], t['good']), where(m2, format_cell(bg['bad'], t['bad']), 'background-color: inherit'))
 
     return pd.DataFrame(data=data, index=df.index, columns=df.columns)
 
@@ -892,9 +904,9 @@ def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols
 
     m = df[target_col]==val
 
-    df1 = pd.DataFrame(data='background: inherit', index=df.index, columns=df.columns)
+    df1 = pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
 
-    df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), 'background: inherit')
+    df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), 'background-color: inherit')
 
     if other_cols:
         for col in other_cols:

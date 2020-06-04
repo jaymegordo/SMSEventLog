@@ -19,6 +19,7 @@ class TableModel(QAbstractTableModel):
         _resort = lambda : None # Null resort functon
         _cols = []
         table_widget = parent.parent #sketch
+        _stylemap = {}
 
         color_enabled = False
         color_back = Qt.magenta
@@ -34,6 +35,12 @@ class TableModel(QAbstractTableModel):
         _df_pre_dyn_filter = None # Clear dynamic filter
         _cols = list(df.columns)
         parent = self.parent
+
+        # apply style functions
+        # TODO this isn't finished yet
+        query = self.table_widget.query
+        if hasattr(query, 'get_stylemap'):
+            self.stylemap = query.get_stylemap(df=df)
 
         # create tuple of ints from parent's list of disabled table headers
         disabled_cols = tuple(i for i, col in enumerate(_cols) if col in parent.disabled_cols)
@@ -62,7 +69,15 @@ class TableModel(QAbstractTableModel):
 
         if self._df.shape[0] > 0:
             self.parent.resizeRowsToContents()
-            
+
+    @property
+    def stylemap(self):
+        return self._stylemap
+
+    @stylemap.setter
+    def stylemap(self, stylemap):
+        self._stylemap = stylemap
+        
     @pyqtSlot()
     def beginDynamicFilter(self):
         """Effects of using the "filter" function will not become permanent until endDynamicFilter called"""
@@ -101,7 +116,9 @@ class TableModel(QAbstractTableModel):
         return None
 
     def get_background_colors_from_df(self, df):
-        func = lambda x: f'background: {str(x)};'
+        # return df of background colors to use in style.apply
+        # TODO this needs to be rebuilt!!
+        func = lambda x: f'background-color: {str(x)};'
         # print(df.shape, df.tail())
         # print(df.columns)
         rows = []
@@ -174,6 +191,14 @@ class TableModel(QAbstractTableModel):
             func = self.parent.highlight_funcs[col]
             if not func is None:
                 return func(**dict(df=df, row=row, col=col, val=val, role=role))
+            
+            style_vals = self.stylemap.get((row, col), None)
+            if style_vals:
+                if role == Qt.BackgroundRole:
+                    color = style_vals[0]
+                elif role == Qt.ForegroundRole:
+                    color = style_vals[1]
+                return QColor(color.split(' ')[1])
 
         elif role == self.RawIndexRole:
             return (row, col)

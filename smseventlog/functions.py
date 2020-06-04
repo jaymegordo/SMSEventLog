@@ -112,6 +112,11 @@ def copy_dict_attrs(m, target):
 def pretty_dict(m):
     return str(m).replace('{', '').replace('}', '').replace(', ', '\n').replace("'", '')
 
+def first_n(m, n):
+    # return first n items of dict
+
+    return {k:m[k] for k in list(m.keys())[:n]}
+
 def set_self(obj, m, prnt=False, exclude=()):
     # convenience func to assign an object's func's local vars to self
     for k, v in m.items():
@@ -196,6 +201,14 @@ def clean_series(s, convert_str=False):
         s = s.astype(str)
         
     return sorted(list(s.replace('', pd.NA).dropna().unique()))
+
+def convert_stylemap_index(style):
+    # convert irow, icol stylemap to df index
+    stylemap = style.ctx
+    df = style.data
+    m = {(df.index[k[0]], df.columns[k[1]]):v for k, v in stylemap.items()}
+
+    return m
 
 # simple obfuscation for db connection string
 def encode(key, string):
