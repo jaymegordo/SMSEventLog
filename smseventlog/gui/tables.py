@@ -17,6 +17,12 @@ log = logging.getLogger(__name__)
 # TODO trigger on title changed?
 # TODO trigger on componentCO changed
 # TODO function bulk update multiple values in row (availability)
+# TODO component tab list for CO reasons
+# TODO highlight header red when filter active
+# TODO add pics count to TSI page
+# TODO add tsi status to WO page
+# TODO UnitINFO add new function/menu
+
 
 class TableView(QTableView):
     dataFrameChanged = pyqtSignal()
@@ -31,9 +37,10 @@ class TableView(QTableView):
         col_widths = {'Title': 150, 'Part Number': 150}
         highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, {}, {} # NOTE use all lowercase!
         colors = f.config['color']
+        # col_maxmin # used for highlighting color scales
         
         # set up initial empty model
-        self.parent = parent
+        self.parent = parent # model needs this to access parent table_widget
         _data_model = TableModel(parent=self)
         self.setModel(_data_model)
         rows_initialized = True
@@ -66,6 +73,22 @@ class TableView(QTableView):
         f.set_self(self, vars())
         self.set_default_headers()
         self.setVisible(True)
+
+    def display_data(self, df):
+        self.rows_initialized = False 
+        self.model().set_df(df=df)
+            
+        self.hide_columns()
+        self.resizeColumnsToContents()
+        self.set_date_delegates()
+
+        cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
+        # TODO should set textalignrole for these columns instead
+        self.center_columns(cols=cols)
+        self.set_column_widths()
+
+        self.rows_initialized = True
+        self.resizeRowsToContents()
 
     def double_click_enter(self, QModelIndex):
         print('double_click_enter')
@@ -129,8 +152,37 @@ class TableView(QTableView):
         
         return QColor(color_code)
 
+    def highlight_color_scale(self, val, **kw):
+        # highlight values using max/min within range of multiple columns
+        # get color scale
+        if self.col_maxmin is None:
+            df = self.model().df
+            df = df[self.maxmin_cols]
+            self.col_maxmin = tuple(df.max().max(), df.min().min())
+
+        return
+
+    def get_style(self, df=None):
+        model = self.model()
+        if df is None:
+            df = model.df
+        
+        style = rp.set_style(df=df) \
+            .apply(model.get_background_colors_from_df, axis=None) \
+            .format(self.formats)
+
+        s = []
+        s.append(dict(
+            selector='table',
+            props=[('border', '1px solid black')]))
+        s.append(dict(
+            selector='tr:nth-child(even)',
+            props=[('background-color', f.config['color']['bg']['greyrow'])])) 
+        style.table_styles.extend(s)
+        return style
+
     def resizeRowsToContents(self):
-        sender = self.sender()
+        # sender = self.sender()
         # model cant sort initially before the column widths are set
         if self.rows_initialized:
             # if self.model().df.shape[0] > 0:
@@ -150,22 +202,6 @@ class TableView(QTableView):
         cols = f.get_default_headers(title=self.parent.title)
         df = pd.DataFrame(columns=cols)
         self.display_data(df=df)
-
-    def display_data(self, df):
-        self.rows_initialized = False 
-        self.model().set_df(df=df)
-            
-        self.hide_columns()
-        self.resizeColumnsToContents()
-        self.set_date_delegates()
-
-        cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
-        # TODO should set textalignrole for these columns instead
-        self.center_columns(cols=cols)
-        self.set_column_widths()
-
-        self.rows_initialized = True
-        self.resizeRowsToContents()
 
     def set_date_delegates(self):
         model = self.model()
@@ -359,16 +395,18 @@ class TableWidget(QWidget):
         # get default refresh dialog from refreshtables by name
         from . import refreshtables as rtbls
         refresh_dialog = getattr(rtbls, name, rtbls.RefreshTable)
-        query = getattr(qr, name, qr.QueryBase)()
-        dbtable = query.update_table
+        self.query = getattr(qr, name, qr.QueryBase)()
+        dbtable = self.query.update_table
         db_col_map = {}
 
-        view = TableView(parent=self)
+        # try getting inner-classed tableview, if not use default
+        view = getattr(self, 'View', TableView)(parent=self)
 
         vLayout.addLayout(btnbox)
         vLayout.addWidget(view)
 
         f.set_self(self, vars())
+
         self.add_button(name='Refresh', func=self.show_refresh)
         self.add_button(name='Add New', func=self.show_addrow)
         # self.add_button(name='Resize Rows', func=view.resizeRowsToContents)
@@ -467,28 +505,32 @@ class TableWidget(QWidget):
         return dbtable
 
     def email_table(self, subject='', body='', email_list=[], df=None):
-        # TODO optional attach excel file
-        model = self.view.model()
-        if df is None:
-            df = model.df
-        
-        style = rp.set_style(df=df)
-        style.apply(model.get_background_colors_from_df, axis=None)
-        style.format(self.view.formats)
+        # TODO optional show table vs just excel file, consider temp files too
+        style = self.view.get_style(df=df)
 
-        s = []
-        s.append(dict(
-            selector='table',
-            props=[('border', '1px solid black')]))
-        s.append(dict(
-            selector='tr:nth-child(even)',
-            props=[('background', f.config['color']['bg']['greyrow'])])) 
-        style.table_styles.extend(s)
+        msg_ = 'Include table in email body?'
+        style_body = ''
+        if dlgs.msgbox(msg=msg_, yesno=True):
+            style_body = style.hide_index().render()
 
-        body = f'{body}<br><br>{style.hide_index().render()}' # add in table to body msg
+        body = f'{body}<br><br>{style_body}' # add in table to body msg
         
         # show new email
-        msg = em.Message(subject=subject, body=body, to_recip=email_list)
+        msg = em.Message(subject=subject, body=body, to_recip=email_list, show_=False)
+        
+        msg_ = 'Would you like to attach an excel file of the data?'
+        if dlgs.msgbox(msg=msg_, yesno=True):
+            p = self.save_excel(style=style, name=self.name)
+            msg.add_attachment(p)
+            p.unlink()
+
+        msg.show()
+    
+    def save_excel(self, style, p=None, name='temp'):
+        if p is None:
+            p = f.datafolder / f'csv/{name}.xlsx'
+        style.to_excel(p, index=False, freeze_panes=(1,0))
+        return p
 
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
@@ -558,6 +600,38 @@ class TSI(EventLogBase):
         view = self.view
         view.disabled_cols = ('WO',)
         view.col_widths.update(dict(Details=400))
+
+        self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
+    
+    def fill_tsi_webpage(self):
+        # TODO get tsi number back > click create > fill to event log
+        # TODO make this secondary process
+        from .. import web
+
+        e = self.view.row_from_activerow().create_model_from_db()
+        e2 = self.view.model_from_activerow()
+        
+        d = e.DateAdded.strftime('%-m/%-d/%Y')
+
+        form_vals = {
+            'Failure SMR': e.SMR,
+            'Failure Date': d,
+            'Repair Date': d,
+            'Hours On Parts': e.ComponentSMR,
+            'Serial': e.SNRemoved,
+            'Part Number': e.PartNumber,
+            'Part Name': e.TSIPartName,
+            'New Part Serial': e.SNInstalled,
+            'Work Order': e.WorkOrder,
+            'Complaint': ' ',
+            'Notes': e.TSIDetails
+        }
+        
+        try:
+            tsi = web.TSIWebPage(form_vals=form_vals, serial=e2.Serial, model=e2.Model)
+            driver = tsi.open_tsi()
+        except:
+            f.send_error()
 
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
@@ -681,30 +755,6 @@ class EmailList(TableWidget):
 class Availability(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.disabled_cols = ('Unit', 'ShiftDate', 'StartDate', 'EndDate')
-        view.datetime_cols = ('StartDate', 'EndDate')
-        view.col_widths.update(dict(Comment=600))
-        view.highlight_funcs['Unit'] = view.highlight_alternating
-        view.add_highlight_funcs(cols=['CategoryAssigned', 'Assigned'], func=view.highlight_by_val)
-        view.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
-
-        view.formats.update({
-            'Duration': '{:,.2f}',
-            'SMS': '{:,.2f}',
-            'Suncor': '{:,.2f}'})
-
-        # TODO move this to an after_init, first time tab selected
-        p = f.datafolder / 'csv/avail_resp.csv'
-        df = pd.read_csv(p)
-        view.set_combo_delegate(col='CategoryAssigned', items=f.clean_series(s=df.CategoryAssigned))
-
-        view.highlight_vals.update({
-            's1 service': 'lightyellow',
-            's4 service': 'lightblue',
-            's5 service': 'lightgreen',
-            '0': 'greyrow',
-            'collecting info': 'lightyellow'})
 
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
         self.add_action(name='Filter Assigned', func=self.filter_assigned, shortcut='Ctrl+Shift+A', btn=True)
@@ -712,22 +762,54 @@ class Availability(TableWidget):
         self.add_action(name='Assign Suncor', func=self.assign_suncor, shortcut='Ctrl+Shift+Z')
         self.add_action(name='Show Unit EL', func=self.filter_unit_eventlog, shortcut='Ctrl+Shift+F', btn=True)
 
-    def update_duration(self, index):
-        # Set SMS/Suncor duration if other changes
-        model = index.model()
-        col_name = model.headerData(i=index.column())
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
 
-        duration = model.df.iloc[index.row(), model.get_column_idx('Duration')]
-        val = index.data(role=TableModel.RawDataRole)
+            self.disabled_cols = ('Unit', 'ShiftDate', 'StartDate', 'EndDate')
+            self.datetime_cols = ('StartDate', 'EndDate')
+            self.col_widths.update(dict(Comment=600))
+            self.highlight_funcs['Unit'] = self.highlight_alternating
+            self.add_highlight_funcs(cols=['CategoryAssigned', 'Assigned'], func=self.highlight_by_val)
+            self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
-        if col_name == 'SMS':
-            update_col = model.get_column_idx('Suncor')
-        elif col_name == 'Suncor':
-            update_col = model.get_column_idx('SMS')
+            self.formats.update({
+                'Duration': '{:,.2f}',
+                'SMS': '{:,.2f}',
+                'Suncor': '{:,.2f}'})
 
-        update_index = index.siblingAtColumn(update_col)
-        update_val = duration - val
-        model.setData(index=update_index, val=update_val, triggers=False)
+            # TODO move this to an after_init, first time tab selected
+            p = f.datafolder / 'csv/avail_resp.csv'
+            df = pd.read_csv(p)
+            self.set_combo_delegate(col='CategoryAssigned', items=f.clean_series(s=df.CategoryAssigned))
+
+            self.highlight_vals.update({
+                's1 service': 'lightyellow',
+                's4 service': 'lightblue',
+                's5 service': 'lightgreen',
+                '0': 'greyrow',
+                'collecting info': 'lightyellow'})
+
+        def get_style(self, df=None):
+            return super().get_style(df=df) \
+                .pipe(rp.set_column_widths, vals=dict(StartDate=300, EndDate=300))
+
+        def update_duration(self, index):
+            # Set SMS/Suncor duration if other changes
+            model = index.model()
+            col_name = model.headerData(i=index.column())
+
+            duration = model.df.iloc[index.row(), model.get_column_idx('Duration')]
+            val = index.data(role=TableModel.RawDataRole)
+
+            if col_name == 'SMS':
+                update_col = model.get_column_idx('Suncor')
+            elif col_name == 'Suncor':
+                update_col = model.get_column_idx('SMS')
+
+            update_index = index.siblingAtColumn(update_col)
+            update_val = duration - val
+            model.setData(index=update_index, val=update_val, triggers=False)
 
     def get_email_list(self):
         # get email list from csv
@@ -1006,3 +1088,4 @@ class FilterListMenuWidget(QWidgetAction):
         parent.model().filter_by_items(items, icol=self.icol)
         parent.blockSignals(False)
         parent._enable_widgeted_cells()
+
