@@ -10,14 +10,19 @@
     <footer id="footer_image"></footer>
     <footer id="footer"></footer>
 
+
+    {% if include_items.title_page  %}
     <section id="title" class="pagebreak">
         <div style="margin-top: 300px;">
             <h1 style="text-align: center; margin-bottom: 50px;">{{ title }}</h1>
+            {% if include_items.truck_logo  %}
             <img src="images/Truck Logo.png" style="display: block; margin-left:auto; margin-right: auto;" />
+            {% endif %}
         </div>
     </section>
+    {% endif %}
 
-    {% if exec_summary.keys() | length > 0 %}
+    {% if include_items.exec_summary  %}
     <section id="exec_summary" class="pagebreak">
         <div>
         <h2>Executive Summary</h2>
@@ -46,6 +51,7 @@
     </section>
     {% endif %}
 
+    {% if include_items.table_contents  %}
     <section id="TOC", class="pagebreak">
         <h2>Table of Contents</h2>
         <ol>
@@ -62,6 +68,7 @@
             {% endfor %}
         </ol>
     </section>
+    {% endif %}
 
     {% for sec in sections.values() %} <!-- loop sections -->
         <section id="{{ sec.title }}" class="pagebreak">
@@ -124,9 +131,19 @@
             {% endfor %}
         </section>
     {% endfor %}
+
+    {% if include_items.signature_block  %}
+    <section id="signature_block" class="pagebreak">
+        <h3>Signatures:</h3>
+        <table id="signature_table" class="signature_table">
+            <tr><td>SMS:</td><td></td></tr>
+            <tr><td>Suncor:</td><td></td></tr>
+        </table>
+    </section>
+    {% endif %}
 </body>
 </html>
-<!-- <div><b><br><br>SMS:<br><br><br><br><br>Suncor:</b></div>
+<!-- 
 <div id="footer">
     {% block footer %}
     &copy; Copyright 2008 by <a href="http://domain.invalid/">you</a>.
