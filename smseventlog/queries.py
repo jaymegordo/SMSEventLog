@@ -548,6 +548,26 @@ class FCComplete(FCBase):
         }
         return m
 
+class FCHistoryRolling(FCBase):
+    def __init__(self, d_rng, minesite='FortHills', kw=None):
+        super().__init__(kw=kw)
+
+        # need to see history of open labour hrs per month 12 months rolling
+        # count of open at time x - count of complete at time x?
+        # from . import reports as rp
+        # d_end_next_month = rp.first_last_month(d=d_rng[1] + relativedelta(months=1))[1]
+        args = dict(
+            d_upper=d_rng[1], # need to pass last day of next month
+            minesite=minesite)
+
+        sql = 'SELECT * FROM {}'.format(table_with_args(table='FCHistoryRolling', args=args))
+        f.set_self(self, vars())
+    
+    def process_df(self, df):
+        df['Month'] = df.Date.dt.strftime('%Y-%m')
+        return df
+
+
 class EmailList(QueryBase):
     def __init__(self):
         super().__init__()
