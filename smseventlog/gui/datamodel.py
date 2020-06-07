@@ -377,4 +377,3 @@ class TableModel(QAbstractTableModel):
 
     def columnCount(self, index=QModelIndex()):
         return self.df.shape[1]
-    

@@ -1,6 +1,8 @@
+
+
+from . import dialogs as dlgs
 from . import tables as tbls
 from .__init__ import *
-from . import dialogs as dlgs
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ class MainWindow(QMainWindow):
         self._minesite = val
         self.minesite_changed.emit(val)
     
-    def update_statusbar(self):
+    def update_statusbar(self, *args):
         self.statusBar().showMessage(f'Minesite: {self.minesite}')
 
     def after_init(self):
@@ -76,13 +78,8 @@ class MainWindow(QMainWindow):
         self.active_table_widget().show_refresh()
     
     def show_changeminesite(self):
-        try:
-            dlg = dlgs.ChangeMinesite(parent=self)
-            return dlg.exec_()
-        except:
-            msg = 'couldn\'t change minesite'
-            f.send_error(msg)
-            log.error(msg)
+        dlg = dlgs.ChangeMinesite(parent=self)
+        return dlg.exec_()
         
     def closeEvent(self, event):
         s = self.settings
@@ -268,32 +265,10 @@ class TabWidget(QTabWidget):
         i = self.get_index(title)
         self.setCurrentIndex(i)
     
-    def save_activetab(self):
+    def save_activetab(self, *args):
         s = self.parent().settings
         s.setValue('active table', self.currentWidget().title)
 
-
-def launch():
-    app = get_qt_app()
-    w = MainWindow()
-
-    w.show()
-    w.after_init()
-    return app.exec_()
-
-def get_qt_app():
-    app = QApplication.instance()
-    
-    if app is None:
-        app = QApplication([sys.executable])
-        
-    app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS Icon.png')))
-    app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
-    app.setStyle('Fusion')
-    font = QFont('Calibri', 15)
-    app.setFont(font)
-    
-    return app
 
 def get_mainwindow():
     # Global function to find the (open) QMainWindow in application

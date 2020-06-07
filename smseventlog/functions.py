@@ -1,6 +1,7 @@
 import base64
 import json
 import traceback
+import functools
 
 import pandas as pd
 import six
@@ -119,10 +120,11 @@ def first_n(m, n):
 
 def set_self(obj, m, prnt=False, exclude=()):
     # convenience func to assign an object's func's local vars to self
+    always_exclude = ('__class__', 'self')
     for k, v in m.items():
-        if prnt: print('\t', k, v)
 
-        if not (k == '__class__' or k in exclude):
+        if prnt: print(f'\n\t{k}: {v}')
+        if not (k in always_exclude or k in exclude):
             setattr(obj, k, v)
 
 
@@ -295,18 +297,34 @@ def discord(msg, channel='orders'):
     for msg in out:
         webhook.send(msg)
 
-def send_error(msg='', prnt=False):
+def format_traceback():
+    return traceback.format_exc().replace('Traceback (most recent call last):\n', '')
+
+def send_error(msg='', prnt=False, func=None):   
     
-    err = traceback.format_exc().replace('Traceback (most recent call last):\n', '')
+    err = format_traceback()
 
     if not msg == '':
-        err = '{}:\n{}'.format(msg, err).replace(':\nNoneType: None', '')
+        err = f'{msg}:\n{err}'.replace(':\nNoneType: None', '')
     
-    err = '*------------------*\n{}'.format(err)
+    err = f'*------------------*\n{err}'
 
     if prnt or not 'linux' in sys.platform:
         print(err)
     else:
         discord(msg=err, channel='err')
+
+def create_logger(func=None):
+    # not used yet
+    logger = logging.getLogger("example_logger")
+    logger.setLevel(logging.INFO)
+    
+    fh = logging.FileHandler("/path/to/test.log")
+    fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    formatter = logging.Formatter(fmt)
+    fh.setFormatter(formatter)
+    # add handler to logger object
+    logger.addHandler(fh)
+    return logger
 
 config = set_config()

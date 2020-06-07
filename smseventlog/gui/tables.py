@@ -257,43 +257,40 @@ class TableView(QTableView):
 
     def _header_menu(self, pos):
         """Create popup menu used for header"""
-        try:
-            model = self.model()
-            menu = FilterMenu(self)
-            icol = self.header.logicalIndexAt(pos)
+        model = self.model()
+        menu = FilterMenu(self)
+        icol = self.header.logicalIndexAt(pos)
 
-            if icol == -1: return # out of bounds
+        if icol == -1: return # out of bounds
 
-            # Filter Menu Action
-            menu.addAction(DynamicFilterMenuAction(self, menu, icol))
-            menu.addAction(FilterListMenuWidget(self, menu, icol))
-            menu.addAction(self._icon('DialogResetButton'),
-                            'Clear Filter',
-                            model.reset)
+        # Filter Menu Action
+        menu.addAction(DynamicFilterMenuAction(self, menu, icol))
+        menu.addAction(FilterListMenuWidget(self, menu, icol))
+        menu.addAction(self._icon('DialogResetButton'),
+                        'Clear Filter',
+                        model.reset)
 
-            # Sort Ascending/Decending Menu Action
-            menu.addAction(self._icon('TitleBarShadeButton'),
-                            'Sort Ascending',
-                        partial(model.sort, icol=icol, order=Qt.AscendingOrder))
-            menu.addAction(self._icon('TitleBarUnshadeButton'),
-                            'Sort Descending',
-                        partial(model.sort, icol=icol, order=Qt.DescendingOrder))
-            menu.addSeparator()
+        # Sort Ascending/Decending Menu Action
+        menu.addAction(self._icon('TitleBarShadeButton'),
+                        'Sort Ascending',
+                    partial(model.sort, icol=icol, order=Qt.AscendingOrder))
+        menu.addAction(self._icon('TitleBarUnshadeButton'),
+                        'Sort Descending',
+                    partial(model.sort, icol=icol, order=Qt.DescendingOrder))
+        menu.addSeparator()
 
-            # Hide
-            menu.addAction(f'Hide Column: {model.headerData(icol, Qt.Horizontal)}', partial(self.hideColumn, icol))
+        # Hide
+        menu.addAction(f'Hide Column: {model.headerData(icol, Qt.Horizontal)}', partial(self.hideColumn, icol))
 
-            # Show column to left and right
-            for i in (-1, 1):
-                col = icol + i
-                if self.isColumnHidden(col):
-                    menu.addAction(f'Unhide Column: {model.headerData(col, Qt.Horizontal)}',
-                                    partial(self.showColumn, col))
+        # Show column to left and right
+        for i in (-1, 1):
+            col = icol + i
+            if self.isColumnHidden(col):
+                menu.addAction(f'Unhide Column: {model.headerData(col, Qt.Horizontal)}',
+                                partial(self.showColumn, col))
 
 
-            menu.exec_(self.mapToGlobal(pos))
-        except:
-            f.send_error(msg='Couldnt show header menu')
+        menu.exec_(self.mapToGlobal(pos))
 
     def create_index_activerow(self, col_name, irow=None):
         # create QModelIndex from currently selected row
@@ -376,7 +373,7 @@ class TableView(QTableView):
                 # if isinstance(d, WidgetedCell):
                 #     self.openPersistentEditor(idx)
 
-
+# @wrap_errors
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
 
@@ -438,33 +435,16 @@ class TableWidget(QWidget):
         return act
 
     def show_addrow(self):
-        try:
-            dlg = dlgs.AddEvent(parent=self)
-            # ui.disable_window_animations_mac(dlg)
-            dlg.exec_()
-        except:
-            msg = 'couldn\'t show AddRow'
-            f.send_error(msg=msg)
-            log.error(msg)
+        dlg = dlgs.AddEvent(parent=self)
+        dlg.exec_()
 
     def show_component(self):
-        try:
-            dlg = dlgs.ComponentCO(parent=self)
-            dlg.exec_()
-        except:
-            msg = 'couldn\'t show ComponentCO'
-            f.send_error(msg=msg)
-            log.error(msg)
+        dlg = dlgs.ComponentCO(parent=self)
+        dlg.exec_()
             
     def show_refresh(self):
-        try:
-            dlg = self.refresh_dialog(parent=self)
-            # ui.disable_window_animations_mac(dlg)
-            dlg.exec_()
-        except:
-            msg = 'couldn\'t show RefreshTable'
-            f.send_error(msg=msg)
-            log.error(msg)
+        dlg = self.refresh_dialog(parent=self)
+        dlg.exec_()
 
     def refresh_lastweek(self, default=False):
         fltr = self.query.fltr
@@ -593,7 +573,8 @@ class ComponentCO(EventLogBase):
         view.disabled_cols = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
         view.col_widths.update(dict(Notes=400))
         view.highlight_funcs['Unit'] = view.highlight_alternating
-    
+
+# @wrap_errors
 class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -604,12 +585,11 @@ class TSI(EventLogBase):
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
     
     def fill_tsi_webpage(self):
-        # TODO get tsi number back > click create > fill to event log
         # TODO make this secondary process
         from .. import web
-
-        e = self.view.row_from_activerow().create_model_from_db()
-        e2 = self.view.model_from_activerow()
+        view = self.view
+        e = view.row_from_activerow().create_model_from_db()
+        e2 = view.model_from_activerow()
         
         d = e.DateAdded.strftime('%-m/%-d/%Y')
 
@@ -624,14 +604,15 @@ class TSI(EventLogBase):
             'New Part Serial': e.SNInstalled,
             'Work Order': e.WorkOrder,
             'Complaint': ' ',
-            'Notes': e.TSIDetails
-        }
+            'Notes': e.TSIDetails}
         
-        try:
-            tsi = web.TSIWebPage(form_vals=form_vals, serial=e2.Serial, model=e2.Model)
-            driver = tsi.open_tsi()
-        except:
-            f.send_error()
+        tsi = web.TSIWebPage(form_vals=form_vals, serial=e2.Serial, model=e2.Model)
+        tsi.open_tsi()
+
+        # fill tsi number back to current row
+        index = view.create_index_activerow(col_name='TSI No')
+        view.model().setData(index=index, val=tsi.tsi_number)
+        dlgs.msg_simple(msg=f'New TSI created: {tsi.tsi_number}')
 
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):

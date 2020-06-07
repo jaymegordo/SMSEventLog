@@ -66,7 +66,7 @@ def set_column_widths(style, vals, hidden_index=True):
 def set_style(df):
     # Dataframe general column alignment/number formatting
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
-    df[cols].replace('\n', '<br>', inplace=True, regex=True)
+    df[cols] = df[cols].replace('\n', '<br>', regex=True)
 
     s = []
     m = f.config['color']
@@ -439,6 +439,15 @@ class FCs(Section):
     def __init__(self, report):
         super().__init__(title='Factory Campaigns', report=report)
         d_rng, minesite = self.d_rng, self.minesite
+
+        sec = SubSection('Outstanding FCs', self) \
+            .add_df(
+                query=qr.FCHistoryRolling(d_rng=d_rng, minesite=minesite),
+                display=False) \
+            .add_chart(
+                func=ch.chart_fc_history,
+                linked=False,
+                caption='Outstanding mandatory FCs vs labour hours. (Measured at end of month).')
 
         sec = SubSection('New FCs', self) \
             .add_df(

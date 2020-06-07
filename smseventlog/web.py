@@ -7,8 +7,13 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from . import functions as f
 
-class TSIWebPage():
+class TSIWebPage(object):
     def __init__(self, form_vals=None, serial=None, model=None):
+        tsi_number = None
+        _driver = None
+        is_init = False
+        username = 'Jayme' # TODO need to get this for other users, or just use default probably
+
         form_fields = {
             'Failure SMR': 'elogic_machinesmr',
             'Failure Date': 'elogic_failuredate_datepicker_description',
@@ -34,21 +39,36 @@ class TSIWebPage():
             'Jobsite Function': ('kom_casemachinejobsitefunction', 'Carrying'),
             'Parts Returnable': ('kom_partsreturnable', 'No')}
 
+        homepage = 'https://komatsuna.microsoftcrmportals.com/en-US'
+        pages = {
+            'tsi_home': f'{homepage}/tsi/',
+            'all_tsi': f'{homepage}/mytsi/'
+        }
         f.set_self(self, vars())
 
-    def open_tsi(self, serial=None, model=None):
+    def open_tsi(self, serial=None, model=None, save_tsi=True):
         # open web browser and log in to tsi form
         if serial is None: serial = self.serial
         if model is None: model = self.model
 
-        self.driver = self.login_tsi(serial=serial, model=model)  
+        self.login_tsi(serial=serial, model=model)  
 
         if not self.form_vals is None:
             self.fill_forms(form_vals=self.form_vals)
 
         self.fill_dropdowns()
-        
-        return self.driver
+
+        if save_tsi:
+            # press create button
+            element = WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.ID, 'InsertButton')))
+            element.send_keys(Keys.SPACE)
+
+            # wait for page to load, find TSI number at top of page and return
+            element = WebDriverWait(self.driver, 30).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'breadcrumb'))) \
+                .find_element_by_class_name('active')
+            self.tsi_number = element.text
 
     def fill_forms(self, form_vals=None):
         if form_vals is None:
@@ -65,6 +85,7 @@ class TSIWebPage():
                     element.click()
                     element.send_keys(val)
                 except:
+                    f.send_error()
                     print(f'Couldn\'t set field value: {name}')
 
     def fill_dropdowns(self):
@@ -73,14 +94,40 @@ class TSIWebPage():
             try:
                 element = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((By.ID, id_))) #presence_of_element_located
-                element.click() # need to click to make element active
+                # element.click() # need to click to make element active
                 Select(element).select_by_visible_text(val)
             except:
                 f.send_error()
                 print(f'Couldn\'t set dropdown value: {name}')
     
-    def login_tsi(self, serial=None, model=None, browser='Safari'):
-        driver = getattr(webdriver, browser)()
+    def create_driver(self, browser='Chrome'):
+        if browser == 'Chrome':
+            options = webdriver.ChromeOptions()
+            if not f.is_win():
+                chrome_profile = f'/Users/{self.username}/Library/Application Support/Google/Chrome/'
+                options.add_argument(f'user-data-dir={chrome_profile}')
+                options.add_argument('window-size=(1,1)')
+            driver = webdriver.Chrome(options=options)
+        else:
+            driver = getattr(webdriver, browser)()
+
+        return driver
+    
+    def init(self):
+        self.is_init = True
+    
+    @property
+    def driver(self):
+        if not self.is_init: return
+
+        if self._driver is None:
+            self._driver = self.create_driver()
+
+        return self._driver
+
+    def login_tsi(self, serial=None, model=None):
+        
+        driver = self.driver
         driver.set_window_position(0, 0)
         driver.maximize_window()
         driver.get('https://www.komatsuamerica.net/northamerica/kirc/tsr2/')
@@ -88,6 +135,7 @@ class TSIWebPage():
         username = driver.find_element_by_id('txtUserID')
         password = driver.find_element_by_id('Password')
 
+        # TODO save/load user pw from QSettings
         username.send_keys('GordoJ3')
         password.send_keys("8'Bigmonkeys")
 
@@ -129,7 +177,6 @@ class TSIWebPage():
         except:
             f.send_error()
 
-        return driver
 
 def attach_to_session(executor_url, session_id):
     original_execute = WebDriver.execute

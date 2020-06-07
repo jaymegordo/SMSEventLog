@@ -5,9 +5,9 @@ from pathlib import Path
 
 print('run.py starting')
 
-import smseventlog.gui.gui as ui
+from smseventlog.gui import startup
 
 # Main control function
 if __name__ == '__main__':
     # appctxt = ApplicationContext()
-    sys.exit(ui.launch())
+    sys.exit(startup.launch())

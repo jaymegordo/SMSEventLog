@@ -9,6 +9,7 @@ from pathlib import Path
 from collections import defaultdict as dd
 from dateutil.relativedelta import relativedelta
 from functools import partial
+import functools
 
 import pandas as pd
 import qdarkstyle
@@ -18,10 +19,10 @@ from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QEvent, QFile, 
                         QTimer, pyqtSignal, pyqtSlot, QVariant)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                             QCheckBox, QComboBox, QDateEdit, QDateTimeEdit, QDesktopWidget,
-                            QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+                            QDialog, QDialogButtonBox, QErrorMessage, QFileDialog, QFormLayout,
                             QGridLayout, QHBoxLayout, QItemDelegate, QInputDialog, QLabel,
                             QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox,
-                            QPushButton, QSpacerItem, QSizePolicy, QSpinBox, QStyle,
+                            QPushButton, QScrollArea, QSpacerItem, QSizePolicy, QSpinBox, QStyle,
                             QStyledItemDelegate, QStyleOptionComboBox, QTableView, QTabWidget,
                             QTextEdit, QVBoxLayout, QWidget, QWidgetAction)
 
@@ -31,3 +32,5 @@ from .. import queries as qr
 from .. import folders as fl
 from .. import functions as f
 from ..database import db
+from . import errors as er
+from .errors import e, wrap_errors

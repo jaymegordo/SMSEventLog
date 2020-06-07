@@ -3,7 +3,6 @@ from . import gui as ui
 
 log = logging.getLogger(__name__)
 
-
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None):
         if col_db is None: col_db = text.replace(' ', '')
@@ -127,13 +126,8 @@ class InputForm(QDialog):
             layout.insertRow(index, label, boxLayout)
 
     def accept(self):
-        try:
-            super().accept()
-            self.items = self.get_items()
-        except:
-            msg = 'Couldn\'t accept form.'
-            f.send_error(msg)
-            log.error(msg)
+        super().accept()
+        self.items = self.get_items()
 
     def get_items(self):
         # return dict of all field items: values
@@ -379,6 +373,46 @@ class MsgBox_Advanced(QDialog):
         hLayout.addWidget(btn, alignment=Qt.AlignRight)
         layout.addLayout(hLayout)
 
+class ErrMsg(QMessageBox):
+    def __init__(self, msg='', details='', parent=None):
+        super().__init__(parent=parent)
+        self.setWindowTitle('Error')
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFixedSize(400, 400)
+        self.content = QWidget()
+        # self.content.setFixedSize(QSize(400, 400))
+        scroll.setWidget(self.content)
+        lay = QVBoxLayout(self.content)
+
+        lay.addWidget(QLabel(details, self))
+        self.layout().addWidget(scroll, 0, 0, 1, self.layout().columnCount())
+        # self.layout().addWidget(QLabel(msg, self), 0, 0, 1, 1)
+      
+        # self.layout().addWidget(scroll)
+
+class ErrMsg2(QDialog):
+    def __init__(self, msg='', details='', parent=None):
+        super().__init__(parent=parent)
+
+        self.setWindowTitle('Error')
+        vLayout = QVBoxLayout(self)
+
+        label = QLabel(msg, self)
+        vLayout.addWidget(label)
+
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFixedSize(QSize(400, 400))
+        label = QLabel(details, self)
+        scroll.setWidget(label)
+        vLayout.addWidget(scroll)
+
+        btn = QPushButton('Okay', self)
+        btn.setMaximumWidth(100)
+        btn.clicked.connect(self.close)
+        vLayout.addWidget(btn)
+
 
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = ui.get_qt_app()
@@ -445,8 +479,8 @@ def get_filepath_from_dialog(p_start):
         return Path(s)
     return None
 
-def show_item(name, parent=None):
+def show_item(name, parent=None, *args, **kw):
     # show message dialog by name eg ui.show_item('InputUserName')
     app = ui.get_qt_app()
-    dlg = getattr(sys.modules[__name__], name)(parent=parent)
+    dlg = getattr(sys.modules[__name__], name)(parent=parent, *args, **kw)
     return dlg.exec_()

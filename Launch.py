@@ -30,7 +30,8 @@ from smseventlog import (
     availability as av,
     units as un,
     reports as rp,
-    charts as ch)
+    charts as ch,
+    web)
 
 from smseventlog.gui import (
     gui as ui,
