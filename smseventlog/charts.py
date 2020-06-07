@@ -34,6 +34,47 @@ def update_fig(fig, title=None):
         font=dict(size=10),
         legend_orientation='h')
 
+def chart_fc_history(df, title=None):
+
+    if title is None:
+        title = 'Outstanding Mandatory FC History - 12 Month Rolling'
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    fig.add_trace(
+        go.Bar(
+            name='Number Outstanding FCs',
+            y=df.Outstanding,
+            x=df.Month,
+            marker_color=color()['darkgrey'],
+            offsetgroup=0))
+    
+    fig.add_trace(
+        go.Bar(
+            name='Outstanding Labour Hours',
+            y=df.OutstandingHours,
+            x=df.Month,
+            marker_color=color()['navyblue'],
+            yaxis='y2',
+            offsetgroup=1
+        ))
+
+    update_fig(fig, title=title)
+
+    fig.update_layout(
+        yaxis_title='Number FCs',
+        barmode='group',
+        xaxis_type='category',
+        bargap=0.2,
+        height=350,
+        width=700,
+        xaxis_tickangle=-90,
+        legend=dict(y=-0.3),
+        yaxis2=dict(
+            title='Laboour Hours'))
+        
+    return fig
+
 def chart_fleet_ma(df, title=None):
     df = df.iloc[:-1] # remove totals row
     if title is None:
@@ -46,7 +87,6 @@ def chart_fleet_ma(df, title=None):
             marker=dict(
                 color=df.MA,
                 colorscale=[color()['skyblue'], color()['navyblue']],
-                # colorscale=[color()['lightred'], color()['navyblue']],
                 cmin=0.5,
                 cmax=1,
                 cauto=False
@@ -72,7 +112,8 @@ def chart_fleet_ma(df, title=None):
         xaxis_tickangle=-90,
         legend=dict(y=-0.2),
         yaxis=dict(
-            tickformat=',.0%'))
+            tickformat=',.0%',
+            range=[0.4,1]))
 
     return fig
 
@@ -101,7 +142,7 @@ def chart_topdowns(df, title=None):
     fig.update_layout(
         yaxis_title='Hours',
         barmode='stack',
-        legend=dict(y=-0.3) ,
+        legend=dict(y=-0.3),
         margin=dict(r=0))
     
     return fig
