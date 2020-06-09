@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 # TODO trigger on title changed?
 # TODO trigger on componentCO changed
 # TODO function bulk update multiple values in row (availability)
-# TODO component tab list for CO reasons
+# TODO Component CO highlight null SNs + other vals
 # TODO highlight header red when filter active
 # TODO add pics count to TSI page
 # TODO add tsi status to WO page
@@ -84,7 +84,7 @@ class TableView(QTableView):
 
         cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
         # TODO should set textalignrole for these columns instead
-        self.center_columns(cols=cols)
+        # self.center_columns(cols=cols)
         self.set_column_widths()
 
         self.rows_initialized = True
@@ -373,7 +373,6 @@ class TableView(QTableView):
                 # if isinstance(d, WidgetedCell):
                 #     self.openPersistentEditor(idx)
 
-# @wrap_errors
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
 
@@ -570,11 +569,21 @@ class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
-        view.disabled_cols = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
-        view.col_widths.update(dict(Notes=400))
-        view.highlight_funcs['Unit'] = view.highlight_alternating
+    
+    class View(TableView):
+        def __init__(self, parent=None):
+            super().__init__(parent=parent)
 
-# @wrap_errors
+            self.disabled_cols = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
+            self.col_widths.update(dict(Notes=400))
+            self.highlight_funcs['Unit'] = self.highlight_alternating
+
+            self.set_combo_delegate(col='Reman', items=['True', 'False'])
+
+            items = ['High Hour Changeout', 'Damage/Abuse', 'Convenience', 'Failure', 'Pro Rata Buy-in', 'Warranty']
+            self.set_combo_delegate(col='Removal Reason', items=items)
+
+
 class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)

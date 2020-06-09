@@ -1,5 +1,3 @@
-
-
 from . import dialogs as dlgs
 from . import tables as tbls
 from .__init__ import *

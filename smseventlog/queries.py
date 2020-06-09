@@ -567,7 +567,6 @@ class FCHistoryRolling(FCBase):
         df['Month'] = df.Date.dt.strftime('%Y-%m')
         return df
 
-
 class EmailList(QueryBase):
     def __init__(self):
         super().__init__()

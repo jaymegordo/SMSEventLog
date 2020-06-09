@@ -101,6 +101,10 @@ class RefreshTable(InputForm):
         elif name == 'tsi author':
             username = self.mainwindow.username
             add_input(field=IPF(text='TSI Author', default=username, col_db='TSIAuthor'), checkbox=True, cb_enabled=False)
+        
+        elif name == 'major components':
+            table = T('ComponentType')
+            add_input(field=IPF(text=title, default='True', table=table, col_db='Major'), items=['True', 'False'], checkbox=True, cb_enabled=False)
 
     def add_refresh_button(self, name, func):
         layout = self.vLayout
@@ -142,7 +146,7 @@ class WorkOrders(EventLogBase):
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_features(features=['component'])
+        self.add_features(features=['component', 'major components'])
 
 class TSI(EventLogBase):
     def __init__(self, parent=None):

@@ -11,7 +11,7 @@ def wrap_errors(cls):
     module_name = inspect.getmodule(cls).__file__.split('/')[-1]
     for name, fn in inspect.getmembers(cls):
         if isinstance(fn, types.FunctionType):
-            print(f'{module_name}\t{name}:\t{fn}')
+            # print(f'{module_name}\t{name}:\t{fn}')
             setattr(cls, name, e(fn))
     
     return cls
@@ -19,14 +19,14 @@ def wrap_errors(cls):
 def decorate_all_classes(module_name=None, module=None):      
     # get all classes in module and add the @e decorator to handle errors
 
-    # pass either module, or module name, need both
+    # pass either module or module name, but need both
     if module is None: module = sys.modules[module_name]
     if module_name is None: module_name = module.__name__
 
     for name, obj in inspect.getmembers(module):
+        # only wrap classes definied in the module, not other imports
         if inspect.isclass(obj) and obj.__module__ == module_name:
             wrap_errors(obj)
-
 
 def e(func):
     # error handler/wrapper for the gui
@@ -38,13 +38,13 @@ def e(func):
             try:
                 return func(*args, **kwargs)
             except TypeError:
-                return func(args[0]) # signals passed with self, + other args that aren't needed
+                return func(args[0]) # for signals passed with self, + other args that aren't needed
         except:
             print(f'func: {func.__name__}, args: {args}, kwargs: {kwargs}')
             f.send_error()
             
             # show error message to user
-            msg = f'Could not run function: {func.__name__}\n\n'
+            msg = f"Could not run function: '{func.__name__}\n\n'"
             dlg = QMessageBox(icon=QMessageBox.Critical, text=msg)
             dlg.setWindowTitle('Error')
             dlg.setInformativeText(f.format_traceback())

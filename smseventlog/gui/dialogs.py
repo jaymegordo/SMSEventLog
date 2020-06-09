@@ -154,6 +154,12 @@ class InputForm(QDialog):
         if state == Qt.Checked:
             box.setEnabled(True)
             box.setFocus()
+
+            if isinstance(box, (QLineEdit, QTextEdit)):
+                box.selectAll()
+            elif isinstance(box, QComboBox):
+                box.lineEdit().selectAll()
+
         else:
             box.setEnabled(False)
 
@@ -336,7 +342,7 @@ class ComponentCO(InputForm):
         print(floc)
 
         if not self.parent is None:
-            row = self.parent.row_from_activerow()
+            row = self.parent.view.row_from_activerow()
             row.update(vals=dict(Floc=floc, ComponentCO=True))
 
 
@@ -415,18 +421,15 @@ class ErrMsg2(QDialog):
 
 
 def msgbox(msg='', yesno=False, statusmsg=None):
-    app = ui.get_qt_app()
+    # app = ui.get_qt_app()
     dlg = MsgBox_Advanced(msg=msg, title=ui.title, yesno=yesno, statusmsg=statusmsg)
-    # ui.disable_window_animations_mac(dlg)
     return dlg.exec_()
 
 def msg_simple(msg='', icon='', infotext=None):
-    app = ui.get_qt_app()
+    # app = ui.get_qt_app()
     dlg = QMessageBox()
-    # ui.disable_window_animations_mac(dlg)
     dlg.setText(msg)
     dlg.setWindowTitle(ui.title)
-    # dlg.setStyleSheet(minsize_ss)
 
     icon = icon.lower()
     
@@ -440,7 +443,7 @@ def msg_simple(msg='', icon='', infotext=None):
     return dlg.exec_()
 
 def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
-    app = ui.get_qt_app()
+    # app = ui.get_qt_app()
     dlg = QInputDialog()
     dlg.resize(ui.minsize)
     dlg.setWindowTitle(ui.title)
@@ -467,7 +470,7 @@ def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
     return ok, val
 
 def get_filepath_from_dialog(p_start):
-    app = ui.get_qt_app()
+    # app = ui.get_qt_app()
     dlg = QFileDialog()
     ui.disable_window_animations_mac(dlg)
 
@@ -481,6 +484,7 @@ def get_filepath_from_dialog(p_start):
 
 def show_item(name, parent=None, *args, **kw):
     # show message dialog by name eg ui.show_item('InputUserName')
-    app = ui.get_qt_app()
+    from . import startup
+    app = startup.get_qt_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent, *args, **kw)
     return dlg.exec_()

@@ -160,8 +160,9 @@ class ComboDelegate(CellDelegate):
         val = index.data(Qt.DisplayRole)
         # print(val, type(val))
         try:
-            num = self.items.index(val)
-            editor.setCurrentIndex(num)
+            if val in self.items:
+                num = self.items.index(val)
+                editor.setCurrentIndex(num)
             editor.lineEdit().selectAll()
             # editor.showPopup()
             # editor.currentIndexChanged.connect(self.commitAndCloseEditor)

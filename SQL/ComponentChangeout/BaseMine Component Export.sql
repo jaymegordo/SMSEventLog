@@ -1,5 +1,5 @@
-DECLARE @DateLower DATE = '2019-11-01'
-DECLARE @DateUpper DATE = '2020-01-31'
+DECLARE @DateLower DATE = '2016-01-01'
+DECLARE @DateUpper DATE = '2020-06-01'
 
 SELECT
     b.MineSite, 
@@ -14,7 +14,8 @@ SELECT
     CASE WHEN a.Reman Is NULL THEN NULL ELSE
         CASE WHEN a.Reman=1 THEN 'Reman' ELSE 'New' END
     END as Reman,
-    a.ComponentSMR as [Component Hours],
+    a.SMR as [Unit SMR],
+    a.ComponentSMR as [Component SMR],
     c.BenchSMR, 
     a.SunCOReason as [Reason for CO],
     ROUND(CAST(a.ComponentSMR as FLOAT) / BenchSMR, 4) as [%BM],
