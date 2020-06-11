@@ -24,30 +24,8 @@
 
     {% if include_items.exec_summary  %}
     <section id="exec_summary" class="pagebreak">
-        <div>
-        <h2>Executive Summary</h2>
-
-        <ol style="font-weight: bold;">
-        {% for name, level_2 in exec_summary.items() %}
-            <li>{{ name }}
-                <ul class="level_2_list ">
-                {% for name, level_3 in level_2.items() %}
-                    <li>{{ name }}
-                        <ul class="two_col_list">
-                        {% for name, val in level_3.items() %}
-                            <li>
-                                <span>{{ name }}</span>
-                                <span>{{ val }}</span>
-                            </li>
-                        {% endfor %}
-                        </ul>
-                    </li>
-                {% endfor %}
-                </ul>
-            </li>
-        {% endfor %}
-        </ol>
-        </div>
+        {% include "exec_summary_template.html" %}
+        {% block exec_summary_block %}{% endblock %}
     </section>
     {% endif %}
 

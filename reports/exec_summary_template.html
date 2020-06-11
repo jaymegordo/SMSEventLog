@@ -1,0 +1,26 @@
+{% block exec_summary_block %}
+<div>
+    <h2>Executive Summary</h2>
+
+    <ol class="level_1_list">
+    {% for name, level_2 in exec_summary.items() %}
+        <li>{{ name }}
+            <ul class="level_2_list ">
+            {% for name, level_3 in level_2.items() %}
+                <li>{{ name }}
+                    <ul class="two_col_list">
+                    {% for name, val in level_3.items() %}
+                        <li>
+                            <span>{{ name }}:</span>
+                            <span>{{ val }}</span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </li>
+            {% endfor %}
+            </ul>
+        </li>
+    {% endfor %}
+    </ol>
+</div>
+{% endblock %}
