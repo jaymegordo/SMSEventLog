@@ -7,11 +7,11 @@ from timeit import default_timer as timer
 
 import pandas as pd
 from hurry.filesize import size
+from joblib import Parallel, delayed
 
 from . import functions as f
 from .__init__ import *
 from .database import db
-from .gui import dialogs as dlgs
 
 log = logging.getLogger(__name__)
 
@@ -32,124 +32,15 @@ def get_config():
         'tr3': dict(
             exclude=['dsc', 'chk', 'CHK', 'Pictures'])}
 
-class EventFolder(object):
-    def __init__(self, e):
-        self.dt_format = '%Y-%m-%d'
-
-        f.copy_model_attrs(model=e, target=self)
-
-        # get unit's row from unit table, save to self attributes
-        m = db.get_df_unit().loc[self.unit]
-        f.copy_dict_attrs(m=m, target=self)
-
-        self.set_modelpath() # just needs model and minesite
-        self.year = self.dateadded.year
-
-        wo_blank = 'WO' + ' ' * 14
-        if not self.workorder:
-            self.workorder = wo_blank
-
-        # confirm unit, date, title exist?
-        self.folder_title = self.get_folder_title(self.unit, self.dateadded, self.workorder, self.title)
-
-        unitpath = f'{self.unit} - {self.serial}'
-
-        # TODO: need to get basepaths from db based on minesite
-            # create FilePaths table in db
-            # FortHills - 'Fort Hills/ 02. Equipment Files'
-        self.p_base = f.drive / f'{self.get_basepath()}/{self.modelpath}/{unitpath}/events/{self.year}'
-        self.p_event = self.p_base / self.folder_title
-        self.p_event_blank = self.p_base / self.get_folder_title(self.unit, self.dateadded, wo_blank, self.title)
-
-    def get_basepath(self):
-        return f'Fort Hills/02. Equipment Files'
-
-    def get_folder_title(self, unit, d, wo, title):
-        d_str = d.strftime(self.dt_format)
-        return f'{unit} - {d_str} - {wo} - {title}'
-
-    def show(self):
-        if not drive_exists():
-            return
-            
-        p = self.p_event
-        p_blank = self.p_event_blank
-
-        if not p.exists():
-            if p_blank.exists():
-                # if wo_blank stills exists but event now has a WO, automatically rename
-                move_folder(p_src=p_blank, p_dst=p)
-            else:
-                # show folder picker dialog
-                msg = f'Can\'t find folder:\n\'{p.name}\'\n\nWould you like to link it?'
-                if dlgs.msgbox(msg=msg, yesno=True):
-                    p_old = dlgs.get_filepath_from_dialog(p_start=p.parent)
-                    
-                    # if user selected a folder
-                    if p_old:
-                        move_folder(p_src=p_old, p_dst=p)
-                    
-                if not p.exists():
-                    # if user declined to create OR failed to chose a folder, ask to create
-                    msg = f'Folder:\n\'{p.name}\' \n\ndoesn\'t exist, create now?'
-                    if dlgs.msgbox(msg=msg, yesno=True):
-                        self.create_folder()
-        
-        if p.exists():
-            open_folder(p=p, check_drive=False)
-    
-    def create_folder(self, show=True, ask_show=False):
-        if not drive_exists():
-            return
-            
-        try:
-            p = self.p_event
-            p_pics = p / 'Pictures'
-            p_dls = p / 'Downloads'
-
-            if not p.exists():
-                p_pics.mkdir(parents=True)
-                p_dls.mkdir(parents=True)
-
-                if ask_show:
-                    msg = 'Event folder created. Would you like to open?'
-                    if dlgs.msgbox(msg=msg, yesno=True):
-                        self.show()
-                elif show:
-                    self.show()
-        except:
-            msg = 'Can\'t create folder!'
-            dlgs.msg_simple(msg=msg, icon='critical')
-            log.error(msg)
-
-    def set_modelpath(self):
-        model = self.model
-        minesite = self.minesite
-
-        # TODO: this is messy, need a better way to map vals
-        if '930' in model:
-            if minesite == 'BaseMine':
-                v = '1. 930E'
-            elif minesite == 'FortHills':
-                v = '2. 930E Trucks'
-        elif '980' in model:
-            if minesite == 'BaseMine':
-                v = '2. 980E'
-            elif minesite == 'FortHills':
-                v = '1. 980E Trucks'
-        elif 'HD1500' in model:
-            v = '3. HD1500'
-        else:
-            v = 'temp'
-            
-        self.modelpath = v
-        
 
 def combine_csv(lst_csv, ftype):
     # combine list of csvs into single and drop duplicates, based on duplicate cols
     func = getattr(sys.modules[__name__], f'read_{ftype}')
 
-    df = pd.concat([func(p=p) for p in lst_csv], sort=False)
+    # multiprocess reading/parsing single csvs
+    dfs = Parallel(n_jobs=-1, verbose=11)(delayed(func)(csv) for csv in lst_csv)
+
+    df = pd.concat([df for df in dfs], sort=False)
     df.drop_duplicates(subset=get_config()[ftype]['duplicate_cols'], inplace=True)
     return df
 
@@ -160,7 +51,7 @@ def read_fault(p):
     try:
         # read header to get serial
         serial = pd.read_csv(p, skiprows=4, nrows=1, header=None)[1][0]
-        unit = db.getUnit(serial=serial, minesite='FortHills')
+        unit = db.get_unit(serial=serial, minesite='FortHills')
 
         df = pd.read_csv(p, header=None, skiprows=28, usecols=(0, 1, 3, 5, 7, 8))
         df.columns = newcols
@@ -174,8 +65,51 @@ def read_fault(p):
         print(f'Failed: {p}')
         return pd.DataFrame(columns=newcols)
 
+def parse_fault_time(tstr):
+    arr = tstr.split('|')
+    t, tz = int(arr[0]), int(arr[1])
+    return dt.fromtimestamp(t) + delta(seconds=tz)
+
+def toSeconds(t):
+    x = time.strptime(t, '%H:%M:%S')
+    return int(delta(hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec).total_seconds())
+
+# PLM
+def update_plm_all_units():
+    units = all_units()
+
+    # multiprocess
+    result = Parallel(n_jobs=-1, verbose=11)(delayed(update_plm_single_unit)(unit, False) for unit in units)
+
+    config = get_config()['haul']
+
+    new_result = []
+    for m in result:
+        df = m['df']
+        rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, chunksize=10000)
+
+        new_result.append(dict(unit=m['unit'], maxdate=m['maxdate'].strftime('%Y-%m-%d'), rowsadded=rowsadded))
+
+    return new_result
+
+def update_plm_single_unit(unit, import_=True):
+    # get max date db
+    print(f'starting unit: {unit}')
+    a = T('PLM')
+    q = a.select(fn.Max(a.DateTime)) \
+        .where(a.Unit == unit)
+    
+    maxdate = db.max_date_db(q=q)
+    print(f'maxdate: {maxdate}')
+    
+    # could drop records < maxdate before trying import?
+    df = process_files(ftype='haul', units=unit, d_lower=maxdate, import_=import_)
+    m = dict(unit=unit, maxdate=maxdate, df=df)
+    return m
+
 def read_haul(p):
     # load single haulcycle file to dataframe
+    minesite = 'FortHills' #TODO may need to change this, fix db.get_unit
 
     cols = ['Date', 'Time', 'Payload(Net)', 'Swingloads', 'Status Flag', 'Carry Back', 'TotalCycle Time', 'L-Haul Distance', 'L-Max Speed', 'E MaxSpeed', 'Max Sprung', 'Truck Type', 'Tare Sprung Weight', 'Payload Est.@Shovel(Net)', 'Quick Payload Estimate(Net)', 'Gross Payload']
 
@@ -187,7 +121,7 @@ def read_haul(p):
         unit = df_head[0][1].split(':')[1].strip().upper().replace('O','0').replace('F-','F').replace('F0','F')
         if unit == '':
             serial = df_head[0][0].split(':')[1].strip().upper()
-            unit = db.getUnit(serial=serial)
+            unit = db.get_unit(serial=serial, minesite=minesite)
 
         df = pd.read_csv(p, header=8, usecols=cols, parse_dates=[['Date', 'Time']])[:-2]
         df.columns = newcols
@@ -200,16 +134,6 @@ def read_haul(p):
         print(f'Failed: {p}')
         write_import_fail(p)
         return pd.DataFrame(columns=newcols)
-
-def parse_fault_time(tstr):
-    arr = tstr.split('|')
-    t, tz = int(arr[0]), int(arr[1])
-    return dt.fromtimestamp(t) + delta(seconds=tz)
-
-def toSeconds(t):
-    x = time.strptime(t, '%H:%M:%S')
-    return int(delta(hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec).total_seconds())
-
 
 # STATS csv
 def stats_from_dsc(p):
@@ -270,6 +194,9 @@ def get_unitpaths():
     p = f.drive / f.config['FilePaths']['980E FH']
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
+def all_units():
+    return [f'F{n}' for n in range(300, 348)]
+
 def unitpath_from_unit(unit, unitpaths=None):
     if unitpaths is None:
         unitpaths = get_unitpaths()
@@ -289,6 +216,10 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
     # recurse and find fault/haulcycle csv files
     lst = []
 
+    # haul files only need to check date created
+    date_func_name = 'date_created' #if ftype == 'haul' else 'date_modified'
+    date_func = getattr(sys.modules[__name__], date_func_name)
+
     if depth == 0 and ftype == 'tr3':
         # this is sketch, but need to find files in top level dir too
         lst.extend([f for f in p_search.glob(f'*.tr3')])
@@ -301,9 +232,10 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
                 elif ftype == 'tr3':
                     lst.extend([f for f in p.glob(f'*.tr3')])
 
+                # exclude vhms folders (8 digits) from haul file search
                 if (not (any(s in p.name for s in exclude)
                         or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
-                    and date_modified(p) > d_lower):
+                    and date_func(p) > d_lower):
                     
                     lst.extend(recurse_folders(
                         p_search=p,
@@ -515,7 +447,7 @@ def zip_recent_dls(units, d_lower=dt(2020,1,1)):
     return lst_zip
 
 
-def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020,1,1), maxdepth=4):
+def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020,1,1), maxdepth=4, import_=True):
     # top level control function - pass in single unit or list of units
         # 1. get list of files (haul, fault, dsc)
         # 2. Process - import haul/fault or 'fix' dsc eg downloads folder structure
@@ -523,7 +455,7 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
     if ftype == 'tr3': search_folders.append('vibe tests') # bit sketch
 
     if not units: # assume ALL units # TODO: make this work for all minesites?
-        units = [f'F{n}' for n in range(300, 348)]
+        units = all_units()
     elif not isinstance(units, list):
         units = [units]
 
@@ -552,9 +484,15 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
 
     # collect all csv files for all units first, then import together
     if ftype in ('haul', 'fault'):
+        print(f'num files: {len(lst)}')
         if lst:
             df = combine_csv(lst_csv=lst, ftype=ftype)
-            db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True)
+            print(f'rows in df: {len(df)}')
+            if import_:
+                rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True)
+                return rowsadded
+            else:
+                return df
 
 def get_list_files(ftype, p_search, d_lower=dt(2020,1,1), maxdepth=4):
     # return list of haulcycle, fault, tr3, or dsc files/folders
