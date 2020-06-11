@@ -9,6 +9,7 @@ from . import charts as ch
 from . import functions as f
 from . import queries as qr
 from . import units as un
+from . import emails as em
 from .__init__ import *
 from .database import db
 
@@ -115,6 +116,8 @@ class Report(object):
             table_contents=False,
             signature_block=False)
         
+        env = Environment(loader=FileSystemLoader(str(p_reports)))
+        
         f.set_self(self, vars())
 
     def add_items(self, items):
@@ -217,8 +220,8 @@ class Report(object):
         if hasattr(self, 'set_exec_summary'):
             self.set_exec_summary()
 
-        env = Environment(loader=FileSystemLoader(str(p_reports)))
-        template = env.get_template('report_template.html')
+        
+        template = self.env.get_template('report_template.html')
 
         dfs_filtered = {k:v for k, v in self.dfs.items() if v['display']} # filter out non-display dfs
 
@@ -309,6 +312,25 @@ class FleetMonthlyReport(Report):
 
         ex['Factory Campaigns'] = gq('FC Summary').exec_summary()
         ex['Factory Campaigns'].update(gq('Completed FCs').exec_summary())
+    
+    def email(self):
+        self.set_exec_summary()
+        template = self.env.get_template('exec_summary_template.html')
+        template_vars = dict(
+            exec_summary=self.exec_summary)
+
+        html_out = template.render(template_vars)
+        body = f'Good Afternoon,<br>{html_out}'
+        subject = self.title
+
+        p = f.datafolder / 'csv/fleet_monthly_report_email.csv'
+        email_list = list(pd.read_csv(p).Email)
+        msg = em.Message(subject=subject, body=body, to_recip=email_list, show_=False)
+
+        p = Path.home() / f'desktop/{self.title}.pdf'
+        msg.add_attachment(p)
+        msg.show()
+
 
 class MonthlySMRReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
@@ -368,7 +390,7 @@ class Availability(Section):
         sec = SubSection('Fleet Availability', self) \
             .add_df(
                 query=summary,
-                caption='Unit availability performance vs MA targets.') \
+                caption='Unit availability performance vs MA targets. Units highlighted blue met the target. Columns [Total, SMS, Suncor] highlighted darker red = worse performance.') \
             .add_df(
                 name='Fleet Availability YTD', 
                 query=summary_ytd, 
