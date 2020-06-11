@@ -7,12 +7,54 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from . import functions as f
 
-class TSIWebPage(object):
-    def __init__(self, form_vals=None, serial=None, model=None):
+class Web(object):
+    def __init__(self, user):
+        self.user = user
+
+    def create_driver(self, browser='Chrome'):
+        if browser == 'Chrome':
+            options = webdriver.ChromeOptions()
+            if not f.is_win():
+                chrome_profile = f'/Users/{self.user}/Library/Application Support/Google/Chrome/'
+                options.add_argument(f'user-data-dir={chrome_profile}')
+                options.add_argument('window-size=(1,1)')
+            driver = webdriver.Chrome(options=options)
+        else:
+            driver = getattr(webdriver, browser)()
+
+        return driver
+    
+    # @property
+    def get_driver(self):
+        if self._driver is None:
+            self._driver = self.create_driver()
+
+        return self._driver
+
+    def wait(self, time, cond):
+        driver = self.get_driver()
+        element = WebDriverWait(driver, time).until(cond)
+        return element
+
+    def set_val(self, element, val):
+        driver = self.get_driver()
+        val = str(val).replace("'", "\\'")
+        driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
+
+class TSIWebPage(Web):
+    def __init__(self, form_vals=None, serial=None, model=None, user='Jayme'):
+        super().__init__(user=user)
         tsi_number = None
         _driver = None
-        is_init = False
-        username = 'Jayme' # TODO need to get this for other users, or just use default probably
+        username, password = 'GordoJ3', '8\'Bigmonkeys'
+        # serial, model = 'A40029', '980E-4'
+        # TODO need to get this for other users, or just use default probably
+
+        form_vals_default = {
+            'Failed Part Qty': 1,
+            'Cause': 'Uncertain.',
+            'Correction': 'Component replaced with new.'}
+        form_vals.update(form_vals_default)
 
         form_fields = {
             'Failure SMR': 'elogic_machinesmr',
@@ -28,7 +70,8 @@ class TSIWebPage(object):
             'Complaint': 'kom_request',
             'Cause': 'kom_causeoffailure',
             'Correction': 'kom_correctionoffailure',
-            'Notes': 'kom_additionalnotes'}
+            'Notes': 'kom_additionalnotes',
+            'Failed Part Qty': 'kom_failedpartquantity'}
 
         form_dropdowns = {
             'Country': ('kom_workingcountry', 'Canada'),
@@ -51,7 +94,7 @@ class TSIWebPage(object):
         if serial is None: serial = self.serial
         if model is None: model = self.model
 
-        self.login_tsi(serial=serial, model=model)  
+        self.login_tsi(serial=serial, model=model)
 
         if not self.form_vals is None:
             self.fill_forms(form_vals=self.form_vals)
@@ -59,13 +102,15 @@ class TSIWebPage(object):
         self.fill_dropdowns()
 
         if save_tsi:
+            driver = self.get_driver()
+
             # press create button
-            element = WebDriverWait(self.driver, 20).until(
+            element = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, 'InsertButton')))
             element.send_keys(Keys.SPACE)
 
             # wait for page to load, find TSI number at top of page and return
-            element = WebDriverWait(self.driver, 30).until(
+            element = WebDriverWait(driver, 30).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'breadcrumb'))) \
                 .find_element_by_class_name('active')
             self.tsi_number = element.text
@@ -76,23 +121,26 @@ class TSIWebPage(object):
 
         for name, val in form_vals.items():
             id_ = self.form_fields.get(name, None)
+            driver = self.get_driver()
 
             if not id_ is None:
                 try:
-                    element = WebDriverWait(self.driver, 10).until(
+                    element = WebDriverWait(driver, 10).until(
                         EC.element_to_be_clickable((By.ID, id_)))
                     # element = self.driver.find_element_by_id(id_)
-                    element.click()
-                    element.send_keys(val)
+                    # element.click()
+                    # element.send_keys(val)
+                    self.set_val(element, val)
                 except:
                     f.send_error()
                     print(f'Couldn\'t set field value: {name}')
 
     def fill_dropdowns(self):
+        driver = self.get_driver()
         for name, vals in self.form_dropdowns.items():
             id_, val = vals[0], vals[1]
             try:
-                element = WebDriverWait(self.driver, 10).until(
+                element = WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable((By.ID, id_))) #presence_of_element_located
                 # element.click() # need to click to make element active
                 Select(element).select_by_visible_text(val)
@@ -100,79 +148,49 @@ class TSIWebPage(object):
                 f.send_error()
                 print(f'Couldn\'t set dropdown value: {name}')
     
-    def create_driver(self, browser='Chrome'):
-        if browser == 'Chrome':
-            options = webdriver.ChromeOptions()
-            if not f.is_win():
-                chrome_profile = f'/Users/{self.username}/Library/Application Support/Google/Chrome/'
-                options.add_argument(f'user-data-dir={chrome_profile}')
-                options.add_argument('window-size=(1,1)')
-            driver = webdriver.Chrome(options=options)
-        else:
-            driver = getattr(webdriver, browser)()
-
-        return driver
-    
-    def init(self):
-        self.is_init = True
-    
-    @property
-    def driver(self):
-        if not self.is_init: return
-
-        if self._driver is None:
-            self._driver = self.create_driver()
-
-        return self._driver
-
-    def login_tsi(self, serial=None, model=None):
-        
-        driver = self.driver
+    def login_tsi(self, serial, model):
+        driver = self.get_driver()
         driver.set_window_position(0, 0)
         driver.maximize_window()
         driver.get('https://www.komatsuamerica.net/northamerica/kirc/tsr2/')
-
-        username = driver.find_element_by_id('txtUserID')
-        password = driver.find_element_by_id('Password')
+        wait = self.wait
 
         # TODO save/load user pw from QSettings
-        username.send_keys('GordoJ3')
-        password.send_keys("8'Bigmonkeys")
+        element = driver.find_element_by_id('txtUserID')
+        self.set_val(element, self.username)
+        
+        element = driver.find_element_by_id('Password')
+        self.set_val(element, self.password)
 
         driver.find_element_by_id('btnSubmit').submit()
 
         try:
-            sqis_text = 'Go to (SQIS)TSR Portal'
-            element = WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.LINK_TEXT, sqis_text)))
-            element.send_keys("\n")
+            element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'Go to (SQIS)TSR Portal')))
+            element.send_keys(Keys.ENTER)
             
-            tsi_btn_text = 'MACHINE QUALITY INFORMATION'
-            element = WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.LINK_TEXT, tsi_btn_text)))
-            element.send_keys("\n")
+            element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'MACHINE QUALITY INFORMATION')))
+            element.send_keys(Keys.ENTER)
 
             # enter serial number
-            serial_num = 'serialNumberCreate'
-            element = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.ID, serial_num)))
-            element.send_keys(serial)
-            element.send_keys('\n')
+            element = wait(30, EC.presence_of_element_located((By.ID, 'serialNumberCreate')))
+            element.send_keys(serial) # need to send keys here for some reason
+            element.send_keys(Keys.ENTER)
 
             # wait for model options to be populated then select correct model
-            model_create = 'modelCreate'
-            element = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, model_create)))
-
+            element = wait(10, EC.element_to_be_clickable((By.ID, 'modelCreate')))
             Select(element).select_by_visible_text(model)
 
-            button_create = 'buttonCreateTsi'
-            element = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, button_create)))
+            element = wait(10, EC.element_to_be_clickable((By.ID, 'buttonCreateTsi')))
             element.send_keys(Keys.SPACE)
 
-            element = WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.ID, 'InsertButton')))
+            # probably not necessary
+            element = wait(10, EC.presence_of_element_located((By.ID, 'InsertButton')))
+            
+            # wait for KA to populate serial number before filling dropdowns
+            element = wait(30, EC.text_to_be_present_in_element_value((By.ID, 'elogic_serialnumber'), serial))
+            
+            # also try wait for upload attachments link to load
+            element = wait(30, EC.presence_of_element_located((By.LINK_TEXT, 'Upload Attachments')))
 
         except:
             f.send_error()
