@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 # TODO add pics count to TSI page
 # TODO add tsi status to WO page
 # TODO UnitINFO add new function/menu
+# TODO create function to evaluate '=' formulas
 
 
 class TableView(QTableView):
@@ -65,10 +66,16 @@ class TableView(QTableView):
         self.setSelectionBehavior(QTableView.SelectRows)
         self.setWordWrap(True)
         self.setSortingEnabled(True)
+
+        yellowrow = colors['bg'].get('yellowrow', 'green')
+        yellowrow = '#ffff64'
+        darkyellow = '#cccc4e'
+        lightblue = '#148CD2' ##19232D # border: 1px solid red; 
         self.setStyleSheet(' \
-            QTableView::item:selected:active {color: #000000;background-color: #ffff64;} \
-            QTableView::item:selected:hover {color: #000000;background-color: #cccc4e;}') \
-            # QTableView::item {border: 0px; padding: 2px;}')
+            QTableView::item:selected {color: #000000; background-color: #ffff64;} \
+            QTableView::item:selected:active {color: black; background-color: #ffff64;} \
+            QTableView:item:selected:focus {color: black; background-color: #ffff64; border: 1px solid red; } \
+            QTableView::item:selected:hover {color: black; background-color: #cccc4e;}') \
         
         f.set_self(self, vars())
         self.set_default_headers()
@@ -568,7 +575,6 @@ class WorkOrders(EventLogBase):
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
     
     class View(TableView):
         def __init__(self, parent=None):
@@ -583,7 +589,6 @@ class ComponentCO(EventLogBase):
             items = ['High Hour Changeout', 'Damage/Abuse', 'Convenience', 'Failure', 'Pro Rata Buy-in', 'Warranty']
             self.set_combo_delegate(col='Removal Reason', items=items)
 
-
 class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -592,6 +597,14 @@ class TSI(EventLogBase):
         view.col_widths.update(dict(Details=400))
 
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
+        self.add_button(name='Refresh Open (User)', func=self.refresh_allopen_user)
+    
+    def refresh_allopen_user(self):
+        username = self.mainwindow.username
+        query = self.query
+        query.set_allopen()
+        query.fltr.add(vals=dict(TSIAuthor=username))
+        self.refresh()
     
     def fill_tsi_webpage(self):
         # TODO make this secondary process
@@ -604,16 +617,15 @@ class TSI(EventLogBase):
 
         form_vals = {
             'Failure SMR': e.SMR,
-            'Failure Date': d,
-            'Repair Date': d,
             'Hours On Parts': e.ComponentSMR,
             'Serial': e.SNRemoved,
             'Part Number': e.PartNumber,
             'Part Name': e.TSIPartName,
             'New Part Serial': e.SNInstalled,
             'Work Order': e.WorkOrder,
-            'Complaint': ' ',
-            'Notes': e.TSIDetails}
+            'Complaint': e.TSIDetails,
+            'Failure Date': d,
+            'Repair Date': d}
         
         tsi = web.TSIWebPage(form_vals=form_vals, serial=e2.Serial, model=e2.Model)
         tsi.open_tsi()

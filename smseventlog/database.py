@@ -24,6 +24,8 @@ def str_conn():
     
 def get_engine():
     # sqlalchemy.engine.base.Engine
+    # connect_args = {'autocommit': True}
+    # , isolation_level="AUTOCOMMIT"
     return sa.create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)
 
 class DB(object):
@@ -101,10 +103,14 @@ class DB(object):
     def read_query(self, q):
         return pd.read_sql(sql=q.get_sql(), con=self.get_engine())
 
-    def getUnit(self, serial, minesite=None):
+    def get_unit(self, serial, minesite=None):
         df = self.get_df_unit(minesite=minesite)
         
         return df.Unit.loc[df.Serial == serial].values[0]
+    
+    def get_minesite(self, unit):
+        df = self.get_df_unit()
+        return df.loc[unit, 'MineSite']
     
     def get_df(self, query, refresh=True, default=False):
         # get df by name and save for later reuse
@@ -121,6 +127,7 @@ class DB(object):
                 # print(query.get_sql())
                 df = pd.read_sql(sql=query.get_sql(), con=self.get_engine()) \
                     .pipe(f.parse_datecols) \
+                    .pipe(f.convert_int64) \
                     .pipe(f.convert_df_view_cols, m=query.view_cols)
 
                 query.fltr.print_criterion()
@@ -155,19 +162,24 @@ class DB(object):
     
     def get_df_unit(self, minesite=None):
         if self.df_unit is None:
-            self.set_df_unit(minesite=minesite)
+            self.set_df_unit()
         
-        return self.df_unit
+        df = self.df_unit
 
-    def set_df_unit(self, minesite=None):
+        # sometimes need to filter other minesites due to serial number duplicates
+        if not minesite is None:
+            df = df[df.MineSite==minesite].copy()
+        
+        return df
+
+    def set_df_unit(self):
         a = T('UnitID')
         cols = ['MineSite', 'Customer', 'Model', 'Unit', 'Serial', 'DeliveryDate']
         q = Query.from_(a).select(*cols)
-        
-        if not minesite is None:
-            q = q.where(a.MineSite == minesite)
             
-        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine()).set_index('Unit', drop=False).pipe(f.parse_datecols)
+        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine()) \
+            .set_index('Unit', drop=False) \
+            .pipe(f.parse_datecols)
 
     def get_df_fc(self):
         if self.df_fc is None:
@@ -203,14 +215,15 @@ class DB(object):
 
         return self.df_component
 
-    def import_df(self, df, imptable, impfunc, notification=True, prnt=False):
+    def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None):
         rowsadded = 0
         if df is None:
             f.discord(msg='No rows to import', channel='sms')
             return
 
         try:
-            df.to_sql(name=imptable, con=self.get_engine(), if_exists='append', index=False)
+            # .execution_options(autocommit=True)
+            df.to_sql(name=imptable, con=self.get_engine(), if_exists='append', index=False, chunksize=chunksize)
 
             cursor = self.get_cursor()
             rowsadded = cursor.execute(impfunc).rowcount
@@ -224,21 +237,27 @@ class DB(object):
 
         if notification:
             f.discord(msg=msg, channel='sms')
+        
+        return rowsadded
     
-    def max_date_db(self, table, field):
+    def query_single_val(self, q):
+        try:
+            cursor = self.get_cursor()
+            return cursor.execute(q.get_sql()).fetchval()
+        finally:
+            cursor.close()
+    
+    def max_date_db(self, table=None, field=None, q=None):
         minesite = 'FortHills'
         a = T(table)
         b = T('UnitID')
 
-        sql = a.select(fn.Max(a[field])) \
-            .left_join(b).on_field('Unit') \
-            .where(b.MineSite == minesite)
+        if q is None:
+            q = a.select(fn.Max(a[field])) \
+                .left_join(b).on_field('Unit') \
+                .where(b.MineSite == minesite)
         
-        try:
-            cursor = db.get_cursor()
-            val = cursor.execute(sql.get_sql()).fetchval()
-        finally:
-            cursor.close()
+        val = self.query_single_val(q)
         
         return dt.combine(val, dt.min.time())
         

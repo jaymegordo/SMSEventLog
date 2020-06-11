@@ -36,6 +36,45 @@ class CellDelegate(QStyledItemDelegate):
         self.parent = parent
         self.index = None
     
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        return QSize(size.width() + 2, size.height() + 2)
+
+    def paint_(self, qPainter, option, qModelIndex):
+        # not used, for example only rn
+        v4Option = QStyleOptionViewItem(option)
+        v4Option.index = qModelIndex
+        value = qModelIndex.data()
+        v4Option.text = str(value)
+
+        parent = self.parent
+        style = parent.style()
+
+        if (v4Option.state & QStyle.State_HasFocus):
+            # --- The table cell with focus
+            # Draw the background
+            style.drawPrimitive(style.PE_PanelItemViewItem, v4Option, qPainter, parent)
+
+            # Draw the text
+            subRect = style.subElementRect(style.SE_ItemViewItemText, v4Option, parent)
+            alignment = qModelIndex.data(Qt.TextAlignmentRole)
+            if not alignment:
+                alignment = int(Qt.AlignLeft | Qt.AlignVCenter)
+            if (v4Option.state & QStyle.State_Enabled):
+                itemEnabled = True
+            else:
+                itemEnabled = False
+            textRect = style.itemTextRect(v4Option.fontMetrics, subRect, alignment, itemEnabled, value)
+            style.drawItemText(qPainter, textRect, alignment, v4Option.palette, v4Option.state, value)
+
+            # Draw the focus rectangle
+            focusOption = QStyleOptionFocusRect()
+            focusOption.rect = v4Option.rect
+            style.drawPrimitive(style.PE_FrameFocusRect, focusOption, qPainter, parent)
+        else:
+            # --- All other table cells
+            style.drawControl(style.CE_ItemViewItem, v4Option, qPainter, parent)
+
     def createEditor(self, parent, option, index):
         self.index = index
         editor = TextEditor(parent=parent)
@@ -138,7 +177,6 @@ class ComboDelegate(CellDelegate):
         self.index = index
         editor = ComboWidget(parent=parent, delegate=self)
         editor.addItems(self.items)
-        # editor.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         editor.setMinimumWidth(editor.minimumSizeHint().width() - 20)
 
         self.editor = editor
@@ -164,8 +202,7 @@ class ComboDelegate(CellDelegate):
                 num = self.items.index(val)
                 editor.setCurrentIndex(num)
             editor.lineEdit().selectAll()
-            # editor.showPopup()
-            # editor.currentIndexChanged.connect(self.commitAndCloseEditor)
+
         except:
             f.send_error()
 

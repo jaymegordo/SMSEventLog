@@ -34,6 +34,7 @@ from smseventlog import (
     web)
 
 from smseventlog.gui import (
+    startup,
     gui as ui,
     dialogs as dlgs,
     refreshtables as rtbls,

@@ -1,12 +1,16 @@
+import functools
 import logging
 import operator as op
 import os
 import sys
+import time
 from collections import defaultdict as dd
 from datetime import date
 from datetime import datetime as dt
 from datetime import timedelta as delta
+from functools import partial
 from pathlib import Path
+from timeit import default_timer as timer
 
 import pandas as pd
 import pypika as pk

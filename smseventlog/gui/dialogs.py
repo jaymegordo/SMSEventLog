@@ -421,12 +421,12 @@ class ErrMsg2(QDialog):
 
 
 def msgbox(msg='', yesno=False, statusmsg=None):
-    # app = ui.get_qt_app()
+    app = check_app()
     dlg = MsgBox_Advanced(msg=msg, title=ui.title, yesno=yesno, statusmsg=statusmsg)
     return dlg.exec_()
 
 def msg_simple(msg='', icon='', infotext=None):
-    # app = ui.get_qt_app()
+    app = check_app()
     dlg = QMessageBox()
     dlg.setText(msg)
     dlg.setWindowTitle(ui.title)
@@ -443,7 +443,7 @@ def msg_simple(msg='', icon='', infotext=None):
     return dlg.exec_()
 
 def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
-    # app = ui.get_qt_app()
+    app = check_app()
     dlg = QInputDialog()
     dlg.resize(ui.minsize)
     dlg.setWindowTitle(ui.title)
@@ -470,7 +470,7 @@ def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
     return ok, val
 
 def get_filepath_from_dialog(p_start):
-    # app = ui.get_qt_app()
+    app = check_app()
     dlg = QFileDialog()
     ui.disable_window_animations_mac(dlg)
 
@@ -484,7 +484,12 @@ def get_filepath_from_dialog(p_start):
 
 def show_item(name, parent=None, *args, **kw):
     # show message dialog by name eg ui.show_item('InputUserName')
-    from . import startup
-    app = startup.get_qt_app()
+    app = check_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent, *args, **kw)
     return dlg.exec_()
+
+def check_app():
+    # just need to make sure app is set before showing dialogs
+    from . import startup
+    app = startup.get_qt_app()
+    return app

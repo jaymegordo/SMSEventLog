@@ -112,12 +112,16 @@ class MainWindow(QMainWindow):
         print(f'setting username: {self.username}')
 
     def view_folder(self):
+        from . import eventfolders as efl
+
         row = self.active_table().row_from_activerow()
         if row is None: return
         e = row.create_model_from_db() # TODO: this won't work with mixed tables eg FCSummary
         # el.print_model(e)
 
-        fl.EventFolder(e=e).show()
+        # try to get minesite-specific EventFolder, if not use default
+        cls = getattr(efl, e.MineSite, efl.EventFolder)
+        cls(e=e).show()
 
     def create_menu(self):
         bar = self.menuBar()

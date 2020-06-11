@@ -22,9 +22,9 @@ def get_qt_app():
     if app is None:
         app = QApplication([sys.executable])
         
-    app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS Icon.png')))
-    app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
-    app.setStyle('Fusion')
-    app.setFont(QFont('Calibri', 15))
+        app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS Icon.png')))
+        app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+        app.setStyle('Fusion')
+        app.setFont(QFont('Calibri', 15))
     
     return app

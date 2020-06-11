@@ -35,6 +35,7 @@ seaborn = "*"
 matplotlib = "*"
 cssutils = "*"
 selenium = "*"
+joblib = "*"
 
 [requires]
 python_version = "3.8"

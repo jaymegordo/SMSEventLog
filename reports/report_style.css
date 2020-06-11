@@ -21,6 +21,9 @@
     }
 }
 
+.level_1_list{
+    font-weight: bold;
+}
 .level_2_list{
     font-weight: normal;
     padding-top: 5px;

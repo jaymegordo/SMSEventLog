@@ -149,6 +149,8 @@ def cursor_to_df(cursor):
     cols = [column[0] for column in cursor.description]
     return pd.DataFrame(data=data, columns=cols)
 
+def isnum(val):
+    return str(val).replace('.', '', 1).isdigit()
 
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
@@ -196,6 +198,14 @@ def convert_dtypes(df, cols, col_type):
     if not isinstance(cols, list): cols = [cols]
     for col in cols:
         df[col] = df[col].astype(col_type)
+    return df
+
+def convert_int64(df):
+    # convert all int64 (numpy) to Int64 (pandas) to better handle null values
+    for col, dtype in df.dtypes.items():
+        if dtype == 'int64':
+            df[col] = df[col].astype('Int64')
+
     return df
 
 def clean_series(s, convert_str=False):

@@ -183,6 +183,7 @@ class TableModel(QAbstractTableModel):
             return val
             
         elif role == Qt.TextAlignmentRole:
+            # TODO set this based on column dtypes, not value?
             if isinstance(val, int) or isinstance(val, float):
                 return Qt.AlignVCenter + Qt.AlignRight
 
@@ -205,23 +206,6 @@ class TableModel(QAbstractTableModel):
 
         return None
 
-    def change_color(self, qt_color, color_enabled):
-        self.layoutAboutToBeChanged.emit()
-        self.color_enabled = color_enabled
-        self.color_back = qt_color
-        self.layoutChanged.emit()
-
-    def flags(self, index):
-        ans = Qt.ItemIsEnabled | Qt.ItemIsSelectable 
-        # Qt.ItemIsEditable ?
-        # fl |= Qt.ItemIsDragEnabled
-        # fl |= Qt.ItemIsDropEnabled
-
-        if not index.column() in self.disabled_cols:
-            ans |= Qt.ItemIsEditable
-        
-        return ans
-
     def setData(self, index, val, role=Qt.EditRole, triggers=True):
         # TODO Check if text has changed, don't commit
         # TODO queue updates in batch!!
@@ -236,12 +220,15 @@ class TableModel(QAbstractTableModel):
                     # TODO build a better dict to convert all these.. need to work with datetime delegate
                     # m = {'datetime64[ns]': '')
 
-                    if dtype == 'object':
-                        val = str(val)
-                    elif dtype == 'float64':
-                        val = float(val)
-                    elif dtype == 'int64':
-                        val = int(val)
+                    if dtype in ('float64', 'int64') and not f.isnum(val):
+                        val = None
+                    else:
+                        if dtype == 'object':
+                            val = str(val)
+                        elif dtype == 'float64':
+                            val = float(val)
+                        elif dtype == 'int64':
+                            val = int(val)
 
                     df.loc[row, col] = val
 
@@ -377,3 +364,20 @@ class TableModel(QAbstractTableModel):
 
     def columnCount(self, index=QModelIndex()):
         return self.df.shape[1]
+
+    def change_color(self, qt_color, color_enabled):
+        self.layoutAboutToBeChanged.emit()
+        self.color_enabled = color_enabled
+        self.color_back = qt_color
+        self.layoutChanged.emit()
+
+    def flags(self, index):
+        ans = Qt.ItemIsEnabled | Qt.ItemIsSelectable 
+        # Qt.ItemIsEditable ?
+        # fl |= Qt.ItemIsDragEnabled
+        # fl |= Qt.ItemIsDropEnabled
+
+        if not index.column() in self.disabled_cols:
+            ans |= Qt.ItemIsEditable
+        
+        return ans
