@@ -6,6 +6,7 @@ from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 
 from . import dbmodel as dbm
 from . import functions as f
+from . import styles as st
 from .__init__ import *
 
 # Queries control how data is queried/filtered from database.
@@ -266,9 +267,10 @@ class ComponentCOReport(ComponentCOBase):
             dict(vals=dict(DateAdded=d_rng), term='between'),
             dict(vals=dict(MineSite=minesite), table=T('UnitID'))])
     
-    def update_style(self, style, df):
+    def update_style(self, style):
+        df = style.data
         subset = pd.IndexSlice[df['Life Achieved'].notnull(), 'Life Achieved']
-        style.background_gradient(cmap=self.cmap.reversed(), subset=subset, axis=None)
+        return style.background_gradient(cmap=self.cmap.reversed(), subset=subset, axis=None)
 
     def exec_summary(self):
         m = {}
@@ -429,9 +431,9 @@ class FCSummaryReport(FCSummary):
         df.drop(columns=['MineSite', 'Action Reqd', 'Part Number', 'Parts Avail', 'Comments'], inplace=True)
         return df
     
-    def update_style(self, style, df):
-        style.background_gradient(cmap=self.cmap.reversed(), subset='% Complete', axis=None)
-        style.apply(highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number'])
+    def update_style(self, style):
+        return style.background_gradient(cmap=self.cmap.reversed(), subset='% Complete', axis=None) \
+            .apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number'])
 
     def exec_summary(self):
         m, m2 = {}, {}
@@ -463,11 +465,10 @@ class FCSummaryReport2(FCSummary):
         self.df = df
         return df
 
-    def update_style(self, style, df):
+    def update_style(self, style):
         # color y/n values green/red
+        df = style.data
         subset = pd.IndexSlice[:, df.columns[1:]]
-        style.apply(highlight_yn, subset=subset, axis=None)
-        style.apply(highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number'])
 
         # rotate unit column headers vertical
         unit_col = 2
@@ -485,9 +486,12 @@ class FCSummaryReport2(FCSummary):
                 ('font-size', '5px'),
                 ('padding', '0px 0px'),
                 ('text-align', 'center')]))
-        
         style.table_styles.extend(s)
-        style.hide_columns(['Type'])
+        
+        return style \
+            .apply(st.highlight_yn, subset=subset, axis=None) \
+            .apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number']) \
+            .hide_columns(['Type'])
 
 class FCDetails(FCBase):
     def __init__(self):
@@ -554,8 +558,7 @@ class FCHistoryRolling(FCBase):
 
         # need to see history of open labour hrs per month 12 months rolling
         # count of open at time x - count of complete at time x?
-        # from . import reports as rp
-        # d_end_next_month = rp.first_last_month(d=d_rng[1] + relativedelta(months=1))[1]
+
         args = dict(
             d_upper=d_rng[1], # need to pass last day of next month
             minesite=minesite)
@@ -717,22 +720,24 @@ class AvailSummary(QueryBase):
         
         return df.append(m, ignore_index=True)
     
-    def update_style(self, style, df):
+    def update_style(self, style):
         # cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         # cmap = ListedColormap(sns.color_palette('Reds', n_colors=21))
         # self.background_gradients.extend([
         #     dict(cmap=cmap, subset=['Total', 'SMS', 'Suncor'])])
 
+        df = style.data
         cmap = LinearSegmentedColormap.from_list('red_white', ['white', '#F8696B'])
         
         u = df.index.get_level_values(0)
         subset = pd.IndexSlice[u[:-1], ['Total', 'SMS', 'Suncor']]
-        style.background_gradient(cmap=cmap, subset=subset, axis=None)
-
-        style.apply(highlight_greater, subset=['MA Target', 'MA', 'Unit'], axis=None)
 
         bg = f.config['color']['thead']
-        style.apply(lambda x: [f'background-color: {bg};color: white' if not x.index[i] in ('Unit', 'MA') else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1)
+
+        return style \
+            .background_gradient(cmap=cmap, subset=subset, axis=None) \
+            .apply(st.highlight_greater, subset=['MA Target', 'MA', 'Unit'], axis=None) \
+            .apply(lambda x: [f'background-color: {bg};color: white' if not x.index[i] in ('Unit', 'MA') else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1)
         
 class AvailRolling(QueryBase):
     def __init__(self, d_rng, model='980%', minesite='FortHills'):
@@ -765,22 +770,54 @@ class AvailRolling(QueryBase):
         df = df[['Month', 'SumSMS', 'MA Target', 'MA', 'Target Hrs Variance', 'PA']]
         return df
     
-    def update_style(self, style, df):
-        from . import reports as rp
-        style.apply(highlight_greater, subset=['MA Target', 'MA', 'Target Hrs Variance'], axis=None) \
-            .pipe(rp.set_column_widths, vals={'Target Hrs Variance': 60})
+    def update_style(self, style):
+        return style \
+            .apply(st.highlight_greater, subset=['MA Target', 'MA', 'Target Hrs Variance'], axis=None) \
+            .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
 
-class Availability(AvailBase):
+class AvailRawData(AvailBase):
     def __init__(self, minesite='FortHills', kw=None):
         super().__init__(minesite=minesite, kw=kw)
+        dt_format = '{:%Y-%m-%d %H:%M}'
+        self.formats.update({
+            'StartDate': dt_format,
+            'EndDate': dt_format})
+
+        a = self.a
+        cols = [a.Unit, a.ShiftDate, a.StartDate, a.EndDate, a.Duration.as_('Total'), a.SMS, a.Suncor, a.CategoryAssigned.as_('Category Assigned'), a.DownReason, a.Comment]
+
+        q = self.q \
+            .orderby(a.Unit, a.StartDate)
+
+        f.set_self(self, vars())
+
+    def set_fltr(self):
+        super().set_fltr()
+        self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
+
+    def update_style(self, style):
+
+        style.set_table_attributes('class="pagebreak_table" style="font-size: 8px;"')
+        
+        col_widths = dict(StartDate=60, EndDate=60, Total=20, SMS=20, Suncor=20, Comment=150)
+        col_widths.update({'Category Assigned': 80})
+
+        cmap = LinearSegmentedColormap.from_list('red_white', ['white', self.color['bg']['lightred']])
+        return style \
+            .background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None) \
+            .apply(st.highlight_alternating, subset=['Unit']) \
+            .pipe(st.set_column_widths, vals=col_widths) \
+            .hide_columns(['DownReason'])
+
+class Availability(AvailRawData):
+    def __init__(self, minesite='FortHills', kw=None):
+        super().__init__(minesite=minesite, kw=kw)
+        # query for availability table in eventlog
         a = self.a
         date_col = 'ShiftDate'
         ct_allopen = a.CategoryAssigned.isnull() | a.SMS.isnull() | a.Suncor.isnull()
         assigned = Case().when(ct_allopen, 0).else_(1).as_('Assigned')
-        cols = [a.Unit, a.ShiftDate, a.StartDate, a.EndDate, a.Duration, a.SMS, a.Suncor, a.CategoryAssigned, a.DownReason, a.Comment, assigned]
-
-        q = self.q \
-            .orderby(a.Unit, a.StartDate)
+        self.cols.append(assigned)
 
         f.set_self(self, vars())
 
@@ -794,19 +831,16 @@ class Availability(AvailBase):
     def set_allopen(self):
         self.set_minesite()
         self.fltr.add(ct=self.ct_allopen)
-        self.fltr.add(vals=dict(Duration=0.01), opr=op.gt)
+        self.fltr.add(vals=dict(Total=0.01), opr=op.gt)
 
     def get_stylemap(self, df):
         # convert irow, icol stylemap to indexes
         if df.shape[0] <=0:
             return {}
 
-        style = df.style
-        cmap = LinearSegmentedColormap.from_list('red_white', ['white', self.color['bg']['lightred']])
-        style.background_gradient(cmap=cmap, subset=['Duration', 'SMS', 'Suncor'], axis=None)
+        style = df.style.pipe(self.update_style)
         style._compute()
         return f.convert_stylemap_index(style=style)
-        # print(f.first_n(m, 5))
  
     def process_df(self, df):
         p = f.datafolder / 'csv'
@@ -814,13 +848,13 @@ class Availability(AvailBase):
         df_resp = pd.read_csv(p / 'avail_resp.csv')
 
         # merge category assigned to give a 'pre-assignment' to any null Category Assigned vals
-        df.loc[df.CategoryAssigned.isnull(), 'CategoryAssigned'] = df.merge(df_assigned, how='left', on='DownReason')['CategoryAssigned_y']
+        df.loc[df['Category Assigned'].isnull(), 'Category Assigned'] = df.merge(df_assigned, how='left', on='DownReason')['Category Assigned_y']
 
         # match CategoryAssigned to SMS or suncor and fill duration
-        df = df.merge(df_resp, on='CategoryAssigned', how='left')
+        df = df.merge(df_resp, on='Category Assigned', how='left')
         where = np.where
-        df.SMS = where(df.SMS.isnull(), where(df.Resp=='SMS', df.Duration, 0), df.SMS)
-        df.Suncor = where(df.Suncor.isnull(), where(df.Resp=='Suncor', df.Duration, 0), df.Suncor)
+        df.SMS = where(df.SMS.isnull(), where(df.Resp=='SMS', df.Total, 0), df.SMS)
+        df.Suncor = where(df.Suncor.isnull(), where(df.Resp=='Suncor', df.Total, 0), df.Suncor)
         df.drop(columns='Resp', inplace=True)
 
         return df
@@ -844,10 +878,12 @@ class AvailShortfalls(AvailBase):
         
         f.set_self(self, vars())
 
-    def update_style(self, style, df):
+    def update_style(self, style):
         cmap = LinearSegmentedColormap.from_list('red_white', ['white', '#F8696B'])
-        style.background_gradient(cmap=cmap, subset='SMS', axis=None)
-        style.background_gradient(cmap=cmap.reversed(), subset='MA', axis=None)
+        
+        return style \
+            .background_gradient(cmap=cmap, subset='SMS', axis=None) \
+            .background_gradient(cmap=cmap.reversed(), subset='MA', axis=None)
     
     def process_df(self, df):
         # parent query needs to have df loaded already (TODO could change ge_df to store df)
@@ -858,8 +894,10 @@ class AvailShortfalls(AvailBase):
         
         df2['Combined'] = df2.CategoryAssigned \
             + ' (' + df2.SMS.round(0).map(str) + ') - ' \
-            + df2.Comment
-        df2 = df2.groupby('Unit')['Combined'] \
+            + df2.Comment \
+            .replace(pd.NA, '') # cant apply linesep.join if column has NaN
+
+        s = df2.groupby('Unit')['Combined'] \
             .apply(os.linesep.join) \
             .reset_index() \
             .rename(columns=dict(Combined='Major Causes'))
@@ -871,7 +909,7 @@ class AvailShortfalls(AvailBase):
         df = df[df.Model != 'Total']
         df = df[['Unit', 'SMS', 'MA Target', 'MA']]
 
-        df = df.merge(right=df2, on='Unit', how='left')
+        df = df.merge(right=s, on='Unit', how='left')
 
         return df
     
@@ -885,50 +923,36 @@ def table_with_args(table, args):
     str_args = ', '.join(fmt(arg) for arg in args.values())
     return f'{table}({str_args})'
 
-def format_cell(bg, t):
-    return f'background-color: {bg};color: {t};'
 
-def highlight_greater(df):
-    # Highlight cells good or bad where MA > MA Target
-    m = f.config['color']
-    bg, t = m['bg'], m['text']
+# data range funcs
+def first_last_month(d):
+    d_lower = dt(d.year, d.month, 1)
+    d_upper = d_lower + relativedelta(months=1) + delta(days=-1)
+    return (d_lower, d_upper)
 
-    m = df['MA'] > df['MA Target']
+def df_months():
+    # Month
+    cols = ['StartDate', 'EndDate', 'Name']
+    d_start = dt.now() + delta(days=-365)
+    d_start = dt(d_start.year, d_start.month, 1)
 
-    df1 = pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
-    df1['MA'] = np.where(m, format_cell(bg['good'], t['good']), format_cell(bg['bad'], t['bad']))
-    
-    for col in ('Unit', 'Target Hrs Variance'):
-        if col in df.columns:
-            df1[col] = df1['MA']
-    return df1
+    m = {}
+    for i in range(24):
+        d = d_start + relativedelta(months=i)
+        name = '{:%Y-%m}'.format(d)
+        m[name] = (*first_last_month(d), name)
 
-def highlight_yn(df):
-    m = f.config['color']
-    bg, t = m['bg'], m['text']
+    return pd.DataFrame.from_dict(m, columns=cols, orient='index')
 
-    m1, m2 = df=='Y', df=='N' # create two boolean masks
+def df_weeks():
+    # Week
+    cols = ['StartDate', 'EndDate', 'Name']
 
-    where = np.where
-    data = where(m1, format_cell(bg['good'], t['good']), where(m2, format_cell(bg['bad'], t['bad']), 'background-color: inherit'))
+    m = {}
+    year = dt.now().year
+    for wk in range(1, 53):
+        s = f'2020-W{wk-1}'
+        d = dt.strptime(s + '-1', "%Y-W%W-%w").date()
+        m[f'{year}-{wk}'] = (d, d + delta(days=6), f'Week {wk}')
 
-    return pd.DataFrame(data=data, index=df.index, columns=df.columns)
-
-def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols=None):
-    m = f.config['color']
-    bg, t = m['bg'], m['text']
-
-    if t_color is None:
-        t_color = 'black'
-
-    m = df[target_col]==val
-
-    df1 = pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
-
-    df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), 'background-color: inherit')
-
-    if other_cols:
-        for col in other_cols:
-            df1[col] = df1[target_col]
-
-    return df1
+    return pd.DataFrame.from_dict(m, columns=cols, orient='index')
