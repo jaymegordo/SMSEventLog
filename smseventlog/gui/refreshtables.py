@@ -1,8 +1,6 @@
 from .__init__ import *
 from . import gui as ui
 from .dialogs import InputForm, InputField
-from pypika import Table as T
-from .. import reports as rp
 
 log = logging.getLogger(__name__)
 
@@ -184,8 +182,8 @@ class EmailList(RefreshTable):
 class Availability(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        df_week = df_weeks()
-        df_month = df_months()
+        df_week = qr.df_weeks()
+        df_month = qr.df_months()
 
         d = dt.now().date() + delta(days=-7)
         default_week = df_week[df_week.StartDate < d].iloc[-1, :].name #index name
@@ -198,47 +196,39 @@ class Availability(RefreshTable):
 
         f.set_self(self, vars())
 
-    def accept(self):
+    def get_rng(self):
         fMonth, fWeek = self.fMonth, self.fWeek
 
         if fMonth.cb.isChecked():
             val = fMonth.get_val()
             df = self.df_month
+            rngtype = 'month'
         elif fWeek.cb.isChecked():
             val = fWeek.get_val()
             df = self.df_week
+            rngtype = 'week'
 
-        d_rng = (df.loc[val, 'StartDate'], df.loc[val, 'EndDate'])
+        d_rng = tuple(df.loc[val, col] for col in ('StartDate', 'EndDate'))
+        name = df.loc[val, 'Name']
+
+        return d_rng, rngtype, name
+
+    def accept(self):
+        d_rng = self.get_rng()[0]
         self.parent.query.fltr.add(vals=dict(ShiftDate=d_rng), term='between')
         self.close()
         self.parent.refresh()
 
-def df_months():
-    # Month
-    cols = ['StartDate', 'EndDate']
-    d_start = dt.now() + delta(days=-365)
-    d_start = dt(d_start.year, d_start.month, 1)
+class AvailReport(Availability):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
 
-    m = {}
-    for i in range(24):
-        d = d_start + relativedelta(months=i)
-        name = '{:%Y-%m}'.format(d)
-        m[name] = rp.first_last_month(d)
+    def accept(self):
+        self.close()
+        return self.get_rng()
 
-    return pd.DataFrame.from_dict(m, columns=cols, orient='index')
 
-def df_weeks():
-    # Week
-    cols = ['StartDate', 'EndDate']
 
-    m = {}
-    year = dt.now().year
-    for wk in range(1, 53):
-        s = f'2020-W{wk-1}'
-        d = dt.strptime(s + '-1', "%Y-W%W-%w").date()
-        m[f'{year}-{wk}'] = (d, d + delta(days=6))
-
-    return pd.DataFrame.from_dict(m, columns=cols, orient='index')
 
 # TODO: this doesn't need to be duplicated here
 def show_item(name, parent=None):
