@@ -33,15 +33,20 @@ def get_config():
             exclude=['dsc', 'chk', 'CHK', 'Pictures'])}
 
 
-def combine_csv(lst_csv, ftype):
+def combine_csv(lst_csv, ftype, d_lower=None):
     # combine list of csvs into single and drop duplicates, based on duplicate cols
     func = getattr(sys.modules[__name__], f'read_{ftype}')
 
     # multiprocess reading/parsing single csvs
     dfs = Parallel(n_jobs=-1, verbose=11)(delayed(func)(csv) for csv in lst_csv)
 
-    df = pd.concat([df for df in dfs], sort=False)
-    df.drop_duplicates(subset=get_config()[ftype]['duplicate_cols'], inplace=True)
+    df = pd.concat([df for df in dfs], sort=False) \
+        .drop_duplicates(subset=get_config()[ftype]['duplicate_cols'])
+
+    # drop old records before importing
+    if not d_lower is None:
+        df = df[df.datetime >= d_lower]
+
     return df
 
 def read_fault(p):
@@ -83,27 +88,31 @@ def update_plm_all_units():
 
     config = get_config()['haul']
 
+    df = pd.concat(m['df'] for m in result)
+    rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, chunksize=10000)
+
     new_result = []
     for m in result:
         df = m['df']
-        rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, chunksize=10000)
+        # rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, chunksize=10000)
 
-        new_result.append(dict(unit=m['unit'], maxdate=m['maxdate'].strftime('%Y-%m-%d'), rowsadded=rowsadded))
+        new_result.append(dict(unit=m['unit'], maxdate=m['maxdate'].strftime('%Y-%m-%d'), numrows=len(df)))
 
     return new_result
 
-def update_plm_single_unit(unit, import_=True):
+def update_plm_single_unit(unit, import_=True, maxdate=None):
     # get max date db
     print(f'starting unit: {unit}')
-    a = T('PLM')
-    q = a.select(fn.Max(a.DateTime)) \
-        .where(a.Unit == unit)
+
+    if maxdate is None:
+        a = T('PLM')
+        q = a.select(fn.Max(a.DateTime)) \
+            .where(a.Unit == unit)
+        
+        maxdate = db.max_date_db(q=q)
     
-    maxdate = db.max_date_db(q=q)
-    print(f'maxdate: {maxdate}')
-    
-    # could drop records < maxdate before trying import?
     df = process_files(ftype='haul', units=unit, d_lower=maxdate, import_=import_)
+
     m = dict(unit=unit, maxdate=maxdate, df=df)
     return m
 
@@ -228,14 +237,14 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
         for p in p_search.iterdir():
             if p.is_dir():
                 if ftype in ('fault', 'haul'):
-                    lst.extend([f for f in p.glob(f'*{ftype}*.csv')])
+                    lst.extend([f for f in p.glob(f'*{ftype}*.csv') if date_created(f) > d_lower])
                 elif ftype == 'tr3':
-                    lst.extend([f for f in p.glob(f'*.tr3')])
+                    lst.extend([f for f in p.glob(f'*.tr3') if date_created(f) > d_lower])
 
                 # exclude vhms folders (8 digits) from haul file search
                 if (not (any(s in p.name for s in exclude)
                         or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
-                    and date_func(p) > d_lower):
+                    and date_modified(p) > d_lower):
                     
                     lst.extend(recurse_folders(
                         p_search=p,
@@ -344,6 +353,18 @@ def remove_files(lst):
             p.unlink()
 
 # DSC
+def fix_dls_all_units(d_lower=None):
+    if d_lower is None:
+        d_lower = dt.now() + delta(days=-30)
+
+    units = all_units()
+    
+    result = Parallel(n_jobs=-1, verbose=11)(delayed(process_files)(
+        ftype='dsc',
+        units=unit,
+        d_lower=d_lower) for unit in units)
+
+
 def date_from_dsc(p):
     # parse date from dsc folder name, eg 328_dsc_20180526-072028
     # if no dsc, use date created
@@ -476,7 +497,8 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
         # process all dsc folders per unit as we find them
         if ftype == 'dsc':
             print(f'\n\nProcessing dsc, unit: {unit}\ndsc folders found: {len(lst)}')
-            for p in lst: fix_dsc(p=p, p_unit=p_unit, zip_=True)
+            Parallel(n_jobs=-1, verbose=11)(delayed(fix_dsc)(p=p, p_unit=p_unit, zip_=True) for p in lst)
+
             lst = [] # need to reset list, only for dsc, this is a bit sketch
         elif ftype == 'tr3':
             for p in lst: move_tr3(p=p)
@@ -486,13 +508,15 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
     if ftype in ('haul', 'fault'):
         print(f'num files: {len(lst)}')
         if lst:
-            df = combine_csv(lst_csv=lst, ftype=ftype)
-            print(f'rows in df: {len(df)}')
+            df = combine_csv(lst_csv=lst, ftype=ftype, d_lower=d_lower)
+            # print(f'rows in df: {len(df)}')
             if import_:
                 rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True)
                 return rowsadded
             else:
                 return df
+        else:
+            return pd.DataFrame() # return blank dataframe
 
 def get_list_files(ftype, p_search, d_lower=dt(2020,1,1), maxdepth=4):
     # return list of haulcycle, fault, tr3, or dsc files/folders
