@@ -1,15 +1,15 @@
 import functools
 
-import numpy as np
 from bs4 import BeautifulSoup
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 from . import charts as ch
+from . import emails as em
 from . import functions as f
 from . import queries as qr
+from . import styles as st
 from . import units as un
-from . import emails as em
 from .__init__ import *
 from .database import db
 
@@ -18,95 +18,15 @@ p_reports = Path(__file__).parents[1] / 'reports'
 
 # TODO auto email w/ email lists
 
-# Dataframe format
-def left_justified(df, header=False):
-    formatters = {}
-    for li in list(df.columns):
-        max = df[li].str.len().max()
-        form = "{{:<{}s}}".format(max)
-        formatters[li] = functools.partial(str.format, form)
-    # display(formatters)
-    return df.to_string(formatters=formatters, index=False, header=header)
-
-def format_dtype(df, formats):
-    # match formats to df.dtypes
-    # formats = {'int64': '{:,}'}
-    # df.dtypes = {'Unit': dtype('O'),
-                # datetime.dt(2020, 3, 1): dtype('int64'),
-    m = {}
-    for key, fmt in formats.items():
-        m.update({col: fmt for col, val in df.dtypes.to_dict().items() if val==key})
-    
-    return m
-
-def set_column_style(mask, props):
-    # loop columns in mask, get index, set column style
-    s = []
-    for i, v in enumerate(mask):
-        if v == True:
-            s.append(dict(
-                selector=f'td:nth-child({i+1})', # css table 1-indexed not 0
-                props=[props]))
-
-    return s
-
-def set_column_widths(style, vals, hidden_index=True):
-    # vals is dict of col_name: width > {'Column Name': 200}
-    s = []
-    offset = 1 if hidden_index else 0
-
-    for col_name, width in vals.items():
-        icol = style.data.columns.get_loc(col_name) + offset
-        s.append(dict(
-            selector=f'th.col_heading:nth-child({icol})',
-            props=[('width', f'{width}px')]))
-    
-    style.table_styles.extend(s)
-    return style
-
-def set_style(df):
-    # Dataframe general column alignment/number formatting
-    cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
-    df[cols] = df[cols].replace('\n', '<br>', regex=True)
-
-    s = []
-    m = f.config['color']
-    s.append(dict(
-        selector='th',
-        props=[('text-align', 'center'), ('background', m['thead'])]))
-    s.append(dict(
-        selector='th, td',
-        props=[('padding', '2.5px 5px')]))
-    s.append(dict(
-        selector='table',
-        props=[('border', '1px solid #000000'), ('margin-top', '0px'), ('margin-bottom', '2px')]))
-
-    numeric_mask = df.dtypes.apply(lambda x: issubclass(np.dtype(str(x).lower()).type, np.number))
-    date_mask = df.dtypes.apply(lambda x: issubclass(np.dtype(str(x).lower()).type, np.datetime64))
-    
-    s.extend(set_column_style(mask=numeric_mask, props=('text-align', 'right')))
-    s.extend(set_column_style(mask=~numeric_mask, props=('text-align', 'left')))
-    s.extend(set_column_style(mask=date_mask, props=('text-align', 'center')))
-
-    # Style 265474
-    style = df.style \
-        .format(lambda x: '{:,.0f}'.format(x) if x > 1e3 else '{:,.2f}'.format(x), # default number format
-                    subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
-        .set_table_styles(s) \
-        .set_table_attributes('style="border-collapse: collapse"') \
-        .set_na_rep('')
-    
-    return style
-
 
 
 class Report(object):
-    def __init__(self, d=None):
+    def __init__(self, d=None, d_rng=None):
         # dict of {df_name: {func: func_definition, kw: **kw, df=None}}
         dfs, charts, sections, exec_summary = {}, {}, {}, {}
 
         if d is None: d = dt.now() + delta(days=-31)
-        d_rng = first_last_month(d=d)
+        if d_rng is None: d_rng = qr.first_last_month(d=d)
         d_rng_ytd = (dt(dt.now().year, 1, 1) , d_rng[1])
 
         include_items = dict(
@@ -171,17 +91,17 @@ class Report(object):
             df = self.get_df(name=name)
             query = self.get_query(name=name)
 
-        style = set_style(df)
+        style = st.set_style(df)
 
-        # specific number formats
+        # general number formats
         formats = {'Int64': '{:,}', 'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
-        m_fmt = format_dtype(df=df, formats=formats)
+        m_fmt = st.format_dtype(df=df, formats=formats)
 
         if not query is None:
             m_fmt.update(query.formats)
 
             if hasattr(query, 'update_style'):
-                query.update_style(style=style, df=df)
+                style = query.update_style(style)
 
         style.format(m_fmt, na_rep='')
 
@@ -331,7 +251,6 @@ class FleetMonthlyReport(Report):
         msg.add_attachment(p)
         msg.show()
 
-
 class MonthlySMRReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
         super().__init__(d=d)
@@ -354,6 +273,17 @@ class MonthlySMRReport(Report):
         
         df = self.get_df('SMR Hours Operated')
         df.to_csv(p)
+
+class AvailabilityReport(Report):
+    def __init__(self, d_rng, name, rngtype='week', minesite='FortHills'):
+        super().__init__(d_rng=d_rng)
+
+        # get correct weekly or monthly date range
+            
+        title = f'Suncor Reconciliation Report - {minesite} - {rngtype.title()}ly - {name}'
+        f.set_self(self, vars())
+
+        self.load_sections('AvailReport')
 
 # REPORT SECTIONS
 class Section():
@@ -448,6 +378,16 @@ class Availability(Section):
         
         f.set_self(self, vars())
 
+class AvailReport(Availability):
+    def __init__(self, report):
+        super().__init__(report)
+        print(self.d_rng)
+
+        sec = SubSection('Raw Data', self) \
+            .add_df(
+                query=qr.AvailRawData(kw=dict(d_rng=self.d_rng)),
+                caption='Raw downtime data for report period.')
+
 class Components(Section):
     def __init__(self, report):
         super().__init__(title='Components', report=report)
@@ -528,11 +468,14 @@ class SubSection():
 
 
 
-def first_last_month(d):
-    d_lower = dt(d.year, d.month, 1)
-    d_upper = d_lower + relativedelta(months=1) + delta(days=-1)
-    return (d_lower, d_upper)
+
         
+
+# TSI
+    # number of TSIs submitted per month?
+
+# Fault codes
+    # need to bulk import all faults
 
 # PLM
     # Will need to manually import all units before running report for now. > wont have dls till much later..
