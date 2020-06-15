@@ -30,6 +30,7 @@ from smseventlog import (
     availability as av,
     units as un,
     reports as rp,
+    styles as st,
     charts as ch,
     web)
 

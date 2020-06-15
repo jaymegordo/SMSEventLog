@@ -59,12 +59,14 @@
                 {% set i2 = loop.index %}
                 {% set sub_sec_num = i1 ~ '.' ~ i2 %}
                 {% if sub_sec.force_pb %}
-                    <div style="page-break-before: always;">
+                    {% set pb_val = 'style="page-break-before: always;"'%}
+                    <!-- <div style="page-break-before: always;"> -->
                 {% else %}
-                    <div>
+                    <!-- <div> -->
+                    {% set pb_val = ''%}
                 {% endif %}
 
-                <h3 id="{{ sub_sec.title }}">{{ sub_sec_num }} {{ sub_sec.title }}</h3>
+                <h3 id="{{ sub_sec.title }}" {{ pb_val }}>{{ sub_sec_num }} {{ sub_sec.title }}</h3>
 
                 {% for elem in sub_sec.elements %} <!-- loop df/chart elements -->
                     <div>
@@ -88,12 +90,10 @@
                                 </div>
                             </div>
                         {% else %}
-                            <div >
-                                <figure style="display: inline-block;">
-                                    {{ dfs[elem.name].df_html }}
-                                    <figcaption class="figcaption_tbl">Table {{ sub_sec_num }}-{{ num_tables.value }} - {{ elem.caption }}</figcaption>
-                                </figure>
-                            </div>
+                            <!-- <figure style="display: inline-block;"> -->
+                                {{ dfs[elem.name].df_html }}
+                                <figcaption class="figcaption_tbl">Table {{ sub_sec_num }}-{{ num_tables.value }} - {{ elem.caption }}</figcaption>
+                            <!-- </figure> -->
                         {% endif %}
 
                     {% elif elem.type == 'chart' %}
@@ -105,7 +105,7 @@
                     {% endif %}
                     </div>
                 {% endfor %}
-                </div>
+                <!-- </div> -->
             {% endfor %}
         </section>
     {% endfor %}

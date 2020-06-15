@@ -8,7 +8,7 @@ from .delegates import AlignDelegate, DateDelegate, DateTimeDelegate, CellDelega
 from . import dialogs as dlgs
 from .. import emails as em
 from .. import queries as qr
-from .. import reports as rp
+from .. import styles as st
 
 log = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ class TableView(QTableView):
         if df is None:
             df = model.df
         
-        style = rp.set_style(df=df) \
+        style = st.set_style(df=df) \
             .apply(model.get_background_colors_from_df, axis=None) \
             .format(self.formats)
 
@@ -264,6 +264,7 @@ class TableView(QTableView):
 
     def _header_menu(self, pos):
         """Create popup menu used for header"""
+        # TODO values > df.col.value_counts()
         model = self.model()
         menu = FilterMenu(self)
         icol = self.header.logicalIndexAt(pos)
@@ -710,9 +711,9 @@ class FCSummary(FCBase):
     def email_new_fc(self):
         # get df of current row
         df = self.view.df_from_activerow().iloc[:, :10]
-        style = rp.set_style(df=df)
+        style = st.set_style(df=df)
         formats = {'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
-        m = rp.format_dtype(df=df, formats=formats)
+        m = st.format_dtype(df=df, formats=formats)
         style.format(m)
 
         fcnumber = df['FC Number'].iloc[0]
@@ -758,6 +759,7 @@ class Availability(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
+        self.add_action(name='Create Report', func=self.create_report, btn=True)
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
         self.add_action(name='Filter Assigned', func=self.filter_assigned, shortcut='Ctrl+Shift+A', btn=True)
         self.add_action(name='Save Assignments', func=self.save_assignments, btn=True)
@@ -794,7 +796,7 @@ class Availability(TableWidget):
 
         def get_style(self, df=None):
             return super().get_style(df=df) \
-                .pipe(rp.set_column_widths, vals=dict(StartDate=300, EndDate=300))
+                .pipe(st.set_column_widths, vals=dict(StartDate=300, EndDate=300))
 
         def update_duration(self, index):
             # Set SMS/Suncor duration if other changes
@@ -892,6 +894,16 @@ class Availability(TableWidget):
         table_widget = tabs.get_widget(title)
         table_widget.view.model().filter_by_items(col='Unit', items=[unit])
         tabs.activate_tab(title)
+
+    def create_report(self):
+        # show menu to select period
+        from .refreshtables import AvailReport
+        from ..reports import AvailabilityReport
+        dlg = AvailReport(parent=self)
+        d_rng, rngtype, name = dlg.exec_()
+
+        rep = AvailabilityReport(d_rng=d_rng, rngtype=rngtype, name=name)
+
 
 
 # FILTER MENU

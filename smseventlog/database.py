@@ -67,7 +67,7 @@ class DB(object):
         try:
             self.get_engine().raw_connection().close()
         except:
-            log.error('Closing raw_connection')
+            log.error('Error closing raw_connection')
 
     def __del__(self):
         self.close()

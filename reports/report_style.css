@@ -3,10 +3,11 @@
 
 @media print {
     .pagebreak { page-break-before: always; }
+    /* table {page-break-inside: auto;} */
 }
 @page {
     margin-top: 70px;
-    margin-bottom: 60px;
+    margin-bottom: 120px;
     margin-right: 60px;
     margin-left: 60px;
 }
@@ -107,12 +108,10 @@ ol {
     /* word-wrap: none; */
 }
 
-
 html {
     font-family: Tahoma, Geneva, sans-serif;
     /* font-size: 12px; */
     font-size: 12pt;
-
 }
 h1, h2, h3, h4, h5 {
     page-break-after: avoid;
@@ -194,6 +193,11 @@ table {
     font-size: 10.5px;
     display: inline-block;
   }
+  .pagebreak_table {
+      page-break-inside: auto !important;
+      display: table;
+      /* font-size: 8px; */
+  }
   table td, table th {
     padding: 3px 5px;
   }
@@ -203,6 +207,7 @@ table {
   table thead {
     background: #244062;
     border-bottom: 1px solid #000000;
+    display: table-header-group;
   }
   table thead th {
     font-weight: bold;
@@ -210,8 +215,8 @@ table {
     text-align: center;
   }
   tr {
-    page-break-inside:avoid;
-    page-break-after:auto }
+    page-break-inside: avoid;
+    page-break-after: auto }
 
 .signature_table {
     table-layout: fixed;
