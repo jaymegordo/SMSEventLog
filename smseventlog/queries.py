@@ -623,7 +623,7 @@ class AvailTopDowns(AvailBase):
         total = df.Total.sum()
         df.sort_values(by='Total', ascending=False, inplace=True)
         df.reset_index(drop=True, inplace=True)
-        df = df.iloc[:self.n, :]
+        df = df.iloc[:self.n, :].copy()
         df.columns = ['Category', 'Total', 'SMS', 'Suncor']
 
         df['SMS %'] = df.SMS / total
@@ -669,9 +669,9 @@ class AvailSummary(QueryBase):
             d_upper=d_rng[1],
             model=model,
             minesite=minesite,
-            exclude_ma=1,
-            ahs_active=1,
-            split_ahs=0)
+            exclude_ma=True,
+            ahs_active=True,
+            split_ahs=False)
         
         sql = 'SELECT * FROM {} ORDER BY Unit'.format(table_with_args(table='udfMAReport', args=args))
         f.set_self(self, vars())
@@ -688,24 +688,27 @@ class AvailSummary(QueryBase):
         elif days > 7:
             current_period = d_rng[0].strftime('%B %Y')
         else:
-            current_period = d_rng[1].strftime('Week %W')
+            current_period = (d_rng[0] + delta(days=7)).strftime('Week %W')
 
         m = {}
+        target_hrs_variance = (totals['MA'] - totals['MA Target']) * totals['Hrs Period MA']
+
         m[current_period] = {
                 'Physical Availability': '{:.2%}'.format(totals['PA']),
                 'Mechanical Availability': '{:.2%}'.format(totals['MA']),
-                'Target MA': '{:.2%}'.format(totals['MA Target'])
+                'Target MA': '{:.2%}'.format(totals['MA Target']),
+                'Target Hrs Variance': '{:,.0f}'.format(target_hrs_variance)
             }
-
+        
         return m
 
     def sum_prod(self, df, col1, col2):
         # create sumproduct for weighted MA and PA %s
         return (df[col1] * df[col2]).sum() / df[col2].sum()
 
-    def add_totals(self, df):
+    def get_totals(self, df, totals_name='Total'):
         m = {
-            'Model': 'Total',
+            'Model': totals_name,
             'Unit': df.Unit.count(),
             'Total': df.Total.sum(),
             'SMS': df.SMS.sum(),
@@ -716,10 +719,19 @@ class AvailSummary(QueryBase):
             'Hrs Period MA': df['Hrs Period MA'].sum(),
             'Hrs Period PA': df['Hrs Period PA'].sum()}
 
+        return m
+
+    def add_totals(self, df, totals_name='Total'):
+        # just used to save totals for exec summary now
+        m = self.get_totals(df, totals_name)
         self.totals = m
         
-        return df.append(m, ignore_index=True)
+        # return df.append(m, ignore_index=True)
+        return df
     
+    def highlight_greater(self, style):
+        return style.apply(st.highlight_greater, subset=['MA', 'Unit'], axis=None, ma_target=style.data['MA Target'])
+
     def update_style(self, style):
         # cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         # cmap = ListedColormap(sns.color_palette('Reds', n_colors=21))
@@ -730,17 +742,31 @@ class AvailSummary(QueryBase):
         cmap = LinearSegmentedColormap.from_list('red_white', ['white', '#F8696B'])
         
         u = df.index.get_level_values(0)
-        subset = pd.IndexSlice[u[:-1], ['Total', 'SMS', 'Suncor']]
-
-        bg = f.config['color']['thead']
+        # subset = pd.IndexSlice[u[:-1], ['Total', 'SMS', 'Suncor']] # u[:-1] to exclude totals row
+        subset = ['Total', 'SMS', 'Suncor']
 
         return style \
             .background_gradient(cmap=cmap, subset=subset, axis=None) \
-            .apply(st.highlight_greater, subset=['MA Target', 'MA', 'Unit'], axis=None) \
-            .apply(lambda x: [f'background-color: {bg};color: white' if not x.index[i] in ('Unit', 'MA') else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1)
-        
-class AvailRolling(QueryBase):
-    def __init__(self, d_rng, model='980%', minesite='FortHills'):
+            .pipe(self.highlight_greater) \
+
+    def df_totals(self):
+        # calc totals for ahs/staffed/all, return df
+        # make sure self.df is not none
+        df = self.df
+        data = []
+        data.extend([self.get_totals(df=df[df.Operation==name], totals_name=name) for name in ('Staffed', 'AHS')])
+        data.append(self.get_totals(df=df))
+
+        return pd.DataFrame(data).rename(columns=dict(Model='Operation'))
+    
+    def style_totals(self, style):
+        return style \
+            .pipe(st.highlight_totals_row, exclude_cols=('Unit', 'MA')) \
+            .pipe(self.highlight_greater) \
+            .format(self.formats)
+
+class AvailHistory(QueryBase):
+    def __init__(self, d_rng, period_type='month', model='980%', minesite='FortHills'):
         super().__init__()
 
         self.view_cols.update(
@@ -758,21 +784,28 @@ class AvailRolling(QueryBase):
             model=model,
             minesite=minesite,
             d_upper=d_rng[1],
-            period_type='month',
-            ahs_active=1,
-            split_ahs=0)
+            period_type=period_type,
+            ahs_active=True,
+            split_ahs=False)
 
         sql = 'SELECT * FROM {}'.format(table_with_args(table='udfMASummaryTable', args=args))
         f.set_self(self, vars())
     
     def process_df(self, df):
-        df['Month'] = df.DateLower.dt.strftime('%Y-%m')
-        df = df[['Month', 'SumSMS', 'MA Target', 'MA', 'Target Hrs Variance', 'PA']]
+        if self.period_type == 'month':
+            days = 0
+            fmt = '%Y-%m'
+        else:
+            days = 7 # need to offset week so it ligns up with suncor's weeks
+            fmt = '%Y-Week %W'
+
+        df['Period'] = (df.DateLower + delta(days=days)).dt.strftime(fmt)
+        df = df[['Period', 'SumSMS', 'MA Target', 'MA', 'Target Hrs Variance', 'PA']]
         return df
     
     def update_style(self, style):
         return style \
-            .apply(st.highlight_greater, subset=['MA Target', 'MA', 'Target Hrs Variance'], axis=None) \
+            .apply(st.highlight_greater, subset=['MA', 'Target Hrs Variance'], axis=None, ma_target=style.data['MA Target']) \
             .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
 
 class AvailRawData(AvailBase):
@@ -795,14 +828,16 @@ class AvailRawData(AvailBase):
         super().set_fltr()
         self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
 
-    def update_style(self, style):
+    def update_style(self, style, theme='light'):
+
+        bg_color = 'white' if theme == 'light' else self.color['bg']['bgdark']
 
         style.set_table_attributes('class="pagebreak_table" style="font-size: 8px;"')
         
         col_widths = dict(StartDate=60, EndDate=60, Total=20, SMS=20, Suncor=20, Comment=150)
         col_widths.update({'Category Assigned': 80})
 
-        cmap = LinearSegmentedColormap.from_list('red_white', ['white', self.color['bg']['lightred']])
+        cmap = LinearSegmentedColormap.from_list('red_white', [bg_color, self.color['bg']['lightred']])
         return style \
             .background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None) \
             .apply(st.highlight_alternating, subset=['Unit']) \
@@ -838,7 +873,7 @@ class Availability(AvailRawData):
         if df.shape[0] <=0:
             return {}
 
-        style = df.style.pipe(self.update_style)
+        style = df.style.pipe(self.update_style, theme='dark')
         style._compute()
         return f.convert_stylemap_index(style=style)
  
@@ -915,7 +950,9 @@ class AvailShortfalls(AvailBase):
     
 def table_with_args(table, args):
     def fmt(arg):
-        if isinstance(arg, int):
+        if isinstance(arg, bool):
+            return f"'{arg}'"
+        elif isinstance(arg, int):
             return str(arg)
         else:
             return f"'{arg}'"
