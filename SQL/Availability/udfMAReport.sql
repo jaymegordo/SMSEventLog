@@ -30,7 +30,8 @@ SELECT
     ROUND(IIF(c.SMS IS NULL, 1, (d.HrsPeriod_MA - c.SMS) / d.HrsPeriod_MA), 4) SMS_MA,
     d.HrsPeriod_MA,
     ROUND(IIF(c.Total IS NULL, 1, (d.HrsPeriod_PA - c.Total) / d.HrsPeriod_PA), 4) PA,
-    d.HrsPeriod_PA
+    d.HrsPeriod_PA,
+    CASE WHEN d.AHSActive=1 THEN 'AHS' ELSE 'Staffed' END as Operation
 
 FROM (
     -- Join MA target table to get target MA for period based on unit age in months, and
@@ -73,5 +74,6 @@ WHERE
     d.MineSite = @MineSite AND
     d.Model Like @Model AND
     d.Active = 1;
+
 
 GO
