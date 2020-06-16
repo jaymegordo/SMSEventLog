@@ -152,6 +152,11 @@ def cursor_to_df(cursor):
 def isnum(val):
     return str(val).replace('.', '', 1).isdigit()
 
+def greeting():
+    val = 'Morning' if dt.now().time().hour < 12 else 'Afternoon'
+    return f'Good {val},<br><br>'
+
+    
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
     # https://github.com/pandas-dev/pandas/issues/23955

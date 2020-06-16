@@ -125,6 +125,10 @@ class InputForm(QDialog):
         else:
             layout.insertRow(index, label, boxLayout)
 
+    def accept_(self):
+        # always access the QT base accept
+        return super().accept()
+
     def accept(self):
         super().accept()
         self.items = self.get_items()

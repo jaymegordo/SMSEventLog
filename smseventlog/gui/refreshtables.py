@@ -116,7 +116,7 @@ class RefreshTable(InputForm):
     def accept(self):
         self.add_items_to_filter()
         self.parent.refresh()
-        super().accept()
+        return super().accept()
     
     def get_fltr(self):
         # get filter from parent table or just create default for testing
@@ -202,30 +202,30 @@ class Availability(RefreshTable):
         if fMonth.cb.isChecked():
             val = fMonth.get_val()
             df = self.df_month
-            rngtype = 'month'
+            period_type = 'month'
         elif fWeek.cb.isChecked():
             val = fWeek.get_val()
             df = self.df_week
-            rngtype = 'week'
+            period_type = 'week'
 
         d_rng = tuple(df.loc[val, col] for col in ('StartDate', 'EndDate'))
         name = df.loc[val, 'Name']
 
-        return d_rng, rngtype, name
+        return d_rng, period_type, name
 
     def accept(self):
         d_rng = self.get_rng()[0]
         self.parent.query.fltr.add(vals=dict(ShiftDate=d_rng), term='between')
-        self.close()
         self.parent.refresh()
+        return super().accept_()
 
 class AvailReport(Availability):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
     def accept(self):
-        self.close()
-        return self.get_rng()
+        self.d_rng, self.period_type, self.name = self.get_rng()
+        return super().accept_()
 
 
 

@@ -4,6 +4,7 @@ FilePaths:
     Import Unit Hours: Regional/SMS West Mining/SMS Event Log/Import/Unit Hours
     980E FH: Fort Hills/02. Equipment Files/1. 980E Trucks
     Factory Campaigns: Regional/SMS West Mining/Factory Campaigns
+    Availability: Regional/SMS West Mining/Availability/Reports
 
 Email: jgordon@smsequip.com
 
@@ -26,6 +27,7 @@ color:
         navyblue: '#244062'
         skyblue: '#91c3ff'
         orange: '#f08a37'
+        bgdark: '#19232D'
     text:
         goodgreen: '#006100'
         good: '#003961'
@@ -258,7 +260,7 @@ Headers:
         Duration: Duration
         SMS: SMS
         Suncor: Suncor
-        CategoryAssigned: CategoryAssigned
+        Category Assigned: CategoryAssigned
         DownReason: Reason
         Comment: Comment
         Assigned: Assigned

@@ -113,7 +113,7 @@ def chart_fleet_ma(df, title=None):
         legend=dict(y=-0.2),
         yaxis=dict(
             tickformat=',.0%',
-            range=[0.4,1]))
+            range=[0,1]))
 
     return fig
 
@@ -147,20 +147,20 @@ def chart_topdowns(df, title=None):
     
     return fig
 
-def chart_avail_rolling(df, period='Month', title=None):
+def chart_avail_rolling(df, period_type='month', title=None):
     if title is None:
-        title = f'12 {period} Rolling Availability vs Downtime Hours'
+        title = f'12 {period_type.title()} Rolling Availability vs Downtime Hours'
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     fig.add_trace(go.Bar(
         name = 'Hours',
-        x=df.Month,
+        x=df.Period,
         y=df.SumSMS,
         marker_color=color()['darkgrey']))
     
     fig.add_trace(go.Scatter(
         name='MA Target',
-        x=df.Month,
+        x=df.Period,
         y=df['MA Target'],
         yaxis='y2',
         mode='lines', 
@@ -171,7 +171,7 @@ def chart_avail_rolling(df, period='Month', title=None):
 
     fig.add_trace(go.Scatter(
         name='MA',
-        x=df.Month,
+        x=df.Period,
         y=df.MA,
         yaxis='y2',
         line=dict(  
@@ -180,7 +180,7 @@ def chart_avail_rolling(df, period='Month', title=None):
 
     fig.add_trace(go.Scatter(
         name='PA',
-        x=df.Month,
+        x=df.Period,
         y=df.PA,
         yaxis='y2',
         line=dict(  
@@ -202,6 +202,6 @@ def chart_avail_rolling(df, period='Month', title=None):
             range=[0,1],
             tickformat=',.0%'),
         xaxis_type='category',
-        legend=dict(y=-0.15))
+        legend=dict(y=-0.25))
 
     return fig
