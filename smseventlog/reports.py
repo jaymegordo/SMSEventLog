@@ -21,13 +21,13 @@ p_reports = Path(__file__).parents[1] / 'reports'
 
 
 class Report(object):
-    def __init__(self, d=None, d_rng=None):
+    def __init__(self, d=None, d_rng=None, **kw):
         # dict of {df_name: {func: func_definition, kw: **kw, df=None}}
-        dfs, charts, sections, exec_summary = {}, {}, {}, {}
+        dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
 
         if d is None: d = dt.now() + delta(days=-31)
         if d_rng is None: d_rng = qr.first_last_month(d=d)
-        d_rng_ytd = (dt(dt.now().year, 1, 1) , d_rng[1])
+        d_rng_ytd = (dt(dt.now().year, 1, 1).date(), d_rng[1])
 
         include_items = dict(
             title_page=False,
@@ -86,12 +86,18 @@ class Report(object):
             df, name = m['df'], m['name']
             df.to_csv(p_reports / f'saved/{name}.csv', index=False)
 
-    def style_df(self, name=None, df=None, query=None):
+    def style_df(self, name=None, df=None, query=None, outlook=False):
         if not name is None:
             df = self.get_df(name=name)
             query = self.get_query(name=name)
+            style_func = self.style_funcs.get(name, None)
 
         style = st.set_style(df)
+
+        # outlook can't use css nth-child selectors, have to do manually
+        if outlook:
+            subset = pd.IndexSlice[::2, :] # even rows, all cols
+            style = style.apply(st.alternating_rows_outlook, subset=subset, axis=None)
 
         # general number formats
         formats = {'Int64': '{:,}', 'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
@@ -102,6 +108,9 @@ class Report(object):
 
             if hasattr(query, 'update_style'):
                 style = query.update_style(style)
+
+        elif not style_func is None: # only needed for one df rn
+            style = style_func(style)
 
         style.format(m_fmt, na_rep='')
 
@@ -118,7 +127,7 @@ class Report(object):
         # render all charts from dfs, save as svg image
         for m in self.charts.values():
             df = self.dfs[m['name']]['df']
-            fig = m['func'](df=df, title=m['title'])
+            fig = m['func'](df=df, title=m['title'], **m['kw'])
 
             p = p_reports / 'images/{}.svg'.format(m['name'])
             m['path'] = str(p)
@@ -129,10 +138,10 @@ class Report(object):
         return [m['df'] for m in self.dfs.values() if not m['df'] is None]
     
     def get_df(self, name):
-        return self.dfs[name]['df']
+        return self.dfs[name].get('df', None)
 
     def get_query(self, name):
-        return self.dfs[name]['query']
+        return self.dfs[name].get('query', None)
     
     def create_pdf(self, p_base=None):
         self.render_dfs()
@@ -140,7 +149,6 @@ class Report(object):
         if hasattr(self, 'set_exec_summary'):
             self.set_exec_summary()
 
-        
         template = self.env.get_template('report_template.html')
 
         dfs_filtered = {k:v for k, v in self.dfs.items() if v['display']} # filter out non-display dfs
@@ -163,6 +171,8 @@ class Report(object):
         # save pdf
         p = p_base / f'{self.title}.pdf'
         HTML(string=html_out, base_url=str(p_reports)).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
+
+        return p
 
 class TestReport(Report):
     def __init__(self):
@@ -211,7 +221,8 @@ class TestReport(Report):
 class FleetMonthlyReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
         super().__init__(d=d)
-      
+
+        period_type = 'month'
         period = self.d_rng[0].strftime('%Y-%m')
         title = f'{minesite} Fleet Monthly Report - {period}'
         f.set_self(self, vars())
@@ -224,9 +235,7 @@ class FleetMonthlyReport(Report):
         gq = self.get_query
         ex = self.exec_summary
 
-        ex['Availability'] = gq('Fleet Availability').exec_summary()
-        ex['Availability'].update(gq('Fleet Availability YTD').exec_summary())
-        ex['Availability'].update(gq(self.sections['Availability'].name_topdowns).exec_summary())
+        self.sections['Availability'].set_exec_summary(ex=ex) # avail sets its own exec_summary
         
         ex['Components'] = gq('Component Changeout History').exec_summary()
 
@@ -240,7 +249,7 @@ class FleetMonthlyReport(Report):
             exec_summary=self.exec_summary)
 
         html_out = template.render(template_vars)
-        body = f'Good Afternoon,<br>{html_out}'
+        body = f'{f.greeting()}{html_out}'
         subject = self.title
 
         p = f.datafolder / 'csv/fleet_monthly_report_email.csv'
@@ -275,15 +284,20 @@ class MonthlySMRReport(Report):
         df.to_csv(p)
 
 class AvailabilityReport(Report):
-    def __init__(self, d_rng, name, rngtype='week', minesite='FortHills'):
+    def __init__(self, d_rng, name, period_type='week', minesite='FortHills'):
         super().__init__(d_rng=d_rng)
 
         # get correct weekly or monthly date range
             
-        title = f'Suncor Reconciliation Report - {minesite} - {rngtype.title()}ly - {name}'
+        title = f'Suncor Reconciliation Report - {minesite} - {period_type.title()}ly - {name}'
         f.set_self(self, vars())
 
         self.load_sections('AvailReport')
+        self.add_items(['title_page', 'exec_summary', 'table_contents'])
+    
+    def set_exec_summary(self):
+        ex = self.exec_summary
+        self.sections['Availability'].set_exec_summary(ex=ex)
 
 # REPORT SECTIONS
 class Section():
@@ -295,6 +309,10 @@ class Section():
         d_rng, d_rng_ytd, minesite = report.d_rng, report.d_rng_ytd, report.minesite
 
         f.set_self(self, vars())
+    
+    def add_subsections(self, sections):
+        for name in sections:
+            subsec = getattr(sys.modules[__name__], name)(section=self)
 
 class UnitSMR(Section):
     def __init__(self, report):
@@ -313,7 +331,7 @@ class Availability(Section):
         super().__init__(title='Availability', report=report)
 
         n = 10
-        d_rng, d_rng_ytd, ms = self.d_rng, self.d_rng_ytd, self.minesite
+        d_rng, d_rng_ytd, ms, period_type = self.d_rng, self.d_rng_ytd, self.minesite, self.report.period_type
 
         summary = qr.AvailSummary(d_rng=d_rng)
         summary_ytd = qr.AvailSummary(d_rng=d_rng_ytd)
@@ -325,6 +343,11 @@ class Availability(Section):
                 name='Fleet Availability YTD', 
                 query=summary_ytd, 
                 display=False) \
+            .add_df(
+                name='Summary Totals',
+                caption='Totals for units in Staffed vs AHS operation.',
+                func=summary.df_totals,
+                style_func=summary.style_totals) \
             .add_chart(
                 func=ch.chart_fleet_ma,
                 caption='Unit mechanical availabilty performance vs MA target (report period).') \
@@ -360,15 +383,17 @@ class Availability(Section):
                 title=name_topdowns_ytd, 
                 linked=True)
 
+        # needs to be subsec so can be weekly/monthly
         sec = SubSection('Availability History', self) \
             .add_df(
-                query=qr.AvailRolling(d_rng=d_rng), 
+                query=qr.AvailHistory(d_rng=d_rng, period_type=period_type), 
                 has_chart=False,
-                caption='12 month rolling availability performance vs targets.') \
+                caption=f'12 {period_type} rolling availability performance vs targets.') \
             .add_chart(
                 func=ch.chart_avail_rolling,
                 linked=False,
-                caption='12 month rolling availability vs downtime hours.')
+                caption=f'12 {period_type} rolling availability vs downtime hours.',
+                kw=dict(period_type=period_type))
         sec.force_pb = True
 
         sec = SubSection('MA Shortfalls', self) \
@@ -377,11 +402,19 @@ class Availability(Section):
                 caption='Detailed description of major downtime events (>12 hrs) for units which did not meet MA target.')
         
         f.set_self(self, vars())
+    
+    def set_exec_summary(self, ex):
+        gq, m = self.report.get_query, {}
+        
+        m.update(gq('Fleet Availability').exec_summary())
+        m.update(gq('Fleet Availability YTD').exec_summary())
+        m.update(gq(self.name_topdowns).exec_summary())
+
+        ex['Availability'] = m
 
 class AvailReport(Availability):
     def __init__(self, report):
         super().__init__(report)
-        print(self.d_rng)
 
         sec = SubSection('Raw Data', self) \
             .add_df(
@@ -442,23 +475,25 @@ class SubSection():
         force_pb = False
         f.set_self(self, vars())
 
-    def add_df(self, name=None, func=None, query=None, kw={}, display=True, has_chart=False, caption=None):
+    def add_df(self, name=None, func=None, query=None, kw={}, display=True, has_chart=False, caption=None, style_func=None):
         if name is None:
             name = self.title
 
         self.report.dfs[name] = dict(name=name, func=func, query=query, kw=kw, df=None, df_html=None, display=display, has_chart=has_chart)
+
+        self.report.style_funcs.update({name: style_func})
 
         if display:
             self.elements.append(dict(name=name, type='df', caption=caption))
         
         return self
     
-    def add_chart(self, func, name=None, linked=False, title=None, caption=None):
+    def add_chart(self, func, name=None, linked=False, title=None, caption=None, kw={}):
         if name is None:
             name = self.title
         
         # pass name of existing df AND chart function
-        self.report.charts[name] = dict(name=name, func=func, path='', title=title)
+        self.report.charts[name] = dict(name=name, func=func, path='', title=title, kw=kw)
 
         # don't add to its own section if linked to display beside a df
         if not linked:

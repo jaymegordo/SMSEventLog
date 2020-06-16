@@ -9,6 +9,7 @@ from . import dialogs as dlgs
 from .. import emails as em
 from .. import queries as qr
 from .. import styles as st
+from .. import functions as f
 
 log = logging.getLogger(__name__)
 
@@ -758,8 +759,10 @@ class EmailList(TableWidget):
 class Availability(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        self.report = None
 
         self.add_action(name='Create Report', func=self.create_report, btn=True)
+        self.add_action(name='Email Report', func=self.email_report, btn=True)
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
         self.add_action(name='Filter Assigned', func=self.filter_assigned, shortcut='Ctrl+Shift+A', btn=True)
         self.add_action(name='Save Assignments', func=self.save_assignments, btn=True)
@@ -774,7 +777,7 @@ class Availability(TableWidget):
             self.datetime_cols = ('StartDate', 'EndDate')
             self.col_widths.update(dict(Comment=600))
             self.highlight_funcs['Unit'] = self.highlight_alternating
-            self.add_highlight_funcs(cols=['CategoryAssigned', 'Assigned'], func=self.highlight_by_val)
+            self.add_highlight_funcs(cols=['Category Assigned', 'Assigned'], func=self.highlight_by_val)
             self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
             self.formats.update({
@@ -785,7 +788,7 @@ class Availability(TableWidget):
             # TODO move this to an after_init, first time tab selected
             p = f.datafolder / 'csv/avail_resp.csv'
             df = pd.read_csv(p)
-            self.set_combo_delegate(col='CategoryAssigned', items=f.clean_series(s=df.CategoryAssigned))
+            self.set_combo_delegate(col='Category Assigned', items=f.clean_series(s=df['Category Assigned']))
 
             self.highlight_vals.update({
                 's1 service': 'lightyellow',
@@ -815,11 +818,12 @@ class Availability(TableWidget):
             update_val = duration - val
             model.setData(index=update_index, val=update_val, triggers=False)
 
-    def get_email_list(self):
+    def get_email_list(self, email_type='Daily'):
         # get email list from csv
         p = f.datafolder / 'csv/avail_email.csv'
         df2 = pd.read_csv(p)
-        return list(df2[df2.Daily==1].Email)
+        
+        return list(df2[df2[email_type]==1].Email)
 
     def email_table(self):
         super().email_table(email_list=self.get_email_list())
@@ -839,7 +843,7 @@ class Availability(TableWidget):
 
         subject = f'Downtime Assignment | {dates}'
 
-        body = f'Good Morning,<br><br>See below for current downtime assignments. Please correct and respond with any updates as necessary.'
+        body = f'{f.greeting()}See below for current downtime assignments. Please correct and respond with any updates as necessary.'
 
         # p = f.topfolder.parent / 'avail.html'
         # with open(str(p), 'w+') as file:
@@ -849,7 +853,7 @@ class Availability(TableWidget):
         
     def save_assignments(self):
         model = self.view.model()
-        cols = ['Duration', 'SMS', 'Suncor', 'CategoryAssigned', 'Comment']
+        cols = ['Duration', 'SMS', 'Suncor', 'Category Assigned', 'Comment']
         txn = el.DBTransaction(table_model=model, update_cols=cols)
         
         df = model.df
@@ -895,15 +899,65 @@ class Availability(TableWidget):
         table_widget.view.model().filter_by_items(col='Unit', items=[unit])
         tabs.activate_tab(title)
 
+    def get_report_base(self, period_type):
+        return Path(f.drive / f.config['FilePaths']['Availability'] / f'{self.minesite}/{period_type.title()}ly')
+
+    def get_report_name(self, period_type, name):
+        return f'Suncor Reconciliation Report - {self.minesite} - {period_type.title()}ly - {name}'
+    
+    def get_report_path(self, p_base, name):
+        return p_base / f'{name}.pdf'
+    
     def create_report(self):
         # show menu to select period
         from .refreshtables import AvailReport
         from ..reports import AvailabilityReport
+
         dlg = AvailReport(parent=self)
-        d_rng, rngtype, name = dlg.exec_()
+        if not dlg.exec_(): return
 
-        rep = AvailabilityReport(d_rng=d_rng, rngtype=rngtype, name=name)
+        rep = AvailabilityReport(d_rng=dlg.d_rng, period_type=dlg.period_type, name=dlg.name)
+        rep.load_all_dfs()
 
+        p_base = self.get_report_base(dlg.period_type)
+        p = rep.create_pdf(p_base=p_base)
+        self.report = rep
+
+        fl.open_folder(p)
+
+        msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            self.email_report(period_type=dlg.period_type, p_rep=p, name=dlg.name)
+        
+    def email_report(self, period_type=None, p_rep=None, name=None):
+        from .refreshtables import AvailReport
+        title = self.get_report_name(period_type, name)
+        
+        if period_type is None:
+            dlg = AvailReport(parent=self)
+            d_rng, period_type, name = dlg.exec_()
+        
+        if p_rep is None:
+            p_rep = self.get_report_path(p_base=self.get_report_base(period_type), name=name)
+
+        body = f'{f.greeting()}See attached report for availability {name}.'
+
+        if not self.report is None:
+            rep = self.report
+            style1 = rep.style_df('Fleet Availability', outlook=True).hide_index().render()
+            style2 = rep.style_df('Summary Totals', outlook=True).hide_index().render()
+
+            template = rep.env.get_template('exec_summary_template.html')
+            template_vars = dict(
+                exec_summary=rep.exec_summary)
+
+            html_exec = template.render(template_vars)
+
+            body = f'{body}<br>{html_exec}<br>{style1}<br><br>{style2}'
+
+        msg = em.Message(subject=title, body=body, to_recip=self.get_email_list('Reports'), show_=False)
+        msg.add_attachment(p_rep)
+        msg.show()
 
 
 # FILTER MENU
