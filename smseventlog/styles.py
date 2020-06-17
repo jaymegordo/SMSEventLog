@@ -33,10 +33,16 @@ def alternating_rows(style):
     
     return style.pipe(apply_style, s)
 
-def alternating_rows_outlook(df):
+def alternating_rows_outlook(style, outlook=True):
     # highlight all cells background color grey
-    # pass in pd.IndexSlice with alternating rows > subset = pd.IndexSlice[::2, :]
-    return pd.DataFrame(data='background-color: #E4E4E4;', index=df.index, columns=df.columns)
+    if outlook:
+        style = style.apply(
+            lambda df: pd.DataFrame(data='background-color: #E4E4E4;', index=df.index, columns=df.columns), 
+            subset=pd.IndexSlice[::2, :],
+            axis=None)
+
+    return style
+
 
 def apply_style(style, s):
     if not style.table_styles is None:
@@ -69,7 +75,7 @@ def set_column_widths(style, vals, hidden_index=True):
     
     return style.pipe(apply_style, s)
 
-def set_style(df):
+def set_style(df, outlook=False):
     # Dataframe general column alignment/number formatting
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
     df[cols] = df[cols].replace('\n', '<br>', regex=True)
@@ -98,6 +104,7 @@ def set_style(df):
         .format(lambda x: '{:,.0f}'.format(x) if x > 1e3 else '{:,.2f}'.format(x), # default number format
                     subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
         .pipe(apply_style, s) \
+        .pipe(alternating_rows_outlook, outlook=outlook) \
         .set_table_attributes('style="border-collapse: collapse";') \
         .set_na_rep('')
     
