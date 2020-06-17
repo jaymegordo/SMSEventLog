@@ -5,9 +5,10 @@ from .__init__ import *
 
 class TableModel(QAbstractTableModel):
     RawDataRole = 64
-    RawIndexRole = 65
+    NameIndexRole = 65
     DateRole = 66
     RawBackgroundRole = 67
+    iIndexRole = 68
 
     def __init__(self, parent, df=None):
         super().__init__()
@@ -123,7 +124,7 @@ class TableModel(QAbstractTableModel):
         # print(df.columns)
         rows = []
         for row_name in df.index:
-            rows.append(tuple(self.data(raw_index_names=(row_name, col_name), role=Qt.BackgroundRole) for col_name in df.columns))
+            rows.append(tuple(self.data(name_index=(row_name, col_name), role=Qt.BackgroundRole) for col_name in df.columns))
 
         df = pd.DataFrame(data=rows, columns=df.columns, index=df.index)
         # print(df.shape, df.tail())
@@ -142,7 +143,7 @@ class TableModel(QAbstractTableModel):
         
         return df
 
-    def data(self, index=None, role=RawDataRole, raw_index=None, raw_index_names=None):
+    def data(self, index=None, role=RawDataRole, i_index=None, name_index=None):
         # TableView asks the model for data to display, edit, paint etc
         # convert index integer values to index names for df._get_value() > fastest lookup
         # TODO create 'display' dataframe of all string values, 'background df' etc
@@ -151,18 +152,21 @@ class TableModel(QAbstractTableModel):
 
         if not index is None and index.isValid():
             irow, icol = self.getRowCol(index)
-        elif not raw_index is None:
-            irow, icol = raw_index[0], raw_index[1]
-        elif not raw_index_names is None:
-            row, col = raw_index_names[0], raw_index_names[1]
+        elif not i_index is None:
+            irow, icol = i_index[0], i_index[1]
+        elif not name_index is None:
+            row, col = name_index[0], name_index[1]
         else:
             return None
 
         if col is None:
             row, col = df.index[irow], df.columns[icol]
 
-        val = df._get_value(row, col)
-
+        try:
+            val = df._get_value(row, col)
+        except KeyError:
+            return None
+        
         if role == Qt.DisplayRole:
             if not pd.isnull(val):
                 fmt = self.parent.formats.get(col, None)
@@ -201,8 +205,14 @@ class TableModel(QAbstractTableModel):
                     color = style_vals[1]
                 return QColor(color.split(' ')[1])
 
-        elif role == self.RawIndexRole:
+        # return named row/col index for use with df.loc
+        elif role == self.NameIndexRole:
             return (row, col)
+        
+        elif role == self.iIndexRole:
+            if irow is None:
+                irow, icol = df.index.get_loc(row), df.columns.get_loc(col)
+            return (irow, icol)
 
         return None
 
@@ -213,7 +223,7 @@ class TableModel(QAbstractTableModel):
             try:
                 if role == Qt.EditRole:
                     irow, icol = self.getRowCol(index)
-                    row, col = index.data(role=self.RawIndexRole)
+                    row, col = index.data(role=self.NameIndexRole)
                     df = self.df
 
                     dtype = str(df.dtypes[icol]).lower()

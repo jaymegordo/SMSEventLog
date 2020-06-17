@@ -1,6 +1,6 @@
 import qdarkstyle
 from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QEvent, QFile,
-                          QModelIndex, QObject, QPoint, QSettings, QSize, Qt,
+                          QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, QSettings, QSize, Qt,
                           QTextStream, QTimer, QVariant, pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QIntValidator,
                          QKeyEvent, QKeySequence, QTextCursor)
