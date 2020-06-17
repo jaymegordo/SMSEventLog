@@ -128,6 +128,7 @@ class MainWindow(QMainWindow):
         file_ = bar.addMenu('File')
         file_.addAction('New item')
         file_.addAction(self.act_refresh)
+        file_.addAction(self.act_prev_tab)
         file_.addAction(self.act_change_minesite)
         file_.addAction(self.act_viewfolder)
 
@@ -152,6 +153,9 @@ class MainWindow(QMainWindow):
 
         act_refresh = QAction('Refresh Menu', self, triggered=self.show_refresh)
         act_refresh.setShortcut(QKeySequence('Ctrl+R'))
+
+        act_prev_tab = QAction('Previous Tab', self, triggered=lambda: self.tabs.activate_previous())
+        act_prev_tab.setShortcut(QKeySequence('Meta+Tab'))
 
         act_change_minesite = QAction('Change MineSite', self, triggered=self.show_changeminesite)
         act_change_minesite.setShortcut(QKeySequence('Ctrl+Shift+M'))
@@ -243,7 +247,7 @@ class MainWindow(QMainWindow):
 
 class TabWidget(QTabWidget):
     def __init__(self, parent):
-        super(QTabWidget, self).__init__(parent)
+        super().__init__(parent=parent)
         self.tabindex = dd(int)
         
         m = f.config['TableName']['Class'] # get list of table classes from config
@@ -255,6 +259,8 @@ class TabWidget(QTabWidget):
             self.tabindex[m[title]] = i
         
         self.currentChanged.connect(self.save_activetab)
+        self.prev_index = self.currentIndex()
+        self.current_index = self.prev_index
 
     def get_index(self, title):
         return self.tabindex[title]
@@ -270,6 +276,13 @@ class TabWidget(QTabWidget):
     def save_activetab(self, *args):
         s = self.parent().settings
         s.setValue('active table', self.currentWidget().title)
+        
+        # keep track of previous indexes for ctrl+tab to revert
+        self.prev_index = self.current_index
+        self.current_index = self.currentIndex()
+    
+    def activate_previous(self):
+        self.setCurrentIndex(self.prev_index)
 
 
 def get_mainwindow():
