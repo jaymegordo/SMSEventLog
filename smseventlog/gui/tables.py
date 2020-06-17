@@ -640,7 +640,9 @@ class TSI(EventLogBase):
         
         d = e.DateAdded.strftime('%-m/%-d/%Y')
 
-        form_vals = {
+        field_vals = {
+            'Failure Date': d,
+            'Repair Date': d,
             'Failure SMR': e.SMR,
             'Hours On Parts': e.ComponentSMR,
             'Serial': e.SNRemoved,
@@ -648,17 +650,26 @@ class TSI(EventLogBase):
             'Part Name': e.TSIPartName,
             'New Part Serial': e.SNInstalled,
             'Work Order': e.WorkOrder,
-            'Complaint': e.TSIDetails,
-            'Failure Date': d,
-            'Repair Date': d}
+            'Complaint': e.TSIDetails}
         
-        tsi = web.TSIWebPage(form_vals=form_vals, serial=e2.Serial, model=e2.Model)
-        tsi.open_tsi()
+        driver = self.driver if hasattr(self, 'driver') else None
+
+        msg = 'Would you like to save the TSI after it is created?'
+        save_tsi = True if dlgs.msgbox(msg=msg, yesno=True) else False
+            
+        tsi = web.TSIWebPage(field_vals=field_vals, serial=e2.Serial, model=e2.Model, _driver=driver)
+        tsi.open_tsi(save_tsi=save_tsi)
+        self.driver = tsi.get_driver()
 
         # fill tsi number back to current row
-        index = view.create_index_activerow(col_name='TSI No')
-        view.model().setData(index=index, val=tsi.tsi_number)
-        dlgs.msg_simple(msg=f'New TSI created: {tsi.tsi_number}')
+        if not tsi.tsi_number is None:
+            index = view.create_index_activerow(col_name='TSI No')
+            view.model().setData(index=index, val=tsi.tsi_number)
+            tsi_number = tsi.tsi_number
+        else:
+            tsi_number = '(not saved)'
+
+        dlgs.msg_simple(msg=f'New TSI created: {tsi_number}')
 
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
@@ -928,6 +939,10 @@ class Availability(TableWidget):
         title = 'Event Log'
         tabs = self.mainwindow.tabs
         table_widget = tabs.get_widget(title)
+
+        if table_widget.view.model().rowCount() == 0:
+            table_widget.refresh_lastmonth(default=True)
+
         table_widget.view.model().filter_by_items(col='Unit', items=[unit])
         tabs.activate_tab(title)
 
