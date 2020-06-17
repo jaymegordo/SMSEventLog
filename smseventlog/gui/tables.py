@@ -301,11 +301,13 @@ class TableView(QTableView):
 
         menu.exec_(self.mapToGlobal(pos))
 
-    def create_index_activerow(self, col_name, irow=None):
+    def create_index_activerow(self, col_name=None, irow=None):
         # create QModelIndex from currently selected row
         model = self.model()
         if irow is None:
             irow = self.active_row_index()
+        if col_name is None:
+            icol = self.selectionModel().selectedColumns()
         return model.createIndex(irow, model.get_column_idx(col_name))
 
     def active_row_index(self):
@@ -330,6 +332,25 @@ class TableView(QTableView):
         i = self.active_row_index()
         if i is None: return
         return self.model().df.iloc[[i]]
+    
+    def nameindex_from_activerow(self):
+        index = self.selectionModel().currentIndex()
+        
+        if index.isValid():
+            return self.model().data(index=index, role=TableModel.NameIndexRole)
+
+    def select_by_nameindex(self, name_index):
+        # used to reselect items by named index after model is sorted/filtered
+        model = self.model()
+        # convert name_index to i_index
+        i_index = model.data(name_index=name_index, role=TableModel.iIndexRole)
+        if i_index is None:
+            i_index = (0, 0)
+
+        index = model.createIndex(*i_index)
+        sel = QItemSelection(index, index)
+        self.selectionModel().select(sel, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
+        self.selectionModel().setCurrentIndex(index, QItemSelectionModel.Current) # make new index 'active'
 
     def copy(self):
         """Copy selected cells into copy-buffer"""
@@ -874,14 +895,20 @@ class Availability(TableWidget):
         dlgs.msg_simple(msg='Records updated.')
     
     def filter_assigned(self):
+        # filter unassigned items out or back into table
         model = self.view.model()
-        
+        name_index = self.view.nameindex_from_activerow() # TODO probably connect this to a signal so can use other places
+
         if not hasattr(self, 'filter_state') or not self.filter_state:
             model.filter_by_items(col='Assigned', items=[str(0)])
             self.filter_state = True
+            
         else:
             model.reset()
             self.filter_state = False
+
+        if not name_index is None:
+            self.view.select_by_nameindex(name_index=name_index)
     
     def assign_suncor(self):
         # func ctrl+shift+Z to auto assign suncor
@@ -940,7 +967,8 @@ class Availability(TableWidget):
         
         if period_type is None:
             dlg = AvailReport(parent=self)
-            d_rng, period_type, name = dlg.exec_()
+            if not dlg.exec_(): return
+            d_rng, period_type, name = dlg.d_rng, dlg.period_type, dlg.name
         
         if p_rep is None:
             p_rep = self.get_report_path(p_base=self.get_report_base(period_type), name=name)
