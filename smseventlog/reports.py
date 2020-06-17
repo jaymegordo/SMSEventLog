@@ -18,8 +18,6 @@ p_reports = Path(__file__).parents[1] / 'reports'
 
 # TODO auto email w/ email lists
 
-
-
 class Report(object):
     def __init__(self, d=None, d_rng=None, **kw):
         # dict of {df_name: {func: func_definition, kw: **kw, df=None}}
@@ -27,6 +25,11 @@ class Report(object):
 
         if d is None: d = dt.now() + delta(days=-31)
         if d_rng is None: d_rng = qr.first_last_month(d=d)
+
+        # make sure everything is date not datetime
+        if isinstance(d_rng[0], dt):
+            d_rng = (d_rng[0].date(), d_rng[1].date())
+            
         d_rng_ytd = (dt(dt.now().year, 1, 1).date(), d_rng[1])
 
         include_items = dict(
@@ -96,8 +99,7 @@ class Report(object):
 
         # outlook can't use css nth-child selectors, have to do manually
         if outlook:
-            subset = pd.IndexSlice[::2, :] # even rows, all cols
-            style = style.apply(st.alternating_rows_outlook, subset=subset, axis=None)
+            style = style.pipe(st.alternating_rows_outlook)
 
         # general number formats
         formats = {'Int64': '{:,}', 'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
@@ -152,9 +154,10 @@ class Report(object):
         template = self.env.get_template('report_template.html')
 
         dfs_filtered = {k:v for k, v in self.dfs.items() if v['display']} # filter out non-display dfs
-
+        print(self.d_rng)
         template_vars = dict(
             exec_summary=self.exec_summary,
+            d_rng=self.d_rng,
             title=self.title,
             sections=self.sections,
             dfs=dfs_filtered,
@@ -290,7 +293,7 @@ class AvailabilityReport(Report):
         # get correct weekly or monthly date range
             
         title = f'Suncor Reconciliation Report - {minesite} - {period_type.title()}ly - {name}'
-        f.set_self(self, vars())
+        f.set_self(self, vars(), exclude='d_rng')
 
         self.load_sections('AvailReport')
         self.add_items(['title_page', 'exec_summary', 'table_contents'])

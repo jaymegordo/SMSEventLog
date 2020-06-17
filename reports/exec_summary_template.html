@@ -1,6 +1,7 @@
 {% block exec_summary_block %}
 <div>
     <h2>Executive Summary</h2>
+    <p>Report period: {{ d_rng[0] }} - {{ d_rng[1] }}</p>
 
     <ol class="level_1_list">
     {% for name, level_2 in exec_summary.items() %}

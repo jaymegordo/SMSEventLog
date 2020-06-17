@@ -639,7 +639,7 @@ class AvailTopDowns(AvailBase):
 
     def exec_summary(self):
         m, m2 = {}, {}
-        df = self.df
+        df = self.df.sort_values(by='SMS', ascending=False).reset_index()
 
         for i in range(3):
             m2[df.loc[i, 'Category']] = '{:,.0f} hrs, {:.1%}'.format(df.loc[i, 'SMS'], df.loc[i, 'SMS %'])
@@ -828,18 +828,20 @@ class AvailRawData(AvailBase):
         super().set_fltr()
         self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
 
-    def update_style(self, style, theme='light'):
-
+    def background_gradient(self, style, theme):
         bg_color = 'white' if theme == 'light' else self.color['bg']['bgdark']
+        cmap = LinearSegmentedColormap.from_list('red_white', [bg_color, self.color['bg']['lightred']])
+        return style.background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None)
+
+    def update_style(self, style, theme='light'):
 
         style.set_table_attributes('class="pagebreak_table" style="font-size: 8px;"')
         
         col_widths = dict(StartDate=60, EndDate=60, Total=20, SMS=20, Suncor=20, Comment=150)
         col_widths.update({'Category Assigned': 80})
 
-        cmap = LinearSegmentedColormap.from_list('red_white', [bg_color, self.color['bg']['lightred']])
         return style \
-            .background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None) \
+            .pipe(self.background_gradient, theme=theme) \
             .apply(st.highlight_alternating, subset=['Unit']) \
             .pipe(st.set_column_widths, vals=col_widths) \
             .hide_columns(['DownReason'])
@@ -866,7 +868,7 @@ class Availability(AvailRawData):
     def set_allopen(self):
         self.set_minesite()
         self.fltr.add(ct=self.ct_allopen)
-        self.fltr.add(vals=dict(Total=0.01), opr=op.gt)
+        # self.fltr.add(vals=dict(Duration=0.01), opr=op.gt)
 
     def get_stylemap(self, df):
         # convert irow, icol stylemap to indexes

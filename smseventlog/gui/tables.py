@@ -170,12 +170,12 @@ class TableView(QTableView):
 
         return
 
-    def get_style(self, df=None):
+    def get_style(self, df=None, outlook=False):
         model = self.model()
         if df is None:
             df = model.df
         
-        style = st.set_style(df=df) \
+        style = st.set_style(df=df, outlook=outlook) \
             .apply(model.get_background_colors_from_df, axis=None) \
             .format(self.formats)
 
@@ -183,9 +183,9 @@ class TableView(QTableView):
         s.append(dict(
             selector='table',
             props=[('border', '1px solid black')]))
-        s.append(dict(
-            selector='tr:nth-child(even)',
-            props=[('background-color', f.config['color']['bg']['greyrow'])])) 
+        # s.append(dict(
+        #     selector='tr:nth-child(even)',
+        #     props=[('background-color', f.config['color']['bg']['greyrow'])])) 
         style.table_styles.extend(s)
         return style
 
@@ -494,15 +494,17 @@ class TableWidget(QWidget):
 
     def email_table(self, subject='', body='', email_list=[], df=None):
         # TODO optional show table vs just excel file, consider temp files too
-        style = self.view.get_style(df=df)
+        style = self.view.get_style(df=df, outlook=True)
 
         msg_ = 'Include table in email body?'
         style_body = ''
         if dlgs.msgbox(msg=msg_, yesno=True):
-            style_body = style.hide_index().render()
+            style_body = style \
+                .pipe(self.query.background_gradient, theme='light') \
+                .hide_index().render()
 
         body = f'{body}<br><br>{style_body}' # add in table to body msg
-        
+
         # show new email
         msg = em.Message(subject=subject, body=body, to_recip=email_list, show_=False)
         
@@ -781,7 +783,7 @@ class Availability(TableWidget):
             self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
             self.formats.update({
-                'Duration': '{:,.2f}',
+                'Total': '{:,.2f}',
                 'SMS': '{:,.2f}',
                 'Suncor': '{:,.2f}'})
 
@@ -797,8 +799,8 @@ class Availability(TableWidget):
                 '0': 'greyrow',
                 'collecting info': 'lightyellow'})
 
-        def get_style(self, df=None):
-            return super().get_style(df=df) \
+        def get_style(self, df=None, outlook=False):
+            return super().get_style(df=df, outlook=outlook) \
                 .pipe(st.set_column_widths, vals=dict(StartDate=300, EndDate=300))
 
         def update_duration(self, index):
@@ -806,7 +808,7 @@ class Availability(TableWidget):
             model = index.model()
             col_name = model.headerData(i=index.column())
 
-            duration = model.df.iloc[index.row(), model.get_column_idx('Duration')]
+            duration = model.df.iloc[index.row(), model.get_column_idx('Total')]
             val = index.data(role=TableModel.RawDataRole)
 
             if col_name == 'SMS':
@@ -826,12 +828,15 @@ class Availability(TableWidget):
         return list(df2[df2[email_type]==1].Email)
 
     def email_table(self):
-        super().email_table(email_list=self.get_email_list())
+        self.email_assignments(filter_assignments=False)
 
-    def email_assignments(self):
+    def email_assignments(self, filter_assignments=True):
         model = self.view.model()
         df = model.df
-        df = df[df.Assigned==0].iloc[:, :-1]
+        if filter_assignments:
+            df = df[df.Assigned==0]
+
+        df = df.iloc[:, :-1]
 
         s = df.ShiftDate
         fmt = '%Y-%m-%d'
@@ -853,7 +858,7 @@ class Availability(TableWidget):
         
     def save_assignments(self):
         model = self.view.model()
-        cols = ['Duration', 'SMS', 'Suncor', 'Category Assigned', 'Comment']
+        cols = ['Total', 'SMS', 'Suncor', 'Category Assigned', 'Comment']
         txn = el.DBTransaction(table_model=model, update_cols=cols)
         
         df = model.df
@@ -885,7 +890,7 @@ class Availability(TableWidget):
         model = view.model()
 
         index = view.create_index_activerow(col_name='Suncor')
-        duration = model.df.iloc[index.row(), model.get_column_idx('Duration')]
+        duration = model.df.iloc[index.row(), model.get_column_idx('Total')]
         model.setData(index=index, val=duration)
     
     def filter_unit_eventlog(self):
@@ -949,7 +954,8 @@ class Availability(TableWidget):
 
             template = rep.env.get_template('exec_summary_template.html')
             template_vars = dict(
-                exec_summary=rep.exec_summary)
+                exec_summary=rep.exec_summary,
+                d_rng=rep.d_rng)
 
             html_exec = template.render(template_vars)
 

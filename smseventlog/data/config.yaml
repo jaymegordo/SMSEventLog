@@ -27,7 +27,7 @@ color:
         navyblue: '#244062'
         skyblue: '#91c3ff'
         orange: '#f08a37'
-        bgdark: '#19232D'
+        bgdark: '#19232d'
     text:
         goodgreen: '#006100'
         good: '#003961'
@@ -257,7 +257,7 @@ Headers:
         ShiftDate: ShiftDate
         StartDate: StartDate
         EndDate: EndDate
-        Duration: Duration
+        Total: Duration
         SMS: SMS
         Suncor: Suncor
         Category Assigned: CategoryAssigned
