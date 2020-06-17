@@ -216,47 +216,46 @@ class TableModel(QAbstractTableModel):
 
         return None
 
+    @e
     def setData(self, index, val, role=Qt.EditRole, triggers=True):
         # TODO Check if text has changed, don't commit
         # TODO queue updates in batch!!
-        if index.isValid():
-            try:
-                if role == Qt.EditRole:
-                    irow, icol = self.getRowCol(index)
-                    row, col = index.data(role=self.NameIndexRole)
-                    df = self.df
+        if not index.isValid(): return False
 
-                    dtype = str(df.dtypes[icol]).lower()
-                    # TODO build a better dict to convert all these.. need to work with datetime delegate
-                    # m = {'datetime64[ns]': '')
+        if role == Qt.EditRole:
+            irow, icol = self.getRowCol(index)
+            row, col = index.data(role=self.NameIndexRole)
+            df = self.df
 
-                    if dtype in ('float64', 'int64') and not f.isnum(val):
-                        val = None
-                    else:
-                        if dtype == 'object':
-                            val = str(val)
-                        elif dtype == 'float64':
-                            val = float(val)
-                        elif dtype == 'int64':
-                            val = int(val)
+            dtype = str(df.dtypes[icol]).lower()
+            # TODO build a better dict to convert all these.. need to work with datetime delegate
+            # m = {'datetime64[ns]': '')
 
-                    df.loc[row, col] = val
+            if dtype in ('float64', 'int64') and not f.isnum(val):
+                val = None
+            else:
+                if dtype == 'object':
+                    val = str(val)
+                elif dtype == 'float64':
+                    val = float(val)
+                elif dtype == 'int64':
+                    val = int(val)
 
-                    # keep original df copy in sync for future filtering
-                    self._df_orig.loc[row, col] = val
+            df.loc[row, col] = val
 
-                    self.update_db(index=index, val=val)
-                    self.dataChanged.emit(index, index)
+            # keep original df copy in sync for future filtering
+            self._df_orig.loc[row, col] = val
 
-                    # stop other funcs from updating in a loop
-                    if triggers:
-                        func = self.parent.col_func_triggers.get(col, None)
-                        if not func is None:
-                            func(index=index)
-                    
-                    return True
-            except:
-                f.send_error(msg=f'Couldn\'t update data in model: {val}')
+            self.update_db(index=index, val=val)
+            self.dataChanged.emit(index, index)
+
+            # stop other funcs from updating in a loop
+            if triggers:
+                func = self.parent.col_func_triggers.get(col, None)
+                if not func is None:
+                    func(index=index)
+            
+            return True
         
         return False
 
