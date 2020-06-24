@@ -1,8 +1,11 @@
+import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from . import functions as f
 import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+from plotly.subplots import make_subplots
+
+from . import functions as f
 
 
 def pct(x):
@@ -204,4 +207,56 @@ def chart_avail_rolling(df, period_type='month', title=None):
         xaxis_type='category',
         legend=dict(y=-0.25))
 
+    return fig
+
+def chart_frame_cracks(df, smr_bin=False, **kw):
+    fig = go.Figure()
+    i = -1
+    # colors = px.colors.sequential.deep
+    colors = px.colors.qualitative.Prism
+    # colors = px.colors.cyclical.Edge
+
+    if smr_bin:
+        from operator import attrgetter
+
+        x = 'SMR tick'
+        df[x] = df['SMR Bin'].apply(attrgetter('right')) # need for sorting
+        t = 'SMR Range'
+        s = df['SMR Bin']
+        xaxis = dict(
+            ticktext=s.astype(str),
+            tickvals=df[x])
+    else:
+        df.Month = df.Month.apply(pd.Period.to_timestamp)
+        xaxis = dict(
+            type='date',
+            tickformat='%Y-%m',
+            dtick='M1')
+        x = 'Month'
+        t = 'Monthly'
+
+    for item in sorted(df.Location.unique()):
+        i += 1
+        df2 = df[df.Location==item]
+        fig.add_trace(go.Bar(
+            name=item,
+            x=df2[x],
+            y=df2.Count,
+            marker_color=colors[i],
+            text=df2.Count,
+            textposition='auto',
+            textfont_size=8,
+            textangle=0))
+
+    update_fig(fig, title=f'Frame Cracks ({t}) - 2018-01 - 2020-06')
+
+    fig.update_layout(
+        height=400,
+        width=800,
+        template='plotly',
+        legend_orientation='v',
+        barmode='stack',
+        xaxis_tickangle=-90,
+        xaxis=xaxis)
+    
     return fig
