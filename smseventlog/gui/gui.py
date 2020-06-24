@@ -111,6 +111,43 @@ class MainWindow(QMainWindow):
         self.username = username
         print(f'setting username: {self.username}')
 
+    def set_tsi_username(self):
+        dlg = dlgs.TSIUserName()
+        if dlg.exec_():
+            print('setting username/pw')
+            m = dlg.items
+            username, password = m['Username'], m['Password']
+
+            s = self.settings
+            s.setValue('tsi_username', username)
+            s.setValue('tsi_password', password)
+            print(f'Setting user/pw: {username}, {password}')
+            dlgs.msg_simple(msg='TSI username/password set.')
+            return True
+        else:
+            return False
+    
+    def load_tsi_username(self):
+        # try to load from settings
+        s = self.settings
+        username = s.value('tsi_username', defaultValue=None)
+        password = s.value('tsi_password', defaultValue=None)
+
+        return username, password
+
+    def get_tsi_username(self):
+        # TSIWebpage asks main window for username/pw
+        username, password = self.load_tsi_username()
+
+        # if not in settings, prompt user with dialog
+        if username is None or password is None:
+            if self.set_tsi_username():
+                return self.load_tsi_username() # try one more time
+            else:
+                return None, None
+        
+        return username, password
+            
     def view_folder(self):
         from . import eventfolders as efl
 
@@ -123,6 +160,11 @@ class MainWindow(QMainWindow):
         cls = getattr(efl, e.MineSite, efl.EventFolder)
         cls(e=e).show()
 
+    def open_sap(self):
+        from .. import web
+        sc = web.SuncorConnect()
+        sc.open_sap()
+
     def create_menu(self):
         bar = self.menuBar()
         file_ = bar.addMenu('File')
@@ -131,6 +173,7 @@ class MainWindow(QMainWindow):
         file_.addAction(self.act_prev_tab)
         file_.addAction(self.act_change_minesite)
         file_.addAction(self.act_viewfolder)
+        file_.addAction(self.act_open_sap)
 
         edit_ = bar.addMenu('Edit')
         edit_.addAction('Edit item')
@@ -146,10 +189,13 @@ class MainWindow(QMainWindow):
 
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_username)
+        help_.addAction(self.act_tsi_username)
 
     def create_actions(self):
         # Menu/shortcuts
         act_username = QAction('Reset Username', self, triggered=self.set_username)
+        act_tsi_username = QAction('Set TSI Username', self, triggered=self.set_tsi_username)
+        act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
 
         act_refresh = QAction('Refresh Menu', self, triggered=self.show_refresh)
         act_refresh.setShortcut(QKeySequence('Ctrl+R'))

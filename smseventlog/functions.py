@@ -313,7 +313,17 @@ def discord(msg, channel='orders'):
         webhook.send(msg)
 
 def format_traceback():
-    return traceback.format_exc().replace('Traceback (most recent call last):\n', '')
+    msg = traceback.format_exc() \
+        .replace('Traceback (most recent call last):\n', '')
+    
+    if '*split' in msg:
+        msg = ''.join(msg.split('*split')[1:]) # split here to remove the @e wrapper warning
+    
+    check_text = 'During handling of the above exception, another exception occurred:\n'
+    if check_text in msg:
+        msg = ''.join(msg.split(check_text)[1:])
+    
+    return msg
 
 def send_error(msg='', prnt=False, func=None):   
     

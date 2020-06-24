@@ -38,20 +38,19 @@ def e(func):
             try:
                 return func(*args, **kwargs)
             except TypeError:
-                return func(args[0]) # for signals passed with self, + other args that aren't needed
+                return func(args[0]) # for signals passed with self, + other args that aren't needed *split
         except:
             print(f'func: {func.__name__}, args: {args}, kwargs: {kwargs}')
             f.send_error()
             
             # show error message to user
-            msg = f"Could not run function: '{func.__name__}\n\n'"
-            dlg = QMessageBox(icon=QMessageBox.Critical, text=msg)
+            from .dialogs import BiggerBox
+            msg = f'Could not run function:\n\n{func.__name__}\n'
+            dlg = BiggerBox(icon=QMessageBox.Critical, text=msg) 
             dlg.setWindowTitle('Error')
-            dlg.setInformativeText(f.format_traceback())
-            # dlg.setDetailedText(f.format_traceback())
+            dlg.setDetailedText(f.format_traceback())
             dlg.exec_()
             
             # logger.exception(err)
-            # re-raise the exception
-            # raise
+            # raise  # re-raise the exception
     return wrapper

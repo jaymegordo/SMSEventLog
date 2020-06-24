@@ -43,7 +43,6 @@ def alternating_rows_outlook(style, outlook=True):
 
     return style
 
-
 def apply_style(style, s):
     if not style.table_styles is None:
         style.table_styles.extend(s)

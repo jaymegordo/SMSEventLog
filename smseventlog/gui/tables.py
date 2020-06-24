@@ -549,6 +549,7 @@ class EventLogBase(TableWidget):
         view = self.view
         view.highlight_funcs['Status'] = view.highlight_by_val
         view.hide_cols = ('UID',)
+        view.disabled_cols = ('Model', 'Serial')
         view.highlight_vals.update({
             'closed': 'goodgreen',
             'open': 'bad',
@@ -619,8 +620,9 @@ class TSI(EventLogBase):
         super().__init__(parent=parent)
         view = self.view
         view.disabled_cols = ('WO',)
-        view.col_widths.update(dict(Details=400))
+        view.col_widths.update({'Details': 400, 'TSI No': 100})
 
+        self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
         self.add_button(name='Refresh Open (User)', func=self.refresh_allopen_user)
     
@@ -630,6 +632,23 @@ class TSI(EventLogBase):
         query.set_allopen()
         query.fltr.add(vals=dict(TSIAuthor=username))
         self.refresh()
+       
+    @property
+    def driver(self):
+        # save driver for use between TSI webpage calls
+        return self._driver if hasattr(self, '_driver') else None
+    
+    @driver.setter
+    def driver(self, driver):
+        self._driver = driver
+       
+    def open_tsi_homepage(self):
+        # just login and show the homepage so user can go from there, check TSIs etc
+        from .. import web
+        tsi = web.TSIWebPage(parent=self, _driver=self.driver)
+        if not tsi.is_init: return
+        tsi.tsi_home()
+        self.driver = tsi.driver
     
     def fill_tsi_webpage(self):
         # TODO make this secondary process
@@ -651,25 +670,28 @@ class TSI(EventLogBase):
             'New Part Serial': e.SNInstalled,
             'Work Order': e.WorkOrder,
             'Complaint': e.TSIDetails}
-        
-        driver = self.driver if hasattr(self, 'driver') else None
 
         msg = 'Would you like to save the TSI after it is created?'
         save_tsi = True if dlgs.msgbox(msg=msg, yesno=True) else False
             
-        tsi = web.TSIWebPage(field_vals=field_vals, serial=e2.Serial, model=e2.Model, _driver=driver)
+        tsi = web.TSIWebPage(
+            field_vals=field_vals,
+            serial=e2.Serial,
+            model=e2.Model,
+            _driver=self.driver,
+            parent=self)
+        
+        if not tsi.is_init: return
+
         tsi.open_tsi(save_tsi=save_tsi)
-        self.driver = tsi.get_driver()
+        self.driver = tsi.driver
 
         # fill tsi number back to current row
         if not tsi.tsi_number is None:
             index = view.create_index_activerow(col_name='TSI No')
             view.model().setData(index=index, val=tsi.tsi_number)
-            tsi_number = tsi.tsi_number
-        else:
-            tsi_number = '(not saved)'
 
-        dlgs.msg_simple(msg=f'New TSI created: {tsi_number}')
+        dlgs.msg_simple(msg=f'New TSI created.\nTSI Number: {tsi.tsi_number}')
 
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
@@ -959,9 +981,10 @@ class Availability(TableWidget):
         # show menu to select period
         from .refreshtables import AvailReport
         from ..reports import AvailabilityReport
+        from ..folders import drive_exists
 
         dlg = AvailReport(parent=self)
-        if not dlg.exec_(): return
+        if not drive_exists() or not dlg.exec_(): return
 
         rep = AvailabilityReport(d_rng=dlg.d_rng, period_type=dlg.period_type, name=dlg.name)
         rep.load_all_dfs()

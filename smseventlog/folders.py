@@ -543,6 +543,7 @@ def write_import_fail(p):
 
 # OTHER
 def drive_exists():
+    from .gui import dialogs as dlgs
     if f.drive.exists():
         return True
     else:

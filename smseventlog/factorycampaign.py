@@ -5,7 +5,7 @@ import pypika as pk
 from bs4 import BeautifulSoup
 
 from . import functions as f
-from . import reports as rp
+from . import styles as st
 from .__init__ import *
 from .database import db
 from .gui import dialogs as dlgs
@@ -67,12 +67,13 @@ def importFC(upload=True, df=None):
                 msg += '\n\nFC Summary: \n\tRows added: {} \n\n\t'.format(rows['INSERT'])
                 df2 = f.cursor_to_df(cursor)
                 if len(df2) > 0:
-                    msg += rp.left_justified(df2).replace('\n', '\n\t')
+                    msg += st.left_justified(df2).replace('\n', '\n\t')
                     for fcnumber in df2:
                         create_fc_folder(fcnumber=fcnumber)
             
             cursor.commit()
         except:
+            f.send_error()
             dlgs.msg_simple(msg='Couldn\'t import FCs!', icon='critical')
         finally:
             cursor.close()
