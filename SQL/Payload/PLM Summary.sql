@@ -43,7 +43,8 @@ WITH t as (
 
     FROM viewPLM a
     WHERE
-        a.DateTime>='2016-11-01' and
+        -- a.DateTime>='2016-11-01' and
+        a.[DateTime] BETWEEN '2018-10-22' and '2019-10-22' and
         a.Unit='F308'
 
 

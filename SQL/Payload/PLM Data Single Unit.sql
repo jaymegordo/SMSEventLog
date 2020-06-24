@@ -1,7 +1,7 @@
 -- PARAMETERS aUnit Text ( 255 ), StartDate DateTime, EndDate DateTime;
-DECLARE @unit varchar(50) = 'F301'
-DECLARE @StartDate Datetime2 = '2019-01-01'
-DECLARE @EndDate Datetime2 = '2019-10-01'
+DECLARE @unit varchar(50) = 'F308'
+DECLARE @StartDate Datetime2 = '2018-10-22'
+DECLARE @EndDate Datetime2 = '2019-10-22'
 
 SELECT
     a.Unit,
