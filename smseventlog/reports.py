@@ -19,7 +19,7 @@ p_reports = Path(__file__).parents[1] / 'reports'
 # TODO auto email w/ email lists
 
 class Report(object):
-    def __init__(self, d=None, d_rng=None, **kw):
+    def __init__(self, d=None, d_rng=None, minesite=None, **kw):
         # dict of {df_name: {func: func_definition, kw: **kw, df=None}}
         dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
 
@@ -302,6 +302,14 @@ class AvailabilityReport(Report):
         ex = self.exec_summary
         self.sections['Availability'].set_exec_summary(ex=ex)
 
+class FrameCracksReport(Report):
+    def __init__(self):
+        super().__init__()
+        self.title = 'FortHills Frame Cracks Report'
+        self.load_sections('FrameCracks')
+        self.add_items('title_page')
+    
+
 # REPORT SECTIONS
 class Section():
     # sections only add subsections
@@ -316,6 +324,41 @@ class Section():
     def add_subsections(self, sections):
         for name in sections:
             subsec = getattr(sys.modules[__name__], name)(section=self)
+
+class FrameCracks(Section):
+    def __init__(self, report):
+        super().__init__(title='Frame Cracks', report=report)
+        from . import framecracks as frm
+
+        m = dict(df=frm.load_processed_excel())
+        
+        sec = SubSection('Summary', self) \
+            .add_df(
+                func=frm.df_smr_avg,
+                kw=m,
+                caption='Mean SMR cracks found at specified loaction on haul truck.<br><br>Rear = rear to mid torque tube<br>Mid = mid torque tube (inclusive) to horse collar<br>Front = horse collar (inclusive) to front.')
+
+        sec = SubSection('Frame Cracks Distribution', self) \
+            .add_df(
+                name='Frame Cracks (Monthly)',
+                func=frm.df_month,
+                kw=m,
+                display=False) \
+            .add_df(
+                name='Frame Cracks (SMR Range)',
+                func=frm.df_smr_bin,
+                kw=m,
+                display=False) \
+            .add_chart(
+                name='Frame Cracks (Monthly)',
+                func=ch.chart_frame_cracks,
+                caption='Frame crack type distributed by month.') \
+            .add_chart(
+                name='Frame Cracks (SMR Range)',
+                func=ch.chart_frame_cracks,
+                caption='Frame crack type distributed by Unit SMR.',
+                kw=dict(smr_bin=True)) \
+            .force_pb = True
 
 class UnitSMR(Section):
     def __init__(self, report):
