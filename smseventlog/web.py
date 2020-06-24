@@ -1,13 +1,23 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.remote.command import Command
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
+from selenium.common.exceptions import InvalidArgumentException
 
 from . import functions as f
 
+# find_element_by_class_name',
+# 'find_element_by_css_selector',
+# 'find_element_by_id',
+# 'find_element_by_link_text',
+# 'find_element_by_name',
+# 'find_element_by_partial_link_text',
+# 'find_element_by_tag_name',
+# 'find_element_by_xpath',
+
+# %config Completer.use_jedi = False
 
 def tsi_form_vals():
     from . import eventlog as el
@@ -37,51 +47,74 @@ def tsi_form_vals():
 
 class Web(object):
     def __init__(self, user):
-        self.user = user
-        self.pages = {}
+        pages = {}
+        _driver = None
+        f.set_self(self, vars())
 
     def create_driver(self, browser='Chrome'):
+        def init_driver(options=None):
+            return webdriver.Chrome(options=options)
+
         if browser == 'Chrome':
             options = webdriver.ChromeOptions()
             if not f.is_win():
                 chrome_profile = f'/Users/{self.user}/Library/Application Support/Google/Chrome/'
                 options.add_argument(f'user-data-dir={chrome_profile}')
                 options.add_argument('window-size=(1,1)')
-            driver = webdriver.Chrome(options=options)
+                options.add_argument('--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Safari/605.1.15"')
+            
+                prefs = {'profile.default_content_settings.popups': 0,
+                        'download.prompt_for_download': False,
+                        'download.default_directory': '/Users/Jayme/Downloads',
+                        'directory_upgrade': True}
+                options.add_experimental_option('prefs', prefs)
+
+            try:
+                driver = init_driver(options=options)
+            except InvalidArgumentException:
+                # delete user-data-dir from options args and try again
+                # TODO try and quit the old browser??
+                for i, val in enumerate(options.arguments):
+                    if 'user-data-dir' in val:
+                        del options.arguments[i]
+                        break
+
+                driver = init_driver(options=options)
+
         else:
             driver = getattr(webdriver, browser)()
 
         return driver
     
-    # @property
-    def get_driver(self):
+    @property
+    def driver(self):
         if self._driver is None:
             self._driver = self.create_driver()
         else:
             try:
-                # print('trying to execute STATUS')
-                self._driver.execute(Command.STATUS) # check if driver is alive and attached
+                self._driver.title # check if driver is alive and attached
             except:
                 try:
-                    print('trying to reattach')
+                    # print('trying to reattach')
                     self._driver = attach_to_session(*get_driver_id(self._driver))
                 except:
-                    print('failed to reattach, creating new driver')
+                    # print('failed to reattach, creating new driver')
                     self._driver = self.create_driver()
 
         return self._driver
 
     def wait(self, time, cond):
-        driver = self.get_driver()
+        driver = self.driver
         try:
             element = WebDriverWait(driver, time).until(cond)
             return element
         except:
+            # f.send_error()
             print(f'Failed waiting for: {cond}')
             return None
 
     def set_val(self, element, val):
-        driver = self.get_driver()
+        driver = self.driver
         val = str(val).replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
         try:
             driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
@@ -90,14 +123,14 @@ class Web(object):
             element.send_keys(val)
     
     def new_browser(self):
-        driver = self.get_driver()
+        driver = self.driver
         driver.set_window_position(0, 0)
         driver.maximize_window()
     
     def current_page_name(self):
         # convert current url to nice page name
         pages_lookup = f.inverse(self.pages)
-        url = self.get_driver().current_url.split('?')[0] # remove ? specific args
+        url = self.driver.current_url.split('?')[0] # remove ? specific args
         # print(url)
         return pages_lookup.get(url, None)
     
@@ -108,14 +141,91 @@ class Web(object):
         i = page_order.index(current_page) if current_page in page_order else -1
         return i
 
+class SuncorConnect(Web):
+    # auto login to suncor's SAP system
+    def __init__(self, user='Jayme'):
+        super().__init__(user=user)
+        self.pages.update({'home': 'https://connect.suncor.com'})
+
+        if user == 'Jayme':
+            self.username = 'jagordon'
+            self.password = 'SMSrel5%'
+            self.token_pin = '1234'
+
+    def login(self):
+        # get rsa fob
+        from .gui import dialogs as dlgs
+
+        # get current RSA token before login
+        ok, token = dlgs.inputbox(msg='Enter RSA token:')
+        if not ok: return
+
+        driver = self.driver
+
+        # TODO reuse existing driver/webpage if possible?
+        self.new_browser()
+        driver.get(self.pages['home'])
+
+        element = driver.find_element_by_id('input_1')
+        self.set_val(element, self.username)
+
+        element = driver.find_element_by_id('input_2')
+        self.set_val(element, self.password)
+
+        element = driver.find_element_by_id('input_3')
+        self.set_val(element, self.token_pin + token)
+
+        element = driver.find_element_by_class_name('credentials_input_submit')
+        element.send_keys(Keys.ENTER)
+
+        # wait till page loaded
+
+    def open_sap(self):
+        driver = self.driver
+        wait = self.wait
+
+        if not 'vdesk/webtop' in driver.current_url:
+            self.login()
+
+        element = wait(10, EC.presence_of_element_located(
+            (By.XPATH, '/html/body/div[1]/div[2]/div[1]/span[13]/span[2]')))
+        element.click()
+
+        # first click the popup window to make it active
+        element = wait(2, EC.presence_of_element_located((By.CLASS_NAME, 'browserCitrix')))
+        element.click()
+
+        element = wait(30, EC.presence_of_element_located(
+            (By.XPATH, '/html/body/div[4]/div[3]/div/span[2]/span[2]')))
+        element.click()
+
+        # citrix option > doesn't always come up
+        try:
+            element = wait(2, EC.presence_of_element_located(
+                (By.XPATH, '/html/body/div[4]/div[3]/input[1]')))
+            element.click()
+        except:
+            pass
+        
+        # driver.close()
+
 class TSIWebPage(Web):
-    def __init__(self, field_vals=None, serial=None, model=None, user='Jayme', _driver=None):
+    def __init__(self, field_vals={}, serial=None, model=None, user='Jayme', _driver=None, parent=None):
         super().__init__(user=user)
         tsi_number = None
-        # _driver = None
-        username, password = 'GordoJ3', '8\'Bigmonkeys'
+        is_init = True
+        # username, password = 'GordoJ3', '8\'Bigmonkeys'
         # serial, model = 'A40029', '980E-4'
-        # TODO need to get this for other users, or just use default probably
+
+        # try loading username + pw from QSettings
+        if not parent is None:
+            username, password = parent.mainwindow.get_tsi_username()
+
+            if username is None:
+                from .gui import dialogs as dlgs
+                msg = 'Can\'t get TSI uesrname or password!'
+                dlgs.msg_simple(msg=msg, icon='critical')
+                is_init = False
 
         form_vals_default = {
             'Failed Part Qty': 1,
@@ -155,8 +265,8 @@ class TSIWebPage(Web):
             'home': homepage,
             'tsi_home': f'{homepage}tsi/',
             'tsi_create': f'{homepage}tsi-view/create-tsi-case/',
-            'all_tsi': f'{homepage}mytsi/',
-        })
+            'all_tsi': f'{homepage}mytsi/'})
+
         f.set_self(self, vars())
 
     def open_tsi(self, serial=None, model=None, save_tsi=True):
@@ -172,7 +282,7 @@ class TSIWebPage(Web):
         self.fill_dropdowns()
 
         if save_tsi:
-            driver = self.get_driver()
+            driver = self.driver
 
             # press create button
             element = self.wait(20, EC.element_to_be_clickable((By.ID, 'InsertButton')))
@@ -182,7 +292,7 @@ class TSIWebPage(Web):
             element = self.wait(30, EC.presence_of_element_located((By.CLASS_NAME, 'breadcrumb'))) \
                 .find_element_by_class_name('active')
             self.tsi_number = element.text
-
+        
     def fill_field(self, name, val):
         id_ = self.form_fields.get(name, None)
 
@@ -213,7 +323,7 @@ class TSIWebPage(Web):
                 return
 
     def fill_dropdowns(self):
-        driver = self.get_driver()
+        driver = self.driver
         for name, vals in self.form_dropdowns.items():
             id_, val = vals[0], vals[1]
             try:
@@ -223,8 +333,11 @@ class TSIWebPage(Web):
                 f.send_error()
                 print(f'Couldn\'t set dropdown value: {name}')
     
-    def login_tsi(self, serial, model):
-        driver = self.get_driver()
+    def tsi_home(self):
+        self.login_tsi(max_page='home')
+    
+    def login_tsi(self, serial=None, model=None, max_page=None):
+        driver = self.driver
         wait = self.wait
         page_order = ['login', 'home', 'tsi_home', 'tsi_create']
 
@@ -255,6 +368,7 @@ class TSIWebPage(Web):
         
         def tsi_home():
             # enter serial number
+            if serial is None: raise AttributeError('Serial number missing!')
             element = wait(30, EC.presence_of_element_located((By.ID, 'serialNumberCreate')))
             element.send_keys(serial) # need to send keys here for some reason
             element.send_keys(Keys.ENTER)
@@ -278,10 +392,11 @@ class TSIWebPage(Web):
 
         # check where current page is in order of pages we need to log in, then complete funcs from there
         original_index = self.current_page_index(page_order)
+        max_index = page_order.index(max_page) if max_page is not None and max_page in page_order else 10
         for func_name in page_order:
             check_index = page_order.index(func_name)
-            print(f'func_name: {func_name}, check_index: {check_index}, original_index: {original_index}')
-            if check_index >= original_index:
+            # print(f'func_name: {func_name}, check_index: {check_index}, original_index: {original_index}')
+            if check_index >= original_index and check_index <= max_index:
                 vars().get(func_name)()
 
 
