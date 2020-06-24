@@ -85,10 +85,10 @@ class RefreshTable(InputForm):
             
         elif name == 'start date':
             # TODO: only set up for eventlog table currently
-            add_input(field=IPF(text=title, dtype='date', col_db='DateAdded'), checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text=title, dtype='date', col_db=self.col_db_startdate), checkbox=True, cb_enabled=False)
             
         elif name == 'end date':
-            add_input(field=IPF(text=title, dtype='date', col_db='DateCompleted', opr=op.le), checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text=title, dtype='date', col_db=self.col_db_enddate, opr=op.le), checkbox=True, cb_enabled=False)
 
         elif name == 'component':
             df = db.get_df_component()
@@ -103,6 +103,9 @@ class RefreshTable(InputForm):
         elif name == 'major components':
             table = T('ComponentType')
             add_input(field=IPF(text=title, default='True', table=table, col_db='Major'), items=['True', 'False'], checkbox=True, cb_enabled=False)
+        
+        elif name == 'title':
+            add_input(field=IPF(text=title), checkbox=True, cb_enabled=False)
 
     def add_refresh_button(self, name, func):
         layout = self.vLayout
@@ -129,9 +132,11 @@ class RefreshTable(InputForm):
 class EventLogBase(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        self.col_db_startdate, self.col_db_enddate = 'DateAdded', 'DateCompleted'
 
-        features = ['last month', 'last week', 'all open', 'minesite', 'unit', 'model', 'start date', 'end date']
+        features = ['last month', 'last week', 'all open', 'minesite', 'unit', 'model', 'title', 'start date', 'end date']
         self.add_features(features=features)
+        self.insert_linesep(i=3, layout_type='vbox')
 
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
@@ -182,6 +187,8 @@ class EmailList(RefreshTable):
 class Availability(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        col_db_startdate, col_db_enddate = 'StartDate', 'EndDate'
+        
         df_week = qr.df_weeks()
         df_month = qr.df_months()
 
@@ -191,10 +198,13 @@ class Availability(RefreshTable):
         d = dt.now() + delta(days=-30)
         default_month = df_month[df_month.StartDate < d].iloc[-1, :].name #index name
 
+        f.set_self(self, vars())
+
         self.add_input(field=InputField(text='Week', default=default_week), items=df_week.index, checkbox=True, cb_enabled=False)
         self.add_input(field=InputField(text='Month', default=default_month), items=df_month.index, checkbox=True, cb_enabled=False)
 
-        f.set_self(self, vars())
+        self.add_features(['start date', 'end date', 'unit'])
+        self.insert_linesep(i=2)
 
     def get_rng(self):
         fMonth, fWeek = self.fMonth, self.fWeek
@@ -214,10 +224,13 @@ class Availability(RefreshTable):
         return d_rng, period_type, name
 
     def accept(self):
-        d_rng = self.get_rng()[0]
-        self.parent.query.fltr.add(vals=dict(ShiftDate=d_rng), term='between')
-        self.parent.refresh()
-        return super().accept_()
+        if any([self.fWeek.cb.isChecked(), self.fMonth.cb.isChecked()]):
+            d_rng = self.get_rng()[0]
+            self.parent.query.fltr.add(vals=dict(ShiftDate=d_rng), term='between')
+            self.parent.refresh()
+            return super().accept_()
+        else:
+            return super().accept()
 
 class AvailReport(Availability):
     def __init__(self, parent=None):
@@ -226,8 +239,6 @@ class AvailReport(Availability):
     def accept(self):
         self.d_rng, self.period_type, self.name = self.get_rng()
         return super().accept_()
-
-
 
 
 # TODO: this doesn't need to be duplicated here
