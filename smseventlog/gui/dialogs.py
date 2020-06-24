@@ -167,16 +167,15 @@ class InputForm(QDialog):
         else:
             box.setEnabled(False)
 
-class InputUserName(InputForm):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Enter User Name')
-        layout = self.vLayout
-        layout.insertWidget(0, QLabel('Welcome to the SMS Event Log! \
-            \nPlease enter your first and last name to begin:\n'))
+    def insert_linesep(self, i=0, layout_type='form'):
+        line_sep = QFrame()
+        line_sep.setFrameShape(QFrame.HLine)
+        line_sep.setFrameShadow(QFrame.Raised)
 
-        self.add_input(field=InputField(text='First'))
-        self.add_input(field=InputField(text='Last'))
-        self.show()
+        if layout_type == 'form':
+            self.formLayout.insertRow(i, line_sep)
+        else:
+            self.vLayout.insertWidget(i, line_sep)
 
 class AddRow(InputForm):
     def __init__(self, parent=None):
@@ -312,6 +311,46 @@ class AddUnit(AddRow):
 
         self.show()
 
+class InputUserName(InputForm):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent, title='Enter User Name')
+        layout = self.vLayout
+        layout.insertWidget(0, QLabel('Welcome to the SMS Event Log! \
+            \nPlease enter your first and last name to begin:\n'))
+
+        self.add_input(field=InputField(text='First'))
+        self.add_input(field=InputField(text='Last'))
+        self.show()
+    
+class TSIUserName(InputForm):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent, title='Enter Password')
+        # self.setMaximumWidth(200)
+        layout = self.vLayout
+        layout.insertWidget(0, QLabel('To use the automated TSI system,\nplease enter your username and password for www.komatsuamerica.net:\n'))
+
+        self.add_input(field=InputField(text='Username'))
+        self.add_input(field=InputField(text='Password'))
+        self.show()
+
+    def check_val(self, val_name):
+        # check username and password
+        val = self.items[val_name].strip()
+        ans = val if len(val) > 0 else False
+        return ans
+
+    def accept(self):
+        # check username and password, if good save to mainwindow's QSettings
+        self.items = self.get_items()
+        username, password = self.check_val('Username'), self.check_val('Password')
+
+        if not (username or password):
+            msg = 'Bad username or password!'
+            msg_simple(msg=msg, icon='critical')
+            return False
+        else:
+            return super().accept()
+
 class ChangeMinesite(InputForm):
     def __init__(self, parent=None, title='Change MineSite'):
         super().__init__(parent=parent, title=title)
@@ -349,6 +388,30 @@ class ComponentCO(InputForm):
             row = self.parent.view.row_from_activerow()
             row.update(vals=dict(Floc=floc, ComponentCO=True))
 
+class BiggerBox(QMessageBox):
+    # Qmessagebox that resizes x% bigger than the default
+    def __init__(self, resize_pct=1.5, *args, **kwargs):            
+        super().__init__(*args, **kwargs)
+        self.setSizeGripEnabled(True)
+        self.initial_resize = False
+        self.resize_pct = resize_pct
+
+    def resizeEvent(self, event):
+        result = super().resizeEvent(event)
+        if self.initial_resize: return result
+
+        # for label in self.findChildren(QLabel):
+        #     size_hint = label.sizeHint()
+        #     label.setFixedSize(QSize(size_hint.width() * self.resize_pct, size_hint.height()))
+
+        details_box = self.findChild(QTextEdit)
+        if not details_box is None:
+            size_hint = details_box.sizeHint()
+            new_size = QSize(600, size_hint.height())
+            details_box.setFixedSize(new_size)
+
+        self.initial_resize = True
+        return result
 
 class MsgBox_Advanced(QDialog):
     def __init__(self, msg='', title='', yesno=False, statusmsg=None, parent=None):
