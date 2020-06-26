@@ -88,7 +88,7 @@ class Filter():
 
 class QueryBase(object):
     def __init__(self, minesite='FortHills', kw=None):
-        formats = {}
+        formats, default_dtypes = {}, {}
         background_gradients = []
         cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         sql, df = None, pd.DataFrame()
@@ -171,6 +171,10 @@ class EventLogBase(QueryBase):
         a, b = self.select_table, T('UnitID')
         date_col = 'DateAdded'
         f.set_self(self, vars())
+
+        self.default_dtypes.update(
+            **f.dtypes_dict('Int64', ['SMR', 'Unit SMR', 'Part SMR', 'Pics']),
+            **f.dtypes_dict('bool', ['Comp CO']))
     
     def set_minesite(self):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))

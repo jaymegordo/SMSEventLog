@@ -128,7 +128,8 @@ class DB(object):
                 df = pd.read_sql(sql=query.get_sql(), con=self.get_engine()) \
                     .pipe(f.parse_datecols) \
                     .pipe(f.convert_int64) \
-                    .pipe(f.convert_df_view_cols, m=query.view_cols)
+                    .pipe(f.convert_df_view_cols, m=query.view_cols) \
+                    .pipe(f.set_default_dtypes, m=query.default_dtypes)
 
                 query.fltr.print_criterion()
 
