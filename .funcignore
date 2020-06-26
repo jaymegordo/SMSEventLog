@@ -5,6 +5,7 @@ archive
 build
 dist
 pyu-data
+reports
 SQL
 src
 target

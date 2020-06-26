@@ -20,13 +20,13 @@ from . import functions as f
 # %config Completer.use_jedi = False
 
 def tsi_form_vals():
-    from . import eventlog as el
+    from . import dbtransaction as dbt
     from .dbmodel import EventLog
 
     serial, model = 'A40035', '980E-4'
 
     uid = 12608230555
-    row = el.Row(keys=dict(UID=uid), dbtable=EventLog)
+    row = dbt.Row(keys=dict(UID=uid), dbtable=EventLog)
     e = row.create_model_from_db()
 
     d = e.DateAdded.strftime('%-m/%-d/%Y')

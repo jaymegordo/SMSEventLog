@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QWidget, QWidgetAction)
 
 from .. import dbmodel as dbm
-from .. import eventlog as el
+from .. import dbtransaction as dbt
 from .. import folders as fl
 from .. import functions as f
 from .. import queries as qr

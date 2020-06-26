@@ -148,7 +148,7 @@ class TableView(QTableView):
                         return QColor(color_code)
 
     def highlight_pics(self, val, role, **kw):
-        if val > 0:
+        if f.isnum(val) and val > 0:
             color = 'goodgreen'
         else:
             color = 'bad'
@@ -321,7 +321,7 @@ class TableView(QTableView):
     def row_from_activerow(self):
         i = self.active_row_index()
         if i is None: return
-        return el.Row(table_model=self.model(), i=i)
+        return dbt.Row(table_model=self.model(), i=i)
 
     def model_from_activerow(self):
         i = self.active_row_index()
@@ -872,7 +872,7 @@ class Availability(TableWidget):
 
             update_index = index.siblingAtColumn(update_col)
             update_val = duration - val
-            model.setData(index=update_index, val=update_val, triggers=False)
+            model.setData(index=update_index, val=update_val, triggers=False, queue=True)
 
     def get_email_list(self, email_type='Daily'):
         # get email list from csv
@@ -912,8 +912,6 @@ class Availability(TableWidget):
         
     def save_assignments(self):
         model = self.view.model()
-        cols = ['Total', 'SMS', 'Suncor', 'Category Assigned', 'Comment']
-        txn = el.DBTransaction(table_model=model, update_cols=cols)
         
         df = model.df
         df = df[df.Assigned==0]
@@ -922,8 +920,10 @@ class Availability(TableWidget):
         if not dlgs.msgbox(msg=msg, yesno=True):
             return
 
-        txn.add_df(df)
-        txn.update_all()
+        cols = ['Total', 'SMS', 'Suncor', 'Category Assigned', 'Comment']
+        txn = dbt.DBTransaction(table_model=model) \
+            .add_df(df=df, update_cols=cols) \
+            .update_all()
         
         dlgs.msg_simple(msg='Records updated.')
     
@@ -951,7 +951,8 @@ class Availability(TableWidget):
 
         index = view.create_index_activerow(col_name='Suncor')
         duration = model.df.iloc[index.row(), model.get_column_idx('Total')]
-        model.setData(index=index, val=duration)
+        model.setData(index=index, val=duration, queue=True)
+        model.flush_queue()
     
     def filter_unit_eventlog(self):
         # filter eventlog to currently selected unit and jump to table

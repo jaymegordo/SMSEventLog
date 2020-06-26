@@ -13,6 +13,7 @@ from pathlib import Path
 from timeit import default_timer as timer
 
 import pandas as pd
+import numpy as np
 import pypika as pk
 from dateutil.relativedelta import relativedelta
 from pypika import Case, Criterion
@@ -47,7 +48,7 @@ m = dict(azure_env=azure_env,
 
     # from . import (
     #     functions as f,
-    #     eventlog as el,
+    #     dbtransaction as dbt,
     #     factorycampaign as fc,
     #     folders as fl,
     #     emails as em,

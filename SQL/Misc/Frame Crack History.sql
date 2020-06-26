@@ -1,5 +1,4 @@
 select
-    b.MineSite,
     a.Unit,
     a.DateAdded,
     a.Title,
@@ -7,7 +6,8 @@ select
     a.TSIPartName,
     a.TSIDetails,
     a.WOComments,
-    a.TSINumber
+    a.TSINumber,
+    a.SuncorWO
 
 FROM EventLog a INNER JOIN UnitID b on a.Unit=b.Unit
 

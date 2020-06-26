@@ -154,7 +154,7 @@ class MainWindow(QMainWindow):
         row = self.active_table().row_from_activerow()
         if row is None: return
         e = row.create_model_from_db() # TODO: this won't work with mixed tables eg FCSummary
-        # el.print_model(e)
+        # dbt.print_model(e)
 
         # try to get minesite-specific EventFolder, if not use default
         cls = getattr(efl, e.MineSite, efl.EventFolder)

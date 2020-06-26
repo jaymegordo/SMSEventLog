@@ -3,6 +3,9 @@ from . import gui as ui
 
 log = logging.getLogger(__name__)
 
+# TODO fix add new event > creates two lines
+# TODO fix add new event > adds MineSite + Event status fields
+
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None):
         if col_db is None: col_db = text.replace(' ', '')
@@ -203,13 +206,13 @@ class AddRow(InputForm):
         for field in self.fields:
             setattr(row, field.col_db, field.get_val())
             
+        # TODO need to actually loop and use setData
         # convert row model to dict of values and append to current table
         m.update(f.model_dict(model=row))
-        m = f.convert_dict_db_view(title=self.title, m=m)
+        m = f.convert_dict_db_view(title=self.title, m=m, output='view')
         self.table_model.insertRows(m=m)
 
         # TODO: probably merge this with Row class? > update all?
-        print(int(row.UID))
         session = db.session
         session.add(row)
         session.commit()
@@ -223,6 +226,7 @@ class AddEvent(AddRow):
         row.CreatedBy = self.mainwindow.username if not self.mainwindow is None else ''
         row.StatusEvent = 'Work In Progress'
         row.StatusWO = 'Open'
+        row.Pictures = 0
 
         layout = self.vLayout
         df = db.get_df_unit()
@@ -257,7 +261,7 @@ class AddEvent(AddRow):
     def link_fc(self):
         # add event's UID to FC in FactoryCampaign table
         unit = self.row.Unit
-        row = el.Row(keys=dict(FCNumber=self.FCNumber, Unit=unit), dbtable=dbm.FactoryCampaign)
+        row = dbt.Row(keys=dict(FCNumber=self.FCNumber, Unit=unit), dbtable=dbm.FactoryCampaign)
         row.update(vals={'UID': self.uid})
 
     def create_fc(self):
@@ -283,7 +287,7 @@ class AddEvent(AddRow):
         unit = self.fUnit.get_val()
         m['Model'] = db.get_unit_val(unit=unit, field='Model') # add these values to display in table
         m['Serial'] = db.get_unit_val(unit=unit, field='Serial')
-        el.print_model(model=row)
+        dbt.print_model(model=row)
 
         super().accept()
 
@@ -291,7 +295,8 @@ class AddEvent(AddRow):
             self.link_fc()
         
         if self.cbEventFolder.isChecked():
-            ef = fl.EventFolder(e=row)
+            from . import eventfolders as efl
+            ef = efl.EventFolder(e=row)
             ef.create_folder(ask_show=True)
 
 class AddUnit(AddRow):

@@ -22,7 +22,7 @@ from appscript import *
 
 from smseventlog import (
     functions as f,
-    eventlog as el,
+    dbtransaction as dbt,
     queries as qr,
     factorycampaign as fc,
     folders as fl,
