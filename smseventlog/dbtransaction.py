@@ -174,7 +174,7 @@ def print_model(model, include_none=False):
     display(m)
 
 def test_model(uid):
-    from .. import dbmodel as dbm
+    from . import dbmodel as dbm
     row = Row(keys=dict(UID=12602260565), dbtable=dbm.EventLog)
     e = row.create_model_from_db()
     return e

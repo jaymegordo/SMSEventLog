@@ -873,6 +873,7 @@ class Availability(TableWidget):
             update_index = index.siblingAtColumn(update_col)
             update_val = duration - val
             model.setData(index=update_index, val=update_val, triggers=False, queue=True)
+            model.flush_queue()
 
     def get_email_list(self, email_type='Daily'):
         # get email list from csv
@@ -952,7 +953,7 @@ class Availability(TableWidget):
         index = view.create_index_activerow(col_name='Suncor')
         duration = model.df.iloc[index.row(), model.get_column_idx('Total')]
         model.setData(index=index, val=duration, queue=True)
-        model.flush_queue()
+        # model.flush_queue()
     
     def filter_unit_eventlog(self):
         # filter eventlog to currently selected unit and jump to table
