@@ -61,15 +61,19 @@ def convert_df_db_cols(title, df):
     df.columns = [m[c] if c in m.keys() else c for c in df.columns]
     return df
 
-def convert_dict_db_view(title, m):
-    # convert dict of db cols to view cols
-    dbcols = list(m.keys())
-    viewcols = convert_list_db_view(title=title, cols=dbcols)
-    return {view:m[db] for view, db in zip(viewcols, dbcols) if view is not None}
+def convert_dict_db_view(title, m, output='view'):
+    # convert dict with from either db or view, to output type cols
+    # NOTE only converts columns which exist in the given table view eg 'Work Orders' or 'Event Log'
+    func_name = 'convert_list_db_view' if output == 'view' else 'convert_list_view_db'
+    func = getattr(sys.modules[__name__], func_name)
+    print(m)
+    initial_cols = list(m.keys())
+    final_cols = func(title=title, cols=initial_cols)
+
+    return {final:m[initial] for final, initial in zip(final_cols, initial_cols) if final is not None}
 
 def convert_list_db_view(title, cols):
     # convert list of db cols to view cols, remove cols not in the view?
-    # m = defaultdict(type(None), inverse(config['Headers'][title]))
     m = config['Headers'].get(title, None)
     if not m is None:
         m = inverse(m)
@@ -199,6 +203,16 @@ def parse_datecols(df):
     df[datecols] = df[datecols].apply(pd.to_datetime)
     return df
 
+def dtypes_dict(dtype, cols):
+    return {col: dtype for col in cols}
+
+def set_default_dtypes(df, m):
+    # set column dtype based on dict of defaults
+    for col, dtype in m.items():
+        if col in df.columns:
+            df[col] = df[col].astype(dtype)
+    return df
+
 def convert_dtypes(df, cols, col_type):
     if not isinstance(cols, list): cols = [cols]
     for col in cols:
@@ -226,6 +240,21 @@ def convert_stylemap_index(style):
     m = {(df.index[k[0]], df.columns[k[1]]):v for k, v in stylemap.items()}
 
     return m
+
+def append_default_row(df):
+    # return {col: val} for all columns in df
+    defaults = {
+        'int64': pd.NA,
+        'float64': pd.NA,
+        'datetime64[ns]': pd.NaT,
+        'bool': None,
+        'object': None}
+    
+    dtypes = {k: str(v).lower() for k, v in df.dtypes.items()} # convert dtypes to lowercase strings
+    m = {col: defaults[dtype] if dtype in defaults else np.nan for col, dtype in dtypes.items()}
+    return df \
+        .append(m, ignore_index=True) \
+        .astype(df.dtypes)
 
 # simple obfuscation for db connection string
 def encode(key, string):
