@@ -21,6 +21,7 @@ class TableModel(QAbstractTableModel):
         _cols = []
         table_widget = parent.parent #sketch
         _stylemap = {}
+        self.set_queue()
 
         color_enabled = False
         color_back = Qt.magenta
@@ -29,6 +30,10 @@ class TableModel(QAbstractTableModel):
 
         if not df is None:
             self.set_df(df=df)
+
+    def set_queue(self):
+        # queue to hold updates before flushing to db in bulk
+        self.queue = dd(dict)
 
     def set_df(self, df):
         # Set or change pd DataFrame to show
@@ -78,7 +83,11 @@ class TableModel(QAbstractTableModel):
     @stylemap.setter
     def stylemap(self, stylemap):
         self._stylemap = stylemap
-        
+
+    @property
+    def dbtable_default(self):
+        return self.table_widget.get_dbtable()
+
     @pyqtSlot()
     def beginDynamicFilter(self):
         """Effects of using the "filter" function will not become permanent until endDynamicFilter called"""
@@ -195,7 +204,10 @@ class TableModel(QAbstractTableModel):
             # ask table_widget for cell color given df, irow, icol
             func = self.parent.highlight_funcs[col]
             if not func is None:
-                return func(**dict(df=df, row=row, col=col, val=val, role=role))
+                try:
+                    return func(**dict(df=df, row=row, col=col, val=val, role=role))
+                except:
+                    return None
             
             style_vals = self.stylemap.get((row, col), None)
             if style_vals:
@@ -216,10 +228,31 @@ class TableModel(QAbstractTableModel):
 
         return None
 
+    def add_queue(self, vals, irow=None):
+        # vals is dict of view_col: val
+        # add either single val or entire row
+        # TODO just using default dbtable for now
+        # could have multiple dbtables per row... have to check headers for each? bulk update once per table??
+
+        # if keys aren't in update_vals, need to use irow to get from current df row
+        check_key_vals = self.df.iloc[irow].to_dict() if not irow is None else vals
+
+        key_tuple, key_dict = dbt.get_dbtable_key_vals(dbtable=self.dbtable_default, vals=check_key_vals)
+        self.queue[key_tuple].update(**key_dict, **vals) # update all vals - existing key, or create new key
+    
+    def flush_queue(self):
+        # bulk uptate all items in queue, could be single row or vals from multiple rows
+        # TODO trigger the update with signal?
+        
+        txn = dbt.DBTransaction(table_model=self) \
+            .add_items(update_items=list(self.queue.values())) \
+            .update_all()
+    
+        self.set_queue()
+    
     @e
-    def setData(self, index, val, role=Qt.EditRole, triggers=True):
+    def setData(self, index, val, role=Qt.EditRole, triggers=True, queue=False, update_db=True):
         # TODO Check if text has changed, don't commit
-        # TODO queue updates in batch!!
         if not index.isValid(): return False
 
         if role == Qt.EditRole:
@@ -228,8 +261,6 @@ class TableModel(QAbstractTableModel):
             df = self.df
 
             dtype = str(df.dtypes[icol]).lower()
-            # TODO build a better dict to convert all these.. need to work with datetime delegate
-            # m = {'datetime64[ns]': '')
 
             if dtype in ('float64', 'int64') and not f.isnum(val):
                 val = None
@@ -241,12 +272,17 @@ class TableModel(QAbstractTableModel):
                 elif dtype == 'int64':
                     val = int(val)
 
-            df.loc[row, col] = val
-
             # keep original df copy in sync for future filtering
             self._df_orig.loc[row, col] = val
+            df.loc[row, col] = val
 
-            self.update_db(index=index, val=val)
+            # either add items to the queue, or update single val
+            if not queue:
+                if update_db:
+                    self.update_db(index=index, val=val)
+            else:
+                self.add_queue(vals={col: val}, irow=irow)
+
             self.dataChanged.emit(index, index)
 
             # stop other funcs from updating in a loop
@@ -313,7 +349,12 @@ class TableModel(QAbstractTableModel):
         self._df_pre_dyn_filter = None
 
     def get_column_idx(self, col):
-        return self.df.columns.get_loc(col)
+        try:
+            icol = self.df.columns.get_loc(col)
+        except KeyError:
+            icol = None
+
+        return icol
 
     def getColIndex(self, header):
         return self.df.columns.get_loc(header)
@@ -331,7 +372,7 @@ class TableModel(QAbstractTableModel):
         dbtable = self.table_widget.get_dbtable(header=header)
         check_exists = False if not header in self.parent.check_exist_cols else True
 
-        e = el.Row(table_model=self, dbtable=dbtable, i=index.row())
+        e = dbt.Row(table_model=self, dbtable=dbtable, i=index.row())
         e.update_single(header=header, val=val, check_exists=check_exists)
     
     def create_model(self, i):
@@ -349,12 +390,21 @@ class TableModel(QAbstractTableModel):
         return e
                
     def insertRows(self, m, i=None, num_rows=1):
+        # insert new row to table view
+        # m is dict with view_cols
+        
         if i is None:
             i = self.rowCount()
-        
-        self.beginInsertRows(QModelIndex(), i, i + num_rows - 1) 
-        # TODO need to loop inserting data (m) here
-        self.df = self.df.append(m, ignore_index=True)
+
+        self.beginInsertRows(QModelIndex(), i, i + num_rows - 1)
+        self._df = self.df.pipe(f.append_default_row)
+
+        for col, val in m.items():
+            icol = self.get_column_idx(col)
+            if not icol is None:
+                index = self.createIndex(i, icol)
+                self.setData(index=index, val=val, update_db=False)
+
         self.endInsertRows()
 
     def append_row(self, data):
@@ -364,9 +414,9 @@ class TableModel(QAbstractTableModel):
     def removeRows(self, i, num_rows=1):
         # TODO build remove more than one row
         self.beginRemoveRows(QModelIndex(), i, i + num_rows - 1)
-        df = self.df
-        self.df = df.drop(df.index[i]).reset_index(drop=True)
-        self.endInsertRows()
+        df = self._df
+        self._df = df.drop(df.index[i]).reset_index(drop=True)
+        self.endRemoveRows()
 
     def rowCount(self, index=QModelIndex()):
         return self.df.shape[0]
@@ -390,3 +440,16 @@ class TableModel(QAbstractTableModel):
             ans |= Qt.ItemIsEditable
         
         return ans
+
+def test_model():
+    from . import startup
+    from . import tables as tbls
+    app = startup.get_qt_app()
+    table_widget = tbls.EventLog()
+    query = table_widget.query
+    df = query.get_df(default=True)
+    view = table_widget.view
+    model = view.model()
+    model.set_df(df)
+
+    return model
