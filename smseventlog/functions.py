@@ -17,14 +17,20 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
-global drive, config, topfolder, azure_env, datafolder
+global drive, config, topfolder, azure_env, datafolder, frozen
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
     
 topfolder = Path(__file__).parent
+frozen = False
+
 if getattr(sys, 'frozen', False):
+    frozen = True
     topfolder = topfolder.parent
+
 datafolder = topfolder / 'data'
+orca_path = topfolder.parent / 'orca' # for using orca to save plotly images when frozen
+os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(orca_path)])
 
 if sys.platform.startswith('win'):
     drive = Path('P:')
