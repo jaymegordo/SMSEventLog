@@ -1,13 +1,10 @@
-import json
 from urllib import parse
 
 import pyodbc
-import sqlalchemy as sa
-import yaml
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import exc, create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from . import functions as f
-from . import queries as qr
 from .__init__ import *
 
 global db
@@ -22,50 +19,78 @@ def str_conn():
     params = parse.quote_plus(db_string)
     return f'mssql+pyodbc:///?odbc_connect={params}'
     
-def get_engine():
+def _create_engine():
     # sqlalchemy.engine.base.Engine
     # connect_args = {'autocommit': True}
     # , isolation_level="AUTOCOMMIT"
-    return sa.create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)
+    engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)
+
+    # wrap .execute in @e error handler to retry connection after a disconnect
+    for func_name in ['execute']:
+        func = getattr(engine, func_name)
+        setattr(engine, func_name, e(func))
+    
+    return engine
 
 class DB(object):
     def __init__(self):
         __name__ = 'SMS Event Log Database'
-        engine = None
-        session = None
+        _engine, _session, _cursor = None, None, None
 
         # TODO: should put these into a better table store
         df_unit = None
         df_fc = None
         df_component = None
         dfs = {}
-        
-        try:
-            engine = get_engine()
 
-            # create session, this is for the ORM part of sqlalchemy
-            session = sessionmaker(bind=engine)()
-        except:
-            msg = 'Couldnt create engine'
-            f.send_error(msg=msg)
-            log.error(msg)
-        
         f.set_self(self, vars())
         
-    def get_engine(self):
-        if not self.engine is None:
-            return self.engine
-        else:
-            msg = 'Database not initialized.'
-            # try:
-            #     from .gui.dialogs import dialogs as dlgs
-            #     dlgs.msg_simple(msg=msg, icon='Critical')
-            # except:
-            log.error('Engine is None!')
+    @property
+    def engine(self):
+        if self._engine is None:
+            self._engine = _create_engine()
         
+        return self._engine
+
+    @property
+    def cursor(self):
+        def get_cursor():
+            return self.engine.raw_connection().cursor()
+
+        try:
+            self._cursor = get_cursor()
+        except:
+            f.send_error()
+            e = sys.exc_info()[0]
+            if e.__class__ == pyodbc.ProgrammingError:
+                print(e)
+                self.__init__()
+                self._cursor = get_cursor()
+            elif e.__class__ == pyodbc.OperationalError:
+                print(e)
+                self.__init__()
+                self._cursor = get_cursor()
+            else:
+                log.error(e)
+        
+        return self._cursor
+
+    @property
+    def session(self):
+        if self._session is None:
+            try:
+                # create session, this is for the ORM part of sqlalchemy
+                self._session = sessionmaker(bind=self.engine)()
+            except:
+                msg = 'Couldnt create session'
+                f.send_error(msg=msg)
+                log.error(msg)
+
+        return self._session
+
     def close(self):
         try:
-            self.get_engine().raw_connection().close()
+            self.engine.raw_connection().close()
         except:
             log.error('Error closing raw_connection')
 
@@ -78,30 +103,8 @@ class DB(object):
     def __exit__(self, *args):
         self.close()
         
-    def get_cursor(self):
-        def setcursor():
-            return self.get_engine().raw_connection().cursor()
-
-        try:
-            cursor = setcursor()
-        except:
-            f.send_error()
-            e = sys.exc_info()[0]
-            if e.__class__ == pyodbc.ProgrammingError:
-                print(e)
-                self.__init__()
-                cursor = setcursor()
-            elif e.__class__ == pyodbc.OperationalError:
-                print(e)
-                self.__init__()
-                cursor = setcursor()
-            else:
-                log.error(e)
-        
-        return cursor
-
     def read_query(self, q):
-        return pd.read_sql(sql=q.get_sql(), con=self.get_engine())
+        return pd.read_sql(sql=q.get_sql(), con=self.engine)
 
     def get_unit(self, serial, minesite=None):
         df = self.get_df_unit(minesite=minesite)
@@ -123,9 +126,9 @@ class DB(object):
 
         if df is None or refresh:
             try:
-                print('Refreshing table')
                 # print(query.get_sql())
-                df = pd.read_sql(sql=query.get_sql(), con=self.get_engine()) \
+                df = pd \
+                    .read_sql(sql=query.get_sql(), con=self.engine) \
                     .pipe(f.parse_datecols) \
                     .pipe(f.convert_int64) \
                     .pipe(f.convert_df_view_cols, m=query.view_cols) \
@@ -178,7 +181,7 @@ class DB(object):
         cols = ['MineSite', 'Customer', 'Model', 'Unit', 'Serial', 'DeliveryDate']
         q = Query.from_(a).select(*cols)
             
-        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.get_engine()) \
+        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.engine) \
             .set_index('Unit', drop=False) \
             .pipe(f.parse_datecols)
 
@@ -219,14 +222,15 @@ class DB(object):
     def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None):
         rowsadded = 0
         if df is None:
-            f.discord(msg='No rows to import', channel='sms')
+            fmt = '%Y-%m-%d %H:%M'
+            f.discord(msg=f'{dt.now().strftime(fmt)} - {imptable}: No rows to import', channel='sms')
             return
 
         try:
             # .execution_options(autocommit=True)
-            df.to_sql(name=imptable, con=self.get_engine(), if_exists='append', index=False, chunksize=chunksize)
+            df.to_sql(name=imptable, con=self.engine, if_exists='append', index=False, chunksize=chunksize)
 
-            cursor = self.get_cursor()
+            cursor = self.cursor
             rowsadded = cursor.execute(impfunc).rowcount
             cursor.commit()
         except:
@@ -243,7 +247,7 @@ class DB(object):
     
     def query_single_val(self, q):
         try:
-            cursor = self.get_cursor()
+            cursor = self.cursor
             return cursor.execute(q.get_sql()).fetchval()
         finally:
             cursor.close()
@@ -261,7 +265,21 @@ class DB(object):
         val = self.query_single_val(q)
         
         return dt.combine(val, dt.min.time())
-        
+
+def e(func):
+    # rollback invalid transaction
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (exc.StatementError, exc.InvalidRequestError):
+            log.warning('Rollback and retry operation.')
+            print('Rollback and retry operation.')
+            session = db.session # this is pretty sketch
+            session.rollback()
+            return func(*args, **kwargs)
+
+    return wrapper
 
 print(f'{__name__}: loading db')
 db = DB()
