@@ -18,12 +18,16 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QTableView, QTabWidget, QTextEdit, QVBoxLayout,
                              QWidget, QWidgetAction)
 
-from .. import dbmodel as dbm
-from .. import dbtransaction as dbt
-from .. import folders as fl
-from .. import functions as f
-from .. import queries as qr
-from ..__init__ import *
-from ..database import db
-from . import errors as er
-from .errors import e, wrap_errors
+from smseventlog import (
+    dbmodel as dbm,
+    dbtransaction as dbt,
+    folders as fl,
+    functions as f,
+    queries as qr)
+
+from smseventlog.__init__ import *
+from smseventlog.database import db
+
+from smseventlog.gui import errors as er
+from smseventlog.gui.errors import e, wrap_errors
+

@@ -85,7 +85,7 @@ def update_dt_exclusions_ma(units, rng_dates=None, dates=None):
     sql = q.get_sql()
     
     # print(sql)
-    cursor = db.get_cursor()
+    cursor = db.cursor
     cursor.execute(sql)
     cursor.commit()
 
@@ -122,6 +122,6 @@ def parse_date(shiftdate, timedelta):
 
 def ahs_pa_monthly():
 
-    df = pd.read_sql_table(table_name='viewPAMonthly', con=db.get_engine())
+    df = pd.read_sql_table(table_name='viewPAMonthly', con=db.engine)
     df = df.pivot(index='Unit', columns='MonthStart', values='Sum_DT')
     return df

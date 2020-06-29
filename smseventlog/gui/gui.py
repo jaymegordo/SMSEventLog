@@ -20,6 +20,7 @@ minesite, customer = 'FortHills', 'Suncor'
 # TODO refresh dialog tab order
 # TODO save previous query and run when tab first selected
 # TODO selected rows highlight behind existing colors
+# TODO Pics - count when folder viewed.
 
 
 class MainWindow(QMainWindow):

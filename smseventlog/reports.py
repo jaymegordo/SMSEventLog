@@ -14,7 +14,7 @@ from .__init__ import *
 from .database import db
 
 global p_reports
-p_reports = Path(__file__).parents[1] / 'reports'
+p_reports = f.topfolder / 'reports'
 
 # TODO auto email w/ email lists
 
@@ -127,6 +127,19 @@ class Report(object):
     
     def render_charts(self):
         # render all charts from dfs, save as svg image
+        if f.frozen:
+            # TODO user has to install orca manually, need to check and give instructions
+            # have to specify absolute path to orca for exporting plotly charts as images
+            import plotly.io.orca as orca
+            if not f.is_win():
+                orca_path = '/Applications/orca.app/Contents/MacOS/orca' 
+            else:
+                # TODO figure out this path for windows
+                orca_path = '/path/to/pyinstalled/orca/orca.exe'
+                
+            orca.config.executable = orca_path
+            orca.config._constants['plotlyjs']  = str(f.topfolder / 'plotly/package_data/plotly.min.js')
+
         for m in self.charts.values():
             df = self.dfs[m['name']]['df']
             fig = m['func'](df=df, title=m['title'], **m['kw'])

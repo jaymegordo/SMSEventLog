@@ -20,7 +20,7 @@ def load_sms():
         a.Title like '%crack%' and \
         b.MineSite='FortHills'"
 
-    df = pd.read_sql(sql=sql, con=db.get_engine()) \
+    df = pd.read_sql(sql=sql, con=db.engine) \
         .rename(columns=dict(SuncorWO='Order'))
     
     df.Order = pd.to_numeric(df.Order, errors='coerce').astype('Int64')
@@ -35,7 +35,7 @@ def df_smr():
     Where b.MineSite='FortHills' and \
     a.DateSMR >= '2018-01-01'"
 
-    return pd.read_sql(sql=sql, con=db.get_engine(), parse_dates=['DateSMR']) \
+    return pd.read_sql(sql=sql, con=db.engine, parse_dates=['DateSMR']) \
         .rename(columns=dict(DateSMR='DateAdded')) \
         .sort_values(['DateAdded'])
 

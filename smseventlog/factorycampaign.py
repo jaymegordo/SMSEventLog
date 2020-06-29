@@ -12,7 +12,7 @@ from .gui import dialogs as dlgs
 
 
 def tblcount(tbl):
-    cursor = db.get_cursor()
+    cursor = db.cursor
     sql = f'Select count(*) From {tbl}'
     return cursor.execute(sql).fetchval()
 
@@ -46,9 +46,9 @@ def importFC(upload=True, df=None):
 
     # import to temp staging table in db, then merge new rows to FactoryCampaign
     if upload:
-        conn = db.get_engine().raw_connection()
+        conn = db.engine.raw_connection()
         cursor = conn.cursor()
-        df.to_sql(name='FactoryCampaignImport', con=db.get_engine(), if_exists='append', index=False)
+        df.to_sql(name='FactoryCampaignImport', con=db.engine, if_exists='append', index=False)
 
         msg = 'Rows read from import files: {}'.format(len(df))
 

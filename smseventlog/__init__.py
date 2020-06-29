@@ -33,32 +33,4 @@ m = dict(azure_env=azure_env,
     sys_frozen=sys_frozen,
     sys_platform=sys.platform)
 
-# if not (sys_frozen or 'linux' in sys.platform):
-    # when not running from packaged app, import all libraries for easy access in interactive terminal
-    # print(f'{__name__}: importing all')
-    # import json
-    # from time import time
-    # from timeit import Timer
 
-    # import pandas as pd
-    # import pypika as pk
-    # import xlwings as xw
-    # import yaml
-    # import sqlalchemy as sa
-
-    # from . import (
-    #     functions as f,
-    #     dbtransaction as dbt,
-    #     factorycampaign as fc,
-    #     folders as fl,
-    #     emails as em,
-    #     availability as av,
-    #     units as un,
-    #     reports as rp)
-
-    # from .gui import gui as ui
-    # from .gui import dialogs as dlgs
-    # from .gui import refreshtables as rtbls
-    # from .gui import tables as tbls
-    # from .dbmodel import *
-    # from .database import db
