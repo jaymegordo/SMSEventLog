@@ -252,10 +252,9 @@ class TableModel(QAbstractTableModel):
     
     @e
     def setData(self, index, val, role=Qt.EditRole, triggers=True, queue=False, update_db=True):
-        # TODO Check if text has changed, don't commit
         if not index.isValid(): return False
 
-        if role == Qt.EditRole:
+        if role == Qt.EditRole and index.data() != val:
             irow, icol = self.getRowCol(index)
             row, col = index.data(role=self.NameIndexRole)
             df = self.df
