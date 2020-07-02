@@ -296,7 +296,7 @@ class AddEvent(AddRow):
         
         if self.cbEventFolder.isChecked():
             from . import eventfolders as efl
-            ef = efl.EventFolder(e=row)
+            ef = efl.get_eventfolder(minesite=row.MineSite)(e=row)
             ef.create_folder(ask_show=True)
 
 class AddUnit(AddRow):

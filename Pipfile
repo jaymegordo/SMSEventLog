@@ -7,11 +7,8 @@ verify_ssl = true
 ipykernel = "*"
 jupyter = "*"
 sqlacodegen = "*"
-fbs = "*"
 xlwings = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
-weasyprint = "*"
-jinja2 = "*"
 
 [packages]
 pandas = "*"
@@ -26,15 +23,19 @@ exchangelib = "*"
 discord = "*"
 azure-functions = "*"
 openpyxl = "*"
-hurry = {filesize = "*"}
+"hurry.filesize" = "*"
 pyqt5 = "*"
-appscript = "*"
+appscript = {version = "*", sys_platform = "== 'darwin'"}
+pywin32 = {version = "*", os_name = "== 'windows'"}
 plotly = "*"
 seaborn = "*"
 matplotlib = "*"
 selenium = "*"
 joblib = "*"
 pyinstaller = {file = "https://github.com/pyinstaller/pyinstaller/archive/develop.tar.gz"}
+weasyprint = "*"
+jinja2 = "*"
+cairosvg = "*"
 
 [requires]
 python_version = "3.8"

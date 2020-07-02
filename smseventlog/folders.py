@@ -1,11 +1,11 @@
+import fnmatch
+import re
 import shutil
 import subprocess
-import time
 from collections import OrderedDict
 from distutils import dir_util
 from timeit import default_timer as timer
 
-import pandas as pd
 from hurry.filesize import size
 from joblib import Parallel, delayed
 
@@ -351,6 +351,15 @@ def remove_files(lst):
     for p in lst:
         if p.exists():
             p.unlink()
+
+def count_files(p, extensions=None, ftype='pics'):
+    if ftype.lower() == 'pics':
+        extensions = ['jpeg', 'jpg', 'png', 'tiff']
+    
+    return len(find_files(p=p, extensions=extensions))
+
+def find_files(p, extensions):
+    return [p_ for p_ in p.rglob('*') if p_.suffix.lower().replace('.', '') in extensions]
 
 # DSC
 def fix_dls_all_units(d_lower=None):

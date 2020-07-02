@@ -143,6 +143,9 @@ def is_win():
     ans = True if sys.platform.startswith('win') else False
     return ans
 
+def is_mac():
+    return sys.platform.startswith('dar')
+
 def bump_version(ver, vertype='patch'):
     if not isinstance(ver, str): ver = ver.base_version
 

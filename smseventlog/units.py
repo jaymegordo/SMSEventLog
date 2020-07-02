@@ -1,14 +1,5 @@
-# import exchangelib as ex
-import pandas as pd
-import pypika as pk
-from pypika import Case, Criterion
-from pypika import CustomFunction as cf
-from pypika import Order, Query
-from pypika import functions as fn
-
-from . import emails as em
+from . import exchange as exh
 from . import functions as f
-from . import reports as rp
 from .__init__ import *
 from .database import db
 
@@ -18,7 +9,7 @@ cols = ['Unit', 'DateSMR', 'SMR']
 
 def import_unit_hrs_email():
     maxdate = db.max_date_db(table='UnitSMR', field='DateSMR') + delta(days=1)
-    df = em.combine_email_data(folder='SMR', maxdate=maxdate)
+    df = exh.combine_email_data(folder='SMR', maxdate=maxdate)
     df = process_df(df)
     db.import_df(df=df, imptable=m['imptable'], impfunc=m['impfunc'])
 

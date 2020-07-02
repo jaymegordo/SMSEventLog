@@ -151,15 +151,15 @@ class MainWindow(QMainWindow):
             
     def view_folder(self):
         from . import eventfolders as efl
+        view = self.active_table()
 
-        row = self.active_table().row_from_activerow()
+        row = view.row_from_activerow()
         if row is None: return
         e = row.create_model_from_db() # TODO: this won't work with mixed tables eg FCSummary
         # dbt.print_model(e)
 
         # try to get minesite-specific EventFolder, if not use default
-        cls = getattr(efl, e.MineSite, efl.EventFolder)
-        cls(e=e).show()
+        efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model()).show()
 
     def open_sap(self):
         from .. import web

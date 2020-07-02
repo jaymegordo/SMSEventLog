@@ -1,19 +1,8 @@
-import exchangelib as ex
-import numpy as np
-import pandas as pd
-import pypika as pk
-import yaml
-from pypika import Case, Criterion
-from pypika import CustomFunction as cf
-from pypika import Order
-from pypika import functions as fn
-import sqlalchemy as sa
-
-from . import emails as em
+from . import dbmodel as dbm
+from . import exchange as exh
 from . import functions as f
 from .__init__ import *
 from .database import db
-from . import dbmodel as dbm
 
 
 def import_single(p):
@@ -23,13 +12,13 @@ def import_single(p):
 
 def import_downtime_email():
     maxdate = db.max_date_db(table='Downtime', field='ShiftDate') + delta(days=2)
-    df = em.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Downtime')
+    df = exh.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Downtime')
     df = process_df_downtime(df=df)
     db.import_df(df=df, imptable='DowntimeImport', impfunc='ImportDowntimeTable')
 
 def import_dt_exclusions_email():
     maxdate = db.max_date_db(table='DowntimeExclusions', field='Date') + delta(days=2)
-    df = em.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Availability', header=0)  
+    df = exh.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Availability', header=0)  
     df = process_df_exclusions(df=df)
     import_dt_exclusions(df=df)
 
@@ -69,7 +58,7 @@ def process_df_exclusions(df):
     return df
 
 def update_dt_exclusions_ma(units, rng_dates=None, dates=None):
-    # set MA=0 for units in given date range range
+    # set MA=0 (False) for units in given date range range
 
     t = pk.Table('DowntimeExclusions')
     cond = []
@@ -121,7 +110,6 @@ def parse_date(shiftdate, timedelta):
     return shiftdate + timedelta
 
 def ahs_pa_monthly():
-
     df = pd.read_sql_table(table_name='viewPAMonthly', con=db.engine)
     df = df.pivot(index='Unit', columns='MonthStart', values='Sum_DT')
     return df

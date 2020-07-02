@@ -7,8 +7,7 @@ import importlib
 from PyInstaller.utils.hooks import collect_submodules
 
 datas = [
-    ('smseventlog/data', 'data'),
-    ('reports', 'reports')]
+    ('smseventlog/data', 'data')]
 
 package_imports = [
     ['pandas', 'io/formats/templates', ('',)],

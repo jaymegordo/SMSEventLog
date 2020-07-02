@@ -5,7 +5,7 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 from . import charts as ch
-from . import emails as em
+from . import email as em
 from . import functions as f
 from . import queries as qr
 from . import styles as st
@@ -14,7 +14,7 @@ from .__init__ import *
 from .database import db
 
 global p_reports
-p_reports = f.topfolder / 'reports'
+p_reports = f.datafolder / 'reports'
 
 # TODO auto email w/ email lists
 
@@ -178,7 +178,7 @@ class Report(object):
             include_items=self.include_items)
 
         html_out = template.render(template_vars)
-        with open('html_out.html', 'w+') as file:
+        with open('html_out.html', 'w+', encoding='utf-8') as file:
             file.write(html_out)
 
         if p_base is None:
@@ -243,7 +243,7 @@ class FleetMonthlyReport(Report):
         title = f'{minesite} Fleet Monthly Report - {period}'
         f.set_self(self, vars())
 
-        secs = ['UnitSMR', 'Availability', 'Components', 'FCs']
+        secs = ['UnitSMR', 'Availability', 'Components', 'FCs', 'FrameCracks']
         self.load_sections(secs)
         self.add_items(['title_page', 'truck_logo', 'exec_summary', 'table_contents'])
 
@@ -262,7 +262,8 @@ class FleetMonthlyReport(Report):
         self.set_exec_summary()
         template = self.env.get_template('exec_summary_template.html')
         template_vars = dict(
-            exec_summary=self.exec_summary)
+            exec_summary=self.exec_summary,
+            d_rng=self.d_rng)
 
         html_out = template.render(template_vars)
         body = f'{f.greeting()}{html_out}'
@@ -509,6 +510,7 @@ class FCs(Section):
                 query=qr.NewFCs(d_rng=d_rng, minesite=minesite),
                 caption='All new FCs released during the report period.')
         
+        print(minesite)
         sec = SubSection('Completed FCs', self) \
             .add_df(
                 query=qr.FCComplete(d_rng=d_rng, minesite=minesite),

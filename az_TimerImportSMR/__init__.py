@@ -4,7 +4,6 @@ import logging
 import azure.functions as func
 import sys
 from pathlib import Path
-# sys.path.append(str(Path(__file__).parents[1] / 'smseventlog'))
 
 from __app__.smseventlog import (
     functions as f,

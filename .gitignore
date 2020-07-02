@@ -11,8 +11,8 @@ src
 target
 *.egg-info
 
-reports/saved
-reports/images
+smseventlog/data/reports/saved
+smseventlog/data/reports/images
 smseventlog/data/db.yaml
 smseventlog/data/email.yaml
 smseventlog/data/excel

@@ -7,7 +7,6 @@ logging.basicConfig(level=logging.WARNING)
 
 from datetime import (date, datetime as dt, timedelta as delta)
 
-# from smseventlog import *
 import json
 from time import time
 from timeit import Timer
@@ -15,10 +14,8 @@ from timeit import Timer
 import pandas as pd
 import numpy as np
 import pypika as pk
-import xlwings as xw
 import yaml
 import sqlalchemy as sa
-from appscript import *
 
 from smseventlog import (
     functions as f,
@@ -26,7 +23,7 @@ from smseventlog import (
     queries as qr,
     factorycampaign as fc,
     folders as fl,
-    emails as em,
+    email as em,
     availability as av,
     units as un,
     reports as rp,

@@ -1,12 +1,10 @@
-import pypika as pk
-
 from .. import factorycampaign as fc
 from . import gui as ui
 from .datamodel import TableModel
 from .__init__ import *
 from .delegates import AlignDelegate, DateDelegate, DateTimeDelegate, CellDelegate, ComboDelegate
 from . import dialogs as dlgs
-from .. import emails as em
+from .. import email as em
 from .. import queries as qr
 from .. import styles as st
 from .. import functions as f
@@ -17,10 +15,8 @@ log = logging.getLogger(__name__)
 # TODO row selection - highlight behind existing cell colors
 # TODO trigger on title changed?
 # TODO trigger on componentCO changed
-# TODO function bulk update multiple values in row (availability)
 # TODO Component CO highlight null SNs + other vals
 # TODO highlight header red when filter active
-# TODO add pics count to TSI page
 # TODO add tsi status to WO page
 # TODO UnitINFO add new function/menu
 # TODO create function to evaluate '=' formulas

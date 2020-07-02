@@ -32,6 +32,21 @@ def _create_engine():
     
     return engine
 
+def e(func):
+    # rollback invalid transaction
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (exc.StatementError, exc.InvalidRequestError):
+            log.warning('Rollback and retry operation.')
+            print('Rollback and retry operation.')
+            session = db.session # this is pretty sketch
+            session.rollback()
+            return func(*args, **kwargs)
+
+    return wrapper
+
 class DB(object):
     def __init__(self):
         __name__ = 'SMS Event Log Database'
@@ -265,21 +280,6 @@ class DB(object):
         val = self.query_single_val(q)
         
         return dt.combine(val, dt.min.time())
-
-def e(func):
-    # rollback invalid transaction
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except (exc.StatementError, exc.InvalidRequestError):
-            log.warning('Rollback and retry operation.')
-            print('Rollback and retry operation.')
-            session = db.session # this is pretty sketch
-            session.rollback()
-            return func(*args, **kwargs)
-
-    return wrapper
 
 print(f'{__name__}: loading db')
 db = DB()
