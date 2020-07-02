@@ -1,13 +1,12 @@
-
-from .. import functions as f
 from .. import folders as fl
+from .. import functions as f
+from . import dialogs as dlgs
 from .__init__ import *
-from . import dialogs  as dlgs
 
 log = logging.getLogger(__name__)
 
 class EventFolder(object):
-    def __init__(self, e):
+    def __init__(self, e, model=None, irow=None):
         self.dt_format = '%Y-%m-%d'
 
         f.copy_model_attrs(model=e, target=self)
@@ -28,7 +27,7 @@ class EventFolder(object):
 
         unitpath = f'{self.unit} - {self.serial}'
 
-        p_base = f.drive / f'{self.equippath}/{modelpath}/{unitpath}/events/{year}'
+        p_base = f.drive / f'{self.equippath}/{modelpath}/{unitpath}/Events/{year}'
         p_event = p_base / folder_title
         p_event_blank = p_base / self.get_folder_title(self.unit, self.dateadded, wo_blank, self.title)
 
@@ -71,13 +70,25 @@ class EventFolder(object):
                         fl.move_folder(p_src=p_old, p_dst=p)
                     
                 if not p.exists():
-                    # if user declined to create OR failed to chose a folder, ask to create
+                    # if user declined to create OR failed to choose a folder, ask to create
                     msg = f'Folder:\n\'{p.name}\' \n\ndoesn\'t exist, create now?'
                     if dlgs.msgbox(msg=msg, yesno=True):
                         self.create_folder()
         
         if p.exists():
+            self.set_pics()
             fl.open_folder(p=p, check_drive=False)
+    
+    def set_pics(self):
+        # count number of pics in folder and set model + save to db
+        model, irow = self.model, self.irow
+        if model is None or irow is None: return # need model to set value
+            
+        p_pics = self.p_event / 'Pictures'
+        num_pics = fl.count_files(p=p_pics, ftype='pics')
+
+        index = model.createIndex(irow, model.get_column_idx('Pics'))
+        model.setData(index=index, val=num_pics)
     
     def create_folder(self, show=True, ask_show=False):
         if not fl.drive_exists():
@@ -120,13 +131,13 @@ class EventFolder(object):
             return 'temp'
         
 class FortHills(EventFolder):
-    def __init__(self, e):
+    def __init__(self, e, model=None, irow=None):
         self.model_map = {
             '980':'1. 980E Trucks',
             '930': '2. 930E Trucks',
             'HD1500': '3. HD1500'}
 
-        super().__init__(e)
+        super().__init__(e, model=model, irow=irow)
 
     @property
     def equippath(self):
@@ -134,14 +145,17 @@ class FortHills(EventFolder):
     
 
 class BaseMine(EventFolder):
-    def __init__(self, e):
+    def __init__(self, e, model=None, irow=None):
         self.model_map = {
             '980': '2. 980E',
             '930': '1. 930E',
             'HD1500': '3. HD1500'}
 
-        super().__init__(e)
+        super().__init__(e, model=model, irow=irow)
 
     @property
     def equippath(self):
         return f'Fort McMurray/service/2. Customer Equipment Files/1. Suncor'
+
+def get_eventfolder(minesite=None):
+    return getattr(sys.modules[__name__], minesite, EventFolder)
