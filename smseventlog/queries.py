@@ -119,15 +119,17 @@ class QueryBase(object):
         f.set_self(self, vars())
         self.set_fltr()
 
-        if not kw is None and hasattr(self, 'set_default_args'):
-            self.set_default_args(**kw)
 
     def get_sql(self):
-        sql = self.sql
+        sql, kw = self.sql, self.kw
+
         if sql is None:
             q = self.q
             if hasattr(self, 'process_criterion'):
                 self.process_criterion()
+        
+            if not kw is None and hasattr(self, 'set_default_args'):
+                self.set_default_args(**kw)
 
             sql = q.select(*self.cols) \
                 .where(Criterion.all(self.fltr.get_all_criterion())) \
@@ -170,6 +172,10 @@ class EventLogBase(QueryBase):
         super().__init__(kw=kw)
         a, b = self.select_table, T('UnitID')
         date_col = 'DateAdded'
+
+        q = Query.from_(a) \
+            .left_join(b).on_field('Unit')
+
         f.set_self(self, vars())
 
         self.default_dtypes.update(
@@ -190,8 +196,7 @@ class EventLog(EventLogBase):
 
         cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy]
 
-        q = Query.from_(a) \
-            .left_join(b).on_field('Unit') \
+        q = self.q \
             .orderby(a.DateAdded, a.Unit)
         
         f.set_self(self, vars())
@@ -206,9 +211,8 @@ class WorkOrders(EventLogBase):
 
         cols = [a.UID, a.StatusWO, a.WarrantyYN, a.WorkOrder, a.Seg, a.SuncorWO, a.SuncorPO, b.Model, a.Unit, b.Serial, a.Title, a.PartNumber, a.SMR, a.DateAdded, a.DateCompleted, a.CreatedBy, a.WOComments, a.ComponentCO, a.Pictures]
 
-        q = Query.from_(a) \
-                .left_join(b).on_field('Unit') \
-                .orderby(a.DateAdded, a.Unit)
+        q = self.q \
+            .orderby(a.DateAdded, a.Unit)
 
         f.set_self(self, vars())    
    
@@ -220,8 +224,7 @@ class ComponentCOBase(EventLogBase):
         super().__init__(kw=kw)
         a, b, c = self.a, self.b, T('ComponentType')
 
-        q = Query.from_(a) \
-            .left_join(b).on_field('Unit') \
+        q = self.q \
             .inner_join(c).on_field('Floc') \
             .orderby(a.Unit, a.DateAdded, c.Modifier, a.GroupCO)
 
@@ -269,7 +272,7 @@ class ComponentCOReport(ComponentCOBase):
     def set_default_args(self, d_rng, minesite):
         self.add_fltr_args([
             dict(vals=dict(DateAdded=d_rng), term='between'),
-            dict(vals=dict(MineSite=minesite), table=T('UnitID'))])
+            dict(vals=dict(MineSite=minesite), table=self.b)])
     
     def update_style(self, style):
         df = style.data
@@ -295,8 +298,7 @@ class TSI(EventLogBase):
 
         cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, b.Model, a.Unit, b.Serial, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.TSIDetails, a.TSIAuthor]
         
-        q = Query.from_(a) \
-            .left_join(b).on_field('Unit') \
+        q = self.q \
             .orderby(a.DateAdded, a.Unit)
 
         f.set_self(self, vars())
@@ -328,7 +330,7 @@ class UnitInfo(QueryBase):
         cols = [a.MineSite, a.Customer, a.Model, a.Serial, a.EngineSerial, a.Unit, b.CurrentSMR, b.DateSMR, a.DeliveryDate, remaining, ge_remaining]
 
         q = Query.from_(a) \
-                .left_join(b).on_field('Unit')
+            .left_join(b).on_field('Unit')
         
         f.set_self(self, vars())
 
@@ -639,7 +641,7 @@ class AvailTopDowns(AvailBase):
         self.n = n
         self.add_fltr_args([
             dict(vals=dict(ShiftDate=d_rng), term='between'),
-            dict(vals=dict(MineSite=minesite), table=T('UnitID'))])
+            dict(vals=dict(MineSite=minesite), table=self.b)])
 
     def exec_summary(self):
         m, m2 = {}, {}
@@ -953,7 +955,32 @@ class AvailShortfalls(AvailBase):
         df = df.merge(right=s, on='Unit', how='left')
 
         return df
-    
+
+class FrameCracks(EventLogBase):
+    def __init__(self, kw=None):
+        super().__init__(kw=kw)
+        a, b = self.a, self.b
+        cols = [a.Unit, a.DateAdded, a.Title, a.SMR, a.TSIPartName, a.TSIDetails, a.WOComments, a.TSINumber, 
+        a.SuncorWO]
+
+        q = self.q \
+            .orderby(a.Unit, a.DateAdded)
+        
+        f.set_self(self, vars())
+        self.set_minesite()
+        
+    def set_default_args(self, d_lower):
+        self.add_fltr_args([
+            dict(vals=dict(DateAdded=d_lower)),
+            dict(vals=dict(Title='%crack%')),
+            dict(vals=dict(Model='%980%'), table=self.b)])
+        
+    def process_df(self, df):
+        df = df.rename(columns=dict(SuncorWO='Order'))
+        df.Order = pd.to_numeric(df.Order, errors='coerce').astype('Int64')
+        return df
+
+
 def table_with_args(table, args):
     def fmt(arg):
         if isinstance(arg, bool):
