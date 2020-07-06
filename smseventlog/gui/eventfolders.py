@@ -83,7 +83,9 @@ class EventFolder(object):
         # count number of pics in folder and set model + save to db
         model, irow = self.model, self.irow
         if model is None or irow is None: return # need model to set value
-            
+        # TODO need to check and set pics from any table, have to bypass using model
+        if model.table_widget.title != 'Work Orders': return
+
         p_pics = self.p_event / 'Pictures'
         num_pics = fl.count_files(p=p_pics, ftype='pics')
 

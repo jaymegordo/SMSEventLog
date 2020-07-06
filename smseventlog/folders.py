@@ -203,8 +203,10 @@ def get_unitpaths():
     p = f.drive / f.config['FilePaths']['980E FH']
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
-def all_units():
-    return [f'F{n}' for n in range(300, 348)]
+def all_units(rng=None):
+    if rng is None:
+        rng = (300, 348)
+    return [f'F{n}' for n in range(*rng)]
 
 def unitpath_from_unit(unit, unitpaths=None):
     if unitpaths is None:

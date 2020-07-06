@@ -205,7 +205,7 @@ class TableModel(QAbstractTableModel):
             func = self.parent.highlight_funcs[col]
             if not func is None:
                 try:
-                    return func(**dict(df=df, row=row, col=col, val=val, role=role))
+                    return func(**dict(df=df, row=row, col=col, irow=irow, icol=icol, val=val, role=role, index=index))
                 except:
                     return None
             

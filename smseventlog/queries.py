@@ -832,7 +832,7 @@ class AvailRawData(AvailBase):
 
     def set_fltr(self):
         super().set_fltr()
-        self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
+        # self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
 
     def background_gradient(self, style, theme):
         bg_color = 'white' if theme == 'light' else self.color['bg']['bgdark']
@@ -874,7 +874,6 @@ class Availability(AvailRawData):
     def set_allopen(self):
         self.set_minesite()
         self.fltr.add(ct=self.ct_allopen)
-        # self.fltr.add(vals=dict(Duration=0.01), opr=op.gt)
 
     def get_stylemap(self, df):
         # convert irow, icol stylemap to indexes
