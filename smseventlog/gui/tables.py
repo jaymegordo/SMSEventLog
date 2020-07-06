@@ -121,6 +121,7 @@ class TableView(QTableView):
     def highlight_alternating(self, df, row, col, role, **kw):
         # use count of unique values mod 2 to highlight alternating groups of values
         # TODO only works if column is sorted by unit
+        # TODO make this work with irow/icol .. email table fails
         irow, icol = df.index.get_loc(row), df.columns.get_loc(col)
         alt_row_num = len(df.iloc[:irow + 1, icol].unique()) % 2
 
@@ -399,6 +400,7 @@ class TableView(QTableView):
                 # if isinstance(d, WidgetedCell):
                 #     self.openPersistentEditor(idx)
 
+
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
 
@@ -527,6 +529,7 @@ class TableWidget(QWidget):
         
         msg_ = 'Would you like to attach an excel file of the data?'
         if dlgs.msgbox(msg=msg_, yesno=True):
+            print(style)
             p = self.save_excel(style=style, name=self.name)
             msg.add_attachment(p)
             p.unlink()
@@ -831,6 +834,7 @@ class Availability(TableWidget):
             self.highlight_funcs['Unit'] = self.highlight_alternating
             self.add_highlight_funcs(cols=['Category Assigned', 'Assigned'], func=self.highlight_by_val)
             self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
+            self.add_highlight_funcs(cols=['StartDate', 'EndDate'], func=self.highlight_ahs_duplicates)
 
             self.formats.update({
                 'Total': '{:,.2f}',
@@ -870,6 +874,27 @@ class Availability(TableWidget):
             update_val = duration - val
             model.setData(index=update_index, val=update_val, triggers=False, queue=True)
             model.flush_queue()
+        
+        def highlight_ahs_duplicates(self, df, val, irow, icol, col, role, **kw):
+            # TODO can make this way cleaner and more efficient
+            # if row startdate is between prior row's star/end date, highlight red
+            if irow == 0 or role == Qt.ForegroundRole: return
+
+            unit = df.loc[irow, 'Unit']
+            prior_unit = df.loc[irow - 1, 'Unit']
+
+            if unit != prior_unit: return
+
+            prior_start = df.loc[irow - 1, 'StartDate']
+            prior_end = df.loc[irow - 1, 'EndDate']
+
+            if col == 'StartDate':
+                if val >= prior_start and val < prior_end:
+                    return QColor('red')
+            elif col == 'EndDate':
+                if val < prior_start and val <= prior_end:
+                    return QColor('red')
+
 
     def get_email_list(self, email_type='Daily'):
         # get email list from csv
@@ -997,18 +1022,19 @@ class Availability(TableWidget):
         if dlgs.msgbox(msg=msg, yesno=True):
             self.email_report(period_type=dlg.period_type, p_rep=p, name=dlg.name)
         
-    def email_report(self, period_type=None, p_rep=None, name=None):
+    def email_report(self, period_type=False, p_rep=False, name=None):
         from .refreshtables import AvailReport
-        title = self.get_report_name(period_type, name)
         
-        if period_type is None:
+        if not period_type:
             dlg = AvailReport(parent=self)
             if not dlg.exec_(): return
             d_rng, period_type, name = dlg.d_rng, dlg.period_type, dlg.name
-        
-        if p_rep is None:
-            p_rep = self.get_report_path(p_base=self.get_report_base(period_type), name=name)
 
+        title = self.get_report_name(period_type, name)
+        
+        if not p_rep:
+            p_rep = self.get_report_path(p_base=self.get_report_base(period_type), name=title)
+        
         body = f'{f.greeting()}See attached report for availability {name}.'
 
         if not self.report is None:
