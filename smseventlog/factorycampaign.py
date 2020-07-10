@@ -46,8 +46,7 @@ def importFC(upload=True, df=None):
 
     # import to temp staging table in db, then merge new rows to FactoryCampaign
     if upload:
-        conn = db.engine.raw_connection()
-        cursor = conn.cursor()
+        cursor = db.cursor
         df.to_sql(name='FactoryCampaignImport', con=db.engine, if_exists='append', index=False)
 
         msg = 'Rows read from import files: {}'.format(len(df))

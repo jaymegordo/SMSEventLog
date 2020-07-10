@@ -181,12 +181,17 @@ class MainWindow(QMainWindow):
         
         table_ = bar.addMenu('Table')
         table_.addAction(self.act_email_table)
+        table_.addAction(self.act_export_excel_table)
 
         rows_ = bar.addMenu('Rows')
         rows_.addAction(self.act_open_tsi)
         rows_.addAction(self.act_remove_tsi)
         rows_.addAction(self.act_delete_event)
         rows_.addAction(self.act_update_component)
+        rows_.addAction(self.act_detailsview)
+
+        database_ = bar.addMenu('Database')
+        database_.addAction(self.act_update_comp_smr)
 
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_username)
@@ -211,6 +216,9 @@ class MainWindow(QMainWindow):
         act_remove_tsi = QAction('Remove TSI', self, triggered=self.remove_tsi)
         act_delete_event = QAction('Delete Event', self, triggered=self.delete_event)
 
+        from .. import units as un
+        act_update_comp_smr = QAction('Update Component SMR', self, triggered=un.update_comp_smr)
+
         # TODO: only add these to context menu with specific tables, eg not FC Summary?
         t = self.active_table_widget
         act_refresh_allopen = QAction('Refresh All Open', self, 
@@ -225,9 +233,13 @@ class MainWindow(QMainWindow):
         act_viewfolder = QAction('View Folder', self, triggered=self.view_folder)
         act_viewfolder.setShortcut(QKeySequence('Ctrl+Shift+V'))
 
+        act_detailsview = QAction('Details View', self, triggered=lambda: t().show_details())
+        act_detailsview.setShortcut(QKeySequence('Ctrl+Shift+D'))
+
         act_update_component = QAction('Update Component', self, triggered=lambda: t().show_component())
         act_email_table = QAction('Email Table', self, 
             triggered=lambda: t().email_table())
+        act_export_excel_table = QAction('Export to Excel', self, triggered=lambda: t().export_excel())
 
         f.set_self(self, vars())
 
@@ -246,6 +258,11 @@ class MainWindow(QMainWindow):
         menu.addAction(self.act_refresh_allopen)
         menu.addAction(self.act_refresh_lastweek)
         menu.addAction(self.act_refresh_lastmonth)
+
+        menu.addSeparator()
+
+        menu.addAction(self.act_detailsview)
+
         action = menu.exec_(self.mapToGlobal(event.pos()))
 
     def open_tsi(self):

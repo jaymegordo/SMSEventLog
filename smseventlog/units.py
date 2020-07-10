@@ -85,3 +85,15 @@ def df_unit_hrs_monthly(month):
 
     return df
 
+def update_comp_smr():
+    from .gui import dialogs as dlgs
+    try:
+        cursor = db.cursor
+        res = cursor.execute('updateUnitComponentSMR').fetchall()[0]
+        cursor.commit()
+    finally:
+        cursor.close()
+
+    unit_hrs, comp_hrs = res[0], res[1]
+    msg = f'Unit SMR updated: {unit_hrs}\nComponent SMR updated: {comp_hrs}'
+    dlgs.msg_simple(msg=msg)

@@ -4,7 +4,7 @@ from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QEvent, QFile,
                           QTextStream, QTimer, QVariant, pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QIntValidator,
                          QKeyEvent, QKeySequence, QTextCursor)
-from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
+from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction, QApplication,
                              QCheckBox, QComboBox, QDateEdit, QDateTimeEdit,
                              QDesktopWidget, QDialog, QDialogButtonBox,
                              QErrorMessage, QFileDialog, QFrame, QFormLayout,
@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QSpacerItem, QSpinBox, QStyle,
                              QStyledItemDelegate, QStyleOptionComboBox,
                              QStyleOptionFocusRect, QStyleOptionViewItem,
-                             QTableView, QTabWidget, QTextEdit, QVBoxLayout,
+                             QTableView, QTableWidget, QTableWidgetItem, QTabWidget, QTextEdit, QVBoxLayout,
                              QWidget, QWidgetAction)
 
 from smseventlog import (
