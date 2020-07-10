@@ -22,6 +22,7 @@ class Report(object):
     def __init__(self, d=None, d_rng=None, minesite=None, **kw):
         # dict of {df_name: {func: func_definition, kw: **kw, df=None}}
         dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
+        signatures = []
 
         if d is None: d = dt.now() + delta(days=-31)
         if d_rng is None: d_rng = qr.first_last_month(d=d)
@@ -175,7 +176,8 @@ class Report(object):
             sections=self.sections,
             dfs=dfs_filtered,
             charts=self.charts,
-            include_items=self.include_items)
+            include_items=self.include_items,
+            signatures=self.signatures)
 
         html_out = template.render(template_vars)
         with open('html_out.html', 'w+', encoding='utf-8') as file:
@@ -195,44 +197,11 @@ class TestReport(Report):
         super().__init__()
         title = 'Test Report'
         self.current_period = 'April 2020'
+        signatures = ['Suncor Reliability', 'Suncor Maintenance', 'SMS', 'Komatsu']
 
-        ex = self.exec_summary
-        ex['Availability'] =  {
-            self.current_period: {
-                'Physical Availability': '69.0%',
-                'Mechanical Availability': '90.0%',
-                'Target MA': '92.0%'
-            },
-            'YTD': {
-                'Physical Availability': '69.0%',
-                'Mechanical Availability': '90.0%',
-                'Target MA': '92.0%'
-            },
-            'Top 3 downtime categories': {
-                'Engine': '30%',
-                'S4 Service': '22%',
-                'S5 Service': '21%'
-            }
-        }
-
-        ex['Components'] = {
-            'Changeouts': {
-                'Planned': 26,
-                'Break-in': 11}}
-
-        ex['Factory Campaigns'] = {
-            'Outstanding': {
-                'M': 44,
-                'FAF/FT': 13,
-                'Labour Hours': 1234
-            },
-            'Completed': {
-                'M': 13,
-                'FAF/FT': 3,
-                'Labour Hours': 123
-            }
-        }
         f.set_self(self, vars())
+
+        self.add_items(['signature_block'])
 
 class FleetMonthlyReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
@@ -277,10 +246,11 @@ class FleetMonthlyReport(Report):
         msg.add_attachment(p)
         msg.show()
 
-class MonthlySMRReport(Report):
+class SMRReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
         super().__init__(d=d)
         
+        signatures = ['Suncor', 'SMS']
         period = self.d_rng[0].strftime('%Y-%m')
         title = f'{minesite} Monthly SMR - {period}'
         f.set_self(self, vars())
@@ -291,10 +261,11 @@ class MonthlySMRReport(Report):
     def create_pdf(self, p_base=None, csv=False):
         super().create_pdf(p_base=p_base)
         if csv:
-            self.save_csv()
+            self.save_csv(p_base=p_base)
     
-    def save_csv(self):
-        p_base = Path.home() / 'Desktop'
+    def save_csv(self, p_base=None):
+        if p_base is None:
+            p_base = Path.home() / 'Desktop'
         p = p_base / f'{self.title}.csv'
         
         df = self.get_df('SMR Hours Operated')
@@ -304,13 +275,13 @@ class AvailabilityReport(Report):
     def __init__(self, d_rng, name, period_type='week', minesite='FortHills'):
         super().__init__(d_rng=d_rng)
 
-        # get correct weekly or monthly date range
+        signatures = ['Suncor Reliability', 'Suncor Maintenance', 'SMS', 'Komatsu']
             
         title = f'Suncor Reconciliation Report - {minesite} - {period_type.title()}ly - {name}'
         f.set_self(self, vars(), exclude='d_rng')
 
         self.load_sections('AvailReport')
-        self.add_items(['title_page', 'exec_summary', 'table_contents'])
+        self.add_items(['title_page', 'exec_summary', 'table_contents', 'signature_block'])
     
     def set_exec_summary(self):
         ex = self.exec_summary

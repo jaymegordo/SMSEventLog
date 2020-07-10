@@ -220,11 +220,13 @@ table {
 
 .signature_table {
     table-layout: fixed;
-    font-size: 12pt;
+    font-size: 10pt;
     font-weight: normal;
     text-align: center;
-    line-height: 100px;
     width: 500px;
+}
+.signature_table tr td {
+    height: 80px;
 }
 .signature_table td:nth-child(1) {
     width: 100px;

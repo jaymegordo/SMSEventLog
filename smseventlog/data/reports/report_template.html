@@ -114,16 +114,11 @@
     <section id="signature_block" class="pagebreak">
         <h3>Signatures:</h3>
         <table id="signature_table" class="signature_table">
-            <tr><td>SMS:</td><td></td></tr>
-            <tr><td>Suncor:</td><td></td></tr>
+            {% for signature in signatures %}
+                <tr><td>{{ signature }}:</td><td></td></tr>
+            {% endfor %}
         </table>
     </section>
     {% endif %}
 </body>
 </html>
-<!-- 
-<div id="footer">
-    {% block footer %}
-    &copy; Copyright 2008 by <a href="http://domain.invalid/">you</a>.
-    {% endblock %}
-</div> -->
