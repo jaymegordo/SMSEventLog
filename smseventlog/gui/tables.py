@@ -180,9 +180,7 @@ class TableView(QTableView):
         s.append(dict(
             selector='table',
             props=[('border', '1px solid black')]))
-        # s.append(dict(
-        #     selector='tr:nth-child(even)',
-        #     props=[('background-color', f.config['color']['bg']['greyrow'])])) 
+
         style.table_styles.extend(s)
         return style
 
@@ -473,6 +471,15 @@ class TableWidget(QWidget):
         dlg = self.refresh_dialog(parent=self)
         dlg.exec_()
 
+    def show_details(self):
+        # get model of selected row
+        model = self.view.row_from_activerow().create_model_from_db()
+        df = dbt.df_from_row(model=model)
+
+        # load to details view
+        dlg = dlgs.DetailsView(df=df)
+        dlg.exec_()
+
     def refresh_lastweek(self, default=False):
         fltr = self.query.fltr
         if default:
@@ -519,7 +526,6 @@ class TableWidget(QWidget):
         style_body = ''
         if dlgs.msgbox(msg=msg_, yesno=True):
             style_body = style \
-                .pipe(self.query.background_gradient, theme='light') \
                 .hide_index().render()
 
         body = f'{body}<br><br>{style_body}' # add in table to body msg
@@ -529,7 +535,6 @@ class TableWidget(QWidget):
         
         msg_ = 'Would you like to attach an excel file of the data?'
         if dlgs.msgbox(msg=msg_, yesno=True):
-            print(style)
             p = self.save_excel(style=style, name=self.name)
             msg.add_attachment(p)
             p.unlink()
@@ -539,8 +544,29 @@ class TableWidget(QWidget):
     def save_excel(self, style, p=None, name='temp'):
         if p is None:
             p = f.datafolder / f'csv/{name}.xlsx'
-        style.to_excel(p, index=False, freeze_panes=(1,0))
-        return p
+
+        try:
+            style.to_excel(p, index=False, freeze_panes=(1,0))
+            return p
+        except:
+            return None
+    
+    def export_excel(self):
+        # export table as excel file, prompt user for location
+        from .. import folders as fl
+
+        p = dlgs.save_file(name=self.title)
+        if p is None: return
+
+        view = self.view
+        style = view.get_style(df=view.model().df, outlook=True)
+
+        p = self.save_excel(style=style, name=self.name, p=p)
+        if not p is None:
+            msg = f'File created:\n\n{p}\n\nOpen now?'
+            if dlgs.msgbox(msg=msg, yesno=True):
+                fl.open_folder(p=p, check_drive=False)
+
 
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
@@ -854,8 +880,13 @@ class Availability(TableWidget):
                 'collecting info': 'lightyellow'})
 
         def get_style(self, df=None, outlook=False):
-            return super().get_style(df=df, outlook=outlook) \
+            style = super().get_style(df=df, outlook=outlook) \
                 .pipe(st.set_column_widths, vals=dict(StartDate=300, EndDate=300))
+            
+            if outlook:
+                style = style.pipe(self.parent.query.background_gradient, theme='light')
+
+            return style
 
         def update_duration(self, index):
             # Set SMS/Suncor duration if other changes
