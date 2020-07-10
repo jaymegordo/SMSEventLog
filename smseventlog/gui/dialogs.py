@@ -56,21 +56,10 @@ class InputForm(QDialog):
         self.vLayout.addLayout(self.formLayout)
         self.fields = []
         self.items = None
-        self.add_okay_cancel(layout=self.vLayout)
+        add_okay_cancel(dlg=self, layout=self.vLayout)
         
     def show(self):
         self.setFixedSize(self.sizeHint())
-
-    def add_okay_cancel(self, layout):
-        # add an okay/cancel btn box to bottom of QDialog's layout (eg self.vLayout)
-        # parent = layout.parent()
-
-        btnbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btnbox.accepted.connect(self.accept)
-        btnbox.rejected.connect(self.reject)
-
-        layout.addWidget(btnbox, alignment=Qt.AlignBottom | Qt.AlignCenter)
-        self.btnbox = btnbox
 
     def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None):
         # Add input field to form
@@ -491,6 +480,42 @@ class ErrMsg2(QDialog):
         btn.clicked.connect(self.close)
         vLayout.addWidget(btn)
 
+class DetailsView(QDialog):
+    # TODO need to build value updating
+    def __init__(self, parent=None, df=None):
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setWindowTitle('Details View')
+        self.setMinimumSize(QSize(800, 1000))
+        tbl = self.create_table(df=df)
+        vLayout = QVBoxLayout(self)
+        vLayout.addWidget(tbl)
+        add_okay_cancel(dlg=self, layout=vLayout)
+        
+        f.set_self(self, vars())
+
+    def create_table(self, df):
+        tbl = QTableWidget()
+        # tbl.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        tbl.setFixedSize(QSize(800, 1000))
+        tbl.setColumnWidth(0, 200)
+
+        tbl.setRowCount(df.shape[0])
+        tbl.setColumnCount(df.shape[1])
+        tbl.setHorizontalHeaderLabels(list(df.columns))
+        tbl.setVerticalHeaderLabels(list(df.index))
+        tbl.horizontalHeader().setStretchLastSection(True)
+
+        df_array = df.values
+        for row in range(df.shape[0]):
+            for col in range(df.shape[1]):
+                val = df_array[row,col]
+                val = str(val) if not val is None else ''
+                tbl.setItem(row, col, QTableWidgetItem(val))
+        
+        tbl.resizeRowsToContents()
+
+        return tbl
 
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = check_app()
@@ -543,16 +568,39 @@ def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
 
 def get_filepath_from_dialog(p_start):
     app = check_app()
-    dlg = QFileDialog()
-    ui.disable_window_animations_mac(dlg)
 
-    s = dlg.getExistingDirectory(
+    s = QFileDialog.getExistingDirectory(
         directory=str(p_start),
         options=QFileDialog.ShowDirsOnly | QFileDialog.DontUseNativeDialog)
 
     if s:
         return Path(s)
     return None
+
+def save_file(p_start=None, name=None):
+    # TODO save last folder location to QSettings?
+    if p_start is None: 
+        p_start = Path.home() / 'Desktop'
+    
+    p = p_start / f'{name}.xlsx'
+
+    app = check_app()
+    s = QFileDialog.getSaveFileName(caption='Save File', directory=str(p), filter='*.xlsx', options=QFileDialog.DontUseNativeDialog)
+    
+    if s[0]:
+        return Path(s[0])
+    return None
+
+def add_okay_cancel(dlg, layout):
+    # add an okay/cancel btn box to bottom of QDialog's layout (eg self.vLayout)
+    # parent = layout.parent()
+
+    btnbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    btnbox.accepted.connect(dlg.accept)
+    btnbox.rejected.connect(dlg.reject)
+
+    layout.addWidget(btnbox, alignment=Qt.AlignBottom | Qt.AlignCenter)
+    dlg.btnbox = btnbox
 
 def show_item(name, parent=None, *args, **kw):
     # show message dialog by name eg ui.show_item('InputUserName')
