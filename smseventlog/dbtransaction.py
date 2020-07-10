@@ -173,8 +173,19 @@ def print_model(model, include_none=False):
     m = f.model_dict(model, include_none=include_none)
     display(m)
 
-def test_model(uid):
+def df_from_row(model):
+    # convert single row model from db to df with cols as index (used to display all data single row)
+    m = f.model_dict(model, include_none=True)
+    df = pd.DataFrame.from_dict(m, orient='index', columns=['Value']) \
+    
+    df.index.rename('Fields', inplace=True)
+    return df
+
+def example(uid=None):
     from . import dbmodel as dbm
-    row = Row(keys=dict(UID=12602260565), dbtable=dbm.EventLog)
+    if uid is None:
+        uid = 12602260565
+
+    row = Row(keys=dict(UID=uid), dbtable=dbm.EventLog)
     e = row.create_model_from_db()
     return e
