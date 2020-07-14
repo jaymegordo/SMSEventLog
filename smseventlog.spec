@@ -1,4 +1,5 @@
 # -*- mode: python -*-
+# TODO exclude db_secret.txt from build
 
 block_cipher = None
 

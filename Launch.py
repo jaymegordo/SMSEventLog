@@ -29,6 +29,7 @@ from smseventlog import (
     reports as rp,
     styles as st,
     charts as ch,
+    oilsamples as oil,
     web)
 
 from smseventlog.gui import (

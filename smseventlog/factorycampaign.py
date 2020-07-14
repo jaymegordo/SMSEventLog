@@ -18,11 +18,7 @@ def tblcount(tbl):
 
 def importFC(upload=True, df=None):
     # load all 'xls' files from import folder to df
-    if f.is_win():
-        p = Path(f.drive + f.config['FilePaths']['Import FC'])
-    else:
-        # TODO: this obvs needs to change
-        p = Path('/Users/Jayme/OneDrive/Desktop/Import/Factory Campaign')
+    p = Path(f.drive + f.config['FilePaths']['Import FC'])
         
     lst = [f for f in p.glob('*.xls')]
 

@@ -47,15 +47,15 @@ if __name__ == '__main__':
     else:
         d = dt(2019,1,1)
     
-    if batch:
-        lower = 300 + (batch - 1) * 10
-        upper = lower + 9
-        units = get_units(lower, upper)
+    # if batch:
+    #     lower = 300 + (batch - 1) * 10
+    #     upper = lower + 9
+    #     units = get_units(lower, upper)
 
-    if rng:
-        lower = int(rng[0].replace('F', ''))
-        upper = int(rng[-1].replace('F', ''))
-        units = get_units(lower, upper)
+    # if rng:
+    #     lower = int(rng[0].replace('F', ''))
+    #     upper = int(rng[-1].replace('F', ''))
+    #     units = get_units(lower, upper)
     
     print(f'ftype: {ftype}, units: {units}')
     fl.process_files(ftype=ftype, units=units, d_lower=d)

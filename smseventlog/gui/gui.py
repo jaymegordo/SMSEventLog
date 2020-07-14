@@ -15,13 +15,10 @@ minesite, customer = 'FortHills', 'Suncor'
 # TODO Keyboard shortcuts > ctrl + down, right
 # TODO column bold
 # TODO green 'flash' for user confirmation value updated in db
-# TODO Show 'details' menu > QListView?
 # TODO remember state of refresh dialogs
 # TODO refresh dialog tab order
 # TODO save previous query and run when tab first selected
 # TODO selected rows highlight behind existing colors
-# TODO Pics - count when folder viewed.
-
 
 class MainWindow(QMainWindow):
     minesite_changed = pyqtSignal(str)

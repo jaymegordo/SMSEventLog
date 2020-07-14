@@ -51,7 +51,7 @@ class DBTransaction():
         return self
 
     def add_row(self, irow):
-        # TODO probably need to work with values passed in manually, maybe won't use this, df is pretty gr8
+        # NOTE probably need to work with values passed in manually, maybe won't use this, df is pretty gr8
         df = self.df
 
         # convert all col_ixs to db_field names and attach values to update

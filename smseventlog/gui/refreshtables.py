@@ -192,7 +192,7 @@ class Availability(RefreshTable):
         df_week = qr.df_weeks()
         df_month = qr.df_months()
 
-        d = dt.now().date() + delta(days=-7)
+        d = dt.now().date() + delta(days=-6)
         default_week = df_week[df_week.StartDate < d].iloc[-1, :].name #index name
 
         d = dt.now() + delta(days=-30)

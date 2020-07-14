@@ -61,8 +61,7 @@ def update_dt_exclusions_ma(units, rng_dates=None, dates=None):
     # set MA=0 (False) for units in given date range range
 
     t = pk.Table('DowntimeExclusions')
-    cond = []
-    cond.append(t.Unit.isin(units))
+    cond = [t.Unit.isin(units)]
 
     if not rng_dates is None:
         cond.append(t.Date.between(*rng_dates))

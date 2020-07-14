@@ -212,7 +212,7 @@ class FleetMonthlyReport(Report):
         title = f'{minesite} Fleet Monthly Report - {period}'
         f.set_self(self, vars())
 
-        secs = ['UnitSMR', 'Availability', 'Components', 'FCs', 'FrameCracks']
+        secs = ['UnitSMR', 'AvailBase', 'Components', 'FCs', 'FrameCracks']
         self.load_sections(secs)
         self.add_items(['title_page', 'truck_logo', 'exec_summary', 'table_contents'])
 
@@ -280,8 +280,11 @@ class AvailabilityReport(Report):
         title = f'Suncor Reconciliation Report - {minesite} - {period_type.title()}ly - {name}'
         f.set_self(self, vars(), exclude='d_rng')
 
-        self.load_sections('AvailReport')
-        self.add_items(['title_page', 'exec_summary', 'table_contents', 'signature_block'])
+        self.load_sections('AvailStandalone')
+        self.add_items(['title_page', 'exec_summary', 'table_contents'])
+
+        if period_type == 'month':
+            self.add_items(['signature_block'])
     
     def set_exec_summary(self):
         ex = self.exec_summary
@@ -357,7 +360,7 @@ class UnitSMR(Section):
                 kw=dict(month=month),
                 caption='SMR hours operated during the report period.') # TODO change month, make query
 
-class Availability(Section):
+class AvailBase(Section):
     def __init__(self, report):
         super().__init__(title='Availability', report=report)
 
@@ -443,7 +446,7 @@ class Availability(Section):
 
         ex['Availability'] = m
 
-class AvailReport(Availability):
+class AvailStandalone(AvailBase):
     def __init__(self, report):
         super().__init__(report)
 

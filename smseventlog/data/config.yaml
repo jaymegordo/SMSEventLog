@@ -108,6 +108,7 @@ TableName:
         EmailList: EmailList
         AvailTopDowns: Downtime
         AvailBase: Downtime
+        OilSamples: OilSamples
     Update:
         FCSummary: FCSummary
         FCDetails: FactoryCampaign
@@ -264,3 +265,9 @@ Headers:
         DownReason: Reason
         Comment: Comment
         Assigned: Assigned
+
+Platform:
+    mac:
+        font size: 15
+    win:
+        font size: 11

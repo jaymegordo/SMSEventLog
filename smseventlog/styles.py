@@ -161,10 +161,22 @@ def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols
 
     return df1
 
-def highlight_alternating(s):
+def pipe_highlight_alternating(style, color, theme):
+    return style.apply(highlight_alternating, color=color, theme=theme)
+
+def highlight_alternating(s, color='navyblue', theme='light'):
     # loop df column and switch active when value changes. Kinda ugly but works.
     # only accept single column for now
-    color = f.config['color']['bg']['navyblue']
+    colors = f.config['color']
+        
+    if theme == 'light':
+        default_bg = 'white'
+        default_t = 'black'
+    else:
+        default_bg = colors['bg']['bgdark']
+        default_t = 'white'
+
+    color = colors['bg'][color]
     active = 1
     prev = ''
 
@@ -182,7 +194,7 @@ def highlight_alternating(s):
         if active == 1:
             css = format_cell(bg=color, t='white')
         else:
-            css = format_cell(bg='inherit')
+            css = format_cell(bg=default_bg, t=default_t)
 
         s1.iloc[i] = css
 

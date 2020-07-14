@@ -46,7 +46,7 @@ def check_ver_ui():
 
 def check_update_ui():
     from .gui import dialogs as dlgs
-    # TODO: make sure this works when run from excel
+    # make sure this works when run from excel
     # copy new excel file from site-packages and replace currently active book
     if check_ver_ui():
 

@@ -497,9 +497,6 @@ class FilterListMenuWidget(QtWidgets.QWidgetAction):
         for i in sorted(build_list):
             _build_item(i)
 
-        # Add a (Blanks)
-        # TODO
-
     def on_list_itemChanged(self, item):
         ###
         # Figure out what "select all" check-box state should be

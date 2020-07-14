@@ -12,8 +12,6 @@ log = logging.getLogger(__name__)
 # DATABASE
 
 def str_conn():
-    # if not 'linux' in sys.platform and not f.check_db():
-    #     return
     m = f.get_db()
     db_string = ';'.join('{}={}'.format(k, v) for k, v in m.items())
     params = parse.quote_plus(db_string)
@@ -171,6 +169,10 @@ class DB(object):
         dfu = self.df_unit
 
         return dfu.loc[unit, field]
+    
+    def unique_units(self):
+        df = self.get_df_unit()
+        return df.Unit.unique()
 
     def get_list_minesite(self):
         lst_minesite = getattr(self, 'lst_minesite', None)
@@ -234,16 +236,16 @@ class DB(object):
 
         return self.df_component
 
-    def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None):
+    def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None, index=False):
         rowsadded = 0
-        if df is None:
+        if df is None or len(df) == 0:
             fmt = '%Y-%m-%d %H:%M'
             f.discord(msg=f'{dt.now().strftime(fmt)} - {imptable}: No rows to import', channel='sms')
             return
 
         try:
             # .execution_options(autocommit=True)
-            df.to_sql(name=imptable, con=self.engine, if_exists='append', index=False, chunksize=chunksize)
+            df.to_sql(name=imptable, con=self.engine, if_exists='append', index=index, chunksize=chunksize)
 
             cursor = self.cursor
             rowsadded = cursor.execute(impfunc).rowcount
