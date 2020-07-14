@@ -42,11 +42,8 @@ class TableModel(QAbstractTableModel):
         _cols = list(df.columns)
         parent = self.parent
 
-        # apply style functions
         # TODO this isn't finished yet
         query = self.table_widget.query
-        if hasattr(query, 'get_stylemap'):
-            self.stylemap = query.get_stylemap(df=df)
 
         # create tuple of ints from parent's list of disabled table headers
         disabled_cols = tuple(i for i, col in enumerate(_cols) if col in parent.disabled_cols)
@@ -58,6 +55,7 @@ class TableModel(QAbstractTableModel):
 
         f.set_self(self, vars(), exclude='df')
         self.df = df
+        self.set_stylemap()
 
     @property
     def df(self):
@@ -83,6 +81,21 @@ class TableModel(QAbstractTableModel):
     @stylemap.setter
     def stylemap(self, stylemap):
         self._stylemap = stylemap
+    
+    def set_stylemap(self, col=None):
+        # apply style functions
+        df = self.df
+        if df.shape[0] == 0: return
+
+        query = self.query
+        if hasattr(query, 'get_stylemap'):
+            stylemap = query.get_stylemap(df=df, col=col)
+
+            # either reset stylemap, or update slice
+            if col is None:
+                self.stylemap = stylemap
+            else:
+                self.stylemap.update(stylemap)
 
     @property
     def dbtable_default(self):
@@ -209,6 +222,7 @@ class TableModel(QAbstractTableModel):
                 except:
                     return None
             
+            # stylemap used to read static styles from df styler, eg background gradient in Availability
             style_vals = self.stylemap.get((row, col), None)
             if style_vals:
                 if role == Qt.BackgroundRole:
@@ -278,9 +292,13 @@ class TableModel(QAbstractTableModel):
             # either add items to the queue, or update single val
             if not queue:
                 if update_db:
-                    self.update_db(index=index, val=val)
+                    self.update_db(index=index, val=val)               
             else:
                 self.add_queue(vals={col: val}, irow=irow)
+            
+            # reset stylemap when val in dynamic_cols is changed
+            if col in self.parent.dynamic_cols:
+                self.set_stylemap(col=col)
 
             self.dataChanged.emit(index, index)
 
