@@ -31,7 +31,7 @@ class TableView(QTableView):
 
         # self.activated.connect(self.double_click_enter)
 
-        disabled_cols, hide_cols, check_exist_cols, datetime_cols = (), (), (), ()
+        disabled_cols, hide_cols, check_exist_cols, datetime_cols, dynamic_cols, sort_filter_cols = (), (), (), (), (), ()
         col_widths = {'Title': 150, 'Part Number': 150}
         highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, {}, {} # NOTE use all lowercase!
         colors = f.config['color']
@@ -519,14 +519,13 @@ class TableWidget(QWidget):
         return dbtable
 
     def email_table(self, subject='', body='', email_list=[], df=None):
-        # TODO optional show table vs just excel file, consider temp files too
+        # TODO make this an input dialog so settings can be remembered
         style = self.view.get_style(df=df, outlook=True)
 
         msg_ = 'Include table in email body?'
         style_body = ''
         if dlgs.msgbox(msg=msg_, yesno=True):
-            style_body = style \
-                .hide_index().render()
+            style_body = style.hide_index().render()
 
         body = f'{body}<br><br>{style_body}' # add in table to body msg
 
@@ -552,14 +551,13 @@ class TableWidget(QWidget):
             return None
     
     def export_excel(self):
-        # export table as excel file, prompt user for location
+        # export current table as excel file, prompt user for location
         from .. import folders as fl
 
         p = dlgs.save_file(name=self.title)
         if p is None: return
 
-        view = self.view
-        style = view.get_style(df=view.model().df, outlook=True)
+        style = self.view.get_style(df=None, outlook=True)
 
         p = self.save_excel(style=style, name=self.name, p=p)
         if not p is None:
@@ -856,11 +854,13 @@ class Availability(TableWidget):
 
             self.disabled_cols = ('Unit', 'ShiftDate', 'StartDate', 'EndDate')
             self.datetime_cols = ('StartDate', 'EndDate')
+            self.dynamic_cols = ('Total', 'SMS', 'Suncor')
+            self.sort_filter_cols = ('Unit',)
             self.col_widths.update(dict(Comment=600))
-            self.highlight_funcs['Unit'] = self.highlight_alternating
+            # self.highlight_funcs['Unit'] = self.highlight_alternating
             self.add_highlight_funcs(cols=['Category Assigned', 'Assigned'], func=self.highlight_by_val)
-            self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
             self.add_highlight_funcs(cols=['StartDate', 'EndDate'], func=self.highlight_ahs_duplicates)
+            self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
             self.formats.update({
                 'Total': '{:,.2f}',
@@ -878,15 +878,13 @@ class Availability(TableWidget):
                 's5 service': 'lightgreen',
                 '0': 'greyrow',
                 'collecting info': 'lightyellow'})
+            
+            # if a value is changed in any of self.dynamic_cols, model needs to re-request stylemap from query 
 
         def get_style(self, df=None, outlook=False):
-            style = super().get_style(df=df, outlook=outlook) \
-                .pipe(st.set_column_widths, vals=dict(StartDate=300, EndDate=300))
-            
-            if outlook:
-                style = style.pipe(self.parent.query.background_gradient, theme='light')
-
-            return style
+            return super().get_style(df=df, outlook=outlook) \
+                .pipe(st.set_column_widths, vals=dict(StartDate=300, EndDate=300)) \
+                .pipe(self.parent.query.background_gradient, theme='light', do=outlook)
 
         def update_duration(self, index):
             # Set SMS/Suncor duration if other changes
@@ -906,26 +904,16 @@ class Availability(TableWidget):
             model.setData(index=update_index, val=update_val, triggers=False, queue=True)
             model.flush_queue()
         
-        def highlight_ahs_duplicates(self, df, val, irow, icol, col, role, **kw):
-            # TODO can make this way cleaner and more efficient
+        def highlight_ahs_duplicates(self, df, val, row, col, role, **kw):
             # if row startdate is between prior row's star/end date, highlight red
-            if irow == 0 or role == Qt.ForegroundRole: return
+            if row == 0 or not role == Qt.BackgroundRole: return
+            row_prev = df.loc[row - 1]
+            if not df.loc[row, 'Unit'] == row_prev.Unit: return
 
-            unit = df.loc[irow, 'Unit']
-            prior_unit = df.loc[irow - 1, 'Unit']
-
-            if unit != prior_unit: return
-
-            prior_start = df.loc[irow - 1, 'StartDate']
-            prior_end = df.loc[irow - 1, 'EndDate']
-
-            if col == 'StartDate':
-                if val >= prior_start and val < prior_end:
-                    return QColor('red')
-            elif col == 'EndDate':
-                if val < prior_start and val <= prior_end:
-                    return QColor('red')
-
+            m = dict(StartDate=(op.ge, op.lt), EndDate=(op.lt, op.le))
+            ops = m[col]
+            if ops[0](val, row_prev.StartDate) and ops[1](val, row_prev.EndDate):
+                return QColor('red')
 
     def get_email_list(self, email_type='Daily'):
         # get email list from csv
