@@ -1,4 +1,5 @@
 import inspect
+import json
 
 import numpy as np
 import seaborn as sns
@@ -88,7 +89,7 @@ class Filter():
 
 class QueryBase(object):
     def __init__(self, minesite='FortHills', kw=None):
-        formats, default_dtypes = {}, {}
+        formats, default_dtypes, stylemap_cols = {}, {}, {}
         background_gradients = []
         cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         sql, df = None, pd.DataFrame()
@@ -118,7 +119,6 @@ class QueryBase(object):
 
         f.set_self(self, vars())
         self.set_fltr()
-
 
     def get_sql(self):
         sql, kw = self.sql, self.kw
@@ -826,21 +826,24 @@ class AvailRawData(AvailBase):
         cols = [a.Unit, a.ShiftDate, a.StartDate, a.EndDate, a.Duration.as_('Total'), a.SMS, a.Suncor, a.CategoryAssigned.as_('Category Assigned'), a.DownReason, a.Comment]
 
         q = self.q \
-            .orderby(a.Unit, a.StartDate)
+            .orderby(a.Unit, a.StartDate) \
+            .orderby(a.EndDate, order=Order.desc)
+
 
         f.set_self(self, vars())
 
     def set_fltr(self):
         super().set_fltr()
-        self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
+        # self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
+        # ^ can't use this need to see AHS duplicates which were set to 0
 
-    def background_gradient(self, style, theme):
+    def background_gradient(self, style, theme, do=True):
+        if not do: return style
         bg_color = 'white' if theme == 'light' else self.color['bg']['bgdark']
         cmap = LinearSegmentedColormap.from_list('red_white', [bg_color, self.color['bg']['lightred']])
         return style.background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None)
 
     def update_style(self, style, theme='light'):
-
         style.set_table_attributes('class="pagebreak_table" style="font-size: 8px;"')
         
         col_widths = dict(StartDate=60, EndDate=60, Total=20, SMS=20, Suncor=20, Comment=150)
@@ -848,7 +851,7 @@ class AvailRawData(AvailBase):
 
         return style \
             .pipe(self.background_gradient, theme=theme) \
-            .apply(st.highlight_alternating, subset=['Unit']) \
+            .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color='maroon') \
             .pipe(st.set_column_widths, vals=col_widths) \
             .hide_columns(['DownReason'])
 
@@ -864,6 +867,24 @@ class Availability(AvailRawData):
 
         f.set_self(self, vars())
 
+        # set cols, func, and kw for stylemap functions
+        cols_gradient = ['Total', 'SMS', 'Suncor']
+        self.stylemap_cols.update(
+            {col: dict(
+                cols=cols_gradient,
+                func=self.background_gradient,
+                kw=dict(theme='dark')) for col in cols_gradient})
+        
+        # NOTE not used yet, maybe recalc on sorting/filtering in the future
+        self.stylemap_cols.update(
+            {'Unit': dict(
+                cols=['Unit'],
+                func=st.pipe_highlight_alternating,
+                kw=dict(
+                    subset=['Unit'],
+                    color='maroon',
+                    theme='dark'))})
+
     def set_minesite(self):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
     
@@ -875,12 +896,21 @@ class Availability(AvailRawData):
         self.set_minesite()
         self.fltr.add(ct=self.ct_allopen)
 
-    def get_stylemap(self, df):
+    def get_stylemap(self, df, col=None):
         # convert irow, icol stylemap to indexes
-        if df.shape[0] <=0:
+        # NOTE this should probs be in a more general purpose func, not just availability
+        if df.shape[0] <= 0:
             return {}
 
-        style = df.style.pipe(self.update_style, theme='dark')
+        if col is None:
+            # calc style for full dataframe
+            style = df.style.pipe(self.update_style, theme='dark')
+        else:
+            # calc style for specific cols
+            m = self.stylemap_cols[col]
+            df = df[m['cols']] # get slice of df
+            style = df.style.pipe(m['func'], **m['kw'])
+
         style._compute()
         return f.convert_stylemap_index(style=style)
  
@@ -978,6 +1008,21 @@ class FrameCracks(EventLogBase):
         df = df.rename(columns=dict(SuncorWO='Order'))
         df.Order = pd.to_numeric(df.Order, errors='coerce').astype('Int64')
         return df
+
+class OilSamples(QueryBase):
+    def __init__(self, kw=None):
+        super().__init__(kw=kw)
+        a = self.select_table
+        cols = ['*']
+
+        q = Query.from_(a) \
+            .orderby(a.unitId, a.processDate)
+
+        f.set_self(self, vars())
+    
+    def process_df(self, df):
+        df.testResults = df.testResults.apply(json.loads) # deserialize testResults from string > list
+        return df.set_index('labTrackingNo')
 
 
 def table_with_args(table, args):
