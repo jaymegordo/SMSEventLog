@@ -17,7 +17,7 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
-global drive, config, topfolder, azure_env, datafolder, frozen
+global drive, config, config_platform, platform, topfolder, azure_env, datafolder, frozen
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
     
@@ -34,15 +34,21 @@ os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(orca_path)])
 
 if sys.platform.startswith('win'):
     drive = Path('P:')
+    platform = 'win'
 else:
     drive = Path('/Volumes/Public')
+    platform = 'mac'
 
 def set_config():
+    # config is yaml file with config details, dictionary conversions etc
     p = Path(datafolder / 'config.yaml')
     with open(p) as file:
         m = yaml.full_load(file)
     
     return m
+
+config = set_config()
+config_platform = config['Platform'][platform]
 
 # DICT & CONVERSIONS
 def inverse(m):
@@ -389,5 +395,3 @@ def create_logger(func=None):
     # add handler to logger object
     logger.addHandler(fh)
     return logger
-
-config = set_config()
