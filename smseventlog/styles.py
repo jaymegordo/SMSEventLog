@@ -109,6 +109,8 @@ def set_style(df, outlook=False):
     
     return style
 
+def df_empty(df):
+    return pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
 
 def format_cell(bg, t='black'):
     return f'background-color: {bg};color: {t};'
@@ -142,6 +144,26 @@ def highlight_yn(df):
 
     return pd.DataFrame(data=data, index=df.index, columns=df.columns)
 
+def highlight_multiple_vals(df, m):
+    # highlight multiple vals in df based on input dict of {val: (bg_color, t_color)}
+
+    m.update({None: ('inherit', 'inherit')})
+    m_replace = {k: format_cell(bg=v[0], t=v[1]) for k, v in m.items()}
+
+    return df.replace(m_replace)
+
+def highlight_flags(df, m):
+    # highlight flagged columns
+    df1 = highlight_multiple_vals(df=df, m=m)
+
+    flagged_cols = [col for col in df.columns if '_f' in col]
+    for col in flagged_cols:
+        col2 = col.replace('_f', '')
+        df1[col2] = df1[col]
+        df1[col] = ''
+
+    return df1
+
 def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols=None):
     m = f.config['color']
     bg, t = m['bg'], m['text']
@@ -151,8 +173,7 @@ def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols
 
     m = df[target_col]==val
 
-    df1 = pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
-
+    df1 = df_empty()
     df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), 'background-color: inherit')
 
     if other_cols:
@@ -170,7 +191,7 @@ def highlight_alternating(s, color='navyblue', theme='light'):
     colors = f.config['color']
         
     if theme == 'light':
-        default_bg = 'white'
+        default_bg = 'inherit' # 'white'
         default_t = 'black'
     else:
         default_bg = colors['bg']['bgdark']
@@ -180,11 +201,11 @@ def highlight_alternating(s, color='navyblue', theme='light'):
     active = 1
     prev = ''
 
-    s1 = pd.Series(index=s.index)
+    s1 = pd.Series(index=s.index, dtype='object')
 
     # iterrows iterates tuple of (index, vals)
     for row in s.iteritems():
-        i = row[0]
+        idx = row[0]
         val = row[1] #[0]
         if not val == prev:
             active *= -1
@@ -194,9 +215,9 @@ def highlight_alternating(s, color='navyblue', theme='light'):
         if active == 1:
             css = format_cell(bg=color, t='white')
         else:
-            css = format_cell(bg=default_bg, t=default_t)
+            css = format_cell(bg=default_bg, t=default_t) # TODO make this none instead of white somehow
 
-        s1.iloc[i] = css
+        s1.loc[idx] = css
 
     return s1
 
