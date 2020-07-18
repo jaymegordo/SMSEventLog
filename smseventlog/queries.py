@@ -82,6 +82,12 @@ class Filter():
 
     def get_all_criterion(self):
         return self.criterion.values()
+    
+    def expand_criterion(self):
+        return Criterion.all(self.get_all_criterion())
+
+    def is_init(self):
+        return len(self.criterion) > 0
 
     def print_criterion(self):
         for ct in self.criterion.values():
@@ -130,15 +136,24 @@ class QueryBase(object):
         
             if not kw is None and hasattr(self, 'set_default_args'):
                 self.set_default_args(**kw)
+            
+            # NOTE could build functionality for more than one subquery
+            fltr2 = self.fltr2
+            if fltr2.is_init() and hasattr(self, 'sq0'):
+                self.sq0 = self.sq0.where(fltr2.expand_criterion())
+            
+            if hasattr(self, 'get_query'): # need to do this after init for queries with subqueries
+                q = self.get_query()
 
             sql = q.select(*self.cols) \
-                .where(Criterion.all(self.fltr.get_all_criterion())) \
+                .where(self.fltr.expand_criterion()) \
                 .get_sql().replace("'d'", '"d"') # TODO: fix for this was answered
 
         return sql
-    
+       
     def set_fltr(self):
         self.fltr = Filter(parent=self)
+        self.fltr2 = Filter(parent=self)
     
     def set_lastperiod(self, days=7):
         if not self.date_col is None:
@@ -157,10 +172,13 @@ class QueryBase(object):
         tablename = self.select_table if self.update_table is None else self.select_table
         return getattr(dbm, tablename) # db model definition, NOT instance
 
-    def add_fltr_args(self, args):
+    def add_fltr_args(self, args, subquery=False):
         if not isinstance(args, list): args = [args]
+
+        fltr = self.fltr if not subquery else self.fltr2
+        
         for kw in args:
-            self.fltr.add(**kw)
+            fltr.add(**kw)
     
     def get_df(self, default=False):
         from .database import db
@@ -1012,18 +1030,92 @@ class FrameCracks(EventLogBase):
 class OilSamples(QueryBase):
     def __init__(self, kw=None):
         super().__init__(kw=kw)
-        a = self.select_table
-        cols = ['*']
+
+        self.default_dtypes.update(
+            **f.dtypes_dict('Int64', ['unitSMR', 'componentSMR']))
+
+        a, b = self.select_table, T('UnitId')
+        cols = [a.star]
 
         q = Query.from_(a) \
-            .orderby(a.unitId, a.processDate)
+            .left_join(b).on_field('Unit') \
+            .orderby(a.Unit, a.Component, a.Modifier, a.sampleDate)
 
         f.set_self(self, vars())
     
     def process_df(self, df):
         df.testResults = df.testResults.apply(json.loads) # deserialize testResults from string > list
         return df.set_index('labTrackingNo')
+    
+    def update_style(self, style):
+        style.set_table_attributes('class="pagebreak_table"')
 
+        c = f.config['color']['bg']
+        m = dict(
+            S=(c['lightred'], 'white'),
+            U=(c['lightorange'], 'black'),
+            R=(c['lightyellow'], 'black'))
+
+        # need normal and _f cols to highlight flagged cols
+        flagged_cols = [col for col in style.data.columns if '_f' in col]
+        subset = flagged_cols.copy()
+        subset.extend([col.replace('_f', '') for col in subset])
+        
+        return style \
+            .background_gradient(cmap=self.cmap, subset='sampleRank', axis=None) \
+            .apply(st.highlight_flags, axis=None, subset=subset, m=m) \
+            .apply(st.highlight_alternating, subset=['Unit']) \
+            .hide_columns(flagged_cols)
+
+class OilSamplesRecent(OilSamples):
+    def __init__(self, recent_days=-120, kw=None):
+        super().__init__(kw=kw)
+        a, b = self.a, self.b
+        
+        # subquery for ordering with row_number
+        c = Query.from_(a).select(
+            a.star,
+            (RowNumber() \
+                .over(a.Unit, a.Component, a.Modifier) \
+                .orderby(a.sampleDate, order=Order.desc)).as_('rn')) \
+        .left_join(b).on_field('Unit') \
+        .where(a.sampleDate >= dt.now() + delta(days=recent_days)) \
+        .as_('sq0')
+
+        cols = [c.star]       
+        sq0 = c
+        f.set_self(self, vars())
+
+    def get_query(self):
+        c = self.sq0
+        return Query.from_(c) \
+            .where(c.rn==1) \
+            .orderby(c.Unit, c.Component, c.Modifier)
+
+    def process_df(self, df):
+        return super().process_df(df=df) \
+            .drop(columns=['rn'])
+
+class OilReportSpindle(OilSamplesRecent):
+    def __init__(self, kw=None):
+        super().__init__(kw=kw)
+
+    def set_default_filter(self):
+        self.set_default_args()
+
+    def set_default_args(self):
+        self.add_fltr_args([
+                dict(vals=dict(component='spindle'), table=self.a),
+                dict(vals=dict(minesite='FortHills'), table=self.b),
+                dict(vals=dict(model='980%'), table=self.b)],
+                subquery=True)
+
+    def process_df(self, df):
+        from . import oilsamples as oil
+
+        return super().process_df(df=df) \
+            .pipe(oil.flatten_test_results, keep_cols=['visc40', 'visc100']) \
+            .drop(columns=['oilChanged', 'testResults', 'results', 'recommendations', 'comments'])
 
 def table_with_args(table, args):
     def fmt(arg):
