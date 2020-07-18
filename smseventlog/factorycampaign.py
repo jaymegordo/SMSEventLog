@@ -16,11 +16,11 @@ def tblcount(tbl):
     sql = f'Select count(*) From {tbl}'
     return cursor.execute(sql).fetchval()
 
-def importFC(upload=True, df=None):
-    # load all 'xls' files from import folder to df
-    p = Path(f.drive + f.config['FilePaths']['Import FC'])
+def import_fc(upload=True, df=None):
+    # load all csv files from import folder to df
+    p = f.drive / f.config['FilePaths']['Import FC']
         
-    lst = [f for f in p.glob('*.xls')]
+    lst = [f for f in p.glob('*.csv')]
 
     if lst:
         msg = ('Found file(s): \n\t' + 
@@ -35,7 +35,13 @@ def importFC(upload=True, df=None):
     
     start = timer()
 
-    if df is None: df = pd.concat([read_fc(p=p) for p in lst], sort=False)
+    if df is None:
+        df = pd.concat([read_fc(p=p) for p in lst], sort=False) \
+            .drop_duplicates(['FCNumber', 'Unit'])
+    
+    # NOTE for now just auto filter to FCs in last 2 yrs
+    d_lower = dt.now() + delta(days=-730)
+    df = df[df.StartDate >= d_lower]
 
     print('Loaded ({}) FCs from {} file(s) in: {}s' \
         .format(len(df), len(lst), f.deltasec(start, timer())))
@@ -63,8 +69,8 @@ def importFC(upload=True, df=None):
                 df2 = f.cursor_to_df(cursor)
                 if len(df2) > 0:
                     msg += st.left_justified(df2).replace('\n', '\n\t')
-                    for fcnumber in df2:
-                        create_fc_folder(fcnumber=fcnumber)
+                    for fc_number in df2.FCNumber:
+                        create_fc_folder(fc_number=fc_number)
             
             cursor.commit()
         except:
@@ -72,23 +78,38 @@ def importFC(upload=True, df=None):
             dlgs.msg_simple(msg='Couldn\'t import FCs!', icon='critical')
         finally:
             cursor.close()
-            conn.close()
 
         statusmsg = 'Elapsed time: {}s'.format(f.deltasec(start, timer()))
         msg += '\n\nWould you like to delete files?'
         if dlgs.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
             for p in lst: p.unlink()
 
-    # return df
+    return df
 
-def create_fc_folder(fcnumber):
+def create_fc_folder(fc_number):
     try:
-        p = f.drive / f.config['FilePaths']['Factory Campaigns'] / fcnumber
+        p = f.drive / f.config['FilePaths']['Factory Campaigns'] / fc_number
         p.mkdir(parents=True)
     except:
-        print(f'Couldn\'t make fc path for: {fcnumber}')
+        print(f'Couldn\'t make fc path for: {fc_number}')
 
 def read_fc(p):
+
+    dfu = db.get_df_unit()
+    df = pd.read_csv(p, header=5, dtype=dict(Model='object')) \
+        .rename(columns=f.config['Headers']['FCImport']) \
+        .pipe(f.parse_datecols) \
+        .merge(right=dfu[['Model', 'Serial', 'Unit']], how='left')
+
+    # Remove missing units
+    # Drop and reorder,  Don't import: CompletionSMR, claimnumber, ServiceLetterDate
+    cols = ['FCNumber','Model', 'Serial', 'Unit', 'StartDate', 'EndDate', 'DateCompleteKA', 'Subject', 'Classification', 'Branch', 'Status']
+
+    return df[df.Unit.isin(db.unique_units())] \
+        .reset_index(drop=True) \
+        [cols]
+
+def read_fc_old(p):
     # Raw FC data comes from KA as an html page disguised as an xls
     # TODO: Drop ServiceLetterDate > same as StartDate
     # TODO: Drop CompletionDate > changed to DateCompleteKA, Drop ClaimNumber
@@ -98,13 +119,11 @@ def read_fc(p):
 
     cols = [hdr.text for hdr in table.find('thead').find_all('th')]
     data = [[col.text for col in row.findAll('td')] for row in table.findAll('tr')[1:]]
-    df = pd.DataFrame(data=data, columns=cols)
-
-    cols = ['Start Date', 'End Date', 'Completion Date', 'Service Letter Date']
-    df[cols] = df[cols].apply(pd.to_datetime)
-
     dfu = db.get_df_unit()
-    df = df.merge(right=dfu[['Model', 'Serial', 'Unit']], how='left')
+
+    df = pd.DataFrame(data=data, columns=cols) \
+        .pipe(f.parse_datecols) \
+        .merge(right=dfu[['Model', 'Serial', 'Unit']], how='left')
 
     # Remove missing units
     # TODO: Return these to user somehow?
@@ -122,9 +141,8 @@ def read_fc(p):
 
     return df
 
-
-# One time import of machine info from mykomatsu
 def import_ka():
+    # One time import of machine info from mykomatsu
     p = Path('C:/Users/jayme/OneDrive/Desktop/KA Machine Info')
     lst = [f for f in p.glob('*.html')]
 
