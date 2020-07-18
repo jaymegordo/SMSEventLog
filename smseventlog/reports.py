@@ -296,7 +296,13 @@ class FrameCracksReport(Report):
         self.title = 'FortHills Frame Cracks Report'
         self.load_sections('FrameCracks')
         self.add_items('title_page')
-    
+
+class OilSamplesReport(Report):
+    def __init__(self):
+        super().__init__()
+        self.title = 'FortHills Spindle Oil Report'
+        self.load_sections('OilSamples')
+        self.add_items('title_page')
 
 # REPORT SECTIONS
 class Section():
@@ -312,6 +318,17 @@ class Section():
     def add_subsections(self, sections):
         for name in sections:
             subsec = getattr(sys.modules[__name__], name)(section=self)
+
+class OilSamples(Section):
+    def __init__(self, report):
+        super().__init__(title='Oil Samples', report=report)
+
+        sec = SubSection('Spindles', self) \
+            .add_df(
+                query=qr.OilReportSpindle(),
+                kw=dict(default=True),
+                caption='Most recent spindle oil samples.')
+        
 
 class FrameCracks(Section):
     def __init__(self, report):
@@ -493,7 +510,8 @@ class FCs(Section):
         fcsummary = qr.FCSummaryReport() # need to pass parent query to FC summary 2 to use its df
         sec = SubSection('FC Summary', self) \
             .add_df(
-                query=fcsummary, kw=dict(default=True),
+                query=fcsummary,
+                kw=dict(default=True),
                 caption='Completion status of currently open FCs.') \
             .add_df(
                 name='FC Summary (2)',
