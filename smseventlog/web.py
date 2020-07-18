@@ -51,24 +51,29 @@ class Web(object):
         _driver = None
         f.set_self(self, vars())
 
+    def get_options(self):
+        options = webdriver.ChromeOptions()
+
+        if not f.is_win():
+            chrome_profile = f'/Users/{self.user}/Library/Application Support/Google/Chrome/'
+            options.add_argument(f'user-data-dir={chrome_profile}')
+            options.add_argument('window-size=(1,1)')
+        
+            prefs = {'profile.default_content_settings.popups': 0,
+                    'download.prompt_for_download': False,
+                    'download.default_directory': '/Users/Jayme/Downloads',
+                    'directory_upgrade': True}
+            options.add_experimental_option('prefs', prefs)
+
+        return options
+
     def create_driver(self, browser='Chrome'):
         def init_driver(options=None):
             kw = dict(executable_path=f.topfolder / 'selenium/webdriver/chromedriver') if f.frozen else {}
             return webdriver.Chrome(options=options, **kw)
 
         if browser == 'Chrome':
-            options = webdriver.ChromeOptions()
-            if not f.is_win():
-                chrome_profile = f'/Users/{self.user}/Library/Application Support/Google/Chrome/'
-                options.add_argument(f'user-data-dir={chrome_profile}')
-                options.add_argument('window-size=(1,1)')
-                options.add_argument('--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Safari/605.1.15"')
-            
-                prefs = {'profile.default_content_settings.popups': 0,
-                        'download.prompt_for_download': False,
-                        'download.default_directory': '/Users/Jayme/Downloads',
-                        'directory_upgrade': True}
-                options.add_experimental_option('prefs', prefs)
+            options = self.get_options()
 
             try:
                 driver = init_driver(options=options)
@@ -87,22 +92,31 @@ class Web(object):
 
         return driver
     
+    def check_driver(self):
+        if self._driver is None:
+            self.set_driver()
+
+        try:
+            self._driver.title # check if driver is alive and attached
+            self._driver.current_url
+        except:        
+            self.set_driver()
+
     @property
     def driver(self):
-        if self._driver is None:
-            self._driver = self.create_driver()
-        else:
-            try:
-                self._driver.title # check if driver is alive and attached
-            except:
-                try:
-                    # print('trying to reattach')
-                    self._driver = attach_to_session(*get_driver_id(self._driver))
-                except:
-                    # print('failed to reattach, creating new driver')
-                    self._driver = self.create_driver()
+        self.check_driver()
+
+        # NOTE not sure if this actually works
+        # try:
+        #     self._driver = attach_to_session(*get_driver_id(self._driver))
+        # except:
+        #     # print('failed to reattach, creating new driver')
+        #     self.set_driver()
 
         return self._driver
+    
+    def set_driver(self):
+        self._driver = self.create_driver()
 
     def wait(self, time, cond):
         driver = self.driver
@@ -152,6 +166,13 @@ class SuncorConnect(Web):
             self.username = 'jagordon'
             self.password = 'SMSrel5%'
             self.token_pin = '1234'
+
+    def get_options(self):
+        # need to trick Suncor Connect to thinking chrome is safari
+        options = super().get_options()
+        options.add_argument('--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Safari/605.1.15"')
+
+        return options
 
     def login(self):
         # get rsa fob
