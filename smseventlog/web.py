@@ -54,16 +54,20 @@ class Web(object):
     def get_options(self):
         options = webdriver.ChromeOptions()
 
-        if not f.is_win():
-            chrome_profile = f'/Users/{self.user}/Library/Application Support/Google/Chrome/'
-            options.add_argument(f'user-data-dir={chrome_profile}')
-            options.add_argument('window-size=(1,1)')
+        if f.is_mac():
+            ext = 'Library/Application Support/Google/Chrome/'
+        elif f.is_win():
+            ext = 'AppData/Local/Google/Chrome/User Data/Default/'
+
+        chrome_profile = Path.home() / ext
+        options.add_argument(f'user-data-dir={chrome_profile}')
+        options.add_argument('window-size=(1,1)')
         
-            prefs = {'profile.default_content_settings.popups': 0,
-                    'download.prompt_for_download': False,
-                    'download.default_directory': '/Users/Jayme/Downloads',
-                    'directory_upgrade': True}
-            options.add_experimental_option('prefs', prefs)
+        prefs = {'profile.default_content_settings.popups': 0,
+                'download.prompt_for_download': False,
+                'download.default_directory': Path.home() / 'Downloads',
+                'directory_upgrade': True}
+        options.add_experimental_option('prefs', prefs)
 
         return options
 
