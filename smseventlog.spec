@@ -1,5 +1,6 @@
 # -*- mode: python -*-
 # TODO exclude db_secret.txt from build
+# TODO need to add pyodbc for windows binary
 
 block_cipher = None
 project_path = None
@@ -46,15 +47,15 @@ excludes = ['IPython']
 if f.is_mac():
     binaries = [('/usr/local/bin/chromedriver', 'selenium/webdriver')]
     hookspath = ['/Users/Jayme/.local/share/virtualenvs/SMS-4WPEHYhu/lib/python3.8/site-packages/pyupdater/hooks']
-    dist_folder = 'mac'
+    dist_folder = 'smseventlog_mac'
     
     # this saves ~20mb, but windows matplotlib needs tkinter for some reason
     excludes.extend(['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'])
-    
+
 elif f.is_win():
     binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
     hookspath = ['C:/Users/Jayme/.virtualenvs/SMS-27IjYSAU/Lib/site-packages/pyupdater/hooks']
-    dist_folder = 'win'
+    dist_folder = 'smseventlog_win'
 
 
 a = Analysis([f.projectfolder / 'run.py'],
