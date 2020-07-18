@@ -8,17 +8,19 @@ from . import queries as qr
 from .__init__ import *
 from .database import db
 
+# NOTE eventually drop records > 1yr old from db
 
 class OilSamples():
     def __init__(self, fltr=None, login=None):
         _samples = []
-        
+
         if login is None:
             login = dict(username='jgordon', password='8\'Bigmonkeys')
 
         f.set_self(self, vars())
 
     def load_samples_fluidlife(self, d_lower):
+        # load samples from fluidlife api, save to self._samples as list of dicts
         l = self.login
         startdate = d_lower.strftime('%Y-%m-%d-%H:%M:%S')
         
@@ -28,10 +30,16 @@ class OilSamples():
         self._samples = requests.get(url).json()['historyList']
         print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
     
-    def load_samples_db(self, d_lower):
-        query = qr.OilSamples()
-        query.fltr.add(vals=dict(sampleDate=d_lower))
+    def load_samples_db(self, d_lower=None, component=None, recent=False, minesite=None, model=None):
+        query = qr.OilSamples(recent=recent, component=component, minesite=minesite, model=model)
+
         return query.get_df()
+    
+    def update_db(self):
+        # check maxdate in database, query fluidlife api, save new samples to database
+        maxdate = db.max_date_db(table='OilSamples', field='processDate', join_minesite=False) + delta(days=-1)
+        self.load_samples_fluidlife(d_lower=maxdate)
+        return self.to_sql()
    
     @property
     def samples(self):
@@ -44,15 +52,16 @@ class OilSamples():
         return s
     
     def df_samples(self, recent=False, flatten=False):
-        cols = ['labTrackingNo', 'unitId', 'componentId', 'componentLocation', 'componentType', 'sampleDate', 'processDate', 'processNumber', 'meterReading', 'unitService', 'componentService', 'oilService', 'serviceUnits', 'oilChanged', 'sampleRank', 'results', 'recommendations', 'comments', 'testResults']
+        # only used to upload to db, otherwise use query.OilSamples()
+        cols = ['labTrackingNo', 'unitId', 'componentId', 'componentLocation', 'componentType', 'sampleDate', 'processDate', 'meterReading', 'componentService', 'oilChanged', 'sampleRank', 'results', 'recommendations', 'comments', 'testResults']
 
         # query lab == lab to drop None keys, (None != itself)
         df = pd.DataFrame.from_dict(self.samples)[cols] \
             .query('labTrackingNo == labTrackingNo') \
             .set_index('labTrackingNo') \
             .pipe(f.parse_datecols) \
-            .pipe(self.most_recent_samples, recent) \
-            .pipe(self.flatten_test_results, flatten)
+            .pipe(self.most_recent_samples, do=recent) \
+            .pipe(self.flatten_test_results, do=flatten)
 
         # remove suncor's leading 0s
         m = {'^F0': 'F', '^03': '3', '^02': '2'}
@@ -72,26 +81,7 @@ class OilSamples():
 
         return db.import_df(
             df=df, imptable='OilSamplesImport', impfunc='ImportOilSamples', notification=True, index=True, prnt=True)
-    
-    def flatten_test_results(self, df, do=True):
-        # loop through list of dicts for testResults, create col with testName: testResult for each row
-        if not do: return df
-
-        dfs = []
-        for row in df.itertuples():
-            df2 = pd.DataFrame.from_dict(row.testResults) \
-                .set_index('testName') \
-                .drop(columns=['testType', 'testFlag']) \
-                .transpose() \
-                .rename(dict(testResult=row.Index))
-
-            dfs.append(df2)
-
-        df3 = pd.concat(dfs) \
-            .rename_axis('labTrackingNo', axis='index')
-
-        return df.merge(df3, on='labTrackingNo')
-    
+       
     def most_recent_samples(self, df, do=True):
         if not do: return df
         return df \
@@ -126,6 +116,62 @@ def result_flagged(test_result, fields=None):
 
     return len(lst_flagged) > 0
 
+def rename_cols(df):
+    return df.rename(columns=f.config['Headers']['OilSamples'])
+
+def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
+    # loop through list of dicts for testResults, create col with testName: testResult/testFlag for each row
+    if not do: return df
+
+    final_cols = df.columns.to_list()
+    sort_order = None
+
+    if result_cols is None: result_cols = ['testResult', 'testFlag']
+    suff = dict(testResult='', testFlag='_f')
+
+    def split_df(df, col):
+        return df.loc[:, [col]] \
+            .transpose() \
+            .rename({col: row.Index})
+
+    dfs_m = dd(list)
+    for row in df.itertuples():
+        m = row.testResults
+
+        # get the sort order once
+        if sort_order is None:
+            sort_order = f.convert_list_view_db(title='OilSamples', cols=[k['testName'] for k in m])
+            
+        df2 = pd.DataFrame.from_dict(m) \
+            .set_index('testName')
+
+        # create a dict of lists for each result_col to use
+        for result_col in result_cols:
+            dfs_m[result_col].append(split_df(df=df2, col=result_col))
+
+    for result_col in result_cols:
+        df3 = pd.concat(dfs_m[result_col]) \
+            .rename_axis('labTrackingNo', axis='index') \
+            .pipe(rename_cols) \
+            .add_suffix(suff[result_col])
+        
+        # keep only specific fields, eg visc40 is in 'visc40', 'visc40_f'
+        if not keep_cols is None:
+            df3 = df3[[col for col in df3.columns if any(col2 in col for col2 in keep_cols)]]
+
+        df = df.merge(df3, on='labTrackingNo')
+
+    # sort flattened cols, (excluding base_cols) so testResult is beside testFlag
+    all_cols = df.columns.to_list()
+    flattened_cols = [col for col in all_cols if not col in final_cols]
+    flattened_sorted = []
+
+    # get any cols which match current col
+    for col in sort_order:
+        flattened_sorted.extend([col2 for col2 in flattened_cols if col in col2])
+
+    final_cols.extend(flattened_sorted)
+    return df[final_cols]
 
 def example():
     fltr = dict(customerName='fort hills', componentId='spindle', unitModel='980')
@@ -133,3 +179,13 @@ def example():
     oils.load_samples_fluidlife(d_lower=dt(2020,6,1))
 
     return oils
+
+def spindle_report():
+    query = qr.OilReportSpindle()
+    query.add_fltr_args([
+        dict(vals=dict(component='spindle'), table=query.a),
+        dict(vals=dict(minesite='FortHills'), table=query.b),
+        dict(vals=dict(model='980%'), table=query.b)
+        ], subquery=True)
+
+    return query.get_df()
