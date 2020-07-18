@@ -101,6 +101,7 @@ TableName:
         FCDetails: FC Details
         EmailList: Email List
         Availability: Availability
+        OilSamples: Oil Samples
     Select:
         EventLogBase: EventLog
         FCBase: viewFactoryCampaign
@@ -108,11 +109,12 @@ TableName:
         EmailList: EmailList
         AvailTopDowns: Downtime
         AvailBase: Downtime
-        OilSamples: OilSamples
+        OilSamples: viewOilSamples
     Update:
         FCSummary: FCSummary
         FCDetails: FactoryCampaign
         NewFCs: FCSummary # dont actually need this, remove somehow
+        OilSamples: OilSamples
 
 # Table header conversion
 Headers:
@@ -265,6 +267,69 @@ Headers:
         DownReason: Reason
         Comment: Comment
         Assigned: Assigned
+    
+    OilSamples:
+        Silicon (Si): Si
+        Sodium (Na): Na
+        Potassium (K): K
+        Iron (Fe): Fe
+        Chromium (Cr): Cr
+        Lead (Pb): Pb
+        Copper (Cu): Cu
+        Tin (Sn): Sn
+        Aluminum (Al): Al
+        Nickel (Ni): Ni
+        Silver (Ag): Ag
+        Titanium (Ti): Ti
+        Boron (B): B
+        Phosphorus (P): P
+        Zinc (Zn): Zn
+        Calcium (Ca): Ca
+        Barium (Ba): Ba
+        Magnesium (Mg): Mg
+        Molybdenum (Mo): Mo
+        Vanadium (V): V
+        Antimony (Sb): Sb
+        Lithium (Li): Li
+        Beryllium (Be): Be
+        Water %: water
+        Grit: grit
+        Visc 40°C cSt: visc40
+        Visc 100°C cSt: visc100
+        OPC Code: opc
+        OPC > 4µ: opc_4
+        OPC > 6µ: opc_6
+        OPC > 14µ: opc_14
+        OPC > 21µ: opc_21
+        OPC > 38µ: opc_38
+        OPC > 70µ: opc_70
+        'Cutting #/ml': cutting
+        'Sliding #/ml': sliding
+        'Fatigue #/ml': fatigue
+        'Non-Metal #/ml': nonMetal
+        'Fibers #/ml': fibers
+        Cutting Mean Size µ: cuttingMean
+        Sliding Mean Size µ: slidingMean
+        Fatigue Mean Size µ: fatigueMean
+        Non-Metal Mean Size µ: nonMetalMean
+        Visc Index: viscIndex
+
+    FCImport:
+        FC Number/Seq: FCNumber
+        Distributor: Distributor
+        FC Start Date: StartDate
+        Model: Model
+        Serial: Serial
+        FC End Date: EndDate
+        Subject: Subject
+        Claim No: ClaimNo
+        Completion SMR: SMR
+        Completion Date: DateCompleteKA
+        Status: Status
+        SMR Limit: SMRLimit
+        Classification: Classification
+        FID Expiration Date: ExpiryDate
+        Stock / KAC: Stock
 
 Platform:
     mac:

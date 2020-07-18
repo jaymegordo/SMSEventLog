@@ -17,6 +17,13 @@ import pypika as pk
 import yaml
 import sqlalchemy as sa
 
+from pypika import Case, Criterion
+from pypika import CustomFunction as cf
+from pypika import Order, Query
+from pypika import Table as T
+from pypika import functions as fn
+from pypika.analytics import RowNumber
+
 from smseventlog import (
     functions as f,
     dbtransaction as dbt,

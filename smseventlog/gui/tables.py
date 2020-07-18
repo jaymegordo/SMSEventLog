@@ -732,7 +732,7 @@ class FCBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_button(name='Import FCs', func=lambda: fc.importFC(upload=True))
+        self.add_button(name='Import FCs', func=lambda: fc.import_fc(upload=True))
         self.add_button(name='View FC Folder', func=self.view_fc_folder)
    
     def get_fc_folder(self):

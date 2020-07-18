@@ -21,6 +21,7 @@ from pypika import CustomFunction as cf
 from pypika import Order, Query
 from pypika import Table as T
 from pypika import functions as fn
+from pypika.analytics import RowNumber
 
 __version__ = '3.0.0'
 

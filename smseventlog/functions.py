@@ -17,11 +17,12 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
-global drive, config, config_platform, platform, topfolder, azure_env, datafolder, frozen
+global drive, config, config_platform, platform, topfolder, projectfolder, datafolder, frozen, azure_env
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
     
 topfolder = Path(__file__).parent
+projectfolder = topfolder.parent
 frozen = False
 
 if getattr(sys, 'frozen', False):

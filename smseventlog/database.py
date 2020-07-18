@@ -139,9 +139,10 @@ class DB(object):
 
         if df is None or refresh:
             try:
-                # print(query.get_sql())
+                sql = query.get_sql()
+                # print(sql)
                 df = pd \
-                    .read_sql(sql=query.get_sql(), con=self.engine) \
+                    .read_sql(sql=sql, con=self.engine) \
                     .pipe(f.parse_datecols) \
                     .pipe(f.convert_int64) \
                     .pipe(f.convert_df_view_cols, m=query.view_cols) \
@@ -266,17 +267,21 @@ class DB(object):
         try:
             cursor = self.cursor
             return cursor.execute(q.get_sql()).fetchval()
+        except:
+            f.send_error()
         finally:
             cursor.close()
     
-    def max_date_db(self, table=None, field=None, q=None):
+    def max_date_db(self, table=None, field=None, q=None, join_minesite=True):
         minesite = 'FortHills'
         a = T(table)
         b = T('UnitID')
 
         if q is None:
-            q = a.select(fn.Max(a[field])) \
-                .left_join(b).on_field('Unit') \
+            q = a.select(fn.Max(a[field]))
+        
+            if join_minesite:
+                q = q.left_join(b).on_field('Unit') \
                 .where(b.MineSite == minesite)
         
         val = self.query_single_val(q)

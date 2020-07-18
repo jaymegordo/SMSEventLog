@@ -58,8 +58,27 @@ v
         * test `twine upload --repository testpypi dist/*`
         * live `twine upload dist/*`
     * cleanup all leftover folders: `python setup.py clean --all`
+
 * Azure Functions
-    * 
+    * Parts of the smseventlog package run as smseventlog-app in azure functions
+    * This runs several functions such as: daily availability imports, oil sample imports etc
+    * publish to azure with `func azure functionapp publish smseventlog-app --build-native-deps`
 
 * Pyinstaller
-    * `pyinstaller smseventlog.spec --noconfirm`
+    * To build, activate pipenv with `pipenv shell` then run `pyinstaller smseventlog.spec --noconfirm`
+    * This will package app and output files to /dist/[mac|win]
+
+    * Build Issues
+        1. Pandas.io.formats.style
+            * [not exact issue but related](https://stackoverflow.com/questions/52429350/cant-perform-this-operation-for-unregistered-loader-type-is-there-any-workaro)
+            1. open [*virtualev*]/Lib/site-packages/pandas/io/formats/style.py
+            2. change line 120 from:
+                ```
+                template = env.get_template("html.tpl")
+                
+                # to
+
+                path = os.path.dirname(__file__) + "/templates/html.tpl"
+                    with open(path) as fin:
+                        data = fin.read()
+                        template = env.from_string(data)```

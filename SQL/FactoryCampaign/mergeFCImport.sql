@@ -25,14 +25,14 @@ MERGE FactoryCampaign t
             t.StartDate = s.StartDate,
             t.EndDate = s.EndDate,
             t.DateCompleteKA = s.DateCompleteKA,
-            t.hours = s.hours,
             t.Classification = s.Classification
+            -- t.hours = s.hours,
     
     WHEN NOT Matched by TARGET THEN
         INSERT (
-            FCNumber, Model, [Serial], Unit, StartDate, EndDate, DateCompleteKA, [Subject], Classification, [Hours], Distributor, Branch, [Safety], [Status])
+            FCNumber, Model, [Serial], Unit, StartDate, EndDate, DateCompleteKA, [Subject], Classification, Branch, [Status])
         VALUES (
-            s.FCNumber, s.Model, s.Serial, s.Unit, s.StartDate, s.EndDate, s.DateCompleteKA, s.Subject, s.Classification, s.Hours, s.Distributor, s.Branch, s.Safety, s.Status)
+            s.FCNumber, s.Model, s.Serial, s.Unit, s.StartDate, s.EndDate, s.DateCompleteKA, s.Subject, s.Classification, s.Branch, s.Status)
 
     OUTPUT $action INTO @SummaryOfChanges;
 
@@ -44,5 +44,6 @@ SELECT Change, COUNT(*) AS CountPerChange
 FROM @SummaryOfChanges
 GROUP BY Change
 UNION SELECT 'KADatesAdded', @aftercount - @beforecount;
+
 
 GO
