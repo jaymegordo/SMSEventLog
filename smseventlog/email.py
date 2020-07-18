@@ -1,3 +1,5 @@
+import re
+
 from . import functions as f
 from .__init__ import *
 
@@ -14,24 +16,36 @@ class Outlook(object):
         is_win = f.is_win()
 
         if is_win:
-            outlook = win32.Dispatch('outlook.application')
-            mail = outlook.CreateItem(0)
-            mail.Subject = '' #subject_name
-            mail.HTMLbody = ''
+            client = win32.Dispatch('Outlook.Application')
         else:
             client = app('Microsoft Outlook')
 
         f.set_self(self, vars())
     
 class Message(object):
-    def __init__(self, parent=None, subject='', body='', to_recip=[], cc_recip=[], show_=True):
+    def __init__(self, parent=None, subject='', body='', to_recip=None, cc_recip=None, show_=True):
         
         if parent is None: parent = Outlook()
+        is_win = parent.is_win
         client = parent.client
 
-        msg = client.make(
-            new=k.outgoing_message,
-            with_properties={k.subject: subject, k.content: body})
+        if is_win:
+            _msg = client.CreateItem(0)
+            _msg.Subject = subject
+            
+            # GetInspector makes outlook get the message ready for display, which adds in default email sig
+            _msg.GetInspector
+            initial_body = _msg.HTMLBody
+            body_start = re.search("<body.*?>", initial_body).group()
+            _msg.HTMLBody = re.sub(
+                pattern=body_start,
+                repl=f'{body_start}{body}',
+                string=initial_body)
+
+        else: # mac
+            _msg = client.make(
+                new=k.outgoing_message,
+                with_properties={k.subject: subject, k.content: body})
 
         f.set_self(self, vars())
 
@@ -41,25 +55,47 @@ class Message(object):
         if show_: self.show()
 
     def show(self):
-        self.msg.open()
-        self.msg.activate()
+        msg = self._msg
+
+        if self.is_win:
+            msg.Display(False)
+        else:
+            msg.open()
+            msg.activate()
 
     def add_attachment(self, p):
-        p = Alias(str(p)) # convert string to POSIX/mactypes path idk
-        attach = self.msg.make(new=k.attachment, with_properties={k.file: p})
+        msg = self._msg
+
+        if self.is_win:
+            msg.Attachments.Add(Source=str(p))
+        else:
+            p = Alias(str(p)) # convert string to POSIX/mactypes path idk
+            attach = msg.make(new=k.attachment, with_properties={k.file: p})
 
     def add_recipients(self, emails, type_='to'):
+        if emails is None: return
         if not isinstance(emails, list): emails = [emails]
-        for email in emails:
-            self.add_recipient(email=email, type_=type_)
+
+        if self.is_win:
+            recips = ';'.join(emails)
+            msg = self._msg
+
+            if type_ == 'to':
+                msg.To = recips
+            elif type_ == 'cc':
+                msg.CC = recips
+
+        else:
+            # mac needs to make 'recipient' objects and add emails seperately
+            for email in emails:
+                self.add_recipient(email=email, type_=type_)
 
     def add_recipient(self, email, type_='to'):
-        msg = self.msg
 
         if type_ == 'to':
             recipient = k.to_recipient
         elif type_ == 'cc':
             recipient = k.cc_recipient
 
-        msg.make(new=recipient, with_properties={k.email_address: {k.address: email}})
+        self._msg.make(new=recipient, with_properties={k.email_address: {k.address: email}})
         
