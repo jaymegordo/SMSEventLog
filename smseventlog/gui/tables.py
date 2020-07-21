@@ -1,13 +1,16 @@
-from .. import factorycampaign as fc
-from . import gui as ui
-from .datamodel import TableModel
-from .__init__ import *
-from .delegates import AlignDelegate, DateDelegate, DateTimeDelegate, CellDelegate, ComboDelegate
-from . import dialogs as dlgs
+import re
+
 from .. import email as em
+from .. import factorycampaign as fc
+from .. import functions as f
 from .. import queries as qr
 from .. import styles as st
-from .. import functions as f
+from . import dialogs as dlgs
+from . import gui as ui
+from .__init__ import *
+from .datamodel import TableModel
+from .delegates import (AlignDelegate, CellDelegate, ComboDelegate,
+                        DateDelegate, DateTimeDelegate)
 
 log = logging.getLogger(__name__)
 
@@ -172,17 +175,15 @@ class TableView(QTableView):
         if df is None:
             df = model.df
         
-        style = st.set_style(df=df, outlook=outlook) \
-            .apply(model.get_background_colors_from_df, axis=None) \
-            .format(self.formats)
-
         s = []
         s.append(dict(
             selector='table',
             props=[('border', '1px solid black')]))
 
-        style.table_styles.extend(s)
-        return style
+        return st.default_style(df=df, outlook=outlook) \
+            .apply(model.get_background_colors_from_df, axis=None) \
+            .format(self.formats) \
+            .pipe(st.add_table_style, s=s)
 
     def resizeRowsToContents(self):
         # sender = self.sender()
@@ -408,7 +409,6 @@ class TableWidget(QWidget):
         self.title = f.config['TableName']['Class'][name]
 
         mainwindow = ui.get_mainwindow()
-        minesite = ui.get_minesite()
 
         vLayout = QVBoxLayout(self)
         btnbox = QHBoxLayout()
@@ -432,6 +432,10 @@ class TableWidget(QWidget):
         self.add_button(name='Refresh', func=self.show_refresh)
         self.add_button(name='Add New', func=self.show_addrow)
         # self.add_button(name='Resize Rows', func=view.resizeRowsToContents)
+    
+    @property
+    def minesite(self):
+        return self.mainwindow.minesite
     
     def add_action(self, name, func, shortcut=None, btn=False):
         act = QAction(name, self, triggered=func)
@@ -518,13 +522,16 @@ class TableWidget(QWidget):
         dbtable = self.dbtable if header is None or not header in m else getattr(dbm, m[header])
         return dbtable
 
-    def email_table(self, subject='', body='', email_list=[], df=None):
+    def email_table(self, subject='', body='', email_list=None, df=None, prompts=True):
         # TODO make this an input dialog so settings can be remembered
         style = self.view.get_style(df=df, outlook=True)
 
         msg_ = 'Include table in email body?'
         style_body = ''
-        if dlgs.msgbox(msg=msg_, yesno=True):
+        if prompts:
+            include_style = dlgs.msgbox(msg=msg_, yesno=True)
+        
+        if not df is None or include_style:
             style_body = style.hide_index().render()
 
         body = f'{body}<br><br>{style_body}' # add in table to body msg
@@ -532,11 +539,12 @@ class TableWidget(QWidget):
         # show new email
         msg = em.Message(subject=subject, body=body, to_recip=email_list, show_=False)
         
-        msg_ = 'Would you like to attach an excel file of the data?'
-        if dlgs.msgbox(msg=msg_, yesno=True):
-            p = self.save_excel(style=style, name=self.name)
-            msg.add_attachment(p)
-            p.unlink()
+        if prompts:
+            msg_ = 'Would you like to attach an excel file of the data?'
+            if dlgs.msgbox(msg=msg_, yesno=True):
+                p = self.save_excel(style=style, name=self.name)
+                msg.add_attachment(p)
+                p.unlink()
 
         msg.show()
     
@@ -598,10 +606,62 @@ class EventLogBase(TableWidget):
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.disabled_cols = ('Title',) # TODO: remove thise
-        view.col_widths.update(dict(Passover=50, Description=800, Status=100))
-        view.highlight_funcs['Passover'] = view.highlight_by_val
+        self.add_action(name='Email Passover', func=self.email_passover, btn=True)
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+            self.disabled_cols = ('Title',) # TODO: remove this....? add title rename func
+            self.col_widths.update(dict(Passover=50, Description=800, Status=100))
+            self.highlight_funcs['Passover'] = self.highlight_by_val
+
+        def get_style(self, df=None, outlook=False):
+            return super().get_style(df=df, outlook=outlook) \
+                .pipe(st.set_column_widths, vals=dict(Status=80, Description=400, Title=100), outlook=outlook)
+
+    def email_passover(self):
+        df = self.view.model().df
+
+        cols = ['Status', 'Unit', 'Title', 'Description', 'Date Added']
+        df = df[df.Passover.str.lower()=='x'] \
+            .sort_values(by=['Unit', 'Date Added']) \
+            [cols]
+        
+        df.Description = df.Description.apply(self.remove_old_dates)
+        
+        minesite = self.minesite
+        company = 'SMS' if not 'cwc' in minesite.lower() else 'Cummins'
+        d = dt.now().date().strftime('%Y-%m-%d')
+        shift = 'DS' if 8 <= dt.now().hour <= 20 else 'NS'
+        shift = f'{d} ({shift})'
+
+        subject = f'{company} Passover {minesite} - {shift}'
+        body = f'{f.greeting()}Please see updates from {shift}:<br>'
+
+        query = qr.EmailList(minesite=minesite)
+        df2 = query.get_df()
+        email_list = df2[df2.Passover.notnull()].Email
+
+        self.email_table(subject=subject, body=body, email_list=email_list, df=df, prompts=False)
+    
+    def remove_old_dates(self, s):
+        # split description on newlines, remove old dates if too long, color dates red
+        if s is None: return None
+        lst = s.splitlines()
+        cur_len, max_len = 0, 400
+
+        for i, item in enumerate(lst[::-1]):
+            cur_len += len(item)
+            if cur_len >= max_len: break
+
+        lst = lst[max(len(lst) - i - 1, 0):]
+            
+        # color dates red
+        date_reg_exp = re.compile('(\d{4}[-]\d{2}[-]\d{2})')
+        replace = r'<span style="color: red;">\1</span>'
+        lst = [re.sub(date_reg_exp, replace, item) for item in lst]
+
+        return '\n'.join(lst)
         
 class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
@@ -791,7 +851,7 @@ class FCSummary(FCBase):
     def email_new_fc(self):
         # get df of current row
         df = self.view.df_from_activerow().iloc[:, :10]
-        style = st.set_style(df=df)
+        style = st.default_style(df=df)
         formats = {'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
         m = st.format_dtype(df=df, formats=formats)
         style.format(m)
@@ -830,10 +890,9 @@ class FCDetails(FCBase):
 class EmailList(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        # self.disabled_cols = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty')
-        # self.col_widths.update({
-        #     'Warranty Remaining': 40,
-        #     'GE Warranty': 40})
+
+        # TODO Add email
+        # TODO delete email
 
 class Availability(TableWidget):
     def __init__(self, parent=None):
@@ -882,9 +941,12 @@ class Availability(TableWidget):
             # if a value is changed in any of self.dynamic_cols, model needs to re-request stylemap from query 
 
         def get_style(self, df=None, outlook=False):
+            # used for email + gui... maybe?
+            theme = 'light'
             return super().get_style(df=df, outlook=outlook) \
-                .pipe(st.set_column_widths, vals=dict(StartDate=300, EndDate=300)) \
-                .pipe(self.parent.query.background_gradient, theme='light', do=outlook)
+                .pipe(st.set_column_widths, vals=dict(StartDate=60, EndDate=60, Comment=400)) \
+                .pipe(self.parent.query.background_gradient, theme=theme, do=outlook) \
+                .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color='navyblue')
 
         def update_duration(self, index):
             # Set SMS/Suncor duration if other changes
@@ -1271,4 +1333,3 @@ class FilterListMenuWidget(QWidgetAction):
         parent.model().filter_by_items(items, icol=self.icol)
         parent.blockSignals(False)
         parent._enable_widgeted_cells()
-
