@@ -88,7 +88,7 @@ class TableModel(QAbstractTableModel):
         if df.shape[0] == 0: return
 
         query = self.query
-        if hasattr(query, 'get_stylemap'):
+        if hasattr(query, 'get_stylemap'): # only Availability uses this so far
             stylemap = query.get_stylemap(df=df, col=col)
 
             # either reset stylemap, or update slice
@@ -200,16 +200,12 @@ class TableModel(QAbstractTableModel):
                 return ''
         
         elif role == Qt.EditRole:
-            if not pd.isnull(val):
-                return val
-            else:
-                return ''
+            return val if not pd.isnull(val) else ''
 
         elif role == self.RawDataRole:
             return val
             
-        elif role == Qt.TextAlignmentRole:
-            # TODO set this based on column dtypes, not value?
+        elif role == Qt.TextAlignmentRole: # NOTE not used
             if isinstance(val, int) or isinstance(val, float):
                 return Qt.AlignVCenter + Qt.AlignRight
 
@@ -225,11 +221,10 @@ class TableModel(QAbstractTableModel):
             # stylemap used to read static styles from df styler, eg background gradient in Availability
             style_vals = self.stylemap.get((row, col), None)
             if style_vals:
-                if role == Qt.BackgroundRole:
-                    color = style_vals[0]
-                elif role == Qt.ForegroundRole:
-                    color = style_vals[1]
-                return QColor(color.split(' ')[1])
+                i = 0 if role == Qt.BackgroundRole else 1
+                color_temp = style_vals[i]
+                color = color_temp.split(' ')[1]
+                return QColor(color) if not color == '' else None
 
         # return named row/col index for use with df.loc
         elif role == self.NameIndexRole:
