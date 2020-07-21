@@ -2,7 +2,6 @@
 # TODO exclude db_secret.txt from build
 # TODO need to add pyodbc for windows binary
 
-block_cipher = None
 project_path = None
 
 import os
@@ -48,6 +47,7 @@ if f.is_mac():
     binaries = [('/usr/local/bin/chromedriver', 'selenium/webdriver')]
     hookspath = ['/Users/Jayme/.local/share/virtualenvs/SMS-4WPEHYhu/lib/python3.8/site-packages/pyupdater/hooks']
     dist_folder = 'smseventlog_mac'
+    icon_name = 'sms_icon.icns'
     
     # this saves ~20mb, but windows matplotlib needs tkinter for some reason
     excludes.extend(['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'])
@@ -56,7 +56,9 @@ elif f.is_win():
     binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
     hookspath = ['C:/Users/Jayme/.virtualenvs/SMS-27IjYSAU/Lib/site-packages/pyupdater/hooks']
     dist_folder = 'smseventlog_win'
+    icon_name = 'sms_icon.ico'
 
+icon = str(f.datafolder / f'images/{icon_name}')
 
 a = Analysis([f.projectfolder / 'run.py'],
              pathex=[f.projectfolder],
@@ -68,28 +70,33 @@ a = Analysis([f.projectfolder / 'run.py'],
              excludes=excludes,
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
-             cipher=block_cipher,
              noarchive=False)
 
-pyz = PYZ(a.pure, a.zipped_data,
-             cipher=block_cipher)
+pyz = PYZ(a.pure, a.zipped_data)
+
+# TODO need to figure out which other files upx is messing up
 
 exe = EXE(pyz,
           a.scripts,
           [],
-          exclude_binaries=True,
+          exclude_binaries=True, # False if using --onedir
           name='SMS Event Log',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=True,
-          console=True)
+          upx=False,
+          upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
+          console=False,  # console=False means don't show cmd (only seems to work on windows)
+          runtime_tmpdir=None)
 
+# using COLLECT means app will be '--onedir', cant use with '--onefile'
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
                a.datas,
                strip=False,
-               upx=True,
-               name=dist_folder)
+               upx=False,
+               upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
+               name=dist_folder,
+               icon=icon)
 
