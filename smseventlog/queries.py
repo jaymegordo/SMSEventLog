@@ -186,8 +186,8 @@ class QueryBase(object):
         return self.df
 
 class EventLogBase(QueryBase):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, minesite=None, kw=None):
+        super().__init__(minesite=minesite, kw=kw)
         a, b = self.select_table, T('UnitID')
         date_col = 'DateAdded'
 
@@ -208,8 +208,8 @@ class EventLogBase(QueryBase):
         self.set_allopen()
 
 class EventLog(EventLogBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, minesite='FortHills'):
+        super().__init__(minesite=minesite)
         a, b = self.a, self.b
 
         cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy]
@@ -595,13 +595,16 @@ class FCHistoryRolling(FCBase):
         return df
 
 class EmailList(QueryBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, minesite=None):
+        super().__init__(minesite=minesite)
         a = self.select_table
         self.cols = ['*']
 
         self.q = Query.from_(a) \
             .orderby(a.MineSite, a.Email)
+        
+        if not minesite is None:
+            self.set_default_filter()
         
     def set_default_filter(self):
         self.fltr.add(vals=dict(MineSite=self.minesite))
@@ -847,7 +850,6 @@ class AvailRawData(AvailBase):
             .orderby(a.Unit, a.StartDate) \
             .orderby(a.EndDate, order=Order.desc)
 
-
         f.set_self(self, vars())
 
     def set_fltr(self):
@@ -862,14 +864,16 @@ class AvailRawData(AvailBase):
         return style.background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None)
 
     def update_style(self, style, theme='light'):
+        # used for reporting + gui (only for colors)
         style.set_table_attributes('class="pagebreak_table" style="font-size: 8px;"')
         
         col_widths = dict(StartDate=60, EndDate=60, Total=20, SMS=20, Suncor=20, Comment=150)
         col_widths.update({'Category Assigned': 80})
+        color = 'navyblue' if theme == 'light' else 'maroon'
 
         return style \
             .pipe(self.background_gradient, theme=theme) \
-            .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color='maroon') \
+            .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color=color) \
             .pipe(st.set_column_widths, vals=col_widths) \
             .hide_columns(['DownReason'])
 

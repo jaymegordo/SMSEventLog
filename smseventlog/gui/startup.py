@@ -30,7 +30,7 @@ def get_qt_app():
 
         app = QApplication([sys.executable])
         
-        app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS Icon.png')))
+        app.setWindowIcon(QIcon(str(f.datafolder / 'images/SMS_Icon.png')))
         app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
         app.setStyle('Fusion')
 

@@ -65,7 +65,8 @@ v
     * publish to azure with `func azure functionapp publish smseventlog-app --build-native-deps`
 
 * Pyinstaller
-    * To build, activate pipenv with `pipenv shell` then run `pyinstaller smseventlog.spec --noconfirm`
+    * in project dir (SMS), `python -m build` (runs custom build python file which calls PyInstaller with args)
+    * (old) To build, activate pipenv with `pipenv shell` then run `pyinstaller smseventlog.spec --noconfirm`
     * This will package app and output files to /dist/[mac|win]
 
     * Build Issues

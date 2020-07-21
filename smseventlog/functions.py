@@ -43,7 +43,7 @@ else:
 def set_config():
     # config is yaml file with config details, dictionary conversions etc
     p = Path(datafolder / 'config.yaml')
-    with open(p) as file:
+    with open(p, encoding='utf8') as file:
         m = yaml.full_load(file)
     
     return m
@@ -251,6 +251,8 @@ def clean_series(s, convert_str=False):
 
 def convert_stylemap_index(style):
     # convert irow, icol stylemap to df index
+    # m is dict of eg {(0, 4): ['background-color: #fef0f0', 'color: #000000']}
+    # NOTE styler saves everything, so if multiple styles are applied, this would only use the first
     stylemap = style.ctx
     df = style.data
     m = {(df.index[k[0]], df.columns[k[1]]):v for k, v in stylemap.items()}

@@ -7,7 +7,7 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.common.exceptions import InvalidArgumentException
 
 from . import functions as f
-
+from .__init__ import *
 # find_element_by_class_name',
 # 'find_element_by_css_selector',
 # 'find_element_by_id',
@@ -17,7 +17,7 @@ from . import functions as f
 # 'find_element_by_tag_name',
 # 'find_element_by_xpath',
 
-# %config Completer.use_jedi = False
+# %config Completer.use_jedi = False # prevent vscode python interactive from calling @property when using intellisense
 
 def tsi_form_vals():
     from . import dbtransaction as dbt
@@ -46,26 +46,28 @@ def tsi_form_vals():
     return field_vals
 
 class Web(object):
-    def __init__(self, user):
+    def __init__(self):
         pages = {}
         _driver = None
         f.set_self(self, vars())
 
     def get_options(self):
+        # user-data-dir specifices the location of default chrome profile, to create browser with user's extensions, settings, etc
         options = webdriver.ChromeOptions()
 
         if f.is_mac():
-            ext = 'Library/Application Support/Google/Chrome/'
+            ext = 'Library/Application Support/Google/Chrome'
         elif f.is_win():
-            ext = 'AppData/Local/Google/Chrome/User Data/Default/'
+            ext = 'AppData/Local/Google/Chrome/User Data'
 
         chrome_profile = Path.home() / ext
         options.add_argument(f'user-data-dir={chrome_profile}')
         options.add_argument('window-size=(1,1)')
+        # options.add_argument('--profile-directory=Default')
         
         prefs = {'profile.default_content_settings.popups': 0,
                 'download.prompt_for_download': False,
-                'download.default_directory': Path.home() / 'Downloads',
+                'download.default_directory': str(Path.home() / 'Downloads'),
                 'directory_upgrade': True}
         options.add_experimental_option('prefs', prefs)
 
@@ -82,8 +84,11 @@ class Web(object):
             try:
                 driver = init_driver(options=options)
             except InvalidArgumentException:
+                # user already has a chrome window open with default profile open
                 # delete user-data-dir from options args and try again
-                # TODO try and quit the old browser??
+                # NOTE try and quit the initial browser too > (kinda hard)
+                # https://stackoverflow.com/questions/56585508/invalidargumentexception-message-invalid-argument-user-data-directory-is-alre
+                
                 for i, val in enumerate(options.arguments):
                     if 'user-data-dir' in val:
                         del options.arguments[i]
@@ -162,10 +167,11 @@ class Web(object):
 
 class SuncorConnect(Web):
     # auto login to suncor's SAP system
-    def __init__(self, user='Jayme'):
-        super().__init__(user=user)
+    def __init__(self):
+        super().__init__()
         self.pages.update({'home': 'https://connect.suncor.com'})
 
+        user = Path.home().name
         if user == 'Jayme':
             self.username = 'jagordon'
             self.password = 'SMSrel5%'
@@ -236,14 +242,13 @@ class SuncorConnect(Web):
         # driver.close()
 
 class TSIWebPage(Web):
-    def __init__(self, field_vals={}, serial=None, model=None, user='Jayme', _driver=None, parent=None):
-        super().__init__(user=user)
+    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, parent=None):
+        super().__init__()
         tsi_number = None
         is_init = True
-        # username, password = 'GordoJ3', '8\'Bigmonkeys'
         # serial, model = 'A40029', '980E-4'
 
-        # try loading username + pw from QSettings
+        # try loading username + pw from QSettings if running in app
         if not parent is None:
             username, password = parent.mainwindow.get_tsi_username()
 
@@ -252,6 +257,9 @@ class TSIWebPage(Web):
                 msg = 'Can\'t get TSI uesrname or password!'
                 dlgs.msg_simple(msg=msg, icon='critical')
                 is_init = False
+
+        else: # get from command line
+            username, password = input('Username:'), input('Password:')
 
         form_vals_default = {
             'Failed Part Qty': 1,

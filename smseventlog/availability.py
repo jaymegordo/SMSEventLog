@@ -112,3 +112,13 @@ def ahs_pa_monthly():
     df = pd.read_sql_table(table_name='viewPAMonthly', con=db.engine)
     df = df.pivot(index='Unit', columns='MonthStart', values='Sum_DT')
     return df
+
+def dt_exclusions_ma_example():
+    # create all units with MA hrs below hrs in period
+    from . import folders as fl
+    units = []
+    units.extend(fl.all_units(rng=(301,322)))
+    units.extend(fl.all_units(rng=(331,348)))
+
+    rng = (dt(2020,7,13), dt(2020,7,19))
+    update_dt_exclusions_ma(units=units, rng_dates=rng)

@@ -96,7 +96,7 @@ class Report(object):
             query = self.get_query(name=name)
             style_func = self.style_funcs.get(name, None)
 
-        style = st.set_style(df)
+        style = st.default_style(df)
 
         # outlook can't use css nth-child selectors, have to do manually
         if outlook:
@@ -303,6 +303,17 @@ class OilSamplesReport(Report):
         self.title = 'FortHills Spindle Oil Report'
         self.load_sections('OilSamples')
         self.add_items('title_page')
+
+class FCReport(Report):
+    def __init__(self, d=None, minesite='FortHills'):
+        super().__init__(d=d)
+
+        period_type = 'month'
+        period = self.d_rng[0].strftime('%Y-%m')
+        title = f'{minesite} Factory Campaign Report - {period}'
+        f.set_self(self, vars())
+
+        self.load_sections('FCs')
 
 # REPORT SECTIONS
 class Section():

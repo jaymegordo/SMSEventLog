@@ -74,7 +74,10 @@ class Message(object):
 
     def add_recipients(self, emails, type_='to'):
         if emails is None: return
-        if not isinstance(emails, list): emails = [emails]
+
+        # ensure email list is unique, sorted alphabetically, and lowercase
+        if not isinstance(emails, (list, set)): emails = set(emails)
+        emails = sorted({x.lower() for x in emails})
 
         if self.is_win:
             recips = ';'.join(emails)
@@ -98,4 +101,16 @@ class Message(object):
             recipient = k.cc_recipient
 
         self._msg.make(new=recipient, with_properties={k.email_address: {k.address: email}})
-        
+
+def email_test(df=None):
+    # testing to figure out outlook column widths
+    from . import styles as st
+
+    style = st.default_style(df, outlook=True) \
+        .pipe(st.set_column_widths, vals=dict(Status=100, Description=400, Title=100), outlook=True)
+
+    html = style.hide_index().render()
+    st.write_html(html)
+    body = f'{f.greeting()}{html}'
+    msg = Message(subject='test', body=body)
+    return msg
