@@ -31,7 +31,7 @@ def alternating_rows(style):
         selector='tbody tr:nth-child(even)',
         props=[('background-color', '#E4E4E4')]))
     
-    return style.pipe(apply_style, s)
+    return style.pipe(add_table_style, s)
 
 def alternating_rows_outlook(style, outlook=True):
     # highlight all cells background color grey
@@ -43,7 +43,7 @@ def alternating_rows_outlook(style, outlook=True):
 
     return style
 
-def apply_style(style, s):
+def add_table_style(style, s):
     if not style.table_styles is None:
         style.table_styles.extend(s)
     else:
@@ -61,20 +61,25 @@ def set_column_style(mask, props):
 
     return s
 
-def set_column_widths(style, vals, hidden_index=True):
+def set_column_widths(style, vals, hidden_index=True, outlook=False):
     # vals is dict of col_name: width > {'Column Name': 200}
     s = []
     offset = 1 if hidden_index else 0
 
-    for col_name, width in vals.items():
-        icol = style.data.columns.get_loc(col_name) + offset
-        s.append(dict(
-            selector=f'th.col_heading:nth-child({icol})',
-            props=[('width', f'{width}px')]))
+    if not outlook:
+        for col_name, width in vals.items():
+            icol = style.data.columns.get_loc(col_name) + offset
+            s.append(dict(
+                selector=f'th.col_heading:nth-child({icol})',
+                props=[('width', f'{width}px')]))
     
-    return style.pipe(apply_style, s)
+        return style.pipe(add_table_style, s)
+    
+    else: 
+        # outlook - need to apply width to each cell individually
+        return style.apply(col_width_outlook, axis=None, vals=vals)
 
-def set_style(df, outlook=False):
+def default_style(df, outlook=False):
     # Dataframe general column alignment/number formatting
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
     df[cols] = df[cols].replace('\n', '<br>', regex=True)
@@ -98,19 +103,27 @@ def set_style(df, outlook=False):
     s.extend(set_column_style(mask=~numeric_mask, props=('text-align', 'left')))
     s.extend(set_column_style(mask=date_mask, props=('text-align', 'center')))
 
-    # Style 265474
+    table_attrs = f'style="border-collapse: collapse;"'
+
     style = df.style \
         .format(lambda x: '{:,.0f}'.format(x) if x > 1e3 else '{:,.2f}'.format(x), # default number format
                     subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
-        .pipe(apply_style, s) \
+        .pipe(add_table_style, s) \
         .pipe(alternating_rows_outlook, outlook=outlook) \
-        .set_table_attributes('style="border-collapse: collapse";') \
+        .set_table_attributes(table_attrs) \
         .set_na_rep('')
     
     return style
 
 def df_empty(df):
     return pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
+
+def col_width_outlook(df, vals):
+    df1 = df_empty(df)
+    for col, width in vals.items():
+        df1[col] = f'width: {width};'
+
+    return df1
 
 def format_cell(bg, t='black'):
     return f'background-color: {bg};color: {t};'
@@ -173,7 +186,7 @@ def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols
 
     m = df[target_col]==val
 
-    df1 = df_empty()
+    df1 = df_empty(df)
     df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), 'background-color: inherit')
 
     if other_cols:
@@ -190,18 +203,18 @@ def highlight_alternating(s, color='navyblue', theme='light'):
     # only accept single column for now
     colors = f.config['color']
         
-    if theme == 'light':
-        default_bg = 'inherit' # 'white'
+    if theme == 'light': # reporting + emailing
+        default_bg = 'inherit'
         default_t = 'black'
-    else:
-        default_bg = colors['bg']['bgdark']
-        default_t = 'white'
+    elif theme == 'dark': # only GUI
+        default_bg = ''
+        default_t = ''
 
     color = colors['bg'][color]
     active = 1
     prev = ''
 
-    s1 = pd.Series(index=s.index, dtype='object')
+    s1 = pd.Series(index=s.index, dtype='object') # NOTE could make this s_empty()
 
     # iterrows iterates tuple of (index, vals)
     for row in s.iteritems():
@@ -215,7 +228,7 @@ def highlight_alternating(s, color='navyblue', theme='light'):
         if active == 1:
             css = format_cell(bg=color, t='white')
         else:
-            css = format_cell(bg=default_bg, t=default_t) # TODO make this none instead of white somehow
+            css = format_cell(bg=default_bg, t=default_t)
 
         s1.loc[idx] = css
 
