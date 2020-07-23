@@ -34,11 +34,17 @@ class TableView(QTableView):
 
         # self.activated.connect(self.double_click_enter)
 
-        disabled_cols, hide_cols, check_exist_cols, datetime_cols, dynamic_cols, sort_filter_cols = (), (), (), (), (), ()
+        self.mcols = dd(tuple)
         col_widths = {'Title': 150, 'Part Number': 150}
         highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, {}, {} # NOTE use all lowercase!
         colors = f.config['color']
-        # col_maxmin # used for highlighting color scales
+
+        # try:
+        query = parent.query
+        formats.update(query.formats) # start with query formats, will be overridden if needed
+        # except:
+        #     print(self.__class__.__name__)
+        #     f.send_error()
         
         # set up initial empty model
         self.parent = parent # model needs this to access parent table_widget
@@ -52,22 +58,17 @@ class TableView(QTableView):
         self.clicked.connect(self._on_click) # NOTE not sure if need this..
         self.dataFrameChanged.connect(self._enable_widgeted_cells) # NOTE or this
 
+        header = HeaderView(self)
+        self.setHorizontalHeader(header)
+
         self.setItemDelegate(CellDelegate(parent=self))
-
-        # create header menu bindings
-        header = self.horizontalHeader()
-        header.setDefaultAlignment(Qt.AlignCenter | Qt.Alignment(Qt.TextWordWrap))
-        header.setContextMenuPolicy(Qt.CustomContextMenu)
-        header.customContextMenuRequested.connect(self._header_menu)
-        header.setFixedHeight(30)
-
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setSelectionBehavior(QTableView.SelectRows)
         self.setWordWrap(True)
         self.setSortingEnabled(True)
 
-        yellowrow = colors['bg'].get('yellowrow', 'green')
+        # yellowrow = colors['bg'].get('yellowrow', 'green')
         yellowrow = '#ffff64'
         darkyellow = '#cccc4e'
         lightblue = '#148CD2' ##19232D # border: 1px solid red; 
@@ -77,21 +78,19 @@ class TableView(QTableView):
             QTableView:item:selected:focus {color: black; background-color: #ffff64; border: 1px solid red; } \
             QTableView::item:selected:hover {color: black; background-color: #cccc4e;}') \
         
-        f.set_self(self, vars())
+        f.set_self(vars())
         self.set_default_headers()
         self.setVisible(True)
 
     def display_data(self, df):
         self.rows_initialized = False 
-        self.model().set_df(df=df)
+        self.model().set_df(df=df, center_cols=self.get_center_cols(df=df))
             
         self.hide_columns()
         self.resizeColumnsToContents()
         self.set_date_delegates()
 
-        cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
-        # TODO should set textalignrole for these columns instead
-        # self.center_columns(cols=cols)
+        # cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
         self.set_column_widths()
 
         self.rows_initialized = True
@@ -145,13 +144,11 @@ class TableView(QTableView):
                         return QColor(Qt.black)
                     else:
                         color_code = self.colors['text'].get(color_name, None)
-                        return QColor(color_code)
+                        if not color_code is None:
+                            return QColor(color_code)
 
     def highlight_pics(self, val, role, **kw):
-        if f.isnum(val) and val > 0:
-            color = 'goodgreen'
-        else:
-            color = 'bad'
+        color = 'goodgreen' if f.isnum(val) and val > 0 else 'bad'
 
         if role == Qt.BackgroundRole:
             color_code = self.colors['bg'][color]
@@ -211,16 +208,16 @@ class TableView(QTableView):
         model = self.model()
         date_delegate = DateDelegate(self)
 
-        for i in model.dt_cols:
+        for i in model.mcols['date']:
             col = model.headerData(i)
             self.formats[col] = '{:%Y-%m-%d}'
             self.setColumnWidth(i, date_delegate.width)
             self.setItemDelegateForColumn(i, date_delegate)
 
         # if the parent table_widget has specified datetime cols
-        if self.datetime_cols:
+        if self.mcols['datetime']:
             datetime_delegate = DateTimeDelegate(self)
-            for i in model.datetime_cols:
+            for i in model.mcols['datetime']:
                 self.setColumnWidth(i, datetime_delegate.width)
                 col = model.headerData(i)
                 self.formats[col] = '{:%Y-%m-%d     %H:%M}'
@@ -229,16 +226,8 @@ class TableView(QTableView):
     def set_combo_delegate(self, col, items):
         model = self.model()
         combo_delegate = ComboDelegate(parent=self, items=items)
-        c = model.get_column_idx(col=col)
+        c = model.get_col_idx(col=col)
         self.setItemDelegateForColumn(c, combo_delegate)
-
-    def center_columns(self, cols):
-        model = self.model()
-        align_delegate = AlignDelegate(self)
-
-        for c in cols:
-            if c in model.df.columns:
-                self.setItemDelegateForColumn(model.getColIndex(c), align_delegate)
 
     def set_column_width(self, cols, width):
         model = self.model()
@@ -246,18 +235,18 @@ class TableView(QTableView):
 
         for c in cols:
             if c in model.df.columns:
-                self.setColumnWidth(model.getColIndex(c), width)
+                self.setColumnWidth(model.get_col_idx(c), width)
     
     def set_column_widths(self):
         model = self.model()
 
         for c, width in self.col_widths.items():
             if c in model.df.columns:
-                self.setColumnWidth(model.getColIndex(c), width)
+                self.setColumnWidth(model.get_col_idx(c), width)
 
     def hide_columns(self):
-        for col in self.hide_cols:
-            self.hideColumn(self.model().getColIndex(col))
+        for col in self.mcols['hide']:
+            self.hideColumn(self.model().get_col_idx(col))
 
     def _header_menu(self, pos):
         """Create popup menu used for header"""
@@ -304,7 +293,7 @@ class TableView(QTableView):
             irow = self.active_row_index()
         if col_name is None:
             icol = self.selectionModel().selectedColumns()
-        return model.createIndex(irow, model.get_column_idx(col_name))
+        return model.createIndex(irow, model.get_col_idx(col_name))
 
     def active_row_index(self):
         rows = self.selectionModel().selectedRows() # list of selected rows
@@ -354,14 +343,18 @@ class TableView(QTableView):
         indexes = selection.selectedIndexes()
 
         if len(indexes) < 1: return # Nothing selected
+        print(f'len index: {len(indexes)}')
 
         # Capture selection into a DataFrame
         df = pd.DataFrame() # NOTE may need to set size?
         for idx in indexes:
             row, col, item = idx.row(), idx.column(), idx.data()
+            print(row, col, item)
+        
+        return
 
-            if item:
-                df.iloc[row, col] = str(item)
+            # if item:
+            #     df.iloc[row, col] = str(item)
 
         # Make into tab-delimited text (best for Excel)
         items = list(df.itertuples(index=False))
@@ -399,6 +392,9 @@ class TableView(QTableView):
                 # if isinstance(d, WidgetedCell):
                 #     self.openPersistentEditor(idx)
 
+    def get_center_cols(self, *a, **kw):
+        return self.mcols['center']
+
 
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
@@ -408,7 +404,7 @@ class TableWidget(QWidget):
         name = self.__class__.__name__
         self.title = f.config['TableName']['Class'][name]
 
-        mainwindow = ui.get_mainwindow()
+        self.mainwindow = ui.get_mainwindow()
 
         vLayout = QVBoxLayout(self)
         btnbox = QHBoxLayout()
@@ -417,7 +413,7 @@ class TableWidget(QWidget):
         # get default refresh dialog from refreshtables by name
         from . import refreshtables as rtbls
         refresh_dialog = getattr(rtbls, name, rtbls.RefreshTable)
-        self.query = getattr(qr, name, qr.QueryBase)()
+        self.query = getattr(qr, name, qr.QueryBase)(parent=self, theme='dark')
         dbtable = self.query.update_table
         db_col_map = {}
 
@@ -427,7 +423,7 @@ class TableWidget(QWidget):
         vLayout.addLayout(btnbox)
         vLayout.addWidget(view)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
         self.add_button(name='Refresh', func=self.show_refresh)
         self.add_button(name='Add New', func=self.show_addrow)
@@ -435,7 +431,7 @@ class TableWidget(QWidget):
     
     @property
     def minesite(self):
-        return self.mainwindow.minesite
+        return self.mainwindow.minesite if not self.mainwindow is None else 'FortHills' # default for testing
     
     def add_action(self, name, func, shortcut=None, btn=False):
         act = QAction(name, self, triggered=func)
@@ -573,14 +569,13 @@ class TableWidget(QWidget):
             if dlgs.msgbox(msg=msg, yesno=True):
                 fl.open_folder(p=p, check_drive=False)
 
-
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
         view.highlight_funcs['Status'] = view.highlight_by_val
-        view.hide_cols = ('UID',)
-        view.disabled_cols = ('Model', 'Serial')
+        view.mcols['hide'] = ('UID',)
+        view.mcols['disabled'] = ('Model', 'Serial')
         view.highlight_vals.update({
             'closed': 'goodgreen',
             'open': 'bad',
@@ -611,7 +606,7 @@ class EventLog(EventLogBase):
     class View(TableView):
         def __init__(self, parent):
             super().__init__(parent=parent)
-            self.disabled_cols = ('Title',) # TODO: remove this....? add title rename func
+            self.mcols['disabled'] = ('Title',) # TODO: remove this....? add title rename func
             self.col_widths.update(dict(Passover=50, Description=800, Status=100))
             self.highlight_funcs['Passover'] = self.highlight_by_val
 
@@ -686,10 +681,10 @@ class ComponentCO(EventLogBase):
         super().__init__(parent=parent)
     
     class View(TableView):
-        def __init__(self, parent=None):
+        def __init__(self, parent):
             super().__init__(parent=parent)
 
-            self.disabled_cols = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
+            self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
             self.col_widths.update(dict(Notes=400))
             self.highlight_funcs['Unit'] = self.highlight_alternating
 
@@ -702,8 +697,8 @@ class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
-        view.disabled_cols = ('WO',)
-        view.col_widths.update({'Details': 400, 'TSI No': 100})
+        view.mcols['disabled'] = ('WO',)
+        view.col_widths.update({'Details': 400, 'TSI No': 110})
 
         self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
@@ -780,7 +775,7 @@ class UnitInfo(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
-        view.disabled_cols = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty')
+        view.mcols['disabled'] = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty')
         view.col_widths.update({
             'Warranty Remaining': 40,
             'GE Warranty': 40})
@@ -819,34 +814,45 @@ class FCBase(TableWidget):
 class FCSummary(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.hide_cols = ('MineSite',)
-        view.disabled_cols = ('FC Number', 'Total Complete', '% Complete') # also add all unit cols?
-        view.col_widths.update({
-            'Subject': 250,
-            'Comments': 600,
-            'Action Reqd': 60,
-            'Type': 40,
-            'Part Number': 100,
-            'Parts Avail': 40,
-            'Total Complete': 60,
-            '% Complete': 40})
+        self.add_button(name='Email New FC', func=self.email_new_fc)
 
-        view.highlight_vals.update({'m': 'maroon'})
-        view.highlight_funcs['Type'] = view.highlight_by_val
-
-        # TODO: add dropdown menu for Type, Action Reqd, Parts Avail
-
-        # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
         self.db_col_map = {
             'Action Reqd': tbl_b,
             'Parts Avail': tbl_b,
             'Comments': tbl_b}
-        
-        self.check_exist_cols = tuple(self.db_col_map.keys()) # rows for these cols may not exist yet in db
 
-        self.add_button(name='Email New FC', func=self.email_new_fc)
+        self.view.mcols['check_exist'] = tuple(self.db_col_map.keys()) # rows for cols may not exist yet
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+            # map table col to update table in db if not default
+            
+
+            self.mcols['hide'] = ('MineSite',)
+            self.mcols['disabled'] = ('FC Number', 'Total Complete', '% Complete') # also add all unit cols?
+            self.col_widths.update({
+                'Subject': 250,
+                'Comments': 600,
+                'Action Reqd': 60,
+                'Type': 40,
+                'Part Number': 100,
+                'Parts Avail': 40,
+                'Total Complete': 60,
+                '% Complete': 45})
+
+            self.highlight_vals.update({'m': 'maroon'})
+            self.highlight_funcs['Type'] = self.highlight_by_val
+
+            # TODO: add dropdown menu for Type, Action Reqd, Parts Avail
+        
+        def get_center_cols(self, df):
+            # FCSummary needs dynamic center + vertical cols
+            cols = list(df.columns[13:])
+            self.mcols['vertical'] = cols
+            self.col_widths.update({c: 25 for c in cols}) # NOTE not ideal, would like to reimplement sizeHint
+            return cols
 
     def email_new_fc(self):
         # get df of current row
@@ -879,7 +885,7 @@ class FCDetails(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         view = self.view
-        view.disabled_cols = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject')
+        view.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject')
         view.col_widths.update({
             'Complete': 60,
             'Closed': 60,
@@ -911,10 +917,10 @@ class Availability(TableWidget):
         def __init__(self, parent):
             super().__init__(parent=parent)
 
-            self.disabled_cols = ('Unit', 'ShiftDate', 'StartDate', 'EndDate')
-            self.datetime_cols = ('StartDate', 'EndDate')
-            self.dynamic_cols = ('Total', 'SMS', 'Suncor')
-            self.sort_filter_cols = ('Unit',)
+            self.mcols['disabled'] = ('Unit', 'ShiftDate', 'StartDate', 'EndDate')
+            self.mcols['datetime'] = ('StartDate', 'EndDate')
+            self.mcols['dynamic'] = ('Total', 'SMS', 'Suncor')
+            self.mcols['sort_filter'] = ('Unit',)
             self.col_widths.update(dict(Comment=600))
             # self.highlight_funcs['Unit'] = self.highlight_alternating
             self.add_highlight_funcs(cols=['Category Assigned', 'Assigned'], func=self.highlight_by_val)
@@ -938,7 +944,7 @@ class Availability(TableWidget):
                 '0': 'greyrow',
                 'collecting info': 'lightyellow'})
             
-            # if a value is changed in any of self.dynamic_cols, model needs to re-request stylemap from query 
+            # if a value is changed in any of self.mcols['dynamic'], model needs to re-request stylemap from query 
 
         def get_style(self, df=None, outlook=False):
             # used for email + gui... maybe?
@@ -953,13 +959,13 @@ class Availability(TableWidget):
             model = index.model()
             col_name = model.headerData(i=index.column())
 
-            duration = model.df.iloc[index.row(), model.get_column_idx('Total')]
+            duration = model.df.iloc[index.row(), model.get_col_idx('Total')]
             val = index.data(role=TableModel.RawDataRole)
 
             if col_name == 'SMS':
-                update_col = model.get_column_idx('Suncor')
+                update_col = model.get_col_idx('Suncor')
             elif col_name == 'Suncor':
-                update_col = model.get_column_idx('SMS')
+                update_col = model.get_col_idx('SMS')
 
             update_index = index.siblingAtColumn(update_col)
             update_val = duration - val
@@ -1053,7 +1059,7 @@ class Availability(TableWidget):
         model = view.model()
 
         index = view.create_index_activerow(col_name='Suncor')
-        duration = model.df.iloc[index.row(), model.get_column_idx('Total')]
+        duration = model.df.iloc[index.row(), model.get_col_idx('Total')]
         model.setData(index=index, val=duration, queue=True)
         # model.flush_queue()
     
@@ -1150,7 +1156,7 @@ class DynamicFilterLineEdit(QLineEdit):
         super().__init__(*args, **kwargs)
 
         col_to_filter, _df_orig, _host = None, None, None
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def bind_dataframewidget(self, host, icol):
         # Bind tihs DynamicFilterLineEdit to a DataFrameTable's column
@@ -1207,7 +1213,7 @@ class DynamicFilterMenuAction(QWidgetAction):
         widget.setLayout(layout)
 
         self.setDefaultWidget(widget)
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def _close_menu(self):
         """Gracefully handle menu"""
@@ -1233,7 +1239,7 @@ class FilterListMenuWidget(QWidgetAction):
         lst_widget.itemChanged.connect(self.on_list_itemChanged)
         self.parent().dataFrameChanged.connect(self._populate_list)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
         self._populate_list(inital=True)
 
     def _populate_list(self, inital=False):
@@ -1333,3 +1339,50 @@ class FilterListMenuWidget(QWidgetAction):
         parent.model().filter_by_items(items, icol=self.icol)
         parent.blockSignals(False)
         parent._enable_widgeted_cells()
+
+
+# HEADER
+class HeaderView(QHeaderView):
+    """Custom header, allows vertical header labels"""
+    def __init__(self, parent=None):
+        super().__init__(Qt.Horizontal, parent)
+
+        from .startup import get_qt_app
+        _font = get_qt_app().font()
+        _metrics = QFontMetrics(_font)
+        _descent = _metrics.descent()
+        _margin = 10
+
+        # create header menu bindings
+        self.setDefaultAlignment(Qt.AlignCenter | Qt.Alignment(Qt.TextWordWrap))
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(parent._header_menu)
+        # self.setFixedHeight(30) # NOTE maybe not
+        self.setMinimumHeight(30)
+
+        f.set_self(vars())
+
+    def paintSection(self, painter, rect, index):
+        col = self._get_data(index)
+
+        if col in self.parent.mcols['vertical']:
+            painter.rotate(-90)
+            painter.setFont(self._font)
+            painter.drawText(- rect.height() + self._margin,
+                            rect.left() + (rect.width() + self._descent) / 2, col)
+        else:
+            super().paintSection(painter, rect, index)
+
+    def sizeHint(self):
+        if self.parent.mcols['vertical']:
+            return QSize(0, self._max_text_width() + 2 * self._margin)
+        else:
+            return super().sizeHint()
+
+    def _max_text_width(self):
+        # return max text width of vertical cols, used for header height
+        return max([self._metrics.width(self._get_data(i))
+                    for i in self.model().get_col_idxs(self.parent.mcols['vertical'])])
+
+    def _get_data(self, index):
+        return self.model().headerData(index, self.orientation())
