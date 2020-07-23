@@ -20,7 +20,7 @@ class Outlook(object):
         else:
             client = app('Microsoft Outlook')
 
-        f.set_self(self, vars())
+        f.set_self(vars())
     
 class Message(object):
     def __init__(self, parent=None, subject='', body='', to_recip=None, cc_recip=None, show_=True):
@@ -47,7 +47,7 @@ class Message(object):
                 new=k.outgoing_message,
                 with_properties={k.subject: subject, k.content: body})
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
         self.add_recipients(emails=to_recip, type_='to')
         self.add_recipients(emails=cc_recip, type_='cc')

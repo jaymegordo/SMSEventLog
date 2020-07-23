@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None):
         if col_db is None: col_db = text.replace(' ', '')
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def get_val(self):
         box = self.box
@@ -185,7 +185,7 @@ class AddRow(InputForm):
             title = 'Event Log'
             row = getattr(dbm, tablename)
         
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def accept(self):
         super().accept()
@@ -241,7 +241,7 @@ class AddEvent(AddRow):
         self.add_input(field=InputField(text='WO Customer', col_db='SuncorWO'))
         self.add_input(field=InputField(text='PO Customer', col_db='SuncorPO'))
 
-        f.set_self(self, vars())
+        f.set_self(vars())
         self.show()
     
     def create_uid(self):
@@ -368,7 +368,7 @@ class ComponentCO(InputForm):
         lst = f.clean_series(s=df.Combined)
         self.add_input(field=InputField('Component'), items=lst)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def accept(self):
         super().accept()
@@ -401,7 +401,7 @@ class BiggerBox(QMessageBox):
         details_box = self.findChild(QTextEdit)
         if not details_box is None:
             size_hint = details_box.sizeHint()
-            new_size = QSize(600, size_hint.height())
+            new_size = QSize(600, 800)
             details_box.setFixedSize(new_size)
 
         self.initial_resize = True
@@ -492,7 +492,7 @@ class DetailsView(QDialog):
         vLayout.addWidget(tbl)
         add_okay_cancel(dlg=self, layout=vLayout)
         
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def create_table(self, df):
         tbl = QTableWidget()

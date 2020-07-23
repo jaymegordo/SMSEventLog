@@ -36,7 +36,7 @@ def e(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except (exc.StatementError, exc.InvalidRequestError):
+        except (exc.StatementError, exc.InvalidRequestError, exc.OperationalError):
             log.warning('Rollback and retry operation.')
             print('Rollback and retry operation.')
             session = db.session # this is pretty sketch
@@ -56,7 +56,7 @@ class DB(object):
         df_component = None
         dfs = {}
 
-        f.set_self(self, vars())
+        f.set_self(vars())
         
     @property
     def engine(self):

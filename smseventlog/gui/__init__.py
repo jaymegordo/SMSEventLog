@@ -2,13 +2,13 @@ import qdarkstyle
 from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QEvent, QFile,
                           QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, QSettings, QSize, Qt,
                           QTextStream, QTimer, QVariant, pyqtSignal, pyqtSlot)
-from PyQt5.QtGui import (QBrush, QColor, QFont, QIcon, QIntValidator,
+from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetrics, QIcon, QIntValidator,
                          QKeyEvent, QKeySequence, QTextCursor)
 from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction, QApplication,
                              QCheckBox, QComboBox, QDateEdit, QDateTimeEdit,
                              QDesktopWidget, QDialog, QDialogButtonBox,
                              QErrorMessage, QFileDialog, QFrame, QFormLayout,
-                             QGridLayout, QHBoxLayout, QInputDialog,
+                             QGridLayout, QHBoxLayout, QHeaderView, QInputDialog,
                              QItemDelegate, QLabel, QLineEdit, QListWidget,
                              QListWidgetItem, QMainWindow, QMenu, QMessageBox,
                              QPushButton, QScrollArea, QSizePolicy,

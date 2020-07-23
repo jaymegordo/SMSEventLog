@@ -238,7 +238,7 @@ class MainWindow(QMainWindow):
             triggered=lambda: t().email_table())
         act_export_excel_table = QAction('Export to Excel', self, triggered=lambda: t().export_excel())
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def contextMenuEvent(self, event):
         # TODO: use caller to check current tab?

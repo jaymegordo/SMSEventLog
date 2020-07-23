@@ -65,7 +65,7 @@ def pre_process_framecracks(d_lower=None):
     df_old = load_df_old()
 
     # load new data, merge
-    query = qr.FrameCracks(kw=dict(d_lower=d_lower))
+    query = qr.FrameCracks(da=dict(d_lower=d_lower))
     df_sms = query.get_df()
     df_sun = load_df_sun()
     df_smr = load_df_smr(d_lower=d_lower)

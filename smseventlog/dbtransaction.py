@@ -28,7 +28,7 @@ class DBTransaction():
 
         all_cols = f.convert_list_db_view(title=title, cols=pks) # convert db to view cols first
         
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def add_df(self, df, update_cols=None):
 
@@ -93,7 +93,7 @@ class Row():
                 header = f.convert_header(title=title, header=pk, inverse_=True)
                 keys[pk] = df.iloc[i, df.columns.get_loc(header)] # get key value from df, key must exist in df
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def update_single(self, val, header=None, field=None, check_exists=False):
         # convenience func to update single field/header: val in db

@@ -167,7 +167,7 @@ class ComboDelegate(CellDelegate):
 
         items_lower = [item.lower() for item in items]
         _cell_widget_states = {}
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def initStyleOption(self, option, index):
         option.displayAlignment = Qt.AlignCenter
@@ -280,7 +280,7 @@ class DateTimeDelegate(DateDelegateBase):
         date_type = 'dateTime'
         set_editor = 'setDateTime'
         width = 144
-        f.set_self(self, vars())
+        f.set_self(vars())
     
 class DateDelegate(DateDelegateBase):
     def __init__(self, parent=None):
@@ -292,4 +292,4 @@ class DateDelegate(DateDelegateBase):
         date_type = 'date'
         set_editor = 'setDate'
         width = 90
-        f.set_self(self, vars())        
+        f.set_self(vars())        

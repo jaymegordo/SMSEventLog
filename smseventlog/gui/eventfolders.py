@@ -31,7 +31,7 @@ class EventFolder(object):
         p_event = p_base / folder_title
         p_event_blank = p_base / self.get_folder_title(self.unit, self.dateadded, wo_blank, self.title)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     @property
     def equippath(self):
@@ -89,7 +89,7 @@ class EventFolder(object):
         p_pics = self.p_event / 'Pictures'
         num_pics = fl.count_files(p=p_pics, ftype='pics')
 
-        index = model.createIndex(irow, model.get_column_idx('Pics'))
+        index = model.createIndex(irow, model.get_col_idx('Pics'))
         model.setData(index=index, val=num_pics)
     
     def create_folder(self, show=True, ask_show=False):

@@ -105,7 +105,7 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title, default='True', table=table, col_db='Major'), items=['True', 'False'], checkbox=True, cb_enabled=False)
         
         elif name == 'title':
-            add_input(field=IPF(text=title), checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text='*Title', col_db=title), checkbox=True, cb_enabled=False)
 
     def add_refresh_button(self, name, func):
         layout = self.vLayout
@@ -198,7 +198,7 @@ class Availability(RefreshTable):
         d = dt.now() + delta(days=-30)
         default_month = df_month[df_month.StartDate < d].iloc[-1, :].name #index name
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
         self.add_input(field=InputField(text='Week', default=default_week), items=df_week.index, checkbox=True, cb_enabled=False)
         self.add_input(field=InputField(text='Month', default=default_month), items=df_month.index, checkbox=True, cb_enabled=False)

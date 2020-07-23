@@ -49,7 +49,7 @@ class Web(object):
     def __init__(self):
         pages = {}
         _driver = None
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def get_options(self):
         # user-data-dir specifices the location of default chrome profile, to create browser with user's extensions, settings, etc
@@ -301,7 +301,7 @@ class TSIWebPage(Web):
             'tsi_create': f'{homepage}tsi-view/create-tsi-case/',
             'all_tsi': f'{homepage}mytsi/'})
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def open_tsi(self, serial=None, model=None, save_tsi=True):
         # open web browser and log in to tsi form

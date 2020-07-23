@@ -17,7 +17,7 @@ class OilSamples():
         if login is None:
             login = dict(username='jgordon', password='8\'Bigmonkeys')
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def load_samples_fluidlife(self, d_lower):
         # load samples from fluidlife api, save to self._samples as list of dicts

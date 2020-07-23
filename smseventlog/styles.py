@@ -125,6 +125,12 @@ def col_width_outlook(df, vals):
 
     return df1
 
+def get_defaults(theme):
+    if theme == 'light': # reporting + emailing
+        return 'inherit', 'black'
+    elif theme == 'dark': # GUI
+        return '', ''
+
 def format_cell(bg, t='black'):
     return f'background-color: {bg};color: {t};'
 
@@ -146,14 +152,15 @@ def highlight_greater(df, ma_target):
     #         df1[col] = df1['MA']
     return df1
 
-def highlight_yn(df):
+def highlight_yn(df, color_good='good', theme='light'):
     m = f.config['color']
     bg, t = m['bg'], m['text']
+    default_bg, default_t = get_defaults(theme)
 
     m1, m2 = df=='Y', df=='N' # create two boolean masks
 
     where = np.where
-    data = where(m1, format_cell(bg['good'], t['good']), where(m2, format_cell(bg['bad'], t['bad']), 'background-color: inherit'))
+    data = where(m1, format_cell(bg[color_good], t[color_good]), where(m2, format_cell(bg['bad'], t['bad']), f'background-color: {default_bg}'))
 
     return pd.DataFrame(data=data, index=df.index, columns=df.columns)
 
@@ -177,17 +184,17 @@ def highlight_flags(df, m):
 
     return df1
 
-def highlight_val(df, val, bg_color, t_color=None, target_col='Type', other_cols=None):
+def highlight_val(df, val, bg_color, target_col, t_color=None, other_cols=None, theme='light'):
     m = f.config['color']
     bg, t = m['bg'], m['text']
+    default_bg, default_t = get_defaults(theme)
 
-    if t_color is None:
-        t_color = 'black'
+    if t_color is None: t_color = 'black'
 
-    m = df[target_col]==val
+    m = df[target_col].str.lower() == val.lower()
 
     df1 = df_empty(df)
-    df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), 'background-color: inherit')
+    df1[target_col] = np.where(m, format_cell(bg[bg_color], t[t_color]), f'background-color: {default_bg}')
 
     if other_cols:
         for col in other_cols:
@@ -202,13 +209,7 @@ def highlight_alternating(s, color='navyblue', theme='light'):
     # loop df column and switch active when value changes. Kinda ugly but works.
     # only accept single column for now
     colors = f.config['color']
-        
-    if theme == 'light': # reporting + emailing
-        default_bg = 'inherit'
-        default_t = 'black'
-    elif theme == 'dark': # only GUI
-        default_bg = ''
-        default_t = ''
+    default_bg, default_t = get_defaults(theme)
 
     color = colors['bg'][color]
     active = 1

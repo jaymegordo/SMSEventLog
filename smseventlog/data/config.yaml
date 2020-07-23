@@ -125,7 +125,6 @@ Headers:
         Unit: Unit
         Title: Title
         Description: Description
-        Required: Required
         Date Added: DateAdded
         Date Complete: DateCompleted
         Issue Category: IssueCategory
