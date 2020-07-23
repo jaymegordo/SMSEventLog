@@ -12,13 +12,14 @@ from .__init__ import *
 
 # Queries control how data is queried/filtered from database.
 # Can be consumed by tables/views, reports, etc
+# da is 'default args' to be passed to filter when query is executed
 
 class Filter():
     def __init__(self, parent):
         # fltr has to belong to a query object
         criterion, fields = {}, {}
         select_table = parent.select_table
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def add(self, field=None, val=None, vals=None, opr=None, term=None, table=None, ct=None):
         if not vals is None:
@@ -40,6 +41,7 @@ class Filter():
                 else:
                     ct = func()
             elif isinstance(val, str):
+                val = val.replace('*', '%')
                 if '%' in val:
                     ct = field_.like(val)
                 else:
@@ -94,9 +96,10 @@ class Filter():
             print('\t', list(ct.tables_)[0], ct)
 
 class QueryBase(object):
-    def __init__(self, minesite='FortHills', kw=None):
+    def __init__(self, parent=None, minesite=None, da=None, theme='light'):
         formats, default_dtypes, stylemap_cols = {}, {}, {}
         background_gradients = []
+        # color_good = 240 if theme == 'light' else 120
         cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         sql, df = None, pd.DataFrame()
         m = f.config['TableName']
@@ -123,19 +126,31 @@ class QueryBase(object):
         # set dict for db > view_col conversion later
         view_cols = f.get_dict_db_view(title=title)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
         self.set_fltr()
 
+    @property
+    def minesite(self):
+        # can either pass in a minesite for reports/etc, or use GUI parent's
+        if hasattr(self, '_minesite') and not self._minesite is None:
+            return self._minesite
+        elif not self.parent is None:
+            return self.parent.minesite
+    
+    @minesite.setter
+    def minesite(self, val):
+        self._minesite = val
+
     def get_sql(self):
-        sql, kw = self.sql, self.kw
+        sql, da = self.sql, self.da
 
         if sql is None:
             q = self.q
             if hasattr(self, 'process_criterion'):
                 self.process_criterion()
         
-            if not kw is None and hasattr(self, 'set_default_args'):
-                self.set_default_args(**kw)
+            if not da is None and hasattr(self, 'set_default_args'):
+                self.set_default_args(**da)
             
             # NOTE could build functionality for more than one subquery
             fltr2 = self.fltr2
@@ -177,24 +192,41 @@ class QueryBase(object):
 
         fltr = self.fltr if not subquery else self.fltr2
         
-        for kw in args:
-            fltr.add(**kw)
+        for da in args:
+            fltr.add(**da)
     
     def get_df(self, default=False):
         from .database import db
         self.df = db.get_df(query=self, default=default)
         return self.df
 
+    def get_stylemap(self, df, col=None):
+        # convert irow, icol stylemap to indexes
+        if df.shape[0] <= 0 or not hasattr(self, 'update_style'):
+            return {}
+
+        if col is None:
+            # calc style for full dataframe
+            style = df.style.pipe(self.update_style)
+        else:
+            # calc style for specific cols
+            m = self.stylemap_cols[col]
+            df = df[m['cols']] # get slice of df
+            style = df.style.pipe(m['func'], **m['da'])
+
+        style._compute()
+        return f.convert_stylemap_index(style=style)
+
 class EventLogBase(QueryBase):
-    def __init__(self, minesite=None, kw=None):
-        super().__init__(minesite=minesite, kw=kw)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
         a, b = self.select_table, T('UnitID')
         date_col = 'DateAdded'
 
         q = Query.from_(a) \
             .left_join(b).on_field('Unit')
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
         self.default_dtypes.update(
             **f.dtypes_dict('Int64', ['SMR', 'Unit SMR', 'Part SMR', 'Pics']),
@@ -208,8 +240,8 @@ class EventLogBase(QueryBase):
         self.set_allopen()
 
 class EventLog(EventLogBase):
-    def __init__(self, minesite='FortHills'):
-        super().__init__(minesite=minesite)
+    def __init__(self, **kw):
+        super().__init__(**kw)
         a, b = self.a, self.b
 
         cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy]
@@ -217,14 +249,14 @@ class EventLog(EventLogBase):
         q = self.q \
             .orderby(a.DateAdded, a.Unit)
         
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def set_allopen(self):
         self.fltr.add(field='StatusEvent', val='complete', opr=op.ne)
 
 class WorkOrders(EventLogBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kw):
+        super().__init__(**kw)
         a, b = self.a, self.b
 
         cols = [a.UID, a.StatusWO, a.WarrantyYN, a.WorkOrder, a.Seg, a.SuncorWO, a.SuncorPO, b.Model, a.Unit, b.Serial, a.Title, a.PartNumber, a.SMR, a.DateAdded, a.DateCompleted, a.CreatedBy, a.WOComments, a.ComponentCO, a.Pictures]
@@ -232,21 +264,21 @@ class WorkOrders(EventLogBase):
         q = self.q \
             .orderby(a.DateAdded, a.Unit)
 
-        f.set_self(self, vars())    
+        f.set_self(vars())    
    
     def set_allopen(self):
         self.fltr.add(field='StatusWO', val='open')
 
 class ComponentCOBase(EventLogBase):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
         a, b, c = self.a, self.b, T('ComponentType')
 
         q = self.q \
             .inner_join(c).on_field('Floc') \
             .orderby(a.Unit, a.DateAdded, c.Modifier, a.GroupCO)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def set_default_filter(self):
         super().set_default_filter()
@@ -260,17 +292,17 @@ class ComponentCOBase(EventLogBase):
         self.fltr.add(field='COConfirmed', val='False')
 
 class ComponentCO(ComponentCOBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kw):
+        super().__init__(**kw)
         a, b, c = self.a, self.b, self.c
 
         cols = [a.UID, b.MineSite, b.Model, a.Unit, c.Component, c.Modifier, a.GroupCO, a.DateAdded, a.SMR, a.ComponentSMR, a.SNRemoved, a.SNInstalled, a.WarrantyYN, a.CapUSD, a.WorkOrder, a.SuncorWO, a.SuncorPO, a.Reman, a.SunCOReason, a.RemovalReason, a.COConfirmed]
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
 class ComponentCOReport(ComponentCOBase):
-    def __init__(self, kw):
-        super().__init__(kw=kw)
+    def __init__(self, da, **kw):
+        super().__init__(da=da, **kw)
 
         self.view_cols.update(
             BenchSMR='Bench SMR')
@@ -280,7 +312,7 @@ class ComponentCOReport(ComponentCOBase):
 
         cols = [b.Model, a.Unit, c.Component, c.Modifier, a.DateAdded, a.ComponentSMR, c.BenchSMR, life_remaining, a.SunCOReason]
 
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def process_df(self, df):
         # df[cols] = df[cols].fillna(pd.NA)
@@ -310,8 +342,8 @@ class ComponentCOReport(ComponentCOBase):
         return m
 
 class TSI(EventLogBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kw):
+        super().__init__(**kw)
         a, b = self.a, self.b
 
         cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, b.Model, a.Unit, b.Serial, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.TSIDetails, a.TSIAuthor]
@@ -319,7 +351,7 @@ class TSI(EventLogBase):
         q = self.q \
             .orderby(a.DateAdded, a.Unit)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def set_allopen(self):
         self.fltr.add(field='StatusTSI', val='closed', opr=op.ne)
@@ -329,8 +361,8 @@ class TSI(EventLogBase):
         self.fltr.add(field='StatusTSI', term='notnull')
 
 class UnitInfo(QueryBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kw):
+        super().__init__(**kw)
         a = self.select_table
         isNumeric = cf('ISNUMERIC', ['val'])
         left = cf('LEFT', ['val', 'num'])
@@ -350,14 +382,14 @@ class UnitInfo(QueryBase):
         q = Query.from_(a) \
             .left_join(b).on_field('Unit')
         
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def set_default_filter(self):
         self.fltr.add(vals=dict(MineSite=self.minesite))
 
 class FCBase(QueryBase):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
         a = self.select_table
         b, c, d = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID')
 
@@ -366,7 +398,7 @@ class FCBase(QueryBase):
             .left_join(d).on(d.Unit==a.Unit) \
             .left_join(c).on((c.FCNumber==a.FCNumber) & (c.MineSite==d.MineSite))
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def set_default_filter(self):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
@@ -388,11 +420,11 @@ class FCBase(QueryBase):
         return f.sort_df_by_list(df=df, lst=['M', 'FAF', 'DO', 'FT'], lst_col='Type', sort_cols='FC Number')
 
 class FCSummary(FCBase):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
 
         self.formats.update({
-            '% Complete': '{:.2%}',
+            '% Complete': '{:.0%}',
             'Hrs': '{:.0f}'})
 
         a, b, c, d = self.a, self.b, self.c, self.d
@@ -400,7 +432,7 @@ class FCSummary(FCBase):
         complete = Case().when(a.Complete==1, 'Y').else_('N').as_('Complete') # just renaming True to Y
         
         cols = [d.MineSite, a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def process_df(self, df):
         # pivot raw df for fc summary table
@@ -439,9 +471,34 @@ class FCSummary(FCBase):
 
         return df      
 
+    def update_style(self, style):
+        # have to split style funcs into pt 1/2 for report vs gui
+        return style \
+            .pipe(self.update_style_part_1) \
+            .pipe(self.update_style_part_2)
+
+    def highlight_mandatory(self, style):
+        bg_color = 'navyblue' if self.theme == 'light' else 'maroon'
+        return style.apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='m', bg_color=bg_color, t_color='white', target_col='Type', other_cols=['FC Number'], theme=self.theme)
+
+    def update_style_part_1(self, style):
+        return style.background_gradient(cmap=self.cmap.reversed(), subset='% Complete', axis=None) \
+            .pipe(self.highlight_mandatory)
+
+    def update_style_part_2(self, style):
+        # color y/n values green/red
+        unit_col = 1 if self.name == 'FCSummaryReport2' else 13
+        # color_good = 'good' if self.theme == 'light' else 'goodgreen'
+        color_good = 'good'
+        
+        df = style.data
+        subset = pd.IndexSlice[:, df.columns[unit_col:]]
+
+        return style.apply(st.highlight_yn, subset=subset, axis=None, color_good=color_good, theme=self.theme)
+
 class FCSummaryReport(FCSummary):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None):
+        super().__init__(da=da)
     
     def get_df(self, default=False):
         # from .database import db
@@ -456,8 +513,7 @@ class FCSummaryReport(FCSummary):
         return df
     
     def update_style(self, style):
-        return style.background_gradient(cmap=self.cmap.reversed(), subset='% Complete', axis=None) \
-            .apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number'])
+        return style.pipe(self.update_style_part_1)
 
     def exec_summary(self):
         m, m2 = {}, {}
@@ -481,7 +537,7 @@ class FCSummaryReport2(FCSummary):
     def __init__(self, parent):
         super().__init__()
         # must init with parent query object to use it's df
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def get_df(self, default=False):
         df = self.parent.df.copy()
@@ -490,10 +546,6 @@ class FCSummaryReport2(FCSummary):
         return df
 
     def update_style(self, style):
-        # color y/n values green/red
-        df = style.data
-        subset = pd.IndexSlice[:, df.columns[1:]]
-
         # rotate unit column headers vertical
         unit_col = 2
         s = []
@@ -510,16 +562,16 @@ class FCSummaryReport2(FCSummary):
                 ('font-size', '5px'),
                 ('padding', '0px 0px'),
                 ('text-align', 'center')]))
-        style.table_styles.extend(s)
-        
+
         return style \
-            .apply(st.highlight_yn, subset=subset, axis=None) \
-            .apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='M', bg_color='navyblue', t_color='white', target_col='Type', other_cols=['FC Number']) \
-            .hide_columns(['Type'])
+            .pipe(self.update_style_part_2) \
+            .pipe(self.highlight_mandatory) \
+            .hide_columns(['Type']) \
+            .pipe(st.add_table_style, s=s)
 
 class FCDetails(FCBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kw):
+        super().__init__(**kw)
         a, b, c, d = self.a, self.b, self.c, self.d
 
         self.cols = [d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Notes]
@@ -577,8 +629,8 @@ class FCComplete(FCBase):
         return m
 
 class FCHistoryRolling(FCBase):
-    def __init__(self, d_rng, minesite='FortHills', kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, d_rng, minesite='FortHills', da=None):
+        super().__init__(da=da)
 
         # need to see history of open labour hrs per month 12 months rolling
         # count of open at time x - count of complete at time x?
@@ -588,43 +640,43 @@ class FCHistoryRolling(FCBase):
             minesite=minesite)
 
         sql = 'SELECT * FROM {}'.format(table_with_args(table='FCHistoryRolling', args=args))
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def process_df(self, df):
         df['Month'] = df.Date.dt.strftime('%Y-%m')
         return df
 
 class EmailList(QueryBase):
-    def __init__(self, minesite=None):
-        super().__init__(minesite=minesite)
+    def __init__(self, **kw):
+        super().__init__(**kw)
         a = self.select_table
         self.cols = ['*']
 
         self.q = Query.from_(a) \
             .orderby(a.MineSite, a.Email)
         
-        if not minesite is None:
-            self.set_default_filter()
+        self.set_default_filter()
         
     def set_default_filter(self):
-        self.fltr.add(vals=dict(MineSite=self.minesite))
+        if not self.minesite is None:
+            self.fltr.add(vals=dict(MineSite=self.minesite))
 
 class AvailBase(QueryBase):
-    def __init__(self, minesite='FortHills', kw=None):
-        super().__init__(minesite=minesite, kw=kw)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
         a, b = pk.Tables('Downtime', 'UnitID')
         q = Query.from_(a) \
             .inner_join(b).on_field('Unit')
         
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def set_default_args(self, d_rng):
         self.add_fltr_args([
             dict(vals=dict(ShiftDate=d_rng), term='between')])
 
 class AvailTopDowns(AvailBase):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None):
+        super().__init__(da=da)
         self.formats.update({
             'Total': '{:,.0f}',
             'SMS': '{:,.0f}',
@@ -643,7 +695,7 @@ class AvailTopDowns(AvailBase):
             .groupby(a.CategoryAssigned) \
             .orderby(total) \
         
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def process_df(self, df):\
         # sort by total duration, limit 10
@@ -701,7 +753,7 @@ class AvailSummary(QueryBase):
             split_ahs=False)
         
         sql = 'SELECT * FROM {} ORDER BY Unit'.format(table_with_args(table='udfMAReport', args=args))
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def process_df(self, df):
         return self.add_totals(df)
@@ -816,7 +868,7 @@ class AvailHistory(QueryBase):
             split_ahs=False)
 
         sql = 'SELECT * FROM {}'.format(table_with_args(table='udfMASummaryTable', args=args))
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def process_df(self, df):
         if self.period_type == 'month':
@@ -836,8 +888,8 @@ class AvailHistory(QueryBase):
             .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
 
 class AvailRawData(AvailBase):
-    def __init__(self, minesite='FortHills', kw=None):
-        super().__init__(minesite=minesite, kw=kw)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
         dt_format = '{:%Y-%m-%d %H:%M}'
         self.formats.update({
             'StartDate': dt_format,
@@ -850,59 +902,59 @@ class AvailRawData(AvailBase):
             .orderby(a.Unit, a.StartDate) \
             .orderby(a.EndDate, order=Order.desc)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def set_fltr(self):
         super().set_fltr()
         # self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
         # ^ can't use this need to see AHS duplicates which were set to 0
 
-    def background_gradient(self, style, theme, do=True):
+    def background_gradient(self, style, do=True):
         if not do: return style
-        bg_color = 'white' if theme == 'light' else self.color['bg']['bgdark']
+        bg_color = 'white' if self.theme == 'light' else self.color['bg']['bgdark']
         cmap = LinearSegmentedColormap.from_list('red_white', [bg_color, self.color['bg']['lightred']])
         return style.background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None)
 
-    def update_style(self, style, theme='light'):
+    def update_style(self, style, **kw):
         # used for reporting + gui (only for colors)
         style.set_table_attributes('class="pagebreak_table" style="font-size: 8px;"')
         
         col_widths = dict(StartDate=60, EndDate=60, Total=20, SMS=20, Suncor=20, Comment=150)
         col_widths.update({'Category Assigned': 80})
-        color = 'navyblue' if theme == 'light' else 'maroon'
+        color = 'navyblue' if self.theme == 'light' else 'maroon'
 
         return style \
-            .pipe(self.background_gradient, theme=theme) \
-            .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color=color) \
+            .pipe(self.background_gradient) \
+            .apply(st.highlight_alternating, subset=['Unit'], theme=self.theme, color=color) \
             .pipe(st.set_column_widths, vals=col_widths) \
             .hide_columns(['DownReason'])
 
 class Availability(AvailRawData):
-    def __init__(self, minesite='FortHills', kw=None):
-        super().__init__(minesite=minesite, kw=kw)
-        # query for availability table in eventlog
+    # query for availability table in eventlog
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
         a = self.a
         date_col = 'ShiftDate'
         ct_allopen = a.CategoryAssigned.isnull() | a.SMS.isnull() | a.Suncor.isnull()
         assigned = Case().when(ct_allopen, 0).else_(1).as_('Assigned')
         self.cols.append(assigned)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
 
-        # set cols, func, and kw for stylemap functions
+        # set cols, func, and da for stylemap functions
         cols_gradient = ['Total', 'SMS', 'Suncor']
         self.stylemap_cols.update(
             {col: dict(
                 cols=cols_gradient,
                 func=self.background_gradient,
-                kw=dict(theme='dark')) for col in cols_gradient})
+                da=dict(theme='dark')) for col in cols_gradient})
         
         # NOTE not used yet, maybe recalc on sorting/filtering in the future
         self.stylemap_cols.update(
             {'Unit': dict(
                 cols=['Unit'],
                 func=st.pipe_highlight_alternating,
-                kw=dict(
+                da=dict(
                     subset=['Unit'],
                     color='maroon',
                     theme='dark'))})
@@ -917,24 +969,6 @@ class Availability(AvailRawData):
     def set_allopen(self):
         self.set_minesite()
         self.fltr.add(ct=self.ct_allopen)
-
-    def get_stylemap(self, df, col=None):
-        # convert irow, icol stylemap to indexes
-        # NOTE this should probs be in a more general purpose func, not just availability
-        if df.shape[0] <= 0:
-            return {}
-
-        if col is None:
-            # calc style for full dataframe
-            style = df.style.pipe(self.update_style, theme='dark')
-        else:
-            # calc style for specific cols
-            m = self.stylemap_cols[col]
-            df = df[m['cols']] # get slice of df
-            style = df.style.pipe(m['func'], **m['kw'])
-
-        style._compute()
-        return f.convert_stylemap_index(style=style)
  
     def process_df(self, df):
         p = f.datafolder / 'csv'
@@ -954,8 +988,8 @@ class Availability(AvailRawData):
         return df
 
 class AvailShortfalls(AvailBase):
-    def __init__(self, parent, minesite='FortHills', kw=None):
-        super().__init__(minesite=minesite, kw=kw)
+    def __init__(self, parent, da=None, **kw):
+        super().__init__(da=da, **kw)
         # NOTE needs to have availsummary parent
         self.formats.update({
             'MA Target': '{:.2%}',
@@ -970,7 +1004,7 @@ class AvailShortfalls(AvailBase):
         q = self.q \
             .orderby(a.Unit, a.StartDate)
         
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def update_style(self, style):
         cmap = LinearSegmentedColormap.from_list('red_white', ['white', '#F8696B'])
@@ -1008,8 +1042,8 @@ class AvailShortfalls(AvailBase):
         return df
 
 class FrameCracks(EventLogBase):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None):
+        super().__init__(da=da)
         a, b = self.a, self.b
         cols = [a.Unit, a.DateAdded, a.Title, a.SMR, a.TSIPartName, a.TSIDetails, a.WOComments, a.TSINumber, 
         a.SuncorWO]
@@ -1017,7 +1051,7 @@ class FrameCracks(EventLogBase):
         q = self.q \
             .orderby(a.Unit, a.DateAdded)
         
-        f.set_self(self, vars())
+        f.set_self(vars())
         self.set_minesite()
         
     def set_default_args(self, d_lower):
@@ -1032,8 +1066,8 @@ class FrameCracks(EventLogBase):
         return df
 
 class OilSamples(QueryBase):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
 
         self.default_dtypes.update(
             **f.dtypes_dict('Int64', ['unitSMR', 'componentSMR']))
@@ -1045,7 +1079,7 @@ class OilSamples(QueryBase):
             .left_join(b).on_field('Unit') \
             .orderby(a.Unit, a.Component, a.Modifier, a.sampleDate)
 
-        f.set_self(self, vars())
+        f.set_self(vars())
     
     def process_df(self, df):
         df.testResults = df.testResults.apply(json.loads) # deserialize testResults from string > list
@@ -1072,8 +1106,8 @@ class OilSamples(QueryBase):
             .hide_columns(flagged_cols)
 
 class OilSamplesRecent(OilSamples):
-    def __init__(self, recent_days=-120, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, recent_days=-120, da=None):
+        super().__init__(da=da)
         a, b = self.a, self.b
         
         # subquery for ordering with row_number
@@ -1088,7 +1122,7 @@ class OilSamplesRecent(OilSamples):
 
         cols = [c.star]       
         sq0 = c
-        f.set_self(self, vars())
+        f.set_self(vars())
 
     def get_query(self):
         c = self.sq0
@@ -1101,8 +1135,8 @@ class OilSamplesRecent(OilSamples):
             .drop(columns=['rn'])
 
 class OilReportSpindle(OilSamplesRecent):
-    def __init__(self, kw=None):
-        super().__init__(kw=kw)
+    def __init__(self, da=None, minesite='FortHills'):
+        super().__init__(da=da, **kw)
 
     def set_default_filter(self):
         self.set_default_args()
@@ -1110,7 +1144,7 @@ class OilReportSpindle(OilSamplesRecent):
     def set_default_args(self):
         self.add_fltr_args([
                 dict(vals=dict(component='spindle'), table=self.a),
-                dict(vals=dict(minesite='FortHills'), table=self.b),
+                dict(vals=dict(minesite=self.minesite), table=self.b),
                 dict(vals=dict(model='980%'), table=self.b)],
                 subquery=True)
 
