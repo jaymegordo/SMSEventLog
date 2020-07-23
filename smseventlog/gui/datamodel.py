@@ -26,7 +26,7 @@ class TableModel(QAbstractTableModel):
         color_enabled = False
         color_back = Qt.magenta
 
-        f.set_self(self, vars(), exclude='df')
+        f.set_self(vars(), exclude='df')
 
         if not df is None:
             self.set_df(df=df)
@@ -35,25 +35,24 @@ class TableModel(QAbstractTableModel):
         # queue to hold updates before flushing to db in bulk
         self.queue = dd(dict)
 
-    def set_df(self, df):
+    def set_df(self, df, center_cols=None):
         # Set or change pd DataFrame to show
         _df_orig = df.copy()
         _df_pre_dyn_filter = None # Clear dynamic filter
-        _cols = list(df.columns)
+        self._cols = list(df.columns)
+        mcols = dd(list) # dict of col_type: list of ints
         parent = self.parent
-
-        # TODO this isn't finished yet
         query = self.table_widget.query
 
-        # create tuple of ints from parent's list of disabled table headers
-        disabled_cols = tuple(i for i, col in enumerate(_cols) if col in parent.disabled_cols)
-        
-        # tuple of ints for date cols
-        dt_cols = tuple(i for i, val in enumerate(df.dtypes) if val == 'datetime64[ns]' and not df.columns[i] in parent.datetime_cols)
+        mcols['center'] = self.get_col_idxs(center_cols)
+        mcols['disabled'] = self.get_col_idxs(parent.mcols['disabled'])
+        mcols['datetime'] = self.get_col_idxs(parent.mcols['datetime'])
 
-        datetime_cols = tuple(df.columns.get_loc(col) for col in parent.datetime_cols)
+        # date cols have to exclude datetime cols
+        date_cols = self.get_col_idxs(df.dtypes[df.dtypes=='datetime64[ns]'].index)
+        mcols['date'] = [i for i in date_cols if not i in mcols['datetime']]
 
-        f.set_self(self, vars(), exclude='df')
+        f.set_self(vars(), exclude='df')
         self.df = df
         self.set_stylemap()
 
@@ -87,15 +86,14 @@ class TableModel(QAbstractTableModel):
         df = self.df
         if df.shape[0] == 0: return
 
-        query = self.query
-        if hasattr(query, 'get_stylemap'): # only Availability uses this so far
-            stylemap = query.get_stylemap(df=df, col=col)
+        # only avail + FCSummary use this so far
+        stylemap = self.query.get_stylemap(df=df, col=col)
 
-            # either reset stylemap, or update slice
-            if col is None:
-                self.stylemap = stylemap
-            else:
-                self.stylemap.update(stylemap)
+        # either reset stylemap, or update slice
+        if col is None:
+            self.stylemap = stylemap
+        else:
+            self.stylemap.update(stylemap)
 
     @property
     def dbtable_default(self):
@@ -192,10 +190,7 @@ class TableModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             if not pd.isnull(val):
                 fmt = self.parent.formats.get(col, None)
-                if not fmt is None:
-                    return fmt.format(val)
-                else:
-                    return str(val)
+                return str(val) if fmt is None else fmt.format(val)
             else:
                 return ''
         
@@ -205,8 +200,10 @@ class TableModel(QAbstractTableModel):
         elif role == self.RawDataRole:
             return val
             
-        elif role == Qt.TextAlignmentRole: # NOTE not used
-            if isinstance(val, int) or isinstance(val, float):
+        elif role == Qt.TextAlignmentRole:
+            if icol in self.mcols['center']:
+                return Qt.AlignVCenter + Qt.AlignHCenter
+            elif isinstance(val, int) or isinstance(val, float):
                 return Qt.AlignVCenter + Qt.AlignRight
 
         elif role in (Qt.BackgroundRole, Qt.ForegroundRole):
@@ -222,9 +219,14 @@ class TableModel(QAbstractTableModel):
             style_vals = self.stylemap.get((row, col), None)
             if style_vals:
                 i = 0 if role == Qt.BackgroundRole else 1
-                color_temp = style_vals[i]
-                color = color_temp.split(' ')[1]
-                return QColor(color) if not color == '' else None
+
+                # may only have background-color, not color
+                try:
+                    color_temp = style_vals[i]
+                    color = color_temp.split(' ')[1]
+                    return QColor(color) if not color == '' else None
+                except:
+                    return None
 
         # return named row/col index for use with df.loc
         elif role == self.NameIndexRole:
@@ -292,7 +294,7 @@ class TableModel(QAbstractTableModel):
                 self.add_queue(vals={col: val}, irow=irow)
             
             # reset stylemap when val in dynamic_cols is changed
-            if col in self.parent.dynamic_cols:
+            if col in self.parent.mcols['dynamic']:
                 self.set_stylemap(col=col)
 
             self.dataChanged.emit(index, index)
@@ -360,16 +362,16 @@ class TableModel(QAbstractTableModel):
         self._resort = lambda: None
         self._df_pre_dyn_filter = None
 
-    def get_column_idx(self, col):
+    def get_col_idx(self, col):
         try:
-            icol = self.df.columns.get_loc(col)
-        except KeyError:
-            icol = None
-
-        return icol
-
-    def getColIndex(self, header):
-        return self.df.columns.get_loc(header)
+            return self._cols.index(col) # cant use df.columns, they may be changed
+        except:
+            return None
+    
+    def get_col_idxs(self, cols):
+        # return list of column indexs for col names eg [3, 4, 5, 14]
+        if cols is None: return []
+        return [self.get_col_idx(c) for c in cols if c in self._cols]
     
     def getRowCol(self, index):
         return index.row(), index.column()
@@ -382,7 +384,7 @@ class TableModel(QAbstractTableModel):
 
         # model asks parent's table_widget for dbtable to update based on col
         dbtable = self.table_widget.get_dbtable(header=header)
-        check_exists = False if not header in self.parent.check_exist_cols else True
+        check_exists = False if not header in self.parent.mcols['check_exist'] else True
 
         e = dbt.Row(table_model=self, dbtable=dbtable, i=index.row())
         e.update_single(header=header, val=val, check_exists=check_exists)
@@ -412,7 +414,7 @@ class TableModel(QAbstractTableModel):
         self._df = self.df.pipe(f.append_default_row)
 
         for col, val in m.items():
-            icol = self.get_column_idx(col)
+            icol = self.get_col_idx(col)
             if not icol is None:
                 index = self.createIndex(i, icol)
                 self.setData(index=index, val=val, update_db=False)
@@ -448,16 +450,18 @@ class TableModel(QAbstractTableModel):
         # fl |= Qt.ItemIsDragEnabled
         # fl |= Qt.ItemIsDropEnabled
 
-        if not index.column() in self.disabled_cols:
+        if not index.column() in self.mcols['disabled']:
             ans |= Qt.ItemIsEditable
         
         return ans
 
-def test_model():
+
+def test_model(name='EventLog'):
     from . import startup
     from . import tables as tbls
     app = startup.get_qt_app()
-    table_widget = tbls.EventLog()
+    # table_widget = tbls.EventLog()
+    table_widget = getattr(tbls, name, tbls.EventLog)()
     query = table_widget.query
     df = query.get_df(default=True)
     view = table_widget.view
