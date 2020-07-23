@@ -135,13 +135,18 @@ def first_n(m, n):
 
     return {k:m[k] for k in list(m.keys())[:n]}
 
-def set_self(obj, m, prnt=False, exclude=()):
+def set_self(m, prnt=False, exclude=()):
     # convenience func to assign an object's func's local vars to self
-    always_exclude = ('__class__', 'self')
-    for k, v in m.items():
+    if not isinstance(exclude, tuple): exclude = (exclude, )
+    exclude += ('__class__', 'self') # always exclude class/self
+    obj = m.get('self', None) # self must always be in vars dict
+    if obj is None: return
 
-        if prnt: print(f'\n\t{k}: {v}')
-        if not (k in always_exclude or k in exclude):
+    for k, v in m.items():
+        if prnt:
+            print(f'\n\t{k}: {v}')
+
+        if not k in exclude:
             setattr(obj, k, v)
 
 
