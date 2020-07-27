@@ -3,6 +3,7 @@ from urllib import parse
 import pyodbc
 from sqlalchemy import exc, create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.engine.base import Connection #just to wrap errors
 
 from . import functions as f
 from .__init__ import *
@@ -10,6 +11,19 @@ from .__init__ import *
 global db
 log = logging.getLogger(__name__)
 # DATABASE
+
+def wrap_single_class_func(cls, func_name, err_func):
+    func = getattr(cls, func_name)
+    setattr(cls, func_name, err_func(func))
+
+def wrap_connection_funcs():
+    # try to wrap specific sqlalchemy class funcs in error handler to reset db connection on disconnects
+    # NOTE may need to wrap more than just this
+    
+    funcs = [(Connection, 'execute')]
+    
+    for cls, func_name in funcs:
+        wrap_single_class_func(cls=cls, func_name=func_name, err_func=e)
 
 def str_conn():
     m = f.get_db()
@@ -21,26 +35,32 @@ def _create_engine():
     # sqlalchemy.engine.base.Engine
     # connect_args = {'autocommit': True}
     # , isolation_level="AUTOCOMMIT"
-    engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)
-
-    # wrap .execute in @e error handler to retry connection after a disconnect
-    for func_name in ['execute']:
-        func = getattr(engine, func_name)
-        setattr(engine, func_name, e(func))
-    
+    engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
+    wrap_connection_funcs()
     return engine
 
 def e(func):
-    # rollback invalid transaction
+    # NOTE not sure if any of these work yet
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except (exc.StatementError, exc.InvalidRequestError, exc.OperationalError):
-            log.warning('Rollback and retry operation.')
+        except (exc.StatementError, exc.InvalidRequestError):
+            # rollback invalid transaction
+            # log.warning('Rollback and retry operation.')
             print('Rollback and retry operation.')
             session = db.session # this is pretty sketch
             session.rollback()
+            return func(*args, **kwargs)
+            
+        except exc.OperationalError:
+            print('Handling OperationalError')
+            db.reset()
+            return func(*args, **kwargs)
+
+        except:
+            print('Handling other errors')
+            db.reset()
             return func(*args, **kwargs)
 
     return wrapper
@@ -48,8 +68,8 @@ def e(func):
 class DB(object):
     def __init__(self):
         __name__ = 'SMS Event Log Database'
-        _engine, _session, _cursor = None, None, None
-
+        self.reset(False)
+        
         # TODO: should put these into a better table store
         df_unit = None
         df_fc = None
@@ -57,6 +77,11 @@ class DB(object):
         dfs = {}
 
         f.set_self(vars())
+    
+    def reset(self, warn=True):
+        # set engine objects to none to force reset, not ideal
+        if warn: log.warning('Resetting database')
+        self._engine, self._session, self._cursor = None, None, None
         
     @property
     def engine(self):
