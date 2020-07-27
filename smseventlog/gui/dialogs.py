@@ -1,5 +1,6 @@
 from .__init__ import *
 from . import gui as ui
+from PyQt5.QtWidgets import QFileSystemModel, QTreeView
 
 log = logging.getLogger(__name__)
 
@@ -160,9 +161,7 @@ class InputForm(QDialog):
             box.setEnabled(False)
 
     def insert_linesep(self, i=0, layout_type='form'):
-        line_sep = QFrame()
-        line_sep.setFrameShape(QFrame.HLine)
-        line_sep.setFrameShadow(QFrame.Raised)
+        line_sep = create_linesep()
 
         if layout_type == 'form':
             self.formLayout.insertRow(i, line_sep)
@@ -517,6 +516,149 @@ class DetailsView(QDialog):
 
         return tbl
 
+class FailureReport(QDialog):
+    """
+    Dialog to select pictures, and set cause/correction text to create pdf failure report.
+    """
+    def __init__(self, parent=None, p_start=None, text=None):
+        super().__init__(parent=parent)
+        self.setWindowTitle('Create TSI Report')
+        self.setMinimumSize(QSize(800, 800))
+        self.setSizeGripEnabled(True)
+        vLayout = QVBoxLayout(self)
+        
+        text_fields = {}
+        if text is None: text = {} # default text for text fields
+        if p_start is None: p_start = Path.home() / 'Desktop'
+        
+        dlg = QFileDialogPreview(directory=str(p_start), options=QFileDialog.DontUseNativeDialog, standalone=False)
+        vLayout.addWidget(dlg)
+        add_linesep(vLayout)
+
+        f.set_self(vars())
+        names = ['complaint', 'cause', 'correction', 'details']
+        self.add_textbox(names=names)
+        add_linesep(vLayout)
+
+        add_okay_cancel(dlg=self, layout=vLayout)
+
+        # TODO OilSamples, Faults, PLM?
+    
+    def add_textbox(self, names):
+        def _add_textbox(name):
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel(f'{name.title()}:'))
+            
+            textbox = QTextEdit()
+            textbox.setText(self.text.get(name, ''))
+
+            setattr(self, name, textbox)
+            self.text_fields[name] = textbox
+            layout.addWidget(textbox)
+            self.vLayout.addLayout(layout)
+       
+        if not isinstance(names, list): names = [names]
+        for name in names:
+            _add_textbox(name)
+       
+    def accept(self):
+        self.pics = self.dlg.selectedFiles()
+
+        # convert dict of textbox objects to their plaintext (could also use html)
+        for name, textbox in self.text_fields.items():
+            self.text[name] = textbox.toPlainText()
+
+        super().accept()
+
+class QFileDialogPreview(QFileDialog):
+    """
+    Create QFileDialog with image preview
+    """
+    def __init__(self, parent=None, caption='', directory=None, filter=None, standalone=True, **kw):
+        super().__init__(parent, caption, directory, filter, **kw)
+
+        box = QVBoxLayout(self)
+        if not standalone: self.disable_buttons()
+ 
+        self.setFixedSize(self.width() + 400, self.height())
+        self.setFileMode(QFileDialog.ExistingFiles)
+        self.setViewMode(QFileDialog.Detail)
+        self.setWindowFlags(self.windowFlags() & ~Qt.Dialog) # needed to use inside other dialog
+        self.setSizeGripEnabled(False)
+ 
+        mpPreview = QLabel("Preview", self)
+        mpPreview.setFixedSize(400, 400)
+        mpPreview.setAlignment(Qt.AlignCenter)
+        mpPreview.setObjectName("labelPreview")
+        box.addWidget(mpPreview)
+ 
+        box.addStretch()
+ 
+        self.layout().addLayout(box, 1, 3, 1, 1)
+ 
+        self.currentChanged.connect(self.onChange)
+        self.fileSelected.connect(self.onFileSelected)
+        self.filesSelected.connect(self.onFilesSelected)
+
+        # used to change picture on hover changed, to messy, dont need
+        # for view in self.findChildren(QTreeView):
+        #     if isinstance(view.model(), QFileSystemModel):
+        #         tree_view = view
+        #         break
+
+        # tree_view.setMouseTracking(True)
+        # tree_view.entered.connect(self.onChange)
+
+        self._fileSelected = None
+        self._filesSelected = None
+        f.set_self(vars())
+
+    def disable_buttons(self):
+        # remove okay/cancel buttons from dialog, when showing in another dialog
+        btn_box = self.findChild(QDialogButtonBox)
+        if btn_box:
+            self.layout().removeWidget(btn_box)
+            btn_box.hide()
+ 
+    def onChange(self, *args):
+        if not args:
+            return
+        else:
+            arg = args[0]
+
+        if isinstance(arg, QModelIndex):
+            index = arg
+            if not index.column() == 0:
+                index = index.siblingAtColumn(0)
+            path = str(Path(self.directory) / index.data())
+        else:
+            path = arg
+
+        pixmap = QPixmap(path)
+        mpPreview = self.mpPreview
+ 
+        if(pixmap.isNull()):
+            mpPreview.setText("Preview")
+        else:
+            mpPreview.setPixmap(pixmap.scaled(mpPreview.width(), mpPreview.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def accept(self):
+        # prevent window from being closed when part of a form
+        if self.standalone:
+            super().accept()
+
+    def onFileSelected(self, file):
+        self._fileSelected = file
+ 
+    def onFilesSelected(self, files):
+        self._filesSelected = files
+ 
+    def getFileSelected(self):
+        return self._fileSelected
+ 
+    def getFilesSelected(self):
+        return self._filesSelected
+
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = check_app()
     dlg = MsgBox_Advanced(msg=msg, title=ui.title, yesno=yesno, statusmsg=statusmsg)
@@ -566,6 +708,15 @@ def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
 
     return ok, val
 
+def set_multiselect(dlg):
+    # allow selecting multiple directories for QFileDialog. # NOTE not currently used
+    from PyQt5.QtWidgets import (QFileSystemModel, QAbstractItemView, QTreeView, QListView)
+
+    # set multiselect
+    for view in dlg.findChildren((QListView, QTreeView)):
+        if isinstance(view.model(), QFileSystemModel):
+            view.setSelectionMode(QAbstractItemView.MultiSelection)
+
 def get_filepath_from_dialog(p_start):
     app = check_app()
 
@@ -602,11 +753,35 @@ def add_okay_cancel(dlg, layout):
     layout.addWidget(btnbox, alignment=Qt.AlignBottom | Qt.AlignCenter)
     dlg.btnbox = btnbox
 
+def create_linesep():
+    line_sep = QFrame()
+    line_sep.setFrameShape(QFrame.HLine)
+    line_sep.setFrameShadow(QFrame.Raised)
+    return line_sep
+
+def add_linesep(layout, i=None):
+    line_sep = create_linesep()
+    if i is None:
+        layout.addWidget(line_sep)
+    else:
+        layout.insertWidget(i, line_sep)
+
+def print_children(obj, depth=0, maxdepth=3):
+    tab = '\t'
+    # if hasattr(obj, 'findChildren'):
+    if depth > maxdepth: return
+
+    for o in obj.children():
+        type_ = str(type(o)).split('.')[-1]
+        print(f'{tab * (depth + 1)}name: {o.objectName()} | type: {type_}')
+
+        print_children(obj=o, depth=depth + 1, maxdepth=maxdepth)
+
 def show_item(name, parent=None, *args, **kw):
     # show message dialog by name eg ui.show_item('InputUserName')
     app = check_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent, *args, **kw)
-    return dlg.exec_()
+    return dlg, dlg.exec_()
 
 def check_app():
     # just need to make sure app is set before showing dialogs
