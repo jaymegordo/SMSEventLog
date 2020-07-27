@@ -181,6 +181,27 @@ def df_from_row(model):
     df.index.rename('Fields', inplace=True)
     return df
 
+def join_query(tables, keys, join_field):
+    # pretty ugly, but used to use an sqlachemy join query and merge dict of results
+    # tables is tuple/list of 2 tables
+    # NOTE not actually used yet
+    if not len(tables) == 2: raise AttributeError('"tables" must have 2 tables')
+
+    session = db.session
+    a, b = tables[0], tables[1]
+    cond = getattr(a, join_field) == getattr(b, join_field) # condition for join eg a.Unit==b.Unit
+    
+    key = list(keys.keys())[0] # NOTE sketch, needs to be changed for multiple keys
+    fltr_ = getattr(a, key) == keys[key] # eg a.UID==uid
+
+    res = session.query(a, b).join(b, cond).filter(fltr_).one()
+
+    m = {}
+    for item in res:
+        m.update(f.model_dict(item, include_none=True))
+
+    return m
+
 def example(uid=None):
     from . import dbmodel as dbm
     if uid is None:
