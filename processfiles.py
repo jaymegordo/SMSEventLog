@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 import argparse
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta as delta
 
 import smseventlog.folders as fl
 
@@ -35,27 +35,29 @@ CLI.add_argument(
     type=str,
     default=None)
 
+CLI.add_argument(
+    '--all_units',
+    type=str,
+    default=False
+)
+
 if __name__ == '__main__':
     def get_units(lower, upper):
         return [f'F{unit}' for unit in range(lower, upper + 1)]
     
     a = CLI.parse_args()
-    units, ftype, rng, startdate, batch = a.units, a.ftype, a.range, a.startdate, a.batch
-    
+    units, ftype, rng, startdate, batch, all_units = a.units, a.ftype, a.range, a.startdate, a.batch, a.all_units
+           
     if startdate:
         d = dt.strptime(startdate, '%Y-%m-%d')
     else:
-        d = dt(2019,1,1)
-    
-    # if batch:
-    #     lower = 300 + (batch - 1) * 10
-    #     upper = lower + 9
-    #     units = get_units(lower, upper)
+        d = dt.now() + delta(days=-31)
 
-    # if rng:
-    #     lower = int(rng[0].replace('F', ''))
-    #     upper = int(rng[-1].replace('F', ''))
-    #     units = get_units(lower, upper)
-    
-    print(f'ftype: {ftype}, units: {units}')
-    fl.process_files(ftype=ftype, units=units, d_lower=d)
+    if all_units:
+        print('fix dls all units')
+        fl.fix_dls_all_units(d_lower=d)
+    else:
+        print(f'ftype: {ftype}, units: {units}')
+        fl.process_files(ftype=ftype, units=units, d_lower=d)
+
+    print('** finished processfiles **')
