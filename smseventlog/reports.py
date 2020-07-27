@@ -23,6 +23,7 @@ class Report(object):
         # dict of {df_name: {func: func_definition, da: **da, df=None}}
         dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
         signatures = []
+        self.html_template = 'report_template.html'
 
         if d is None: d = dt.now() + delta(days=-31)
         if d_rng is None: d_rng = qr.first_last_month(d=d)
@@ -90,7 +91,7 @@ class Report(object):
             df, name = m['df'], m['name']
             df.to_csv(p_reports / f'saved/{name}.csv', index=False)
 
-    def style_df(self, name=None, df=None, query=None, outlook=False):
+    def style_df(self, name=None, df=None, query=None, outlook=False, style_func=None):
         if not name is None:
             df = self.get_df(name=name)
             query = self.get_query(name=name)
@@ -115,9 +116,7 @@ class Report(object):
         elif not style_func is None: # only needed for one df rn
             style = style_func(style)
 
-        style.format(m_fmt, na_rep='')
-
-        return style
+        return style.format(m_fmt, na_rep='')
 
     def render_dfs(self):
         # convert all dataframes to html for rendering in html template
@@ -159,25 +158,29 @@ class Report(object):
     def get_query(self, name):
         return self.dfs[name].get('query', None)
     
-    def create_pdf(self, p_base=None):
+    def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False):
         self.render_dfs()
         self.render_charts()
         if hasattr(self, 'set_exec_summary'):
             self.set_exec_summary()
 
-        template = self.env.get_template('report_template.html')
+        template = self.env.get_template(self.html_template)
 
         dfs_filtered = {k:v for k, v in self.dfs.items() if v['display']} # filter out non-display dfs
-        print(self.d_rng)
-        template_vars = dict(
-            exec_summary=self.exec_summary,
-            d_rng=self.d_rng,
-            title=self.title,
-            sections=self.sections,
-            dfs=dfs_filtered,
-            charts=self.charts,
-            include_items=self.include_items,
-            signatures=self.signatures)
+        
+        # can pass in extra template vars but still use originals
+        if template_vars is None:
+            template_vars = {}
+        
+        template_vars.update(dict(
+                exec_summary=self.exec_summary,
+                d_rng=self.d_rng,
+                title=self.title,
+                sections=self.sections,
+                dfs=dfs_filtered,
+                charts=self.charts,
+                include_items=self.include_items,
+                signatures=self.signatures))
 
         html_out = template.render(template_vars)
         with open('html_out.html', 'w+', encoding='utf-8') as file:
@@ -188,6 +191,12 @@ class Report(object):
 
         # save pdf
         p = p_base / f'{self.title}.pdf'
+        if check_overwrite and p.exists():
+            from .gui.dialogs import msgbox
+            msg = f'File "{p.name}" already exists. Overwrite?'
+            if not msgbox(msg=msg, yesno=True):
+                p = p_base / f'{self.title} (1).pdf'
+
         HTML(string=html_out, base_url=str(p_reports)).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
 
         return p
@@ -315,9 +324,105 @@ class FCReport(Report):
 
         self.load_sections('FCs')
 
-class TSI(Report):
-    def __init__(self):
+class FailureReport(Report):
+    def __init__(self, title=None, header_data=None, body=None, pictures=None, e=None):
         super().__init__()
+        self.html_template = 'failure_report.html'
+
+        self.header_fields = [
+            ('Failure Date', 'Work Order'),
+            ('Customer', 'MineSite'),
+            ('Author', None),
+            ('Model', 'Part Description'),
+            ('Unit', 'Part No'),
+            ('Unit Serial', 'Part Serial'),
+            ('Unit SMR', 'Part SMR'),
+        ]
+        
+        # map model fields to header_data
+        header_data = self.parse_header_data(m_hdr=header_data)
+
+        if title is None:
+            title = self.create_title_model(m=header_data, e=e)
+
+        # create header table from dict of header_data
+        df_head = self.df_header(m=header_data)
+
+        # complaint/cause/correction + event work details as paragraphs with header (H4?)
+
+        # pics > need two column layout
+        f.set_self(vars())
+
+    def create_pdf(self, p_base):
+        df_head_html = self.style_header(df=self.df_head) \
+            .render()
+
+        # convert back to caps, replace newlines
+        body = {k.title(): v.replace('\n', '<br>') for k, v in self.body.items()}       
+
+        template_vars = dict(
+            df_head=df_head_html,
+            body_sections=body,
+            pictures=sorted(self.pictures))
+
+        return super().create_pdf(p_base=p_base, template_vars=template_vars, check_overwrite=True)
+
+    def style_header(self, df):
+        return self.style_df(df=df) \
+            .apply(st.bold_columns, subset=['field1', 'field2'], axis=None) \
+            .set_table_attributes('class="failure_report_header_table"') \
+            .hide_index() \
+            .pipe(st.hide_headers) \
+
+    def parse_header_data(self, m_hdr):
+        m = {}
+        # loop header fields, get data, else check conversion_dict
+        for fields in self.header_fields:
+            for field in fields:
+                if not field is None:
+                    m[field] = m_hdr.get(field, None) #getattr(e, field, None)
+
+        # try again with converted headers
+        m_conv = {
+            'Author': 'TSIAuthor',
+            'Unit SMR': 'SMR',
+            'Part SMR': 'ComponentSMR',
+            'Work Order': 'WorkOrder',
+            'Part Description': 'TSIPartName',
+            'Part No': 'PartNumber',
+            'Failure Date': 'DateAdded',
+            'Unit Serial': 'Serial',
+            'Part Serial': 'SNRemoved',}
+
+        for field, model_field in m_conv.items():
+            m[field] = m_hdr.get(model_field, None) #getattr(e, model_field, None)
+
+        return m
+
+    def create_title_model(self, m=None, e=None):
+        if not e is None:
+            unit, d, title = e.Unit, e.DateAdded, e.Title
+        elif not m is None:
+            unit, d, title = m['Unit'], m['Failure Date'], '' # blank title
+        else:
+            return 'temp title'
+
+        d = d.strftime('%Y-%m-%d')
+        return f'{unit} - {d} - {title}'
+
+    def df_header(self, m=None):
+        if m is None: m = {}
+
+        def h(val):
+            return f'{val}:' if not val is None else ''
+
+        data = [dict(
+            field1=h(field1),
+            field2=h(field2),
+            val1=m.get(field1, None),
+            val2=m.get(field2, None)) for field1, field2 in self.header_fields]
+
+        return pd.DataFrame(data=data, columns=['field1', 'val1', 'field2', 'val2'])
 
 # REPORT SECTIONS
 class Section():
