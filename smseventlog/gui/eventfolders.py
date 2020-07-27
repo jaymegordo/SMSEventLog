@@ -28,7 +28,7 @@ class EventFolder(object):
         unitpath = f'{self.unit} - {self.serial}'
 
         p_base = f.drive / f'{self.equippath}/{modelpath}/{unitpath}/Events/{year}'
-        p_event = p_base / folder_title
+        _p_event = p_base / folder_title
         p_event_blank = p_base / self.get_folder_title(self.unit, self.dateadded, wo_blank, self.title)
 
         f.set_self(vars())
@@ -36,6 +36,11 @@ class EventFolder(object):
     @property
     def equippath(self):
         return f'Regional/SMS West Mining/Equipment'
+    
+    @property
+    def p_event(self):
+        self.check()
+        return self._p_event
 
     def get_modelbase(self):
         # get modelbase from db for units in Regional
@@ -48,11 +53,11 @@ class EventFolder(object):
         d_str = d.strftime(self.dt_format)
         return f'{unit} - {d_str} - {wo} - {title}'
 
-    def show(self):
+    def check(self):
         if not fl.drive_exists():
             return
             
-        p = self.p_event
+        p = self._p_event
         p_blank = self.p_event_blank
 
         if not p.exists():
@@ -77,7 +82,13 @@ class EventFolder(object):
         
         if p.exists():
             self.set_pics()
-            fl.open_folder(p=p, check_drive=False)
+            return True
+        else:
+            return False
+        
+    def show(self):
+        if self.check():
+            fl.open_folder(p=self._p_event, check_drive=False)
     
     def set_pics(self):
         # count number of pics in folder and set model + save to db
@@ -86,7 +97,7 @@ class EventFolder(object):
         # TODO need to check and set pics from any table, have to bypass using model
         if model.table_widget.title != 'Work Orders': return
 
-        p_pics = self.p_event / 'Pictures'
+        p_pics = self._p_event / 'Pictures'
         num_pics = fl.count_files(p=p_pics, ftype='pics')
 
         index = model.createIndex(irow, model.get_col_idx('Pics'))
@@ -97,7 +108,7 @@ class EventFolder(object):
             return
             
         try:
-            p = self.p_event
+            p = self._p_event
             p_pics = p / 'Pictures'
             p_dls = p / 'Downloads'
 
@@ -133,31 +144,31 @@ class EventFolder(object):
             return 'temp'
         
 class FortHills(EventFolder):
-    def __init__(self, e, model=None, irow=None):
-        self.model_map = {
-            '980':'1. 980E Trucks',
-            '930': '2. 930E Trucks',
-            'HD1500': '3. HD1500'}
+    model_map = {
+        '980':'1. 980E Trucks',
+        '930': '2. 930E Trucks',
+        'HD1500': '3. HD1500'}
 
-        super().__init__(e, model=model, irow=irow)
+    def __init__(self, **kw):
+        super().__init__(**kw)
 
     @property
     def equippath(self):
         return f'Fort Hills/02. Equipment Files'
-    
 
 class BaseMine(EventFolder):
-    def __init__(self, e, model=None, irow=None):
-        self.model_map = {
-            '980': '2. 980E',
-            '930': '1. 930E',
-            'HD1500': '3. HD1500'}
-
-        super().__init__(e, model=model, irow=irow)
+    model_map = {
+        '980': '2. 980E',
+        '930': '1. 930E',
+        'HD1500': '3. HD1500'}
+    
+    def __init__(self, **kw):
+        super().__init__(**kw)
 
     @property
     def equippath(self):
         return f'Fort McMurray/service/2. Customer Equipment Files/1. Suncor'
 
 def get_eventfolder(minesite=None):
+    # Try to get minesite specific event folder, else use default
     return getattr(sys.modules[__name__], minesite, EventFolder)
