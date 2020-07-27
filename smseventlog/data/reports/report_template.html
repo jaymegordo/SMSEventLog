@@ -60,9 +60,7 @@
                 {% set sub_sec_num = i1 ~ '.' ~ i2 %}
                 {% if sub_sec.force_pb %}
                     {% set pb_val = 'style="page-break-before: always;"'%}
-                    <!-- <div style="page-break-before: always;"> -->
                 {% else %}
-                    <!-- <div> -->
                     {% set pb_val = ''%}
                 {% endif %}
 
@@ -90,10 +88,8 @@
                                 </div>
                             </div>
                         {% else %}
-                            <!-- <figure style="display: inline-block;"> -->
-                                {{ dfs[elem.name].df_html }}
-                                <figcaption class="figcaption_tbl">Table {{ sub_sec_num }}-{{ num_tables.value }} - {{ elem.caption }}</figcaption>
-                            <!-- </figure> -->
+                            {{ dfs[elem.name].df_html }}
+                            <figcaption class="figcaption_tbl">Table {{ sub_sec_num }}-{{ num_tables.value }} - {{ elem.caption }}</figcaption>
                         {% endif %}
 
                     {% elif elem.type == 'chart' %}
@@ -105,7 +101,6 @@
                     {% endif %}
                     </div>
                 {% endfor %}
-                <!-- </div> -->
             {% endfor %}
         </section>
     {% endfor %}

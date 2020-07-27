@@ -212,7 +212,7 @@ class QueryBase(object):
             # calc style for specific cols
             m = self.stylemap_cols[col]
             df = df[m['cols']] # get slice of df
-            style = df.style.pipe(m['func'], **m['da'])
+            style = df.style.pipe(m['func'], **m.get('da', {}))
 
         style._compute()
         return f.convert_stylemap_index(style=style)
@@ -909,9 +909,10 @@ class AvailRawData(AvailBase):
         # self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
         # ^ can't use this need to see AHS duplicates which were set to 0
 
-    def background_gradient(self, style, do=True):
+    def background_gradient(self, style, theme=None, do=True):
         if not do: return style
-        bg_color = 'white' if self.theme == 'light' else self.color['bg']['bgdark']
+        if theme is None: theme = self.theme # Usually dark, but could be light for email
+        bg_color = 'white' if theme == 'light' else self.color['bg']['bgdark']
         cmap = LinearSegmentedColormap.from_list('red_white', [bg_color, self.color['bg']['lightred']])
         return style.background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None)
 
@@ -946,8 +947,7 @@ class Availability(AvailRawData):
         self.stylemap_cols.update(
             {col: dict(
                 cols=cols_gradient,
-                func=self.background_gradient,
-                da=dict(theme='dark')) for col in cols_gradient})
+                func=self.background_gradient) for col in cols_gradient})
         
         # NOTE not used yet, maybe recalc on sorting/filtering in the future
         self.stylemap_cols.update(
@@ -957,7 +957,7 @@ class Availability(AvailRawData):
                 da=dict(
                     subset=['Unit'],
                     color='maroon',
-                    theme='dark'))})
+                    theme=self.theme))})
 
     def set_minesite(self):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))

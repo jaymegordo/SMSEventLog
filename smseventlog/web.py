@@ -74,7 +74,7 @@ class Web(object):
         return options
 
     def create_driver(self, browser='Chrome'):
-        def init_driver(options=None):
+        def _create_driver(options=None):
             kw = dict(executable_path=f.topfolder / 'selenium/webdriver/chromedriver') if f.frozen else {}
             return webdriver.Chrome(options=options, **kw)
 
@@ -82,7 +82,7 @@ class Web(object):
             options = self.get_options()
 
             try:
-                driver = init_driver(options=options)
+                driver = _create_driver(options=options)
             except InvalidArgumentException:
                 # user already has a chrome window open with default profile open
                 # delete user-data-dir from options args and try again
@@ -94,7 +94,7 @@ class Web(object):
                         del options.arguments[i]
                         break
 
-                driver = init_driver(options=options)
+                driver = _create_driver(options=options)
 
         else:
             driver = getattr(webdriver, browser)()

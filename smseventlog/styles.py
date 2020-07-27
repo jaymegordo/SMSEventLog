@@ -115,8 +115,16 @@ def default_style(df, outlook=False):
     
     return style
 
+
 def df_empty(df):
     return pd.DataFrame(data='background-color: inherit', index=df.index, columns=df.columns)
+
+def hide_headers(style):
+    # use css selector to hide table headers
+    s = []
+    s = [dict(selector='.col_heading',
+            props=[('display', 'none')])]
+    return style.pipe(add_table_style, s)
 
 def col_width_outlook(df, vals):
     df1 = df_empty(df)
@@ -241,6 +249,9 @@ def highlight_totals_row(style, exclude_cols=()):
     df = style.data
     
     return style.apply(lambda x: [format_cell(bg, 'white') if not x.index[i] in exclude_cols else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1) 
+
+def bold_columns(df):
+    return pd.DataFrame(data='font-weight: bold;', index=df.index, columns=df.columns)
 
 def write_html(html, name=None):
     if name is None:

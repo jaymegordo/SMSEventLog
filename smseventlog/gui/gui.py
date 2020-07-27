@@ -28,6 +28,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(title)
         self.setMinimumSize(QSize(1000, 400))
         self.minesite_changed.connect(self.update_statusbar)
+        self.status_label = QLabel() # permanent label for status bar so it isnt changed by statusTips
+        self.statusBar().addWidget(self.status_label)
 
         # Settings
         s = QSettings('sms', 'smseventlog')
@@ -57,7 +59,8 @@ class MainWindow(QMainWindow):
         self.minesite_changed.emit(val)
     
     def update_statusbar(self, *args):
-        self.statusBar().showMessage(f'Minesite: {self.minesite}')
+        # self.statusBar().showMessage(f'Minesite: {self.minesite}')
+        self.status_label.setText(f'Minesite: {self.minesite}')
 
     def after_init(self):
         # TODO: need to show window first, then show loading message
@@ -189,6 +192,7 @@ class MainWindow(QMainWindow):
 
         database_ = bar.addMenu('Database')
         database_.addAction(self.act_update_comp_smr)
+        database_.addAction(self.act_reset_db)
 
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_username)
@@ -214,7 +218,9 @@ class MainWindow(QMainWindow):
         act_delete_event = QAction('Delete Event', self, triggered=self.delete_event)
 
         from .. import units as un
+        from ..database import db
         act_update_comp_smr = QAction('Update Component SMR', self, triggered=un.update_comp_smr)
+        act_reset_db = QAction('Reset Database Connection', self, triggered=db.reset)
 
         # TODO: only add these to context menu with specific tables, eg not FC Summary?
         t = self.active_table_widget

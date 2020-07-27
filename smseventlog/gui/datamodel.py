@@ -137,23 +137,21 @@ class TableModel(QAbstractTableModel):
         return None
 
     def get_background_colors_from_df(self, df):
-        # return df of background colors to use in style.apply
+        # return df of background colors to use in style.apply (df is passed in by default)
         # TODO this needs to be rebuilt!!
         func = lambda x: f'background-color: {str(x)};'
-        # print(df.shape, df.tail())
-        # print(df.columns)
+
+        # call self.data to get current table's background colors as [list of (tuples of QColors)]
         rows = []
         for row_name in df.index:
             rows.append(tuple(self.data(name_index=(row_name, col_name), role=Qt.BackgroundRole) for col_name in df.columns))
 
         df = pd.DataFrame(data=rows, columns=df.columns, index=df.index)
-        # print(df.shape, df.tail())
 
-        # convert QColor back to hex
+        # convert QColor back to hex for styler
         for irow in df.index:
             for col in df.columns:
                 val = df.loc[irow, col]
-                #print(idx)
 
                 if isinstance(val, QColor):
                     val_str = func(val.name())
@@ -261,7 +259,7 @@ class TableModel(QAbstractTableModel):
     
         self.set_queue()
     
-    @e
+    # @e
     def setData(self, index, val, role=Qt.EditRole, triggers=True, queue=False, update_db=True):
         if not index.isValid(): return False
 

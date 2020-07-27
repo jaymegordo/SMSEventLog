@@ -111,7 +111,7 @@ ol {
 html {
     font-family: Tahoma, Geneva, sans-serif;
     /* font-size: 12px; */
-    font-size: 12pt;
+    font-size: 10pt;
 }
 h1, h2, h3, h4, h5 {
     page-break-after: avoid;
@@ -239,4 +239,25 @@ table {
 }
 .signature_table tr:nth-child(even) {
     background: none; 
-  }
+}
+
+.failure_report_header_table {
+    table-layout: fixed;
+    width: 100%;
+    font-size: 10pt;
+    border: None;
+    border-bottom: 1px solid black;
+    display: inline-block;
+    padding-top: 30px;
+}
+
+.failure_report_header_table thead {
+    border: None;
+}
+/* .failure_report_header_table td {
+    width: 1000px;
+} */
+
+.failure_report_header_table tr:nth-child(even) {
+    background: none; 
+}

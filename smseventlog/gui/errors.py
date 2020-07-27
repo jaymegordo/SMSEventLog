@@ -6,13 +6,18 @@ import functools
 from .. import functions as f
 from PyQt5.QtWidgets import QMessageBox
 
-def wrap_errors(cls):
+   
+def wrap_all_class_funcs(cls, err_func=None):
+    
+    # use default err handler @e
+    if err_func is None: err_func = getattr(sys.modules[__name__], 'e')
+
     # wrap all methods in class obj with @e error handler
     module_name = inspect.getmodule(cls).__file__.split('/')[-1]
     for name, fn in inspect.getmembers(cls):
         if isinstance(fn, types.FunctionType):
             # print(f'{module_name}\t{name}:\t{fn}')
-            setattr(cls, name, e(fn))
+            setattr(cls, name, err_func(fn))
     
     return cls
 
@@ -26,7 +31,7 @@ def decorate_all_classes(module_name=None, module=None):
     for name, obj in inspect.getmembers(module):
         # only wrap classes definied in the module, not other imports
         if inspect.isclass(obj) and obj.__module__ == module_name:
-            wrap_errors(obj)
+            wrap_all_class_funcs(obj)
 
 def e(func):
     # error handler/wrapper for the gui
