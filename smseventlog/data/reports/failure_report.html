@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+</head>
+<body>
+    <header id="header"></header>
+    <footer id="pagenum"></footer>
+    <footer id="footer_image"></footer>
+    <footer id="footer"></footer>
+
+    <h2>Component Failure Summary</h2>
+    <section id="header_data">
+        {{ df_head }}
+    </section>
+
+    <section id="html_body">
+        {% for name, text in body_sections.items() %}
+            <p>
+            <b>{{ name }}:</b><br>
+            {{ text }}
+            </p>
+        {% endfor %}
+    </section>
+
+    <section id="pictures" style="page-break-before: always;">
+        {% for pic in pictures %}
+        {% set fig_num = loop.index %}
+            <figure style="margin-top: 10px; page-break-inside: avoid;">
+                <img src="{{ pic }}" style="max-height: 400px; width: auto;" />
+                <figcaption>Figure {{ fig_num }}</figcaption>
+            </figure>
+        {% endfor %}
+    </section>
+
+</body>
+</html>
