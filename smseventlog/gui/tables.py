@@ -39,12 +39,8 @@ class TableView(QTableView):
         highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, {}, {} # NOTE use all lowercase!
         colors = f.config['color']
 
-        # try:
         query = parent.query
         formats.update(query.formats) # start with query formats, will be overridden if needed
-        # except:
-        #     print(self.__class__.__name__)
-        #     f.send_error()
         
         # set up initial empty model
         self.parent = parent # model needs this to access parent table_widget
@@ -167,18 +163,21 @@ class TableView(QTableView):
 
         return
 
-    def get_style(self, df=None, outlook=False):
+    def get_style(self, df=None, outlook=False, exclude_cols=None):
         model = self.model()
         if df is None:
             df = model.df
         
+        # only pass a subset to get_background_colors if exclude_cols are passed
+        kw = dict(subset=[c for c in df.columns if not c in exclude_cols]) if not exclude_cols is None else {}
+
         s = []
         s.append(dict(
             selector='table',
             props=[('border', '1px solid black')]))
 
         return st.default_style(df=df, outlook=outlook) \
-            .apply(model.get_background_colors_from_df, axis=None) \
+            .apply(model.get_background_colors_from_df, axis=None, **kw) \
             .format(self.formats) \
             .pipe(st.add_table_style, s=s)
 
@@ -309,6 +308,7 @@ class TableView(QTableView):
         return dbt.Row(table_model=self.model(), i=i)
 
     def model_from_activerow(self):
+        # only returns values in current table view, not all database
         i = self.active_row_index()
         if i is None: return
         return self.model().create_model(i=i)
@@ -520,7 +520,7 @@ class TableWidget(QWidget):
 
     def email_table(self, subject='', body='', email_list=None, df=None, prompts=True):
         # TODO make this an input dialog so settings can be remembered
-        style = self.view.get_style(df=df, outlook=True)
+        style = self.view.get_style(df=df, outlook=True) # this will have all colors in current GUI table
 
         msg_ = 'Include table in email body?'
         style_body = ''
@@ -700,6 +700,7 @@ class TSI(EventLogBase):
         view.mcols['disabled'] = ('WO',)
         view.col_widths.update({'Details': 400, 'TSI No': 110})
 
+        self.add_button(name='Create Failure Report', func=self.create_failure_report)
         self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
         self.add_button(name='Refresh Open (User)', func=self.refresh_allopen_user)
@@ -771,6 +772,44 @@ class TSI(EventLogBase):
 
         dlgs.msg_simple(msg=f'New TSI created.\nTSI Number: {tsi.tsi_number}')
 
+    def create_failure_report(self):
+        from . import eventfolders as efl
+
+        view = self.view
+        row = view.row_from_activerow()
+        if row is None: return
+        e = row.create_model_from_db()
+
+        # get event folder
+        e_fldr = efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model())
+
+        # get pics, body text from dialog
+        text = dict(
+            complaint=e.TSIDetails,
+            cause='Uncertain.',
+            correction='Component replaced with new.',
+            details=e.Description)
+
+        dlg = dlgs.FailureReport(parent=self, p_start=e_fldr.p_event / 'Pictures', text=text)
+        if not dlg.exec_(): return
+
+        # create header data from event dict + unit info
+        header_data = f.model_dict(e, include_none=True)
+        header_data.update(db.get_df_unit().loc[e.Unit])
+
+        # keys = dict(UID=e.UID)
+        # header_data = dbt.join_query(tables=(EventLog, UnitID), keys=keys, join_field='Unit')
+
+        # create report obj and save as pdf in event folder
+        from .. import reports as rp
+        rep = rp.FailureReport(header_data=header_data, pictures=dlg.pics, body=dlg.text, e=e)
+        p_rep = rep.create_pdf(p_base=e_fldr.p_event)
+
+        msg = 'Failure report created, open now?'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            fl.open_folder(p_rep)
+
+
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -816,6 +855,7 @@ class FCSummary(FCBase):
         super().__init__(parent=parent)
         self.add_button(name='Email New FC', func=self.email_new_fc)
 
+        # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
         self.db_col_map = {
             'Action Reqd': tbl_b,
@@ -827,11 +867,8 @@ class FCSummary(FCBase):
     class View(TableView):
         def __init__(self, parent):
             super().__init__(parent=parent)
-            # map table col to update table in db if not default
-            
 
             self.mcols['hide'] = ('MineSite',)
-            self.mcols['disabled'] = ('FC Number', 'Total Complete', '% Complete') # also add all unit cols?
             self.col_widths.update({
                 'Subject': 250,
                 'Comments': 600,
@@ -849,8 +886,11 @@ class FCSummary(FCBase):
         
         def get_center_cols(self, df):
             # FCSummary needs dynamic center + vertical cols
-            cols = list(df.columns[13:])
-            self.mcols['vertical'] = cols
+            # this is called every time table is refreshed - NOTE change to 'update_cols'
+            cols = list(df.columns[13:]) if df.shape[1] >= 13 else []
+            mcols = self.mcols
+            mcols['vertical'] = cols
+            mcols['disabled'] = ['FC Number', 'Total Complete', '% Complete'] + cols
             self.col_widths.update({c: 25 for c in cols}) # NOTE not ideal, would like to reimplement sizeHint
             return cols
 
@@ -944,12 +984,13 @@ class Availability(TableWidget):
                 '0': 'greyrow',
                 'collecting info': 'lightyellow'})
             
-            # if a value is changed in any of self.mcols['dynamic'], model needs to re-request stylemap from query 
+            # if a value is changed in any of self.mcols['dynamic'], model needs to re-request stylemap from query for that specific col
 
         def get_style(self, df=None, outlook=False):
-            # used for email + gui... maybe?
+            # this supercedes the default tableview get_style
+            # used for email > should probably move/merge this with query
             theme = 'light'
-            return super().get_style(df=df, outlook=outlook) \
+            return super().get_style(df=df, outlook=outlook, exclude_cols=['Unit']) \
                 .pipe(st.set_column_widths, vals=dict(StartDate=60, EndDate=60, Comment=400)) \
                 .pipe(self.parent.query.background_gradient, theme=theme, do=outlook) \
                 .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color='navyblue')
@@ -1061,7 +1102,6 @@ class Availability(TableWidget):
         index = view.create_index_activerow(col_name='Suncor')
         duration = model.df.iloc[index.row(), model.get_col_idx('Total')]
         model.setData(index=index, val=duration, queue=True)
-        # model.flush_queue()
     
     def filter_unit_eventlog(self):
         # filter eventlog to currently selected unit and jump to table
