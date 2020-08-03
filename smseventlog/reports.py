@@ -267,10 +267,11 @@ class SMRReport(Report):
         self.load_sections('UnitSMR')
         self.add_items(['title_page', 'signature_block'])
     
-    def create_pdf(self, p_base=None, csv=False):
-        super().create_pdf(p_base=p_base)
+    def create_pdf(self, p_base=None, csv=True):
         if csv:
             self.save_csv(p_base=p_base)
+
+        return super().create_pdf(p_base=p_base)
     
     def save_csv(self, p_base=None):
         if p_base is None:

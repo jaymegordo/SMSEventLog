@@ -24,6 +24,9 @@ log = logging.getLogger(__name__)
 # TODO UnitINFO add new function/menu
 # TODO create function to evaluate '=' formulas
 
+# TODO Header menu click to sort not working (look at new header class)
+# TODO Event closed functions, set date closed
+
 
 class TableView(QTableView):
     dataFrameChanged = pyqtSignal()
@@ -200,7 +203,10 @@ class TableView(QTableView):
 
     def set_default_headers(self):
         cols = f.get_default_headers(title=self.parent.title)
-        df = pd.DataFrame(columns=cols)
+        df = pd.DataFrame(columns=cols) \
+            .pipe(f.parse_datecols) \
+            .pipe(f.set_default_dtypes, m=self.parent.query.default_dtypes)
+
         self.display_data(df=df)
 
     def set_date_delegates(self):
@@ -477,7 +483,7 @@ class TableWidget(QWidget):
         df = dbt.df_from_row(model=model)
 
         # load to details view
-        dlg = dlgs.DetailsView(df=df)
+        dlg = dlgs.DetailsView(parent=self, df=df)
         dlg.exec_()
 
     def refresh_lastweek(self, default=False):
@@ -597,6 +603,18 @@ class EventLogBase(TableWidget):
 
         items = f.config['Lists'][f'{self.name}Status']
         view.set_combo_delegate(col='Status', items=items)
+    
+    def view_folder(self):
+        from . import eventfolders as efl
+        view = self.view
+
+        row = view.row_from_activerow()
+        if row is None: return
+        e = row.create_model_from_db() # TODO: this won't work with mixed tables eg FCSummary
+        # dbt.print_model(e)
+
+        # try to get minesite-specific EventFolder, if not use default
+        efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model()).show()
 
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
@@ -781,7 +799,7 @@ class TSI(EventLogBase):
         e = row.create_model_from_db()
 
         # get event folder
-        e_fldr = efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model())
+        ef = efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model())
 
         # get pics, body text from dialog
         text = dict(
@@ -790,7 +808,7 @@ class TSI(EventLogBase):
             correction='Component replaced with new.',
             details=e.Description)
 
-        dlg = dlgs.FailureReport(parent=self, p_start=e_fldr.p_event / 'Pictures', text=text)
+        dlg = dlgs.FailureReport(parent=self, p_start=ef.p_event / 'Pictures', text=text)
         if not dlg.exec_(): return
 
         # create header data from event dict + unit info
@@ -803,7 +821,7 @@ class TSI(EventLogBase):
         # create report obj and save as pdf in event folder
         from .. import reports as rp
         rep = rp.FailureReport(header_data=header_data, pictures=dlg.pics, body=dlg.text, e=e)
-        p_rep = rep.create_pdf(p_base=e_fldr.p_event)
+        p_rep = rep.create_pdf(p_base=ef.p_event)
 
         msg = 'Failure report created, open now?'
         if dlgs.msgbox(msg=msg, yesno=True):
@@ -849,6 +867,9 @@ class FCBase(TableWidget):
     
     def view_fc_folder(self):
         fl.open_folder(p=self.get_fc_folder())
+    
+    def view_folder(self):
+        self.view_fc_folder()
 
 class FCSummary(FCBase):
     def __init__(self, parent=None):
@@ -897,7 +918,7 @@ class FCSummary(FCBase):
     def email_new_fc(self):
         # get df of current row
         df = self.view.df_from_activerow().iloc[:, :10]
-        style = st.default_style(df=df)
+        style = st.default_style(df=df, outlook=True)
         formats = {'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
         m = st.format_dtype(df=df, formats=formats)
         style.format(m)

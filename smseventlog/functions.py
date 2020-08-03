@@ -181,6 +181,16 @@ def greeting():
     val = 'Morning' if dt.now().time().hour < 12 else 'Afternoon'
     return f'Good {val},<br><br>'
 
+def getattr_chained(obj, methods):
+    # return value from chained method calls
+    # eg a = 'A Big Thing' > getattr_chained(a, 'str.lower')
+    try:
+        for method in methods.split('.'):
+            obj = getattr(obj, method)()
+
+        return obj
+    except:
+        return None
     
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
@@ -265,6 +275,7 @@ def convert_stylemap_index(style):
     return m
 
 def append_default_row(df):
+    # ensure df dtypes aren't changed when appending new row by creating a blank row of defaults, then filling after
     # return {col: val} for all columns in df
     defaults = {
         'int64': pd.NA,

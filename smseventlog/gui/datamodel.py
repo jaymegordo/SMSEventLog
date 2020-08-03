@@ -138,7 +138,6 @@ class TableModel(QAbstractTableModel):
 
     def get_background_colors_from_df(self, df):
         # return df of background colors to use in style.apply (df is passed in by default)
-        # TODO this needs to be rebuilt!!
         func = lambda x: f'background-color: {str(x)};'
 
         # call self.data to get current table's background colors as [list of (tuples of QColors)]
@@ -458,7 +457,6 @@ def test_model(name='EventLog'):
     from . import startup
     from . import tables as tbls
     app = startup.get_qt_app()
-    # table_widget = tbls.EventLog()
     table_widget = getattr(tbls, name, tbls.EventLog)()
     query = table_widget.query
     df = query.get_df(default=True)

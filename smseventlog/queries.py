@@ -449,12 +449,13 @@ class FCSummary(FCBase):
             df2['% Complete'] = df2.Complete / df2.Total
             df2.drop(columns=['Total', 'Complete'], inplace=True)
 
-            # pivot - note: can't pivot properly if Hours column (int) is NULL.. just make sure its filled
-            index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
-            df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete').reset_index()
+            # can't pivot properly if Hours column (int) is NULL > just set to 0
+            df.Hrs[df.Hrs.isnull()] = 0
 
-            # merge summary
-            df = df.merge(right=df2, how='left', on='FC Number')
+            index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
+            df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete') \
+                .reset_index() \
+                .merge(right=df2, how='left', on='FC Number') # merge summary
 
             # reorder cols after merge
             cols = list(df)
@@ -748,7 +749,7 @@ class AvailSummary(QueryBase):
             d_upper=d_rng[1],
             model=model,
             minesite=minesite,
-            exclude_ma=True,
+            exclude_ma=False,
             ahs_active=True,
             split_ahs=False)
         
@@ -833,7 +834,8 @@ class AvailSummary(QueryBase):
         # make sure self.df is not none
         df = self.df
         data = []
-        data.extend([self.get_totals(df=df[df.Operation==name], totals_name=name) for name in ('Staffed', 'AHS')])
+        data.extend([self.get_totals(
+            df=df[(df.Operation==name) & (df.Unit!='F300')], totals_name=name) for name in ('Staffed', 'AHS')])
         data.append(self.get_totals(df=df))
 
         return pd.DataFrame(data).rename(columns=dict(Model='Operation'))

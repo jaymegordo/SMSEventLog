@@ -145,6 +145,8 @@ class Web(object):
         except:
             print(f'couldn\'t set value: {val}')
             element.send_keys(val)
+        
+        # TODO check val was set, if not, try again using send_keys(val)
     
     def new_browser(self):
         driver = self.driver
@@ -174,7 +176,7 @@ class SuncorConnect(Web):
         user = Path.home().name
         if user == 'Jayme':
             self.username = 'jagordon'
-            self.password = 'SMSrel5%'
+            self.password = 'SMSrel0)'
             self.token_pin = '1234'
 
     def get_options(self):

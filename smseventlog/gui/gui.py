@@ -72,9 +72,6 @@ class MainWindow(QMainWindow):
        
     def active_table(self):
         return self.active_table_widget().view
-
-    def show_refresh(self):
-        self.active_table_widget().show_refresh()
     
     def show_changeminesite(self):
         dlg = dlgs.ChangeMinesite(parent=self)
@@ -149,18 +146,6 @@ class MainWindow(QMainWindow):
         
         return username, password
             
-    def view_folder(self):
-        from . import eventfolders as efl
-        view = self.active_table()
-
-        row = view.row_from_activerow()
-        if row is None: return
-        e = row.create_model_from_db() # TODO: this won't work with mixed tables eg FCSummary
-        # dbt.print_model(e)
-
-        # try to get minesite-specific EventFolder, if not use default
-        efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model()).show()
-
     def open_sap(self):
         from .. import web
         sc = web.SuncorConnect()
@@ -169,12 +154,11 @@ class MainWindow(QMainWindow):
     def create_menu(self):
         bar = self.menuBar()
         file_ = bar.addMenu('File')
-        file_.addAction('New item')
+        file_.addAction(self.act_new_item)
         file_.addAction(self.act_refresh)
         file_.addAction(self.act_prev_tab)
         file_.addAction(self.act_change_minesite)
         file_.addAction(self.act_viewfolder)
-        file_.addAction(self.act_open_sap)
 
         edit_ = bar.addMenu('Edit')
         edit_.addAction('Edit item')
@@ -193,6 +177,7 @@ class MainWindow(QMainWindow):
         database_ = bar.addMenu('Database')
         database_.addAction(self.act_update_comp_smr)
         database_.addAction(self.act_reset_db)
+        database_.addAction(self.act_open_sap)
 
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_username)
@@ -200,18 +185,26 @@ class MainWindow(QMainWindow):
 
     def create_actions(self):
         # Menu/shortcuts
+        t = self.active_table_widget
+
         act_username = QAction('Reset Username', self, triggered=self.set_username)
         act_tsi_username = QAction('Set TSI Username', self, triggered=self.set_tsi_username)
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
 
-        act_refresh = QAction('Refresh Menu', self, triggered=self.show_refresh)
-        act_refresh.setShortcut(QKeySequence('Ctrl+R'))
+        act_refresh = QAction('Refresh Menu', self,
+            triggered=lambda: t().show_refresh(),
+            shortcut=QKeySequence('Ctrl+R'))
+        act_new_item = QAction('Add New Row', self,
+            triggered=lambda: t().show_addrow(),
+            shortcut=QKeySequence('Ctrl+Shift+N'))
 
-        act_prev_tab = QAction('Previous Tab', self, triggered=lambda: self.tabs.activate_previous())
-        act_prev_tab.setShortcut(QKeySequence('Meta+Tab'))
+        act_prev_tab = QAction('Previous Tab', self,
+            triggered=lambda: self.tabs.activate_previous(),
+            shortcut=QKeySequence('Meta+Tab'))
 
-        act_change_minesite = QAction('Change MineSite', self, triggered=self.show_changeminesite)
-        act_change_minesite.setShortcut(QKeySequence('Ctrl+Shift+M'))
+        act_change_minesite = QAction('Change MineSite', self,
+            triggered=self.show_changeminesite,
+            shortcut=QKeySequence('Ctrl+Shift+M'))
 
         act_open_tsi = QAction('Open TSI', self, triggered=self.open_tsi)
         act_remove_tsi = QAction('Remove TSI', self, triggered=self.remove_tsi)
@@ -223,21 +216,17 @@ class MainWindow(QMainWindow):
         act_reset_db = QAction('Reset Database Connection', self, triggered=db.reset)
 
         # TODO: only add these to context menu with specific tables, eg not FC Summary?
-        t = self.active_table_widget
         act_refresh_allopen = QAction('Refresh All Open', self, 
-            triggered=lambda: t().refresh_allopen(default=True))
-        act_refresh_allopen.setShortcut(QKeySequence('Ctrl+Shift+R'))
+            triggered=lambda: t().refresh_allopen(default=True), shortcut=QKeySequence('Ctrl+Shift+R'))
         
         act_refresh_lastweek = QAction('Refresh Last Week', self, 
             triggered=lambda: t().refresh_lastweek(default=True))
         act_refresh_lastmonth = QAction('Refresh Last Month', self, 
             triggered=lambda: t().refresh_lastmonth(default=True))
 
-        act_viewfolder = QAction('View Folder', self, triggered=self.view_folder)
-        act_viewfolder.setShortcut(QKeySequence('Ctrl+Shift+V'))
+        act_viewfolder = QAction('View Folder', self, triggered=lambda: t().view_folder(), shortcut=QKeySequence('Ctrl+Shift+V'))
 
-        act_detailsview = QAction('Details View', self, triggered=lambda: t().show_details())
-        act_detailsview.setShortcut(QKeySequence('Ctrl+Shift+D'))
+        act_detailsview = QAction('Details View', self, triggered=lambda: t().show_details(), shortcut=QKeySequence('Ctrl+Shift+D'))
 
         act_update_component = QAction('Update Component', self, triggered=lambda: t().show_component())
         act_email_table = QAction('Email Table', self, 
@@ -368,6 +357,13 @@ def get_minesite():
     else:
         return minesite
 
+def get_settings():
+    mainwindow = get_mainwindow()
+    if not mainwindow is None:
+        return mainwindow.settings
+    else:
+        return QSettings('sms', 'smseventlog')
+        
 # ARCHIVE
 def disable_window_animations_mac(window):
     # We need to access `.winId()` below. This method has an unwanted (and not

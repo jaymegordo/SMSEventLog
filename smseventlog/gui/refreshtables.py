@@ -1,10 +1,13 @@
 from .__init__ import *
 from . import gui as ui
-from .dialogs import InputForm, InputField
+from .dialogs import InputForm, InputField, check_app
 
 log = logging.getLogger(__name__)
 
 # Dialogs to show and allow user to create filters before refreshing table data
+
+# save settings on accept. ClassName > form name? > value
+# https://stackoverflow.com/questions/23279125/python-pyqt4-functions-to-save-and-restore-ui-widget-values
 
 class RefreshTable(InputForm):
     def __init__(self, parent=None):
@@ -30,6 +33,8 @@ class RefreshTable(InputForm):
     def add_features(self, features):
         for feature in features:
             self.add_feature(name=feature)
+        
+        self._restore_settings()
     
     def add_feature(self, name):
         parent, ms = self.parent, self.minesite
@@ -210,11 +215,11 @@ class Availability(RefreshTable):
         fMonth, fWeek = self.fMonth, self.fWeek
 
         if fMonth.cb.isChecked():
-            val = fMonth.get_val()
+            val = fMonth.val
             df = self.df_month
             period_type = 'month'
         elif fWeek.cb.isChecked():
-            val = fWeek.get_val()
+            val = fWeek.val
             df = self.df_week
             period_type = 'week'
 
@@ -241,9 +246,9 @@ class AvailReport(Availability):
         return super().accept_()
 
 
-# TODO: this doesn't need to be duplicated here
+# NOTE this doesn't need to be duplicated here
 def show_item(name, parent=None):
     # show message dialog by name eg ui.show_item('InputUserName')
-    app = ui.get_qt_app()
+    app = check_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent)
-    return dlg.exec_()
+    return dlg, dlg.exec_()

@@ -72,7 +72,7 @@ class DBTransaction():
         return self
 
 class Row():
-    def __init__(self, table_model=None, i=None, keys=None, dbtable=None):
+    def __init__(self, table_model=None, i=None, col=None, keys=None, dbtable=None, df=None, title=None):
         # create with either: 1. gui.Table + row, or 2. dbtable + keys/values
         # tbl = gui.Table class > the 'model' in mvc
         if keys is None: keys = {} # don't know why, but set_self doesnt work if keys={}
@@ -85,26 +85,31 @@ class Row():
         
         if dbtable is None:
             raise AttributeError('db model table not set!')
-
+        
         pks = get_dbtable_keys(dbtable) # list of pk field names eg ['UID']
 
-        if not i is None: # update keys from df
+        if not (i is None and col is None): # update keys from df
+            if df is None:
+                raise AttributeError('df not set!')
+
             for pk in pks:
                 header = f.convert_header(title=title, header=pk, inverse_=True)
-                keys[pk] = df.iloc[i, df.columns.get_loc(header)] # get key value from df, key must exist in df
+                if i:
+                    keys[pk] = df.iloc[i, df.columns.get_loc(header)] # get key value from df, key must exist in df
+                elif col:
+                    keys[pk] = df.loc[header, col] #transposed df
 
         f.set_self(vars())
 
     def update_single(self, val, header=None, field=None, check_exists=False):
         # convenience func to update single field/header: val in db
-        
         # convert table header to db field name
         if field is None:
             field = f.convert_header(title=self.title, header=header)
         
         self.update(vals={field: val}, check_exists=check_exists)
 
-    def update(self, vals={}, delete=False, check_exists=False):
+    def update(self, vals=None, delete=False, check_exists=False):
         # update (multiple) values in database, based on unique row, field, value, and primary keys(s)
         # key must either be passed in manually or exist in current table's df
         try:
@@ -115,8 +120,9 @@ class Row():
             
             session = db.session
             cond = [getattr(t, pk)==keys[pk] for pk in keys] # list of multiple key:value pairs for AND clause
-
+    
             if not delete:
+                if vals is None: raise AttributeError('No values to update!')
                 sql = sa.update(t).values(vals).where(and_(*cond))
                 print(sql)
             else:
