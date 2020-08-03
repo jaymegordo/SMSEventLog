@@ -153,6 +153,13 @@ class DB(object):
         df = self.get_df_unit()
         return df.loc[unit, 'MineSite']
     
+    def get_smr(self, unit, date):
+        a = T('UnitSMR')
+        q = Query().from_(a).select('SMR') \
+            .where(a.DateSMR==date) \
+            .where(a.Unit==unit)
+        return self.query_single_val(q)
+
     def get_df(self, query, refresh=True, default=False):
         # get df by name and save for later reuse
         dfs = self.dfs
@@ -234,7 +241,7 @@ class DB(object):
         
         return self.df_fc
 
-    def set_df_fc(self, minesite=None):
+    def set_df_fc(self):
         a = T('FactoryCampaign')
         b = T('FCSummary')
         c = T('UnitID')
@@ -246,8 +253,8 @@ class DB(object):
             .left_join(b).on_field('FCNumber') \
             .left_join(c).on_field('Unit')
         
-        if not minesite is None:
-            q = q.where(c.MineSite == minesite)
+        # if not minesite is None:
+        #     q = q.where(c.MineSite == minesite)
             
         self.df_fc = self.read_query(q=q)
     
