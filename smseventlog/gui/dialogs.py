@@ -1,106 +1,86 @@
-from .__init__ import *
-from . import gui as ui
+from distutils.util import strtobool
+import inspect
+
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView
 
-log = logging.getLogger(__name__)
+from . import gui as ui
+from .__init__ import *
+from . import formfields as ff
 
-# TODO fix add new event > creates two lines
-# TODO fix add new event > adds MineSite + Event status fields
+log = logging.getLogger(__name__)
 
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None):
         if col_db is None: col_db = text.replace(' ', '')
         f.set_self(vars())
     
-    def get_val(self):
-        box = self.box
+    @property
+    def val(self):
+        return self.box.val
 
-        if isinstance(box, QLineEdit):
-            val = box.text()
-        if isinstance(box, QTextEdit):
-            val = box.toPlainText()
-        elif isinstance(box, QComboBox):
-            val = box.currentText()
-        elif isinstance(box, QSpinBox):
-            val = box.value()
-        elif isinstance(box, QDateEdit):
-            val = box.dateTime().toPyDateTime()
-
-        return val
-
-    def set_val(self, val):
-        box = self.box
-
-        if isinstance(box, (QLineEdit, QTextEdit)):
-            box.setText(val)
-        elif isinstance(box, QComboBox):
-            box.setCurrentText(val)
-        elif isinstance(box, QSpinBox):
-            box.setValue(val)
-        elif isinstance(box, QDateEdit):
-            box.setDate(val)
+    @val.setter
+    def val(self, val):
+        self.box.val = val
     
     def set_default(self):
         if not self.box is None and not self.default is None:
-            self.set_val(val=self.default)
+            self.val = self.default
 
 class InputForm(QDialog):
     def __init__(self, parent=None, title=''):
         super().__init__(parent=parent)
-        self.parent = parent
-        self.mainwindow = ui.get_mainwindow()
+        mainwindow = ui.get_mainwindow()
+        settings = ui.get_settings()
+        name = self.__class__.__name__
+        _names_to_avoid = ('minesite_qcombobox') # always want to use 'current' minesite
         self.setWindowTitle(title)
-        self.vLayout = QVBoxLayout(self)
-        self.formLayout = QFormLayout()
-        self.formLayout.setLabelAlignment(Qt.AlignLeft)
-        self.formLayout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        self.vLayout.addLayout(self.formLayout)
-        self.fields = []
-        self.items = None
-        add_okay_cancel(dlg=self, layout=self.vLayout)
+        vLayout = QVBoxLayout(self)
+        formLayout = QFormLayout()
+        formLayout.setLabelAlignment(Qt.AlignLeft)
+        formLayout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        vLayout.addLayout(formLayout)
+        fields = []
+        items = None
+        add_okay_cancel(dlg=self, layout=vLayout)
+        f.set_self(vars())
         
     def show(self):
         self.setFixedSize(self.sizeHint())
 
-    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None):
+    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None):
         # Add input field to form
         text, dtype = field.text, field.dtype
 
         if not items is None:
-            box = QComboBox()
-            box.setEditable(True)
-            box.setMaxVisibleItems(20)
-            box.addItems(items)
+            box = ff.ComboBox(items=items)
         elif dtype == 'text':
-            box = QLineEdit()
+            box = ff.LineEdit()
         elif dtype == 'textbox':
-            box = QTextEdit()
-            box.setTabChangesFocus(True)
+            box = ff.TextEdit()
             box.setMaximumSize(box.sizeHint().width(), 60)
         elif dtype == 'int':
-            box = QSpinBox()
-            box.setRange(0, 1000000)
+            box = ff.SpinBox(range=(0, 200000))
         elif dtype == 'date':
-            box = QDateEdit()
-            box.setDate(QDate().currentDate())
-            box.setCalendarPopup(True)
+            box = ff.DateEdit()
         
         boxLayout = QHBoxLayout()
         boxLayout.addWidget(box)
         box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        box.set_name(name=text)
         
         # add checkbox to form line to enable/disable field
         if checkbox:
-            cb = QCheckBox(self)
-            cb.setChecked(cb_enabled)
+            cb = ff.CheckBox(checked=cb_enabled)
             box.setEnabled(cb_enabled)
             cb.box = box # attach box to toggle later
             cb.stateChanged.connect(self.toggle_input)
             boxLayout.addWidget(cb)
             field.cb = cb
+            cb.set_name(name=text)
+        elif btn:
+            boxLayout.addWidget(btn)
         else:
             # add spacer
-            # boxLayout.addSpacerItem(QSpacerItem(24,24,hPolicy=QSizePolicy.Maximum))
             boxLayout.addSpacing(30)
         
         setattr(self, 'f{}'.format(field.text.replace(' ', '')), field)
@@ -123,6 +103,7 @@ class InputForm(QDialog):
         return super().accept()
 
     def accept(self):
+        self._save_settings()
         super().accept()
         self.items = self.get_items()
 
@@ -130,7 +111,7 @@ class InputForm(QDialog):
         # return dict of all field items: values
         m = {}
         for field in self.fields:
-            m[field.text] = field.get_val()
+            m[field.text] = field.val
         
         return m
     
@@ -140,7 +121,7 @@ class InputForm(QDialog):
         for field in self.fields:
             if field.box.isEnabled():
                 print(f'adding input | field={field.col_db}, table={field.table}')
-                fltr.add(field=field.col_db, val=field.get_val(), table=field.table, opr=field.opr)
+                fltr.add(field=field.col_db, val=field.val, table=field.table, opr=field.opr)
 
     def toggle_input(self, state):
         # toggle input field enabled/disabled based on checkbox
@@ -168,18 +149,47 @@ class InputForm(QDialog):
         else:
             self.vLayout.insertWidget(i, line_sep)
 
+    @classmethod
+    def _get_handled_types(cls):
+        return QComboBox, QLineEdit, QTextEdit, QCheckBox, QRadioButton, QSpinBox, QSlider, QDateEdit
+
+    @classmethod
+    def _is_handled_type(cls, widget):
+        return any(isinstance(widget, t) for t in cls._get_handled_types())
+
+    def _save_settings(self):
+        # save ui controls and values to QSettings
+        for obj in self.children():
+            if self._is_handled_type(obj):
+                val = obj.val
+
+                if not val is None:
+                    self.settings.setValue(f'{self.name}_{obj.objectName()}', val)
+
+    def _restore_settings(self):
+        # set saved value back to ui control
+        for obj in self.children():
+            name, val = obj.objectName(), None
+
+            if (self._is_handled_type(obj) and
+                not name in self._names_to_avoid and
+                not len(name) == 0):
+                
+                val = self.settings.value(f'{self.name}_{name}')
+                if not val is None:
+                    obj.val = val
+
 class AddRow(InputForm):
     def __init__(self, parent=None):
         super().__init__(parent=parent, title='Add Item')
-        m = {} # need dict for extra cols not in dbm table model
+        m = {} # need dict for extra cols not in dbm table model (eg UnitID)
 
         if not parent is None:
             table_model = parent.view.model()
-            # tablename = parent.dbtable
             title = parent.title
             row = parent.dbtable()
         else:
-            # Temp vals
+            # Temp testing vals
             tablename = 'EventLog'
             title = 'Event Log'
             row = getattr(dbm, tablename)
@@ -192,15 +202,15 @@ class AddRow(InputForm):
         
         # add fields to dbmodel from form fields
         for field in self.fields:
-            setattr(row, field.col_db, field.get_val())
+            setattr(row, field.col_db, field.val)
             
-        # TODO need to actually loop and use setData
         # convert row model to dict of values and append to current table
         m.update(f.model_dict(model=row))
         m = f.convert_dict_db_view(title=self.title, m=m, output='view')
         self.table_model.insertRows(m=m)
 
-        # TODO: probably merge this with Row class? > update all?
+        # TODO probably merge this with Row class? > update all? BULK update (with 2 component rows)
+        dbt.print_model(model=row)
         session = db.session
         session.add(row)
         session.commit()
@@ -221,18 +231,25 @@ class AddEvent(AddRow):
         minesite = self.mainwindow.minesite if not self.mainwindow is None else 'FortHills'
 
         # Checkboxes
-        cbFC = QCheckBox('FC')
-        cbFC.stateChanged.connect(self.create_fc)
-        cbEventFolder = QCheckBox('Create Event Folder')
-        cbEventFolder.setChecked(True)
+        cb_eventfolder = ff.CheckBox('Create Event Folder', checked=True)
+        cb_tsi = ff.CheckBox('Create TSI')
+        cb_fc = ff.CheckBox('Link FC')
+        cb_fc.stateChanged.connect(self.create_fc)
 
         self.add_input(field=InputField(text='MineSite', default=minesite), items=f.config['MineSite'])
         self.add_input(field=InputField(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
-        self.add_input(field=InputField(text='SMR', dtype='int'))
+
+        # Add btn to check smr 
+        btn = QPushButton('get', self)
+        btn.setFixedSize(QSize(24, btn.sizeHint().height()))
+        btn.clicked.connect(self.get_smr)
+        self.add_input(field=InputField(text='SMR', dtype='int'), btn=btn)
+
         self.add_input(field=InputField(text='Date', dtype='date', col_db='DateAdded'))
 
-        self.formLayout.addRow('', cbFC)
-        self.formLayout.addRow('', cbEventFolder)
+        self.formLayout.addRow('', cb_eventfolder)
+        self.formLayout.addRow('', cb_tsi)
+        self.formLayout.addRow('', cb_fc)
 
         self.add_input(field=InputField(text='Title', dtype='textbox'))
         self.add_input(field=InputField(text='Warranty Status', col_db='WarrantyYN'), items=f.config['Lists']['WarrantyType'])
@@ -242,6 +259,17 @@ class AddEvent(AddRow):
 
         f.set_self(vars())
         self.show()
+    
+    def get_smr(self):
+        # NOTE could select all nearby dates in db and show to user
+        unit, date = self.fUnit.val, self.fDate.val
+        smr = db.get_smr(unit=unit, date=date)
+
+        if not smr is None:
+            self.fSMR.val = smr
+        else:
+            msg = f'No SMR found for\n\nUnit: {unit}\nDate: {date}'
+            msg_simple(msg=msg, icon='warning')
     
     def create_uid(self):
         return str(time.time()).replace('.','')[:12]
@@ -253,36 +281,44 @@ class AddEvent(AddRow):
         row.update(vals={'UID': self.uid})
 
     def create_fc(self):
-        unit = self.row.Unit
+        unit = self.fUnit.val
 
-        if self.cbFC.isChecked():
+        if self.cb_fc.isChecked():
             # TODO: This can eventually go into its own function
-            df = db.get_df_fc(minesite=self.mainwindow.minesite)
+            df = db.get_df_fc()
             df = df[df.Unit==unit]
             prefix = 'FC '
             df['Title'] = df.FCNumber + ' - ' + df.Subject
 
             ok, val = inputbox(msg='Select FC:', dtype='choice', items=list(df.Title), editable=True)
             if ok:
-                self.fTitle.set_val(prefix + val)
+                self.fTitle.val = prefix + val
                 self.FCNumber = val.split(' - ')[0]
                 
             else:
-                self.cbFC.setChecked(False)
+                self.cb_fc.setChecked(False)
     
     def accept(self):
         row, m = self.row, self.m
-        unit = self.fUnit.get_val()
-        m['Model'] = db.get_unit_val(unit=unit, field='Model') # add these values to display in table
+        unit = self.fUnit.val
+
+        # add these values to display in table
+        m['Model'] = db.get_unit_val(unit=unit, field='Model')
         m['Serial'] = db.get_unit_val(unit=unit, field='Serial')
-        dbt.print_model(model=row)
+
+        # create TSI row
+        if self.cb_tsi.isChecked():
+            row.StatusTSI = 'Open'
+            
+            if not self.mainwindow is None:
+                row.TSIAuthor = self.mainwindow.get_username()
 
         super().accept()
 
-        if self.cbFC.isChecked():
+        if self.cb_fc.isChecked():
             self.link_fc()
         
-        if self.cbEventFolder.isChecked():
+        if self.cb_eventfolder.isChecked():
             from . import eventfolders as efl
             ef = efl.get_eventfolder(minesite=row.MineSite)(e=row)
             ef.create_folder(ask_show=True)
@@ -356,7 +392,7 @@ class ChangeMinesite(InputForm):
     def accept(self):
         super().accept()
         if not self.parent is None:
-            self.parent.minesite = self.fMineSite.get_val()
+            self.parent.minesite = self.fMineSite.val
 
 class ComponentCO(InputForm):
     def __init__(self, parent=None, title='Select Component'):
@@ -372,7 +408,7 @@ class ComponentCO(InputForm):
     def accept(self):
         super().accept()
         df = self.df
-        val = self.fComponent.get_val()
+        val = self.fComponent.val
         print(val)
         floc = df[df.Combined==val].Floc.values[0]
         print(floc)
@@ -489,6 +525,10 @@ class DetailsView(QDialog):
         tbl = self.create_table(df=df)
         vLayout = QVBoxLayout(self)
         vLayout.addWidget(tbl)
+
+        # update box
+        textedit = QTextEdit()
+
         add_okay_cancel(dlg=self, layout=vLayout)
         
         f.set_self(vars())
@@ -514,7 +554,22 @@ class DetailsView(QDialog):
         
         tbl.resizeRowsToContents()
 
+        tbl.cellChanged.connect(self.onCellChanged)
         return tbl
+
+    @pyqtSlot(int, int)
+    def onCellChanged(self, irow, icol):
+        df, parent = self.df, self.parent
+        val = self.tbl.item(irow, icol).text()
+        row, col = df.index[irow], df.columns[icol]
+
+        # update database
+        dbtable = parent.get_dbtable(header=row) # transposed table
+        db_row = dbt.Row(df=df, col='Value', dbtable=dbtable, title=parent.title)
+
+        if f.isnum(val): val = float(val)
+
+        db_row.update_single(val=val, header=row)
 
 class FailureReport(QDialog):
     """
