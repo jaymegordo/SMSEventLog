@@ -1,5 +1,6 @@
 from .__init__ import *
 from .. import functions as f
+from distutils.util import strtobool
 
 # map obj: (getter, setter)
 global obj_vals
@@ -17,7 +18,7 @@ class FormFields(object):
     # simplify getting/setting all form field values
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
-        baseclass = self.__class__.__bases__[0] # eg QTextEdit
+        baseclass = self.__class__.__bases__[0] # eg PyQt5.QtWidgets.QTextEdit, (class object not str)
         type_ = obj_vals[baseclass]
         getter, setter = type_[0], type_[1] # currentText, setCurrentText
         f.set_self(vars())
@@ -36,7 +37,7 @@ class FormFields(object):
     def set_name(self, name):
         # give widget a unique objectName to save/restore state
         if hasattr(self, 'setObjectName'):
-            self.setObjectName(f'{name}_{self.baseclass}'.replace(' ', '').lower())
+            self.setObjectName(f'{name}_{self.baseclass.__name__}'.replace(' ', '').lower())
 
 class ComboBox(QComboBox, FormFields):
     def __init__(self, items=None, editable=True, *args, **kw):
@@ -76,6 +77,16 @@ class CheckBox(QCheckBox, FormFields):
         super().__init__(*args, **kw)
         # self.setChecked(checked) # maybe dont need this
         # self.setEnabled(enabled)
+    
+    @FormFields.val.setter
+    def val(self, value):
+        # windows saves bools as 'true'/'false'
+        if not value in (True, False):
+            try:
+                value = strtobool(value)
+            except:
+                value = False
+        self._set_val(value)
 
 class SpinBox(QSpinBox, FormFields):
     def __init__(self, range=None, *args, **kw):
