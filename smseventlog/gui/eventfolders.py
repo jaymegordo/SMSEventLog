@@ -169,6 +169,14 @@ class BaseMine(EventFolder):
     def equippath(self):
         return f'Fort McMurray/service/2. Customer Equipment Files/1. Suncor'
 
+class Elkford(EventFolder):   
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    @property
+    def equippath(self):
+        return 'Elkford/Equipment'
+
 def get_eventfolder(minesite=None):
     # Try to get minesite specific event folder, else use default
     return getattr(sys.modules[__name__], minesite, EventFolder)
