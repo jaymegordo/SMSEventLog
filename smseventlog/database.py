@@ -1,4 +1,5 @@
 from urllib import parse
+import yaml
 
 import pyodbc
 from sqlalchemy import exc, create_engine
@@ -25,8 +26,37 @@ def wrap_connection_funcs():
     for cls, func_name in funcs:
         wrap_single_class_func(cls=cls, func_name=func_name, err_func=e)
 
+def get_db_creds():
+    # if not check_db(): return
+    p = f.datafolder / 'db.yaml'
+    with open(p) as file:
+        m = yaml.full_load(file)
+    
+    m['driver'] = None
+    avail_drivers = pyodbc.drivers()
+    preferred_drivers = [
+        'ODBC Driver 17 for SQL Server',
+        'SQL Server',
+        'SQL Server Native Client 11.0']  
+
+    # compare preferred drivers with existing, loop until match
+    for driver in preferred_drivers:
+        if driver in avail_drivers:
+            m['driver'] = f'{{{driver}}}'
+            break
+    
+    # raise error to user
+    if not m['driver'] is None:
+        print(m['driver'])
+        return m
+    else:
+        from .gui.dialogs import msg_simple
+        msg_simple(icon='critical', msg="No database drivers available, please download 'ODBC Driver 17 for SQL Server' (or newer) from:\n\nhttps://www.microsoft.com/en-us/download/details.aspx?id=56567\n\n(msodbcsql.msi - 4.5mb file is 64bit driver installer)")
+
+        return None
+
 def str_conn():
-    m = f.get_db()
+    m = get_db_creds()
     db_string = ';'.join('{}={}'.format(k, v) for k, v in m.items())
     params = parse.quote_plus(db_string)
     return f'mssql+pyodbc:///?odbc_connect={params}'
@@ -35,9 +65,13 @@ def _create_engine():
     # sqlalchemy.engine.base.Engine
     # connect_args = {'autocommit': True}
     # , isolation_level="AUTOCOMMIT"
-    engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
-    wrap_connection_funcs()
-    return engine
+    try:
+        engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
+        wrap_connection_funcs()
+        return engine
+    except:
+        # any errors reading db_creds results in None engine
+        return None
 
 def e(func):
     # NOTE not sure if any of these work yet
@@ -127,8 +161,10 @@ class DB(object):
         return self._session
 
     def close(self):
+        if self._engine is None: return
+
         try:
-            self.engine.raw_connection().close()
+            self._engine.raw_connection().close()
         except:
             log.error('Error closing raw_connection')
 
