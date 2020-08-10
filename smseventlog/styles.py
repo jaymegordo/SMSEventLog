@@ -43,12 +43,36 @@ def alternating_rows_outlook(style, outlook=True):
 
     return style
 
-def add_table_style(style, s):
+def add_table_style(style, s, do=True):
+    if not do: return style
+
     if not style.table_styles is None:
         style.table_styles.extend(s)
     else:
         style.set_table_styles(s)
     return style
+
+def add_table_attributes(style, s, do=True):
+    # NOTE this may not work with multiple of same attrs eg style=red, style=10px
+    if not do: return style
+
+    attrs = style.table_attributes
+    if not attrs is None:
+        s = f'{attrs} {s}'
+        # print(s)
+
+    style.set_table_attributes(s)
+    return style
+
+def attrs_to_string(m):
+    # convert dict of table attrs to string
+    return
+
+def string_to_attrs(s):
+    # convert string of table attrs to dict
+    # split on '=' and make dict of {odds: evens}
+    lst = s.split('=')
+    return dict(zip(lst[::2], lst[1::2]))
 
 def set_column_style(mask, props):
     # loop columns in mask, get index, set column style
@@ -110,7 +134,7 @@ def default_style(df, outlook=False):
                     subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
         .pipe(add_table_style, s) \
         .pipe(alternating_rows_outlook, outlook=outlook) \
-        .set_table_attributes(table_attrs) \
+        .pipe(add_table_attributes, s=table_attrs) \
         .set_na_rep('')
     
     return style
@@ -210,8 +234,8 @@ def highlight_val(df, val, bg_color, target_col, t_color=None, other_cols=None, 
 
     return df1
 
-def pipe_highlight_alternating(style, color, theme):
-    return style.apply(highlight_alternating, color=color, theme=theme)
+def pipe_highlight_alternating(style, color, theme, subset=None):
+    return style.apply(highlight_alternating, subset=subset, color=color, theme=theme)
 
 def highlight_alternating(s, color='navyblue', theme='light'):
     # loop df column and switch active when value changes. Kinda ugly but works.

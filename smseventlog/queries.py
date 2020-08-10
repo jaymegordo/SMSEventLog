@@ -99,6 +99,7 @@ class QueryBase(object):
     def __init__(self, parent=None, minesite=None, da=None, theme='light'):
         formats, default_dtypes, stylemap_cols = {}, {}, {}
         background_gradients = []
+        _minesite_default = 'FortHills'
         # color_good = 240 if theme == 'light' else 120
         cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         sql, df = None, pd.DataFrame()
@@ -136,6 +137,8 @@ class QueryBase(object):
             return self._minesite
         elif not self.parent is None:
             return self.parent.minesite
+        else:
+            return self._minesite_default
     
     @minesite.setter
     def minesite(self, val):
@@ -324,7 +327,7 @@ class ComponentCOReport(ComponentCOBase):
             dict(vals=dict(DateAdded=d_rng), term='between'),
             dict(vals=dict(MineSite=minesite), table=self.b)])
     
-    def update_style(self, style):
+    def update_style(self, style, **kw):
         df = style.data
         subset = pd.IndexSlice[df['Life Achieved'].notnull(), 'Life Achieved']
         return style.background_gradient(cmap=self.cmap.reversed(), subset=subset, axis=None)
@@ -472,7 +475,7 @@ class FCSummary(FCBase):
 
         return df      
 
-    def update_style(self, style):
+    def update_style(self, style, **kw):
         # have to split style funcs into pt 1/2 for report vs gui
         return style \
             .pipe(self.update_style_part_1) \
@@ -513,7 +516,7 @@ class FCSummaryReport(FCSummary):
         df.drop(columns=['MineSite', 'Action Reqd', 'Part Number', 'Parts Avail', 'Comments'], inplace=True)
         return df
     
-    def update_style(self, style):
+    def update_style(self, style, **kw):
         return style.pipe(self.update_style_part_1)
 
     def exec_summary(self):
@@ -546,7 +549,7 @@ class FCSummaryReport2(FCSummary):
         self.df = df
         return df
 
-    def update_style(self, style):
+    def update_style(self, style, **kw):
         # rotate unit column headers vertical
         unit_col = 2
         s = []
@@ -787,6 +790,7 @@ class AvailSummary(QueryBase):
         return (df[col1] * df[col2]).sum() / df[col2].sum()
 
     def get_totals(self, df, totals_name='Total'):
+        df = df[df.Unit != 'F300']
         m = {
             'Model': totals_name,
             'Unit': df.Unit.count(),
@@ -812,22 +816,24 @@ class AvailSummary(QueryBase):
     def highlight_greater(self, style):
         return style.apply(st.highlight_greater, subset=['MA', 'Unit'], axis=None, ma_target=style.data['MA Target'])
 
-    def update_style(self, style):
-        # cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
-        # cmap = ListedColormap(sns.color_palette('Reds', n_colors=21))
-        # self.background_gradients.extend([
-        #     dict(cmap=cmap, subset=['Total', 'SMS', 'Suncor'])])
-
+    def update_style(self, style, outlook=False, **kw):
         df = style.data
         cmap = LinearSegmentedColormap.from_list('red_white', ['white', '#F8696B'])
         
-        u = df.index.get_level_values(0)
+        # u = df.index.get_level_values(0)
         # subset = pd.IndexSlice[u[:-1], ['Total', 'SMS', 'Suncor']] # u[:-1] to exclude totals row
         subset = ['Total', 'SMS', 'Suncor']
+
+        # TODO need to fix this, parse style= better
+        if not outlook:
+            style.set_table_attributes('style="border-collapse: collapse; font-size: 10px;"')
+        else:
+            style.set_table_attributes('style="border-collapse: collapse;"')
 
         return style \
             .background_gradient(cmap=cmap, subset=subset, axis=None) \
             .pipe(self.highlight_greater) \
+            # .pipe(st.add_table_attributes, s='style="font-size: 10px;"', do=not outlook)
 
     def df_totals(self):
         # calc totals for ahs/staffed/all, return df
@@ -835,7 +841,8 @@ class AvailSummary(QueryBase):
         df = self.df
         data = []
         data.extend([self.get_totals(
-            df=df[(df.Operation==name) & (df.Unit!='F300')], totals_name=name) for name in ('Staffed', 'AHS')])
+            df=df[df.Operation==name], totals_name=name) for name in ('Staffed', 'AHS')])
+
         data.append(self.get_totals(df=df))
 
         return pd.DataFrame(data).rename(columns=dict(Model='Operation'))
@@ -884,7 +891,7 @@ class AvailHistory(QueryBase):
         df = df[['Period', 'SumSMS', 'MA Target', 'MA', 'Target Hrs Variance', 'PA']]
         return df
     
-    def update_style(self, style):
+    def update_style(self, style, **kw):
         return style \
             .apply(st.highlight_greater, subset=['MA', 'Target Hrs Variance'], axis=None, ma_target=style.data['MA Target']) \
             .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
@@ -951,7 +958,7 @@ class Availability(AvailRawData):
                 cols=cols_gradient,
                 func=self.background_gradient) for col in cols_gradient})
         
-        # NOTE not used yet, maybe recalc on sorting/filtering in the future
+        # reapplied to 'Unit' when column filtered with 'filter_assigned'. could also do sorting?
         self.stylemap_cols.update(
             {'Unit': dict(
                 cols=['Unit'],
@@ -1008,7 +1015,7 @@ class AvailShortfalls(AvailBase):
         
         f.set_self(vars())
 
-    def update_style(self, style):
+    def update_style(self, style, **kw):
         cmap = LinearSegmentedColormap.from_list('red_white', ['white', '#F8696B'])
         
         return style \
@@ -1044,8 +1051,8 @@ class AvailShortfalls(AvailBase):
         return df
 
 class FrameCracks(EventLogBase):
-    def __init__(self, da=None):
-        super().__init__(da=da)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
         a, b = self.a, self.b
         cols = [a.Unit, a.DateAdded, a.Title, a.SMR, a.TSIPartName, a.TSIDetails, a.WOComments, a.TSINumber, 
         a.SuncorWO]
@@ -1087,7 +1094,7 @@ class OilSamples(QueryBase):
         df.testResults = df.testResults.apply(json.loads) # deserialize testResults from string > list
         return df.set_index('labTrackingNo')
     
-    def update_style(self, style):
+    def update_style(self, style, **kw):
         style.set_table_attributes('class="pagebreak_table"')
 
         c = f.config['color']['bg']
