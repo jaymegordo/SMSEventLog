@@ -6,6 +6,7 @@ from .. import functions as f
 from .. import queries as qr
 from .. import styles as st
 from . import dialogs as dlgs
+from . import errors as err
 from . import gui as ui
 from .__init__ import *
 from .datamodel import TableModel
@@ -440,7 +441,7 @@ class TableWidget(QWidget):
         return self.mainwindow.minesite if not self.mainwindow is None else 'FortHills' # default for testing
     
     def add_action(self, name, func, shortcut=None, btn=False):
-        act = QAction(name, self, triggered=func)
+        act = QAction(name, self, triggered=err.e(func))
 
         if not shortcut is None:
             act.setShortcut(QKeySequence(shortcut))
@@ -585,6 +586,7 @@ class EventLogBase(TableWidget):
         view.highlight_vals.update({
             'closed': 'goodgreen',
             'open': 'bad',
+            'action required': 'bad',
             'complete': 'goodgreen',
             'work in progress': 'lightorange',
             'waiting customer': 'lightorange',
@@ -716,7 +718,7 @@ class TSI(EventLogBase):
         super().__init__(parent=parent)
         view = self.view
         view.mcols['disabled'] = ('WO',)
-        view.col_widths.update({'Details': 400, 'TSI No': 110})
+        view.col_widths.update({'Details': 400, 'TSI No': 120})
 
         self.add_button(name='Create Failure Report', func=self.create_failure_report)
         self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
@@ -1110,6 +1112,8 @@ class Availability(TableWidget):
         else:
             model.reset()
             self.filter_state = False
+        
+        model.set_stylemap(col='Unit')
 
         if not name_index is None:
             self.view.select_by_nameindex(name_index=name_index)

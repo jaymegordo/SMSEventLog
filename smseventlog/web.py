@@ -71,6 +71,9 @@ class Web(object):
                 'directory_upgrade': True}
         options.add_experimental_option('prefs', prefs)
 
+        # disables the 'loading of internal extensions disabled by admin' warning, but stops window resizing
+        options.add_experimental_option('useAutomationExtension', False)
+
         return options
 
     def create_driver(self, browser='Chrome'):
@@ -137,11 +140,16 @@ class Web(object):
             print(f'Failed waiting for: {cond}')
             return None
 
-    def set_val(self, element, val):
+    def set_val(self, element, val, disable_check=False):
         driver = self.driver
         val = str(val).replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
         try:
             driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
+
+            # some form fields (eg tsi date) dont work to set this way^, try setting with keys
+            if not disable_check and not element.get_property('value') == val:
+                element.send_keys(val)
+
         except:
             print(f'couldn\'t set value: {val}')
             element.send_keys(val)
@@ -391,7 +399,7 @@ class TSIWebPage(Web):
                 self.set_val(element, self.username)
                 
                 element = driver.find_element_by_id('Password')
-                self.set_val(element, self.password)
+                self.set_val(element, self.password, disable_check=True)
 
                 driver.find_element_by_id('btnSubmit').submit()
             finally:

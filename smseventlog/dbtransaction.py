@@ -94,7 +94,7 @@ class Row():
 
             for pk in pks:
                 header = f.convert_header(title=title, header=pk, inverse_=True)
-                if i:
+                if not i is None:
                     keys[pk] = df.iloc[i, df.columns.get_loc(header)] # get key value from df, key must exist in df
                 elif col:
                     keys[pk] = df.loc[header, col] #transposed df
@@ -145,7 +145,7 @@ class Row():
         except:
             operation = 'update' if not delete else 'delete'
             msg = f'Couldn\'t {operation} value: {vals}'
-            f.send_error(msg)
+            f.send_error(msg=msg, display=True)
             log.error(msg)
     
     def create_model_from_db(self):

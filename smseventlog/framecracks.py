@@ -8,6 +8,14 @@ from . import queries as qr
 from .__init__ import *
 from .database import db
 
+"""
+    1. Load frame cracks from sap (load_framecracks.vbs) + save
+    2. Make sure SMS data has been categorized front, mid, rear from eventlog
+    3. run pre_process_framecracks (copies merged data to clipboard)
+    4. paste data back to working xlsx file and remove duplicates/split rows as needed
+    5. Paste WO numbers back into EventLog to merge properly in future
+    6. Once categorization complete, reset vals in _merge column to 'old'
+"""
 
 def load_df_smr(d_lower=None):
     if d_lower is None:

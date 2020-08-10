@@ -111,7 +111,7 @@ class Report(object):
             m_fmt.update(query.formats)
 
             if hasattr(query, 'update_style'):
-                style = query.update_style(style)
+                style = query.update_style(style, outlook=outlook)
 
         elif not style_func is None: # only needed for one df rn
             style = style_func(style)
@@ -243,7 +243,9 @@ class FleetMonthlyReport(Report):
             exec_summary=self.exec_summary,
             d_rng=self.d_rng)
 
-        html_out = template.render(template_vars)
+        html_out = template.render(template_vars) \
+            .replace('Executive Summary', '')
+
         body = f'{f.greeting()}{html_out}'
         subject = self.title
 
@@ -509,7 +511,7 @@ class AvailBase(Section):
         sec = SubSection('Fleet Availability', self) \
             .add_df(
                 query=summary,
-                caption='Unit availability performance vs MA targets. Units highlighted blue met the target. Columns [Total, SMS, Suncor] highlighted darker red = worse performance.') \
+                caption='Unit availability performance vs MA targets. Units highlighted blue met the target. Columns [Total, SMS, Suncor] highlighted darker red = worse performance.<br>*Unit F300 excluded from summary calculations.') \
             .add_df(
                 name='Fleet Availability YTD', 
                 query=summary_ytd, 

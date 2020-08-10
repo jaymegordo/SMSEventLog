@@ -186,7 +186,7 @@ class EmailList(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['minesite']
+        features = ['minesite_config']
         self.add_features(features=features)
 
 class Availability(RefreshTable):

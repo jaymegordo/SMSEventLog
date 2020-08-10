@@ -1,4 +1,3 @@
-from distutils.util import strtobool
 import inspect
 
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView
@@ -297,7 +296,7 @@ class AddEvent(AddRow):
                 
             else:
                 self.cb_fc.setChecked(False)
-    
+       
     def accept(self):
         row, m = self.row, self.m
         unit = self.fUnit.val
@@ -312,6 +311,9 @@ class AddEvent(AddRow):
             
             if not self.mainwindow is None:
                 row.TSIAuthor = self.mainwindow.get_username()
+        
+        # Make sure title is good
+        self.fTitle.val = f.nice_title(self.fTitle.val)
 
         super().accept()
 

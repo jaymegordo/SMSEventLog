@@ -45,7 +45,8 @@ from smseventlog.gui import (
     dialogs as dlgs,
     refreshtables as rtbls,
     tables as tbls,
-    datamodel as dm)
+    datamodel as dm,
+    formfields as ff)
 
 from smseventlog.dbmodel import *
 from smseventlog.database import db

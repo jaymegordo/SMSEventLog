@@ -47,15 +47,17 @@ def e(func):
         except:
             print(f'func: {func.__name__}, args: {args}, kwargs: {kwargs}')
             f.send_error()
-            
-            # show error message to user
-            from .dialogs import BiggerBox
-            msg = f'Could not run function:\n\n{func.__name__}\n'
-            dlg = BiggerBox(icon=QMessageBox.Critical, text=msg) 
-            dlg.setWindowTitle('Error')
-            dlg.setDetailedText(f.format_traceback())
-            dlg.exec_()
+            display_error(func_name=func.__name__)
             
             # logger.exception(err)
             # raise  # re-raise the exception
     return wrapper
+
+def display_error(func_name=None):
+    # show error message to user
+    from .dialogs import BiggerBox
+    msg = f'Could not run function:\n\n{func_name}\n'
+    dlg = BiggerBox(icon=QMessageBox.Critical, text=msg) 
+    dlg.setWindowTitle('Error')
+    dlg.setDetailedText(f.format_traceback())
+    dlg.exec_()
