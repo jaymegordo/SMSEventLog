@@ -1,7 +1,8 @@
 import base64
-import json
-import traceback
 import functools
+import json
+import re
+import traceback
 
 import pandas as pd
 import six
@@ -191,7 +192,15 @@ def getattr_chained(obj, methods):
         return obj
     except:
         return None
+
+def nice_title(title):
+    # Remove slashes, capitalize first letter, avoid acronyms
+    excep = 'the a on in of an'.split(' ')
+    title = re.sub('[\\\/.]', '', title)
+
+    return ' '.join(f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w for w in title.split(' '))  
     
+
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
     # https://github.com/pandas-dev/pandas/issues/23955
@@ -314,16 +323,16 @@ def decode(key, string):
 
 def check_db():
     # Check if db.yaml exists, if not > decrypt db_secret and create it
-    from .gui import gui as ui
-    p = Path(datafolder) / 'db.yaml'
+    p = datafolder / 'db.yaml'
     if p.exists():
         return True
     else:
-        p2 = Path(datafolder) / 'db_secret.txt'
+        from .gui import dialogs as dlgs
+        p2 = datafolder / 'db_secret.txt'
 
         # Prompt user for pw
         msg = 'Database credentials encrypted, please enter password.\n(Contact {} if you do not have password).\n\nPassword:'.format(config['Email'])
-        ok, key = ui.inputbox(msg=msg)
+        ok, key = dlgs.inputbox(msg=msg)
         if ok:
             with open(p2, 'rb') as file:
                 secret_encrypted = file.read()
@@ -335,23 +344,17 @@ def check_db():
 
             except:
                 log.error('incorrect password!')
-                # ui.msg_simple(msg='Incorrect password!', icon='Critical')
-                return
+                dlgs.msg_simple(msg='Incorrect password!', icon='Critical')
+                return False
 
             with open(p, 'w+') as file:
                 yaml.dump(m2, file)
 
             return True
 
-def get_db():
-    p = Path(datafolder) / 'db.yaml'
-    with open(p) as file:
-        m = yaml.full_load(file)
-    return m
-
 def encode_db(key):
-    m = get_db()
-    p = Path(datafolder) / 'db_secret.txt'
+    m = get_db_creds()
+    p = datafolder / 'db_secret.txt'
     with open(p, 'wb') as file:
         file.write(encode(key=key, string=json.dumps(m)))
     return True
@@ -388,7 +391,7 @@ def format_traceback():
     
     return msg
 
-def send_error(msg='', prnt=False, func=None):   
+def send_error(msg='', prnt=False, func=None, display=False):   
     
     err = format_traceback()
 
@@ -401,6 +404,10 @@ def send_error(msg='', prnt=False, func=None):
         print(err)
     else:
         discord(msg=err, channel='err')
+
+    if display:
+        from .gui import errors as err
+        err.display_error()
 
 def create_logger(func=None):
     # not used yet
