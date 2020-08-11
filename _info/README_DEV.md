@@ -83,3 +83,13 @@ v
                     with open(path) as fin:
                         data = fin.read()
                         template = env.from_string(data)```
+        
+        2. Weasyprint / Cairosvg
+            * VERSION fails to load (fix init in both)
+            * `weasyprint/__init__.py` - Line 24 - add:
+                ```
+                try:
+                    VERSION = __version__ = (ROOT / 'VERSION').read_text().strip()
+                except:
+                    VERSION = __version__ = ''
+                ```
