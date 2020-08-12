@@ -200,6 +200,16 @@ class Report(object):
         HTML(string=html_out, base_url=str(p_reports)).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
 
         return p
+    
+    def render_html(self, p_html, p_out=None):
+        # for testing pre-created html
+        if p_out is None:
+            p_out = Path.home() / 'desktop/test.pdf'
+
+        with open(p_html, 'r') as file:
+            html_in = file.read()
+
+        HTML(string=html_in, base_url=str(p_reports)).write_pdf(p_out, stylesheets=[p_reports / 'report_style.css'])
 
 class TestReport(Report):
     def __init__(self):
@@ -331,6 +341,10 @@ class FailureReport(Report):
     def __init__(self, title=None, header_data=None, body=None, pictures=None, e=None):
         super().__init__()
         self.html_template = 'failure_report.html'
+
+        # need to make image path 'absolute' with file:///
+        if not pictures is None and f.is_win():
+            pictures = [f'file:///{pic}' for pic in pictures]
 
         self.header_fields = [
             ('Failure Date', 'Work Order'),
