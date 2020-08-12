@@ -183,9 +183,12 @@ class SuncorConnect(Web):
 
         user = Path.home().name
         if user == 'Jayme':
-            self.username = 'jagordon'
-            self.password = 'SMSrel0)'
-            self.token_pin = '1234'
+            with open(f.datafolder / 'apikeys/credentials.yaml') as file:
+                m = yaml.full_load(file)['sap']
+                
+            self.username = m['username']
+            self.password = m['password']
+            self.token_pin = m['token_pin']
 
     def get_options(self):
         # need to trick Suncor Connect to thinking chrome is safari
