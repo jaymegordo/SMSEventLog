@@ -8,6 +8,7 @@ from .. import styles as st
 from . import dialogs as dlgs
 from . import errors as err
 from . import gui as ui
+from . import eventfolders as efl
 from .__init__ import *
 from .datamodel import TableModel
 from .delegates import (AlignDelegate, CellDelegate, ComboDelegate,
@@ -39,8 +40,8 @@ class TableView(QTableView):
         # self.activated.connect(self.double_click_enter)
 
         self.mcols = dd(tuple)
-        col_widths = {'Title': 150, 'Part Number': 150}
-        highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, {}, {} # NOTE use all lowercase!
+        col_widths = {'Title': 150, 'Part Number': 150, 'Failure Cause': 300}
+        highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, dd(list), {} # NOTE use all lowercase!
         colors = f.config['color']
 
         query = parent.query
@@ -118,7 +119,7 @@ class TableView(QTableView):
         # add same col trigger func to multiple cols
         if not isinstance(cols, list): cols = [cols]
         for col in cols:
-            self.col_func_triggers[col] = func
+            self.col_func_triggers[col].append(func)
 
     def highlight_alternating(self, df, row, col, role, **kw):
         # use count of unique values mod 2 to highlight alternating groups of values
@@ -320,6 +321,13 @@ class TableView(QTableView):
         if i is None: return
         return self.model().create_model(i=i)
     
+    def model_from_activerow_db(self):
+        # create model from db (to access all fields, eg MineSite)
+        # NOTE this relies on MineSite being a field in Event Log > can also use db.get_df_unit() for model/minesite
+        row = self.row_from_activerow()
+        if row is None: return
+        return row.create_model_from_db() # TODO this won't work with mixed tables eg FCSummary
+    
     def df_from_activerow(self):
         i = self.active_row_index()
         if i is None: return
@@ -402,6 +410,11 @@ class TableView(QTableView):
     def get_center_cols(self, *a, **kw):
         return self.mcols['center']
 
+    def remove_row(self, i=None):
+        # default, just remove row from table view
+        if i is None: i = self.active_row_index()
+        self.model().removeRows(i=i)
+
 
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
@@ -409,6 +422,7 @@ class TableWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         name = self.__class__.__name__
+        self.name = name
         self.title = f.config['TableName']['Class'][name]
 
         self.mainwindow = ui.get_mainwindow()
@@ -433,13 +447,27 @@ class TableWidget(QWidget):
         f.set_self(vars())
 
         self.add_button(name='Refresh', func=self.show_refresh)
-        self.add_button(name='Add New', func=self.show_addrow)
-        # self.add_button(name='Resize Rows', func=view.resizeRowsToContents)
     
     @property
     def minesite(self):
         return self.mainwindow.minesite if not self.mainwindow is None else 'FortHills' # default for testing
     
+    @property
+    def e(self):
+        return self.view.model_from_activerow()
+
+    @property
+    def e_db(self):
+        return self.view.model_from_activerow_db()
+
+    @property
+    def i(self):
+        return self.view.active_row_index()
+
+    @property
+    def row(self):
+        return self.view.row_from_activerow()
+        
     def add_action(self, name, func, shortcut=None, btn=False):
         act = QAction(name, self, triggered=err.e(func))
 
@@ -520,7 +548,7 @@ class TableWidget(QWidget):
             dlgs.msg_simple(msg='No rows returned in query!', icon='warning')
 
     def get_dbtable(self, header=None):
-        # return dbtable for specific header
+        # return dbtable (definition) for specific header
         m = self.db_col_map
         dbtable = self.dbtable if header is None or not header in m else getattr(dbm, m[header])
         return dbtable
@@ -576,63 +604,120 @@ class TableWidget(QWidget):
             if dlgs.msgbox(msg=msg, yesno=True):
                 fl.open_folder(p=p, check_drive=False)
 
+    def remove_row(self):
+        # default, just remove from table view (doesn't do anything really)
+        self.view.remove_row()
+
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.highlight_funcs['Status'] = view.highlight_by_val
-        view.mcols['hide'] = ('UID',)
-        view.mcols['disabled'] = ('Model', 'Serial')
-        view.highlight_vals.update({
-            'closed': 'goodgreen',
-            'open': 'bad',
-            'action required': 'bad',
-            'complete': 'goodgreen',
-            'work in progress': 'lightorange',
-            'waiting customer': 'lightorange',
-            'monitor': 'lightyellow',
-            'planned': 'lightyellow',
-            'waiting parts (up)': 'lightyellow',
-            'missing info': 'lightyellow',
-            'waiting parts (down)': 'bad',
-            'x': 'good'})
+        self.add_button(name='Add New', func=self.show_addrow)
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+            self.add_col_funcs(['Work Order', 'Title', 'Date Added'], self.update_eventfolder_path)
+            self.add_col_funcs(['Status'], self.parent.close_event)
+            self.highlight_funcs['Status'] = self.highlight_by_val
+            self.mcols['hide'] = ('UID',)
+            self.mcols['disabled'] = ('Model', 'Serial')
+            self.highlight_vals.update({
+                'closed': 'goodgreen',
+                'open': 'bad',
+                'action required': 'bad',
+                'complete': 'goodgreen',
+                'work in progress': 'lightorange',
+                'waiting customer': 'lightorange',
+                'monitor': 'lightyellow',
+                'planned': 'lightyellow',
+                'waiting parts (up)': 'lightyellow',
+                'missing info': 'lightyellow',
+                'waiting parts (down)': 'bad',
+                'x': 'good'})
+            
+            self.formats.update({
+                'Unit SMR': '{:,.0f}',
+                'Comp SMR': '{:,.0f}',
+                'Part SMR': '{:,.0f}',
+                'SMR': '{:,.0f}'})
+
+            items = f.config['Lists'][f'{self.parent.name}Status']
+            self.set_combo_delegate(col='Status', items=items)
         
-        view.formats.update({
-            'Unit SMR': '{:,.0f}',
-            'Comp SMR': '{:,.0f}',
-            'Part SMR': '{:,.0f}',
-            'SMR': '{:,.0f}'})
+        def update_eventfolder_path(self, index, val_prev, **kw):
+            # update event folder path when Title/Work Order/Date Added changed
+            e = self.e
+            minesite = db.get_unit_val(e.Unit, 'MineSite')
 
-        items = f.config['Lists'][f'{self.name}Status']
-        view.set_combo_delegate(col='Status', items=items)
-    
-    def view_folder(self):
-        from . import eventfolders as efl
-        view = self.view
+            # get header from index
+            header = index.model().headerData(i=index.column()).replace(' ', '').lower()
+            if header == 'codate': header = 'dateadded' # little hack for component CO table
 
-        row = view.row_from_activerow()
+            ef = efl.get_eventfolder(minesite=minesite)(
+                e=e, table_model=self.model(), irow=index.row(), table_widget=self.parent) \
+                .update_eventfolder_path(vals={header: val_prev})
+
+    def close_event(self, index, **kw):
+        # set DateCompleted to current date when status change to 'Closed' or 'Completed' (EL + WO only)
+        # NOTE would be more ideal to queue change at start of setData and update all vals in bulk
+        # NOTE could auto link those changes through setData eg auto_update_sibling_table
+        if not self.title in ('Event Log', 'Work Orders'): return
+
+        view, e, row = self.view, self.e, self.row
         if row is None: return
-        e = row.create_model_from_db() # TODO: this won't work with mixed tables eg FCSummary
-        # dbt.print_model(e)
+
+        if index.data() in ('Closed', 'Complete'):
+            # update both StatusEvent and StatusWO in db
+            d = dt.now().date()
+            vals = dict(
+                StatusEvent='Complete',
+                StatusWO='Closed',
+                DateCompleted=d)
+            
+            # set dateclosed in table view but don't update
+            model = index.model()
+            update_index = index.siblingAtColumn(model.get_col_idx('Date Complete'))
+            model.setData(index=update_index, val=d, triggers=False, update_db=False)
+
+            row.update(vals=vals)
+            self.mainwindow.update_statusbar(
+                msg=f'Event closed: {e.Unit} - {d.strftime("%Y-%m-%d")} - {e.Title} ')
+        
+    def view_folder(self):
+        view, i, e = self.view, self.i, self.e_db 
+        minesite = db.get_unit_val(e.Unit, 'MineSite')
 
         # try to get minesite-specific EventFolder, if not use default
-        efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model()).show()
+        efl.get_eventfolder(minesite=minesite)(e=e, irow=i, table_model=view.model()).show()
+    
+    def remove_row(self):
+        # remove selected event from table and delete from db
+        view, e, row = self.view, self.e, self.row
+        if row is None: return
 
+        m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
+
+        msg = f'Are you sure you would like to permanently delete the event:\n\n{f.pretty_dict(m)}'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            row.update(delete=True)
+            view.remove_row(i=row.i)
+            self.mainwindow.update_statusbar(msg=f'Event removed from database: {e.Unit} - {e.Title}')
+    
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.add_action(name='Email Passover', func=self.email_passover, btn=True)
 
-    class View(TableView):
+    class View(EventLogBase.View):
         def __init__(self, parent):
             super().__init__(parent=parent)
-            self.mcols['disabled'] = ('Title',) # TODO: remove this....? add title rename func
             self.col_widths.update(dict(Passover=50, Description=800, Status=100))
             self.highlight_funcs['Passover'] = self.highlight_by_val
 
         def get_style(self, df=None, outlook=False):
             return super().get_style(df=df, outlook=outlook) \
                 .pipe(st.set_column_widths, vals=dict(Status=80, Description=400, Title=100), outlook=outlook)
+
 
     def email_passover(self):
         df = self.view.model().df
@@ -681,26 +766,35 @@ class EventLog(EventLogBase):
 class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view 
-        view.col_widths.update({
-            'Work Order': 90,
-            'Customer WO': 80,
-            'Customer PO': 90,
-            'Comp CO': 50,
-            'Comments': 400,
-            'Seg': 30})
-        
-        view.highlight_funcs['Pics'] = view.highlight_pics
 
-        lists = f.config['Lists']
-        view.set_combo_delegate(col='Wrnty', items=lists['WarrantyType'])
-        view.set_combo_delegate(col='Comp CO', items=lists['TrueFalse'])
+    class View(EventLogBase.View):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+            self.col_widths.update({
+                'Work Order': 90,
+                'Customer WO': 80,
+                'Customer PO': 90,
+                'Comp CO': 50,
+                'Comments': 400,
+                'Seg': 30})
+            
+            self.highlight_funcs['Pics'] = self.highlight_pics
+            # self.highlight_funcs['Comp CO'] = self. TODO finish this
+
+            lists = f.config['Lists']
+            self.set_combo_delegate(col='Wrnty', items=lists['WarrantyType'])
+            self.set_combo_delegate(col='Comp CO', items=lists['TrueFalse'])
+
+    
+        def set_component(self, index):
+            # update floc in db when CompCO set to True
+            if index.data() == True: pass
 
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
     
-    class View(TableView):
+    class View(EventLogBase.View):
         def __init__(self, parent):
             super().__init__(parent=parent)
 
@@ -716,14 +810,31 @@ class ComponentCO(EventLogBase):
 class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.mcols['disabled'] = ('WO',)
-        view.col_widths.update({'Details': 400, 'TSI No': 120})
 
         self.add_button(name='Create Failure Report', func=self.create_failure_report)
         self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
         self.add_button(name='Refresh Open (User)', func=self.refresh_allopen_user)
+    
+    def remove_row(self):
+        view, e, row = self.view, self.e, self.row
+        if row is None: return
+
+        m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
+
+        msg = f'Are you sure you would like to remove the tsi for:\n\n{f.pretty_dict(m)}\n\n \
+            (This will only set the TSI Status to Null, not delete the event).'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            row.update(vals=dict(StatusTSI=None))
+            view.remove_row(i=row.i)
+            self.mainwindow.update_statusbar(msg=f'TSI removed: {e.Unit} - {e.Title}')
+
+    class View(EventLogBase.View):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+            # self.mcols['disabled'] = ('WO',)
+            self.col_widths.update({'Details': 400, 'TSI No': 120})
+        
     
     def refresh_allopen_user(self):
         username = self.mainwindow.username
@@ -752,9 +863,7 @@ class TSI(EventLogBase):
     def fill_tsi_webpage(self):
         # TODO make this secondary process
         from .. import web
-        view = self.view
-        e = view.row_from_activerow().create_model_from_db()
-        e2 = view.model_from_activerow()
+        view, e, e2 = self.view, self.e_db, self.e
         
         d = e.DateAdded.strftime('%-m/%-d/%Y')
 
@@ -801,7 +910,7 @@ class TSI(EventLogBase):
         e = row.create_model_from_db()
 
         # get event folder
-        ef = efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, model=view.model())
+        ef = efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, table_model=view.model())
 
         # get pics, body text from dialog
         text = dict(
@@ -829,7 +938,6 @@ class TSI(EventLogBase):
         if dlgs.msgbox(msg=msg, yesno=True):
             fl.open_folder(p_rep)
 
-
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -842,6 +950,25 @@ class UnitInfo(TableWidget):
             'Current SMR': '{:,.0f}',
             'Engine Serial': '{:.0f}'})
 
+        self.add_button(name='Add New', func=self.show_addrow)
+    
+    def show_addrow(self):
+        dlg = dlgs.AddUnit(parent=self)
+        dlg.exec_()
+
+    def remove_row(self):
+        # remove selected unit from table and delete from db
+        view, e, row = self.view, self.e, self.row
+        if row is None: return
+
+        m = dict(Unit=e.Unit, Model=e.Model, MineSite=e.MineSite)
+
+        msg = f'Are you sure you would like to permanently delete the unit:\n\n{f.pretty_dict(m)}'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            row.update(delete=True)
+            view.remove_row(i=row.i)
+            self.mainwindow.update_statusbar(msg=f'Unit removed from database: {e.Unit}')
+
 class FCBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -853,10 +980,10 @@ class FCBase(TableWidget):
         if not fl.drive_exists():
             return
 
-        row = self.view.model_from_activerow()
-        if row is None: return
+        e = self.e
+        if e is None: return
 
-        p = f.drive / f.config['FilePaths']['Factory Campaigns'] / row.FCNumber
+        p = f.drive / f.config['FilePaths']['Factory Campaigns'] / e.FCNumber
 
         if not p.exists():
             msg = f'FC folder: \n\n{p} \n\ndoes not exist, create now?'
@@ -960,8 +1087,14 @@ class EmailList(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
+    def show_addrow(self):
         # TODO Add email
+        dlg = dlgs.AddEmail(parent=self)
+        dlg.exec_()
+    
+    def delete_email(self):
         # TODO delete email
+        return
 
 class Availability(TableWidget):
     def __init__(self, parent=None):
@@ -1018,7 +1151,7 @@ class Availability(TableWidget):
                 .pipe(self.parent.query.background_gradient, theme=theme, do=outlook) \
                 .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color='navyblue')
 
-        def update_duration(self, index):
+        def update_duration(self, index, **kw):
             # Set SMS/Suncor duration if other changes
             model = index.model()
             col_name = model.headerData(i=index.column())
@@ -1085,7 +1218,6 @@ class Availability(TableWidget):
         
     def save_assignments(self):
         model = self.view.model()
-        
         df = model.df
         df = df[df.Assigned==0]
 
