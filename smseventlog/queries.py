@@ -247,7 +247,7 @@ class EventLog(EventLogBase):
         super().__init__(**kw)
         a, b = self.a, self.b
 
-        cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy]
+        cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.FailureCause, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy]
 
         q = self.q \
             .orderby(a.DateAdded, a.Unit)
@@ -349,7 +349,7 @@ class TSI(EventLogBase):
         super().__init__(**kw)
         a, b = self.a, self.b
 
-        cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, b.Model, a.Unit, b.Serial, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.TSIDetails, a.TSIAuthor]
+        cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, b.Model, a.Unit, b.Serial, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.FailureCause, a.TSIDetails, a.TSIAuthor]
         
         q = self.q \
             .orderby(a.DateAdded, a.Unit)
