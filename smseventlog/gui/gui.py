@@ -27,9 +27,9 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         self.setWindowTitle(title)
         self.setMinimumSize(QSize(1000, 400))
-        self.minesite_changed.connect(self.update_statusbar)
+        self.minesite_changed.connect(self.update_minesite_label)
         self.status_label = QLabel() # permanent label for status bar so it isnt changed by statusTips
-        self.statusBar().addWidget(self.status_label)
+        self.statusBar().addPermanentWidget(self.status_label)
 
         # Settings
         s = QSettings('sms', 'smseventlog')
@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
         tabs = TabWidget(self)
         self.setCentralWidget(tabs)
         tabs.setCurrentIndex(tabs.get_index(title=s.value('active table', 'Event Log')))
-        self.update_statusbar()
+        self.update_minesite_label()
 
         self.tabs = tabs
     
@@ -58,9 +58,14 @@ class MainWindow(QMainWindow):
         self._minesite = val
         self.minesite_changed.emit(val)
     
-    def update_statusbar(self, *args):
-        # self.statusBar().showMessage(f'Minesite: {self.minesite}')
+    def update_minesite_label(self, *args):
+        # status_label is special label to always show current minesite
         self.status_label.setText(f'Minesite: {self.minesite}')
+    
+    def update_statusbar(self, msg=None, *args):
+        # statusbar shows temporary messages that disappear on any context event
+        if not msg is None:
+            self.statusBar().showMessage(msg)
 
     def after_init(self):
         # TODO: need to show window first, then show loading message
@@ -169,7 +174,6 @@ class MainWindow(QMainWindow):
 
         rows_ = bar.addMenu('Rows')
         rows_.addAction(self.act_open_tsi)
-        rows_.addAction(self.act_remove_tsi)
         rows_.addAction(self.act_delete_event)
         rows_.addAction(self.act_update_component)
         rows_.addAction(self.act_detailsview)
@@ -207,8 +211,7 @@ class MainWindow(QMainWindow):
             shortcut=QKeySequence('Ctrl+Shift+M'))
 
         act_open_tsi = QAction('Open TSI', self, triggered=self.open_tsi)
-        act_remove_tsi = QAction('Remove TSI', self, triggered=self.remove_tsi)
-        act_delete_event = QAction('Delete Event', self, triggered=self.delete_event)
+        act_delete_event = QAction('Delete Row', self, triggered=lambda: t().remove_row())
 
         from .. import units as un
         from ..database import db
@@ -258,6 +261,7 @@ class MainWindow(QMainWindow):
         action = menu.exec_(self.mapToGlobal(event.pos()))
 
     def open_tsi(self):
+        # NOTE should probs move to table_widget
         view = self.active_table()
     
         if not view.parent.title in ('Event Log', 'Work Orders', 'Component CO'):
@@ -265,41 +269,12 @@ class MainWindow(QMainWindow):
             dlgs.msg_simple(msg=msg, icon='warning')
             return
 
-        row = view.row_from_activerow()
-        if row is None: return
-        row.update(vals=dict(StatusTSI='Open', TSIAuthor=self.username))
-        # TODO: maybe show status message to confirm TSI opened?
-
-    def remove_tsi(self):
-        view = self.active_table()
-        
-        if view.parent.title == 'TSI':
-            e = view.model_from_activerow()
-            row = view.row_from_activerow()
-            if row is None: return
-
-            # TODO: bit sketch, should give model to row first then access from dict only?
-            m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
-
-            msg = f'Are you sure you would like to remove the tsi for:\n\n{f.pretty_dict(m)}\n\n \
-                (This will only set the TSI Status to Null, not delete the event).'
-            if dlgs.msgbox(msg=msg, yesno=True):
-                row.update(vals=dict(StatusTSI=None))
-                view.model.removeRows(i=row.i)
-    
-    def delete_event(self):
-        # TODO: need to figure out why this adds 2 blank rows after delete
-        view = self.active_table()
         e = view.model_from_activerow()
         row = view.row_from_activerow()
         if row is None: return
+        row.update(vals=dict(StatusTSI='Open', TSIAuthor=self.username))
+        self.update_statusbar(msg=f'TSI opened for: {e.Unit} - {e.Title}')  
 
-        m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
-
-        msg = f'Are you sure you would like to permanently delete the event:\n\n{f.pretty_dict(m)}'
-        if dlgs.msgbox(msg=msg, yesno=True):
-            row.update(delete=True)
-            view.model().removeRows(i=row.i)
 
 class TabWidget(QTabWidget):
     def __init__(self, parent):
