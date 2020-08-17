@@ -170,6 +170,7 @@ class EventLog(Base):
     Title = Column(Unicode(255))
     Description = Column(String(8000, 'SQL_Latin1_General_CP1_CI_AS'))
     Required = Column(String(8000, 'SQL_Latin1_General_CP1_CI_AS'))
+    FailureCause = Column(String(8000, 'SQL_Latin1_General_CP1_CI_AS'))
     SMR = Column(Integer)
     DateAdded = Column(Date)
     DateCompleted = Column(Date)

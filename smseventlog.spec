@@ -1,6 +1,5 @@
 # -*- mode: python -*-
 # TODO exclude db_secret.txt from build
-# TODO need to add pyodbc for windows binary
 
 project_path = None
 
@@ -8,8 +7,9 @@ import os
 import sys
 import importlib
 from PyInstaller.utils.hooks import collect_submodules
+from pathlib import Path
 
-# NOTE this will need to be made dynamic for other devs to build project
+# NOTE hookspath and project_path will need to be made dynamic for other devs to build project
 if not sys.platform.startswith('win'):
     project_path = '/Users/Jayme/OneDrive/Python/SMS' 
 else:
@@ -45,8 +45,8 @@ excludes = ['IPython']
 
 if f.is_mac():
     binaries = [('/usr/local/bin/chromedriver', 'selenium/webdriver')]
-    hookspath = ['/Users/Jayme/.local/share/virtualenvs/SMS-4WPEHYhu/lib/python3.8/site-packages/pyupdater/hooks']
-    dist_folder = 'smseventlog_mac'
+    hookspath = [Path.home() / '.local/share/virtualenvs/SMS-4WPEHYhu/lib/python3.8/site-packages/pyupdater/hooks']
+    dist_folder_name = 'smseventlog_mac'
     icon_name = 'sms_icon.icns'
     
     # this saves ~20mb, but windows matplotlib needs tkinter for some reason
@@ -54,14 +54,14 @@ if f.is_mac():
 
 elif f.is_win():
     binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
-    hookspath = ['C:/Users/Jayme/.virtualenvs/SMS-27IjYSAU/Lib/site-packages/pyupdater/hooks']
-    dist_folder = 'smseventlog_win'
+    hookspath = [Path.home() / '.virtualenvs/SMS-27IjYSAU/Lib/site-packages/pyupdater/hooks']
+    dist_folder_name = 'smseventlog_win'
     icon_name = 'sms_icon.ico'
 
 icon = str(f.datafolder / f'images/{icon_name}')
 
 a = Analysis([f.projectfolder / 'run.py'],
-             pathex=[f.projectfolder],
+             pathex=[f.buildfolder],
              binaries=binaries,
              datas=datas,
              hiddenimports=hiddenimports,
@@ -97,6 +97,6 @@ coll = COLLECT(exe,
                strip=False,
                upx=False,
                upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
-               name=dist_folder,
+               name=dist_folder_name,
                icon=icon)
 

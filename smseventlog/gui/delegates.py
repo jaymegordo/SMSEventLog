@@ -270,6 +270,7 @@ class DateDelegateBase(CellDelegate):
         d = QDateTime(editor_date).toPyDateTime()
         model.setData(index, d)
 
+# TODO use formfields.DateEdit/DateTimeEdit
 class DateTimeDelegate(DateDelegateBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)

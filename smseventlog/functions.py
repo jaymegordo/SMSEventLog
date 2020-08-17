@@ -18,12 +18,13 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
-global drive, config, config_platform, platform, topfolder, projectfolder, datafolder, frozen, azure_env
+global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, datafolder, frozen, azure_env
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
     
 topfolder = Path(__file__).parent
 projectfolder = topfolder.parent
+buildfolder = Path.home() / 'Documents/smseventlog'
 frozen = False
 
 if getattr(sys, 'frozen', False):
@@ -80,7 +81,6 @@ def convert_dict_db_view(title, m, output='view'):
     # NOTE only converts columns which exist in the given table view eg 'Work Orders' or 'Event Log'
     func_name = 'convert_list_db_view' if output == 'view' else 'convert_list_view_db'
     func = getattr(sys.modules[__name__], func_name)
-    print(m)
     initial_cols = list(m.keys())
     final_cols = func(title=title, cols=initial_cols)
 

@@ -125,6 +125,7 @@ Headers:
         Unit: Unit
         Title: Title
         Description: Description
+        Failure Cause: FailureCause
         Date Added: DateAdded
         Date Complete: DateCompleted
         Issue Category: IssueCategory
@@ -147,8 +148,8 @@ Headers:
         Title: Title
         Part Number: PartNumber
         SMR: SMR
-        Date Opened: DateAdded
-        Date Closed: DateCompleted
+        Date Added: DateAdded
+        Date Complete: DateCompleted
         Added By: CreatedBy
         Comments: WOComments
         Comp CO: ComponentCO
@@ -201,6 +202,7 @@ Headers:
         Part Name: TSIPartName
         Part Number: PartNumber
         Serial No: SNRemoved
+        Failure Cause: FailureCause
         Details: TSIDetails
         Author: TSIAuthor
 

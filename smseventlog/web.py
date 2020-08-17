@@ -1,13 +1,15 @@
+import yaml
 from selenium import webdriver
+from selenium.common.exceptions import InvalidArgumentException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
-from selenium.common.exceptions import InvalidArgumentException
 
 from . import functions as f
 from .__init__ import *
+
 # find_element_by_class_name',
 # 'find_element_by_css_selector',
 # 'find_element_by_id',
@@ -185,7 +187,7 @@ class SuncorConnect(Web):
         if user == 'Jayme':
             with open(f.datafolder / 'apikeys/credentials.yaml') as file:
                 m = yaml.full_load(file)['sap']
-                
+
             self.username = m['username']
             self.password = m['password']
             self.token_pin = m['token_pin']

@@ -310,12 +310,12 @@ def move_folder(p_src, p_dst):
     except:
         print(f'Error copying folder: {str(p_src)}')
 
-def copy_file(p_src, p_dst):
+def copy_file(p_src, p_dst, overwrite=False):
     p = p_dst.parent
     if not p.exists():
         p.mkdir(parents=True)
 
-    if not p_dst.exists():
+    if not p_dst.exists() or overwrite:
         shutil.copyfile(str(p_src), str(p_dst))
     else:
         print(f'File already exists: {p_dst.name}')

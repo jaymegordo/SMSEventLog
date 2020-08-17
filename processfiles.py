@@ -37,7 +37,7 @@ CLI.add_argument(
 
 CLI.add_argument(
     '--all_units',
-    type=str,
+    type=bool,
     default=False
 )
 
@@ -54,10 +54,10 @@ if __name__ == '__main__':
         d = dt.now() + delta(days=-31)
 
     if all_units:
-        print('fix dls all units')
+        print(f'fix dls all units, startdate: {d}')
         fl.fix_dls_all_units(d_lower=d)
     else:
-        print(f'ftype: {ftype}, units: {units}')
+        print(f'ftype: {ftype}, units: {units}, startdate: {d}')
         fl.process_files(ftype=ftype, units=units, d_lower=d)
 
     print('** finished processfiles **')

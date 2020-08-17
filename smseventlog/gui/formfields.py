@@ -44,6 +44,8 @@ class ComboBox(QComboBox, FormFields):
         super().__init__(*args, **kw)
         self.setMaxVisibleItems(20)
         self.setEditable(editable)
+
+        if items is None: items = []
         self.addItems(items)
         self.items = items
     
@@ -65,7 +67,10 @@ class LineEdit(QLineEdit, FormFields):
 class DateEdit(QDateEdit, FormFields):
     def __init__(self, date=None, calendar=True, *args, **kw):
         super().__init__(*args, **kw)
+        editor_format = 'yyyy-MM-dd'
+        display_format = '%Y-%m-%d' # not sure if used
         self.setCalendarPopup(calendar)
+        self.setDisplayFormat(editor_format)
 
         if date is None:
             date = dt.now().date()
