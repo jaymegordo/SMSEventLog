@@ -8,9 +8,12 @@ from . import formfields as ff
 
 log = logging.getLogger(__name__)
 
+# TODO need to trim all values comping from add row dialogs
+
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None):
         if col_db is None: col_db = text.replace(' ', '')
+        boxLayout = None
         f.set_self(vars())
     
     @property
@@ -40,6 +43,7 @@ class InputForm(QDialog):
         vLayout.addLayout(formLayout)
         fields = []
         items = None
+
         add_okay_cancel(dlg=self, layout=vLayout)
         f.set_self(vars())
         
@@ -50,7 +54,7 @@ class InputForm(QDialog):
         # Add input field to form
         text, dtype = field.text, field.dtype
 
-        if not items is None:
+        if not items is None or dtype == 'combobox':
             box = ff.ComboBox(items=items)
         elif dtype == 'text':
             box = ff.LineEdit()
@@ -64,6 +68,7 @@ class InputForm(QDialog):
         
         boxLayout = QHBoxLayout()
         boxLayout.addWidget(box)
+        field.boxLayout = boxLayout
         box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         box.set_name(name=text)
         
@@ -78,12 +83,14 @@ class InputForm(QDialog):
             cb.set_name(name=text)
         elif btn:
             boxLayout.addWidget(btn)
+            btn.box = box
         else:
             # add spacer
             boxLayout.addSpacing(30)
         
         setattr(self, 'f{}'.format(field.text.replace(' ', '')), field)
         field.box = box
+        box.field = field
         field.set_default()
         self.fields.append(field)
 
@@ -96,6 +103,8 @@ class InputForm(QDialog):
             layout.addRow(label, boxLayout)
         else:
             layout.insertRow(index, label, boxLayout)
+        
+        return field
 
     def accept_(self):
         # always access the QT base accept
@@ -132,19 +141,20 @@ class InputForm(QDialog):
             box.setEnabled(True)
             box.setFocus()
 
-            if isinstance(box, (QLineEdit, QTextEdit)):
+            if isinstance(box, (ff.LineEdit, ff.TextEdit)):
                 box.selectAll()
-            elif isinstance(box, QComboBox):
+            elif isinstance(box, ff.ComboBox):
                 box.lineEdit().selectAll()
 
         else:
             box.setEnabled(False)
 
     def insert_linesep(self, i=0, layout_type='form'):
-        line_sep = create_linesep()
+        line_sep = create_linesep(self)
 
         if layout_type == 'form':
             self.formLayout.insertRow(i, line_sep)
+
         else:
             self.vLayout.insertWidget(i, line_sep)
 
@@ -178,52 +188,98 @@ class InputForm(QDialog):
                 if not val is None:
                     obj.val = val
 
-class AddRow(InputForm):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Add Item')
-        m = {} # need dict for extra cols not in dbm table model (eg UnitID)
+    def update_statusbar(self, msg):
+        if not self.mainwindow is None:
+            self.mainwindow.update_statusbar(msg=msg)
 
-        if not parent is None:
-            table_model = parent.view.model()
-            title = parent.title
-            row = parent.dbtable()
-        else:
-            # Temp testing vals
-            tablename = 'EventLog'
-            title = 'Event Log'
-            row = getattr(dbm, tablename)
+class AddRow(InputForm):
+    def __init__(self, parent=None, title='Add Item'):
+        super().__init__(parent=parent, title=title)
+        m = {} # need dict for extra cols not in dbm table model (eg UnitID)
+        queue = []
+        row = self.create_row()
         
         f.set_self(vars())
     
-    def accept(self):
-        super().accept()
-        row, m = self.row, self.m
-        
-        # add fields to dbmodel from form fields
-        for field in self.fields:
-            setattr(row, field.col_db, field.val)
-            
+    def create_row(self):
+        parent = self.parent
+        if not parent is None:
+            table_model = parent.view.model()
+            title = parent.title
+            dbtable = parent.dbtable
+        else:
+            # Temp testing vals
+            table_model = None
+            title = 'Event Log'
+            tablename = 'EventLog'
+            dbtable = getattr(dbm, tablename)
+
+        f.set_self(vars())
+        return dbtable()
+    
+    def add_row_table(self, row, m=None):
         # convert row model to dict of values and append to current table
+        if m is None:
+            m = self.m
+
         m.update(f.model_dict(model=row))
         m = f.convert_dict_db_view(title=self.title, m=m, output='view')
-        self.table_model.insertRows(m=m)
-
+        
+        if not self.table_model is None:
+            self.table_model.insertRows(m=m)
+    
+    def add_row_db(self, row):
         # TODO probably merge this with Row class? > update all? BULK update (with 2 component rows)
         dbt.print_model(model=row)
         session = db.session
         session.add(row)
         session.commit()
+    
+    def add_row_queue(self, row):
+        # add row (model) to queue
+        self.queue.append(row)
+    
+    def flush_queue(self):
+        # bulk update all rows in self.queue to db
+        update_items = [f.model_dict(row) for row in self.queue] # list of dicts
+
+        txn = dbt.DBTransaction(table_model=self.table_model, dbtable=self.dbtable, title=self.title) \
+            .add_items(update_items=update_items) \
+            .update_all(operation_type='insert')
+    
+    def set_row_attrs(self, row, exclude=None):
+        # copy values to dbmodel from current dialog field values
+        if exclude is None:
+            exclude = []
+        elif not isinstance(exclude, list):
+            exclude = [exclude]
+
+        for field in self.fields:
+            if not field.text in exclude:
+                setattr(row, field.col_db, field.val)
+           
+    def accept_2(self):
+        # not sure if need this yet
+        return super().accept()
+    
+    def accept(self):
+        super().accept()
+        row = self.row
+        self.set_row_attrs(row=row)
+        self.add_row_db(row=row)
+        self.add_row_table(row=row)
+
+        self.parent.view.resizeRowsToContents()
+
+class AddEmail(AddRow):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent, title='Add Email')
 
 class AddEvent(AddRow):
     def __init__(self, parent=None):
-        super().__init__(parent=parent)
+        super().__init__(parent=parent, title='Add Event')
         FCNumber = None
-        row = self.row
-        row.UID = self.create_uid()
-        row.CreatedBy = self.mainwindow.username if not self.mainwindow is None else ''
-        row.StatusEvent = 'Work In Progress'
-        row.StatusWO = 'Open'
-        row.Pictures = 0
+        IPF = InputField
 
         layout = self.vLayout
         df = db.get_df_unit()
@@ -235,30 +291,124 @@ class AddEvent(AddRow):
         cb_fc = ff.CheckBox('Link FC')
         cb_fc.stateChanged.connect(self.create_fc)
 
-        self.add_input(field=InputField(text='MineSite', default=minesite), items=f.config['MineSite'])
-        self.add_input(field=InputField(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
+        self.add_input(field=IPF(text='MineSite', default=minesite), items=f.config['MineSite'])
+        self.add_input(field=IPF(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
 
         # Add btn to check smr 
-        btn = QPushButton('get', self)
-        btn.setFixedSize(QSize(24, btn.sizeHint().height()))
+        btn = self.create_button('get')
         btn.clicked.connect(self.get_smr)
-        self.add_input(field=InputField(text='SMR', dtype='int'), btn=btn)
+        self.add_input(field=IPF(text='SMR', dtype='int'), btn=btn)
 
-        self.add_input(field=InputField(text='Date', dtype='date', col_db='DateAdded'))
+        self.add_input(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
 
         self.formLayout.addRow('', cb_eventfolder)
         self.formLayout.addRow('', cb_tsi)
         self.formLayout.addRow('', cb_fc)
 
-        self.add_input(field=InputField(text='Title', dtype='textbox'))
-        self.add_input(field=InputField(text='Warranty Status', col_db='WarrantyYN'), items=f.config['Lists']['WarrantyType'])
-        self.add_input(field=InputField(text='Work Order', col_db='WorkOrder'))
-        self.add_input(field=InputField(text='WO Customer', col_db='SuncorWO'))
-        self.add_input(field=InputField(text='PO Customer', col_db='SuncorPO'))
+        self.add_input(field=IPF(text='Title', dtype='textbox'))
+        self.add_input(field=IPF(text='Failure Cause', dtype='textbox'))
+
+        self.add_input(field=IPF(text='Warranty Status', col_db='WarrantyYN'), items=f.config['Lists']['WarrantyType'])
+        self.add_input(field=IPF(text='Work Order', col_db='WorkOrder'))
+        self.add_input(field=IPF(text='WO Customer', col_db='SuncorWO'))
+        self.add_input(field=IPF(text='PO Customer', col_db='SuncorPO'))
+
+        self.add_component_fields()
 
         f.set_self(vars())
         self.show()
     
+    def create_row(self):
+        row = super().create_row()
+        row.UID = self.create_uid()
+        row.CreatedBy = self.mainwindow.username if not self.mainwindow is None else ''
+        row.StatusEvent = 'Work In Progress'
+        row.StatusWO = 'Open'
+        row.Seg = 1
+        row.Pictures = 0
+        return row
+
+    def create_button(self, name):
+        btn = QPushButton(name, self)
+        btn.setFixedSize(QSize(24, btn.sizeHint().height()))
+        return btn
+    
+    def add_component_fields(self):
+        # Add fields to select component/component SMR 1 + 2
+        IPF = InputField
+
+        def _add_component(text):
+            field = self.add_input(field=IPF(text=text, dtype='combobox', col_db='Floc'), checkbox=True, cb_enabled=False)
+            field.cb.stateChanged.connect(self.load_components)
+            return field
+        
+        def _add_smr(text):
+            btn = self.create_button('get')
+            btn.clicked.connect(self.get_component_smr)
+            field = self.add_input(field=IPF(text=text, dtype='int', col_db='ComponentSMR'), btn=btn)
+            field.box.setEnabled(False)
+            return field
+
+        add_linesep(self.formLayout)
+
+        for suff in ('', ' 2'):
+            field_comp = _add_component(f'Component CO{suff}')
+            field_smr = _add_smr(f'Component SMR{suff}')
+
+            field_comp.box_smr = field_smr.box # lol v messy
+            field_smr.box_comp = field_comp.box
+
+        add_linesep(self.formLayout)
+    
+    @property
+    def df_comp(self):
+        if not hasattr(self, '_df_comp') or self._df_comp is None:
+            self._df_comp = db.get_df_component()
+        return self._df_comp
+        
+    def get_floc(self, component_combined):
+        df = self.df_comp
+        return df[df.Combined==component_combined].Floc.values[0]
+   
+    def load_components(self, state):
+        # Reload components to current unit when component co toggled
+        # Also toggle smr boxes
+        source = self.sender() # source is checkbox
+        box = source.box
+        box_smr = box.field.box_smr
+
+        if state == Qt.Checked:
+            df = self.df_comp
+            unit = self.fUnit.val
+            equip_class = db.get_unit_val(unit=unit, field='EquipClass')
+            s = df[df.EquipClass==equip_class].Combined
+            lst = f.clean_series(s)
+            box.addItems(lst)
+            box.lineEdit().selectAll()
+            box_smr.setEnabled(True)
+        else:
+            box_smr.setEnabled(False)
+
+    def get_component_smr(self):
+        source = self.sender()
+        box = source.box # box is linked to btn through add_input
+
+        df = self.df_comp
+        unit, smr, date = self.fUnit.val, self.fSMR.val, self.fDate.val
+        component = box.field.box_comp.val
+
+        # get last CO from EL by floc
+        floc = self.get_floc(component_combined=component)
+        smr_last = db.get_smr_prev_co(unit=unit, floc=floc, date=date)
+
+        if not smr_last is None:
+            box.val = smr_last
+        else:
+            box.val = smr
+            m = dict(Unit=unit, component=component)
+            msg = f'No previous component changeouts found for:\n{f.pretty_dict(m)}\n\nSetting Component SMR to current unit SMR: {smr}'
+            msg_simple(msg=msg, icon='warning')
+
     def get_smr(self):
         # NOTE could select all nearby dates in db and show to user
         unit, date = self.fUnit.val, self.fDate.val
@@ -277,7 +427,7 @@ class AddEvent(AddRow):
         # add event's UID to FC in FactoryCampaign table
         unit = self.row.Unit
         row = dbt.Row(keys=dict(FCNumber=self.FCNumber, Unit=unit), dbtable=dbm.FactoryCampaign)
-        row.update(vals={'UID': self.uid})
+        row.update(vals=dict(UID=self.uid))
 
     def create_fc(self):
         unit = self.fUnit.val
@@ -296,26 +446,56 @@ class AddEvent(AddRow):
                 
             else:
                 self.cb_fc.setChecked(False)
-       
+             
     def accept(self):
         row, m = self.row, self.m
         unit = self.fUnit.val
+        rows = []
+        self.add_row_queue(row=row) # need to update at least row1
 
         # add these values to display in table
         m['Model'] = db.get_unit_val(unit=unit, field='Model')
         m['Serial'] = db.get_unit_val(unit=unit, field='Serial')
+        
+        # Make sure title is good
+        self.fTitle.val = f.nice_title(self.fTitle.val)
 
-        # create TSI row
+        # create TSI row (row 1 only)
         if self.cb_tsi.isChecked():
             row.StatusTSI = 'Open'
             
             if not self.mainwindow is None:
                 row.TSIAuthor = self.mainwindow.get_username()
-        
-        # Make sure title is good
-        self.fTitle.val = f.nice_title(self.fTitle.val)
 
-        super().accept()
+        self.set_row_attrs(row=row, exclude=['Component CO 2', 'Component SMR 2'])
+
+        # Component CO 1
+        if self.fComponentCO.cb.isChecked():
+            row.ComponentCO = True
+            row.Floc = self.get_floc(component_combined=self.fComponentCO.box.val)
+        
+        self.add_row_table(row=row)
+
+        # Component CO 2 > duplicate self.row
+        if self.fComponentCO2.cb.isChecked():
+            row2 = self.create_row()
+            self.set_row_attrs(row=row2)
+
+            component = self.fComponentCO2.box.val
+            row2.Floc = self.get_floc(component_combined=component)
+            row2.Title = f'{component} - CO'
+            row2.ComponentSMR = self.fComponentSMR2.box.val
+            row2.ComponentCO = True
+            row2.GroupCO = True
+            self.row2 = row2
+            self.add_row_queue(row=row2)
+            self.add_row_table(row=row2)
+
+            row.GrouCO = True
+          
+        self.flush_queue()
+        self.accept_()
+        self.parent.view.resizeRowsToContents()
 
         if self.cb_fc.isChecked():
             self.link_fc()
@@ -327,20 +507,79 @@ class AddEvent(AddRow):
 
 class AddUnit(AddRow):
     def __init__(self, parent=None):
-        super().__init__(parent=parent)
+        super().__init__(parent=parent, title='Add Unit')
         df = db.get_df_unit()
-        minesite = self.mainwindow.minesite
-        customer = self.mainwindow.customer
+        minesite = ui.get_minesite()
+        self.tablename = 'UnitID'
 
-        self.add_input(field=InputField(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
+        self.add_input(field=InputField(text='Unit'))
         self.add_input(field=InputField(text='Serial'))
         self.add_input(field=InputField(text='Model'), items=list(df.Model.unique()))
         self.add_input(field=InputField(text='MineSite', default=minesite), items=f.config['MineSite'])
-        self.add_input(field=InputField(text='Customer', default=customer), items=list(df.Customer.unique()))
+        self.add_input(field=InputField(text='Customer'), items=list(df.Customer.unique()))
         self.add_input(field=InputField(text='Engine Serial', col_db='EngineSerial'))
         self.add_input(field=InputField(text='Delivery Date', dtype='date', col_db='DeliveryDate'))
 
         self.show()
+       
+    def accept(self):
+        # when model is set, check if model_base exists. If not prompt to create one
+        model, unit = self.fModel.val, self.fUnit.val
+        modelbase = db.get_modelbase(model=model)
+        print(f'model_base: {modelbase}')
+        
+        if modelbase is None:
+            dlg = CreateModelbase(model=model, parent=self)
+            ans = dlg.exec_()
+            if not ans: return
+            
+        super().accept()
+        # self.set_row_attrs(row=self.row)
+        dbt.print_model(self.row)
+        self.update_statusbar(f'New unit added to database: {model}, {unit}')
+
+class CreateModelbase(AddRow):
+    def __init__(self, model, parent=None):
+        super().__init__(parent=parent, title='Create ModelBase')
+
+        lst = [] # get list of equiptypes
+        df = db.get_df_equiptype()
+        lst = f.clean_series(df.EquipClass)
+
+        text = f'No ModelBase found for: "{model}". Select an EquipClass and create a ModelBase.\n\n' \
+            '(This is used for grouping models into a base folder structure. Eg "980E-4" > "980E")\n'
+        label = QLabel(text)
+        label.setMaximumWidth(300)
+        label.setWordWrap(True)
+        self.vLayout.insertWidget(0, label)
+
+        self.add_input(field=InputField(text='Equip Class'), items=lst)
+        self.add_input(field=InputField(text='Model Base'))
+
+        self.setMinimumSize(self.sizeHint())
+        f.set_self(vars())
+    
+    def set_row_attrs(self, row, exclude=None):
+        row.Model = self.model
+        super().set_row_attrs(row=row, exclude=exclude)
+    
+    def accept(self):
+        # check model base isn't blank
+        model_base = self.fModelBase.val
+        if model_base.strip() == '':
+            msg_simple(msg='Model Base cannot be blank!', icon='warning')
+            return
+        
+        row = self.row
+        row.Model = self.model
+        self.set_row_attrs(row=row)
+        self.add_row_db(row=row)
+
+        self.accept_2()
+
+    def create_row(self):
+        # not linked to a parent table, just return a row instance of EquipType table
+        return dbm.EquipType()
 
 class InputUserName(InputForm):
     def __init__(self, parent=None):
@@ -810,18 +1049,27 @@ def add_okay_cancel(dlg, layout):
     layout.addWidget(btnbox, alignment=Qt.AlignBottom | Qt.AlignCenter)
     dlg.btnbox = btnbox
 
-def create_linesep():
-    line_sep = QFrame()
+def create_linesep(parent=None):
+    line_sep = QFrame(parent=parent)
+    line_sep.setObjectName('line_sep')
     line_sep.setFrameShape(QFrame.HLine)
     line_sep.setFrameShadow(QFrame.Raised)
+    # line_sep.setStyleSheet('QFrame[frameShape="4"]#line_sep {color: red; padding: 20px; padding-top: 20px; padding-bottom: 20px}')
     return line_sep
 
 def add_linesep(layout, i=None):
+    # doesn't work well with formLayout
+    type_ = 'Row' if isinstance(layout, QFormLayout) else 'Widget'
+
+    add_func = f'add{type_}'
+    insert_func = f'insert{type_}'
+    
     line_sep = create_linesep()
+
     if i is None:
-        layout.addWidget(line_sep)
+        getattr(layout, add_func)(line_sep)
     else:
-        layout.insertWidget(i, line_sep)
+        getattr(layout, insert_func)(i, line_sep)
 
 def print_children(obj, depth=0, maxdepth=3):
     tab = '\t'
@@ -838,6 +1086,7 @@ def show_item(name, parent=None, *args, **kw):
     # show message dialog by name eg ui.show_item('InputUserName')
     app = check_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent, *args, **kw)
+    print(dlg.styleSheet())
     return dlg, dlg.exec_()
 
 def check_app():
