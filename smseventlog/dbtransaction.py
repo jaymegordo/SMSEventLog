@@ -5,7 +5,7 @@ from sqlalchemy import and_, literal
 
 from . import functions as f
 from .__init__ import *
-from .database import db
+from .database import db, e
 
 try:
     from IPython.display import display
@@ -15,15 +15,19 @@ except ModuleNotFoundError:
 log = logging.getLogger(__name__)
 
 class DBTransaction():
-    def __init__(self, table_model):
+    def __init__(self, table_model=None, dbtable=None, title=None):
         # bulk update values from table_model to database
         # need dbtable, df or list of dicts containing appropriate pks and vals to update
         
         update_items = []
 
-        table_widget = table_model.table_widget
-        title = table_widget.title
-        dbtable = table_widget.get_dbtable()
+        if not table_model is None:
+            table_widget = table_model.table_widget
+            title = table_widget.title
+            dbtable = table_widget.get_dbtable()
+        
+        if dbtable is None: raise AttributeError('dbtable cannot be none!')
+
         pks = get_dbtable_keys(dbtable)
 
         all_cols = f.convert_list_db_view(title=title, cols=pks) # convert db to view cols first
@@ -51,6 +55,7 @@ class DBTransaction():
         return self
 
     def add_row(self, irow):
+        # add single row by index number from table
         # NOTE probably need to work with values passed in manually, maybe won't use this, df is pretty gr8
         df = self.df
 
@@ -63,11 +68,13 @@ class DBTransaction():
         
         self.update_items.append(m)
     
-    def update_all(self):
+    @e
+    def update_all(self, operation_type='update'):
         s = db.session
-        s.bulk_update_mappings(self.dbtable, self.update_items)
+        txn_func = getattr(s, f'bulk_{operation_type}_mappings')
+        txn_func(self.dbtable, self.update_items)
         s.commit()
-        print(f'bulk update: {len(self.update_items)}')
+        print(f'bulk {operation_type}: {len(self.update_items)}')
 
         return self
 
