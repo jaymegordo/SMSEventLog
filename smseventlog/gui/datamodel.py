@@ -261,8 +261,9 @@ class TableModel(QAbstractTableModel):
     # @e
     def setData(self, index, val, role=Qt.EditRole, triggers=True, queue=False, update_db=True):
         if not index.isValid(): return False
+        val_prev = index.data(role=Qt.EditRole)
 
-        if role == Qt.EditRole and index.data() != val:
+        if role == Qt.EditRole and val_prev != val:
             irow, icol = self.getRowCol(index)
             row, col = index.data(role=self.NameIndexRole)
             df = self.df
@@ -298,9 +299,10 @@ class TableModel(QAbstractTableModel):
 
             # stop other funcs from updating in a loop
             if triggers:
-                func = self.parent.col_func_triggers.get(col, None)
-                if not func is None:
-                    func(index=index)
+                func_list = self.parent.col_func_triggers.get(col, None) # dd of list of funcs to run
+                if not func_list is None:
+                    for func in func_list:
+                        func(index=index, val_prev=val_prev)
             
             return True
         
@@ -414,7 +416,7 @@ class TableModel(QAbstractTableModel):
             icol = self.get_col_idx(col)
             if not icol is None:
                 index = self.createIndex(i, icol)
-                self.setData(index=index, val=val, update_db=False)
+                self.setData(index=index, val=val, update_db=False, triggers=False)
 
         self.endInsertRows()
 
@@ -453,7 +455,7 @@ class TableModel(QAbstractTableModel):
         return ans
 
 
-def test_model(name='EventLog'):
+def example(name='EventLog'):
     from . import startup
     from . import tables as tbls
     app = startup.get_qt_app()
