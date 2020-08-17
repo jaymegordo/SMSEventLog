@@ -195,6 +195,17 @@ class DB(object):
             .where(a.DateSMR==date) \
             .where(a.Unit==unit)
         return self.query_single_val(q)
+    
+    def get_smr_prev_co(self, unit, date, floc):
+        a = T('EventLog')
+        # cols = [a.Unit, a.Floc, a.SMR, a.DateAdded]
+        q = Query().from_(a).select(a.SMR) \
+            .where(a.Unit==unit) \
+            .where(a.DateAdded<=date) \
+            .where(a.Floc==floc) \
+            .orderby(a.DateAdded, order=Order.desc)
+        
+        return self.query_single_val(q)
 
     def get_df(self, query, refresh=True, default=False):
         # get df by name and save for later reuse
@@ -239,6 +250,19 @@ class DB(object):
 
         return dfu.loc[unit, field]
     
+    def get_modelbase(self, model):
+        a = T('EquipType')
+        q = Query().from_(a).select(a.ModelBase) \
+            .where(a.Model==model)
+
+        return self.query_single_val(q)
+    
+    def get_df_equiptype(self):
+        if not hasattr(self, 'df_equiptype') or self.df_equiptype is None:
+            self.set_df_equiptype()
+        
+        return self.df_equiptype
+
     def unique_units(self):
         df = self.get_df_unit()
         return df.Unit.unique()
@@ -263,13 +287,20 @@ class DB(object):
         return df
 
     def set_df_unit(self):
-        a = T('UnitID')
-        cols = ['MineSite', 'Customer', 'Model', 'Unit', 'Serial', 'DeliveryDate']
-        q = Query.from_(a).select(*cols)
+        a, b = pk.Tables('UnitID', 'EquipType')
+        cols = [a.MineSite, a.Customer, a.Model, a.Unit, a.Serial, a.DeliveryDate, b.EquipClass]
+        q = Query.from_(a).select(*cols) \
+            .left_join(b).on_field('Model')
             
         self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.engine) \
             .set_index('Unit', drop=False) \
             .pipe(f.parse_datecols)
+        
+    def set_df_equiptype(self):
+        a = T('EquipType')
+        q = Query().from_(a).select(a.star)
+        self.df_equiptype = pd.read_sql(sql=q.get_sql(), con=self.engine) \
+            .set_index('Model', drop=False)
 
     def get_df_fc(self):
         if self.df_fc is None:
