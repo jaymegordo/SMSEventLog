@@ -14,3 +14,9 @@
 ## Usage
 * Create a new event:
 ![](_info/gifs/Add-New-Event.gif)
+
+* Refresh 'All Open', or specific events with the Refresh Menu:
+![](_info/gifs/Refresh-Events.gif)
+
+* View event folder and failure pictures:
+![](_info/gifs/View-Event-Folder.gif)
