@@ -8,5 +8,9 @@
 5. Drag shortcut to taskbar for quick access
 
 
-## Update
+### Update
 * If you have previously downloaded and extraced the full zip, future updates will usually only require you to download `SMS Event Log.exe` from the `smseventlog_win` folder and replace your existing exe.
+
+## Usage
+* Create a new event:
+![](_info/gifs/Add New Event.gif)
