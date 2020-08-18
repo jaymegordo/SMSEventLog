@@ -13,4 +13,4 @@
 
 ## Usage
 * Create a new event:
-* ![AddNewEvent]("_info/gifs/Add New Event.gif")
+![](_info/gifs/Add New Event.gif)
