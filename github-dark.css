@@ -317,7 +317,8 @@
 .vscode-body ul ol ol,
 .vscode-body ol ul ol,
 .vscode-body ol ol ol {
-  list-style-type: lower-alpha;
+  /* list-style-type: lower-alpha; */
+  list-style-type: decimal ;
 }
 
 .vscode-body dd {
@@ -327,6 +328,7 @@
 .vscode-body code {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
   font-size: 12px;
+  color: #d400ff;
 }
 
 .vscode-body pre {
@@ -443,7 +445,7 @@
   line-height: 10px;
   color: #444d56;
   vertical-align: middle;
-  background-color: #fafbfc;
+  background-color: #12c012;
   border: solid 1px #c6cbd1;
   border-bottom-color: #959da5;
   border-radius: 3px;
@@ -601,7 +603,7 @@
   padding-right: 20px;
 }
 
-/* code quote background */
+/* single line code quote background */
 .vscode-body code {
   padding: 0.2em 0.4em;
   margin: 0;
@@ -623,6 +625,7 @@
   white-space: pre;
   background: transparent;
   border: 0;
+  /* background-color: #19c930; */
 }
 
 .vscode-body .highlight {
@@ -634,13 +637,14 @@
   word-break: normal;
 }
 
+/* multi line (fenced) code blocks */
 .vscode-body .highlight pre,
 .vscode-body pre {
   padding: 16px;
   overflow: auto;
   font-size: 85%;
   line-height: 1.45;
-  background-color: #f6f8fa;
+  background-color: #0378ed;
   border-radius: 3px;
 }
 
@@ -668,7 +672,7 @@
   line-height: 10px;
   color: #444d56;
   vertical-align: middle;
-  background-color: #fafbfc;
+  background-color: #19c930;
   border: solid 1px #d1d5da;
   border-bottom-color: #c6cbd1;
   border-radius: 3px;
