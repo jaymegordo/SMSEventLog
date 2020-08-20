@@ -1,6 +1,9 @@
 from .__init__ import *
 from . import gui, tables, dialogs, refreshtables # importing these to wrap errors
 from .. import functions as f
+import sentry_sdk
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk import configure_scope
 
 def decorate_modules():
     # decorate all classes' methods in these modules with @e error handler
@@ -8,7 +11,13 @@ def decorate_modules():
     for module in modules:
         er.decorate_all_classes(module=module)
 
+def init_sentry():
+    sentry_sdk.init(
+        dsn="https://66c22032a41b453eac4e0aac4fb03f82@o436320.ingest.sentry.io/5397255",
+        integrations=[SqlalchemyIntegration()])
+
 def launch():
+    init_sentry()
     decorate_modules()
     app = get_qt_app()
     w = gui.MainWindow()
