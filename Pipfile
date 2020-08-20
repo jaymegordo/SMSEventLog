@@ -10,6 +10,7 @@ sqlacodegen = "*"
 xlwings = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
 pyinstaller = "*"
+bump2version = "*"
 
 [packages]
 pandas = "*"

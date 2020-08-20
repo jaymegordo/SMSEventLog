@@ -620,7 +620,8 @@ class TSIUserName(InputForm):
         super().__init__(parent=parent, window_title='Enter Password')
         self.enforce_all = True
         layout = self.vLayout
-        layout.insertWidget(0, QLabel('To use the automated TSI system,\nplease enter your username and password for www.komatsuamerica.net:\n'))
+        layout.insertWidget(0, QLabel('To use the automated TSI system,\
+            \nplease enter your username and password for www.komatsuamerica.net:\n'))
 
         self.add_input(field=InputField(text='Username'))
         self.add_input(field=InputField(text='Password'))

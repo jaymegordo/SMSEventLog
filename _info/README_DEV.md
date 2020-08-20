@@ -43,26 +43,19 @@
 
 ## Deployment
 
-* [pypi](https://packaging.python.org/tutorials/packaging-projects/)
-    * create `.pypirc` file at 'c:\users\username' (one time, stores api key for login)
-    * make sure user installed setuptools is up to date (or bdist_wheel doesn't work) `python -m pip install --user --upgrade setuptools wheel`
-    * create wheel:
-        * TODO: get version from github with requests?
-        * `python setup.py clean --pre && python setup.py sdist bdist_wheel clean --post`
-        * bdist_wheel > creates wheel (built distribution) to upload to pypi
-        * sdist > creates source distribution (fallback)
-        * clean --pre > runs custom command to remove previously leftover folders if they exist
-        * clean --post > remove smseventlog.egg-info folder (never needed)
-    * check contents of wheel package (optional) `tar -tf dist\smseventlog-3.0.0.tar.gz`
-    * upload with twine
-        * test `twine upload --repository testpypi dist/*`
-        * live `twine upload dist/*`
-    * cleanup all leftover folders: `python setup.py clean --all`
+### Build Process
+1. Commit all changes to git, add comments etc (use github menu in vscode)
+2. Increment version with eg `bumpversion minor` (must be run inside active pipenv)
+3. Push changes to git `git push --tags` (imporant to include tags to increment version on github)
+4. Build using custom build script `python -m build` (see pyinstaller below for more info)
 
-* Azure Functions
-    * Parts of the smseventlog package run as smseventlog-app in azure functions
-    * This runs several functions such as: daily availability imports, oil sample imports etc
-    * publish to azure with `func azure functionapp publish smseventlog-app --build-native-deps`
+* [bump2version](https://github.com/c4urself/bump2version)
+    * Use bumpversion to control version increments
+    * creates a git tag before pushing
+    * testing: `bumpversion patch --dry-run --verbose --allow-dirty`
+    * usage: `bumpversion [major | minor | patch]`
+        * `bumpversion patch` > will increment version from 3.0.1 to 3.0.2
+        * `bumpversion minor` > will increment version from 3.0.1 to 3.1.0       
 
 * Pyinstaller
     * in project dir (SMS), `python -m build` (runs custom build python file which calls PyInstaller with args)
@@ -98,3 +91,24 @@
                 ```
 
 * PyUpdater
+
+* [pypi](https://packaging.python.org/tutorials/packaging-projects/)
+    * create `.pypirc` file at 'c:\users\username' (one time, stores api key for login)
+    * make sure user installed setuptools is up to date (or bdist_wheel doesn't work) `python -m pip install --user --upgrade setuptools wheel`
+    * create wheel:
+        * TODO: get version from github with requests?
+        * `python setup.py clean --pre && python setup.py sdist bdist_wheel clean --post`
+        * bdist_wheel > creates wheel (built distribution) to upload to pypi
+        * sdist > creates source distribution (fallback)
+        * clean --pre > runs custom command to remove previously leftover folders if they exist
+        * clean --post > remove smseventlog.egg-info folder (never needed)
+    * check contents of wheel package (optional) `tar -tf dist\smseventlog-3.0.0.tar.gz`
+    * upload with twine
+        * test `twine upload --repository testpypi dist/*`
+        * live `twine upload dist/*`
+    * cleanup all leftover folders: `python setup.py clean --all`
+
+* Azure Functions
+    * Parts of the smseventlog package run as smseventlog-app in azure functions
+    * This runs several functions such as: daily availability imports, oil sample imports etc
+    * publish to azure with `func azure functionapp publish smseventlog-app --build-native-deps`
