@@ -537,11 +537,12 @@ t_UnitSMRImport = Table(
 )
 
 
-class UserSetting(Base):
+class UserSettings(Base):
     __tablename__ = 'UserSettings'
 
     UserName = Column(Unicode(255), primary_key=True)
     Version = Column(Float(53), server_default=text("((0))"))
+    Ver = Column(String(10, 'SQL_Latin1_General_CP1_CI_AS'))
     LastLogin = Column(DATETIME2)
     Hours = Column(DECIMAL(10, 3))
     NumOpens = Column(Integer, index=True, server_default=text("((0))"))

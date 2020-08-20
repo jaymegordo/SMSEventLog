@@ -19,7 +19,7 @@ class RefreshTable(InputForm):
             if parent_name:
                 parent = parent_name()
             
-        super().__init__(parent=parent, title='Refresh Table')      
+        super().__init__(parent=parent, window_title='Refresh Table')      
         self.minesite = ui.get_minesite()
         self.mainwindow = ui.get_mainwindow()
 

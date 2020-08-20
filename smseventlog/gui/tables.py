@@ -653,7 +653,7 @@ class EventLogBase(TableWidget):
             header = index.model().headerData(i=index.column()).replace(' ', '').lower()
             if header == 'codate': header = 'dateadded' # little hack for component CO table
 
-            ef = efl.get_eventfolder(minesite=minesite)(
+            ef = efl.get_eventfolder(minesite=minesite).from_model(
                 e=e, table_model=self.model(), irow=index.row(), table_widget=self.parent) \
                 .update_eventfolder_path(vals={header: val_prev})
 
@@ -688,7 +688,7 @@ class EventLogBase(TableWidget):
         minesite = db.get_unit_val(e.Unit, 'MineSite')
 
         # try to get minesite-specific EventFolder, if not use default
-        efl.get_eventfolder(minesite=minesite)(e=e, irow=i, table_model=view.model()).show()
+        efl.get_eventfolder(minesite=minesite).from_model(e=e, irow=i, table_model=view.model()).show()
     
     def remove_row(self):
         # remove selected event from table and delete from db
@@ -864,8 +864,8 @@ class TSI(EventLogBase):
         # TODO make this secondary process
         from .. import web
         view, e, e2 = self.view, self.e_db, self.e
-        
-        d = e.DateAdded.strftime('%-m/%-d/%Y')
+
+        d = e.DateAdded.strftime('%m/%d/%Y')
 
         field_vals = {
             'Failure Date': d,
@@ -910,7 +910,7 @@ class TSI(EventLogBase):
         e = row.create_model_from_db()
 
         # get event folder
-        ef = efl.get_eventfolder(minesite=e.MineSite)(e=e, irow=row.i, table_model=view.model())
+        ef = efl.get_eventfolder(minesite=e.MineSite).from_model(e=e, irow=row.i, table_model=view.model())
 
         # get pics, body text from dialog
         text = dict(

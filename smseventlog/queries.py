@@ -55,6 +55,7 @@ class Filter():
                 ct = opr(field_, val)
         
         self.add_criterion(ct=ct)
+        return self
     
     def add_criterion(self, ct):
         # check for duplicate criterion, use str(ct) as dict key for actual ct
@@ -198,9 +199,9 @@ class QueryBase(object):
         for da in args:
             fltr.add(**da)
     
-    def get_df(self, default=False):
+    def get_df(self, default=False, **kw):
         from .database import db
-        self.df = db.get_df(query=self, default=default)
+        self.df = db.get_df(query=self, default=default, **kw)
         return self.df
 
     def get_stylemap(self, df, col=None):
@@ -854,7 +855,7 @@ class AvailSummary(QueryBase):
             .format(self.formats)
 
 class AvailHistory(QueryBase):
-    def __init__(self, d_rng, period_type='month', model='980%', minesite='FortHills'):
+    def __init__(self, d_rng, period_type='month', model='980%', minesite='FortHills', num_periods=12):
         super().__init__()
 
         self.view_cols.update(
@@ -874,7 +875,8 @@ class AvailHistory(QueryBase):
             d_upper=d_rng[1],
             period_type=period_type,
             ahs_active=True,
-            split_ahs=False)
+            split_ahs=False,
+            num_periods=num_periods)
 
         sql = 'SELECT * FROM {}'.format(table_with_args(table='udfMASummaryTable', args=args))
         f.set_self(vars())

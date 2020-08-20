@@ -9,6 +9,7 @@ jupyter = "*"
 sqlacodegen = "*"
 xlwings = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
+pyinstaller = "*"
 
 [packages]
 pandas = "*"
@@ -25,17 +26,17 @@ azure-functions = "*"
 openpyxl = "*"
 "hurry.filesize" = "*"
 pyqt5 = "*"
-appscript = {version = "*", sys_platform = "== 'darwin'"}
-pywin32 = {version = "*", os_name = "== 'windows'"}
+appscript = {version = "*",sys_platform = "== 'darwin'"}
+pywin32 = {version = "*",os_name = "== 'windows'"}
 plotly = "*"
 seaborn = "*"
 matplotlib = "*"
 selenium = "*"
 joblib = "*"
-pyinstaller = {file = "https://github.com/pyinstaller/pyinstaller/archive/develop.tar.gz"}
-weasyprint = "*"
+weasyprint = "==51"
 jinja2 = "*"
-cairosvg = "*"
+cairosvg = "==2.4.2"
+sentry-sdk = "*"
 
 [requires]
 python_version = "3.8"

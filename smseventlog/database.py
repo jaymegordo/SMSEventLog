@@ -84,7 +84,7 @@ def e(func):
             # log.warning('Rollback and retry operation.')
             print('Rollback and retry operation.')
             session = db.session # this is pretty sketch
-            session.rollback()
+            session.rollback() # NOTE doesn't seem to actually work, gets called 10 times
             return func(*args, **kwargs)
             
         except exc.OperationalError:
@@ -176,6 +176,11 @@ class DB(object):
 
     def __exit__(self, *args):
         self.close()
+    
+    def add_row(self, row):
+        # simple add single row to database. row must be created with sqlalchemy model
+        self.session.add(row)
+        self.session.commit()
         
     def read_query(self, q):
         return pd.read_sql(sql=q.get_sql(), con=self.engine)
@@ -207,7 +212,7 @@ class DB(object):
         
         return self.query_single_val(q)
 
-    def get_df(self, query, refresh=True, default=False):
+    def get_df(self, query, refresh=True, default=False, prnt=False):
         # get df by name and save for later reuse
         dfs = self.dfs
         title = query.title
@@ -219,7 +224,8 @@ class DB(object):
         if df is None or refresh:
             try:
                 sql = query.get_sql()
-                # print(sql)
+                if prnt: print(sql)
+
                 df = pd \
                     .read_sql(sql=sql, con=self.engine) \
                     .pipe(f.parse_datecols) \
@@ -250,12 +256,9 @@ class DB(object):
 
         return dfu.loc[unit, field]
     
-    def get_modelbase(self, model):
-        a = T('EquipType')
-        q = Query().from_(a).select(a.ModelBase) \
-            .where(a.Model==model)
-
-        return self.query_single_val(q)
+    def get_modelbase(self, model):      
+        df = self.get_df_equiptype()
+        return df.loc[model].ModelBase
     
     def get_df_equiptype(self):
         if not hasattr(self, 'df_equiptype') or self.df_equiptype is None:

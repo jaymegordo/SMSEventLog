@@ -1,6 +1,6 @@
 
 ## Developer Guide
-v
+
 ### Software
 
 * [VS Code](https://code.visualstudio.com/download) 
@@ -70,9 +70,12 @@ v
     * This will package app and output files to /dist/[mac|win]
 
     * Build Issues
+        * Files in `frozen py files` need to be replaced after version updates to their packages. They contain small changes eg try/except for getting a version number. The originals break the exe build.
+        If directly replacing these files doesn't work, may need to dig into code and redo fixes somehow.
+
         1. Pandas.io.formats.style
             * [not exact issue but related](https://stackoverflow.com/questions/52429350/cant-perform-this-operation-for-unregistered-loader-type-is-there-any-workaro)
-            1. open [*virtualev*]/Lib/site-packages/pandas/io/formats/style.py
+            1. open [*virtualenv*]/Lib/site-packages/pandas/io/formats/style.py
             2. change line 120 from:
                 ```
                 template = env.get_template("html.tpl")
@@ -85,7 +88,7 @@ v
                         template = env.from_string(data)```
         
         2. Weasyprint / Cairosvg
-            * VERSION fails to load (fix init in both)
+            * VERSION fails to load (fix `__init__.py` in both)
             * `weasyprint/__init__.py` - Line 24 - add:
                 ```
                 try:
@@ -93,3 +96,5 @@ v
                 except:
                     VERSION = __version__ = ''
                 ```
+
+* PyUpdater
