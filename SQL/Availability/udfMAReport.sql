@@ -1,3 +1,5 @@
+-- creates full MA Summary table for all units
+
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
