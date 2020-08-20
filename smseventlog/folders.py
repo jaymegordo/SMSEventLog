@@ -358,10 +358,13 @@ def count_files(p, extensions=None, ftype='pics'):
     if ftype.lower() == 'pics':
         extensions = ['jpeg', 'jpg', 'png', 'tiff']
     
-    return len(find_files(p=p, extensions=extensions))
+    return len(find_files_ext(p=p, extensions=extensions))
 
-def find_files(p, extensions):
+def find_files_ext(p, extensions):
     return [p_ for p_ in p.rglob('*') if p_.suffix.lower().replace('.', '') in extensions]
+
+def find_files_partial(p, partial_text):
+    return [p_ for p_ in p.glob('*') if partial_text.lower() in str(p_).lower()]
 
 # DSC
 def fix_dls_all_units(d_lower=None):
