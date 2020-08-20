@@ -83,6 +83,22 @@ class TableView(QTableView):
         self.set_default_headers()
         self.setVisible(True)
 
+    @property
+    def e(self):
+        return self.model_from_activerow()
+
+    @property
+    def e_db(self):
+        return self.model_from_activerow_db()
+
+    @property
+    def i(self):
+        return self.active_row_index()
+
+    @property
+    def row(self):
+        return self.row_from_activerow()
+
     def display_data(self, df):
         self.rows_initialized = False 
         self.model().set_df(df=df, center_cols=self.get_center_cols(df=df))
@@ -454,19 +470,19 @@ class TableWidget(QWidget):
     
     @property
     def e(self):
-        return self.view.model_from_activerow()
+        return self.view.e
 
     @property
     def e_db(self):
-        return self.view.model_from_activerow_db()
+        return self.view.e_db
 
     @property
     def i(self):
-        return self.view.active_row_index()
+        return self.view.i
 
     @property
     def row(self):
-        return self.view.row_from_activerow()
+        return self.view.row
         
     def add_action(self, name, func, shortcut=None, btn=False):
         act = QAction(name, self, triggered=err.e(func))
@@ -653,8 +669,8 @@ class EventLogBase(TableWidget):
             header = index.model().headerData(i=index.column()).replace(' ', '').lower()
             if header == 'codate': header = 'dateadded' # little hack for component CO table
 
-            ef = efl.get_eventfolder(minesite=minesite).from_model(
-                e=e, table_model=self.model(), irow=index.row(), table_widget=self.parent) \
+            ef = efl.get_eventfolder(minesite=minesite) \
+                .from_model(e=e, table_model=self.model(), irow=index.row(), table_widget=self.parent) \
                 .update_eventfolder_path(vals={header: val_prev})
 
     def close_event(self, index, **kw):
@@ -835,7 +851,6 @@ class TSI(EventLogBase):
             # self.mcols['disabled'] = ('WO',)
             self.col_widths.update({'Details': 400, 'TSI No': 120})
         
-    
     def refresh_allopen_user(self):
         username = self.mainwindow.username
         query = self.query
