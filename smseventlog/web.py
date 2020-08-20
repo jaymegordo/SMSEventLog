@@ -149,8 +149,9 @@ class Web(object):
             driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
 
             # some form fields (eg tsi date) dont work to set this way^, try setting with keys
-            if not disable_check and not element.get_property('value') == val:
-                element.send_keys(val)
+            # TODO fix this better
+            # if not disable_check and not element.get_property('value') == val:
+            #     element.send_keys(val)
 
         except:
             print(f'couldn\'t set value: {val}')
@@ -341,6 +342,12 @@ class TSIWebPage(Web):
             element = self.wait(30, EC.presence_of_element_located((By.CLASS_NAME, 'breadcrumb'))) \
                 .find_element_by_class_name('active')
             self.tsi_number = element.text
+
+            # saving clears the date fields, need to fill again
+            # NOTE may just need to fill them in a ifferent format
+            vals = {k, v for k, v in self.field_vals if k in ('Failure SMR', 'Failure Date')}
+            self.fill_all_fields(field_vals=vals)
+
         
     def fill_field(self, name, val):
         id_ = self.form_fields.get(name, None)
