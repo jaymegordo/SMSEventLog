@@ -8,10 +8,8 @@ from . import formfields as ff
 
 log = logging.getLogger(__name__)
 
-# TODO need to trim all values comping from add row dialogs
-
 class InputField():
-    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None):
+    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, blank=True):
         if col_db is None: col_db = text.replace(' ', '')
         boxLayout = None
         f.set_self(vars())
@@ -29,13 +27,13 @@ class InputField():
             self.val = self.default
 
 class InputForm(QDialog):
-    def __init__(self, parent=None, title=''):
+    def __init__(self, parent=None, window_title=''):
         super().__init__(parent=parent)
         mainwindow = ui.get_mainwindow()
         settings = ui.get_settings()
         name = self.__class__.__name__
         _names_to_avoid = ('minesite_qcombobox') # always want to use 'current' minesite
-        self.setWindowTitle(title)
+        self.setWindowTitle(window_title)
         vLayout = QVBoxLayout(self)
         formLayout = QFormLayout()
         formLayout.setLabelAlignment(Qt.AlignLeft)
@@ -111,9 +109,9 @@ class InputForm(QDialog):
         return super().accept()
 
     def accept(self):
+        self.items = self.get_items()
         self._save_settings()
         super().accept()
-        self.items = self.get_items()
 
     def get_items(self):
         # return dict of all field items: values
@@ -193,11 +191,11 @@ class InputForm(QDialog):
             self.mainwindow.update_statusbar(msg=msg)
 
 class AddRow(InputForm):
-    def __init__(self, parent=None, title='Add Item'):
-        super().__init__(parent=parent, title=title)
+    def __init__(self, parent=None, window_title='Add Item'):
+        super().__init__(parent=parent, window_title=window_title)
         m = {} # need dict for extra cols not in dbm table model (eg UnitID)
         queue = []
-        row = self.create_row()
+        row = self.create_row() # kinda sketch, row is actually e, not dbt.Row
         
         f.set_self(vars())
     
@@ -231,9 +229,7 @@ class AddRow(InputForm):
     def add_row_db(self, row):
         # TODO probably merge this with Row class? > update all? BULK update (with 2 component rows)
         dbt.print_model(model=row)
-        session = db.session
-        session.add(row)
-        session.commit()
+        db.add_row(row=row)
     
     def add_row_queue(self, row):
         # add row (model) to queue
@@ -273,11 +269,12 @@ class AddRow(InputForm):
 
 class AddEmail(AddRow):
     def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Add Email')
+        super().__init__(parent=parent, window_title='Add Email')
+
 
 class AddEvent(AddRow):
     def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Add Event')
+        super().__init__(parent=parent, window_title='Add Event')
         FCNumber = None
         IPF = InputField
 
@@ -502,12 +499,12 @@ class AddEvent(AddRow):
         
         if self.cb_eventfolder.isChecked():
             from . import eventfolders as efl
-            ef = efl.get_eventfolder(minesite=row.MineSite)(e=row)
+            ef = efl.get_eventfolder(minesite=row.MineSite).from_model(e=row)
             ef.create_folder(ask_show=True)
 
 class AddUnit(AddRow):
     def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Add Unit')
+        super().__init__(parent=parent, window_title='Add Unit')
         df = db.get_df_unit()
         minesite = ui.get_minesite()
         self.tablename = 'UnitID'
@@ -526,7 +523,6 @@ class AddUnit(AddRow):
         # when model is set, check if model_base exists. If not prompt to create one
         model, unit = self.fModel.val, self.fUnit.val
         modelbase = db.get_modelbase(model=model)
-        print(f'model_base: {modelbase}')
         
         if modelbase is None:
             dlg = CreateModelbase(model=model, parent=self)
@@ -540,7 +536,7 @@ class AddUnit(AddRow):
 
 class CreateModelbase(AddRow):
     def __init__(self, model, parent=None):
-        super().__init__(parent=parent, title='Create ModelBase')
+        super().__init__(parent=parent, window_title='Create ModelBase')
 
         lst = [] # get list of equiptypes
         df = db.get_df_equiptype()
@@ -583,24 +579,31 @@ class CreateModelbase(AddRow):
 
 class InputUserName(InputForm):
     def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Enter User Name')
+        super().__init__(parent=parent, window_title='Enter User Name')
         layout = self.vLayout
         layout.insertWidget(0, QLabel('Welcome to the SMS Event Log! \
-            \nPlease enter your first and last name to begin:\n'))
+            \nPlease enter your first/last name and work email to begin:\n'))
 
         self.add_input(field=InputField(text='First'))
         self.add_input(field=InputField(text='Last'))
+        self.add_input(field=InputField(text='Email'))
+
         self.show()
+    
+    def accept(self):
+        self.username = '{} {}'.format(self.fFirst.val, self.fLast.val).title()
+        self.email = self.fEmail.val.lower()
+        super().accept()
     
 class TSIUserName(InputForm):
     def __init__(self, parent=None):
-        super().__init__(parent=parent, title='Enter Password')
+        super().__init__(parent=parent, window_title='Enter Password')
         # self.setMaximumWidth(200)
         layout = self.vLayout
         layout.insertWidget(0, QLabel('To use the automated TSI system,\nplease enter your username and password for www.komatsuamerica.net:\n'))
 
-        self.add_input(field=InputField(text='Username'))
-        self.add_input(field=InputField(text='Password'))
+        self.add_input(field=InputField(text='Username', blank=False))
+        self.add_input(field=InputField(text='Password', blank=False))
         self.show()
 
     def check_val(self, val_name):
@@ -622,8 +625,8 @@ class TSIUserName(InputForm):
             return super().accept()
 
 class ChangeMinesite(InputForm):
-    def __init__(self, parent=None, title='Change MineSite'):
-        super().__init__(parent=parent, title=title)
+    def __init__(self, parent=None, window_title='Change MineSite'):
+        super().__init__(parent=parent, window_title=window_title)
         lst = db.get_list_minesite()
         self.add_input(field=InputField('MineSite', default=ui.get_minesite()), items=lst)
 
@@ -636,8 +639,8 @@ class ChangeMinesite(InputForm):
             self.parent.minesite = self.fMineSite.val
 
 class ComponentCO(InputForm):
-    def __init__(self, parent=None, title='Select Component'):
-        super().__init__(parent=parent, title=title)
+    def __init__(self, parent=None, window_title='Select Component'):
+        super().__init__(parent=parent, window_title=window_title)
         # TODO model > equipclass
 
         df = db.get_df_component()
@@ -684,10 +687,10 @@ class BiggerBox(QMessageBox):
         return result
 
 class MsgBox_Advanced(QDialog):
-    def __init__(self, msg='', title='', yesno=False, statusmsg=None, parent=None):
+    def __init__(self, msg='', window_title='', yesno=False, statusmsg=None, parent=None):
         super().__init__(parent=parent)
         self.parent = parent
-        self.setWindowTitle(title)
+        self.setWindowTitle(window_title)
         self.setMinimumSize(ui.minsize)
         self.setMaximumWidth(1000)
 
@@ -757,7 +760,6 @@ class ErrMsg2(QDialog):
         vLayout.addWidget(btn)
 
 class DetailsView(QDialog):
-    # TODO need to build value updating
     def __init__(self, parent=None, df=None):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -957,7 +959,7 @@ class QFileDialogPreview(QFileDialog):
 
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = check_app()
-    dlg = MsgBox_Advanced(msg=msg, title=ui.title, yesno=yesno, statusmsg=statusmsg)
+    dlg = MsgBox_Advanced(msg=msg, window_title=ui.title, yesno=yesno, statusmsg=statusmsg)
     return dlg.exec_()
 
 def msg_simple(msg='', icon='', infotext=None):
