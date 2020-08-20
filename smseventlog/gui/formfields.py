@@ -25,7 +25,11 @@ class FormFields(object):
 
     @property
     def val(self):
-        return f.getattr_chained(self, self.getter) # chained because DateEdit needs multi method() calls
+        v = f.getattr_chained(self, self.getter) # chained because DateEdit needs multi method() calls
+        if isinstance(v, str):
+            return v.strip()
+        else:
+            return v
 
     @val.setter
     def val(self, value):
