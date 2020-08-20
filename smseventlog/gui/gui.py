@@ -59,7 +59,7 @@ class MainWindow(QMainWindow):
         self.minesite_changed.emit(val)
     
     def update_minesite_label(self, *args):
-        # status_label is special label to always show current minesite
+        # status_label is special label to always show current minesite (bottom right)
         self.status_label.setText(f'Minesite: {self.minesite}')
     
     def update_statusbar(self, msg=None, *args):
@@ -71,6 +71,18 @@ class MainWindow(QMainWindow):
         # TODO: need to show window first, then show loading message
         self.username = self.get_username()
         self.active_table_widget().refresh(default=True)
+        self.init_sentry()
+
+        
+        self.u = users.User(username=self.username, mainwindow=self).login()
+
+    def init_sentry(self):
+        # sentry is error logging application
+        with configure_scope() as scope:
+            scope.user = dict(
+                username=self.username,
+                email=self.get_setting('email'))
+
     
     def active_table_widget(self):
         return self.tabs.currentWidget()
@@ -89,11 +101,15 @@ class MainWindow(QMainWindow):
         s.setValue('minesite', self.minesite)
         s.setValue('active table', self.active_table_widget().title)
     
+    def get_setting(self, key):
+        return self.settings.value(key, defaultValue=None)
+    
     def get_username(self):
         s = self.settings
-        username = s.value('username', defaultValue=None)
+        username = self.get_setting('username')
+        email = self.get_setting('email')
 
-        if username is None:
+        if username is None or email is None:
             self.set_username()
             username = self.username
 
@@ -104,15 +120,10 @@ class MainWindow(QMainWindow):
         s = self.settings
         dlg = dlgs.InputUserName(self)
         dlg.exec_()
-        m = dlg.items
-        if not m is None:
-            username = '{} {}'.format(m['First'].strip(), m['Last'].strip()).title()
-        else:
-            username = None
 
-        s.setValue('username', username)
-        self.username = username
-        print(f'setting username: {self.username}')
+        s.setValue('username', dlg.username)
+        s.setValue('email', dlg.email)
+        self.username = dlg.username
 
     def set_tsi_username(self):
         dlg = dlgs.TSIUserName()
@@ -186,10 +197,13 @@ class MainWindow(QMainWindow):
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_username)
+        help_.addAction(self.act_test_error)
 
     def create_actions(self):
         # Menu/shortcuts
         t = self.active_table_widget
+
+        act_test_error = QAction('Test Error', self, triggered=lambda: 1 / 0)
 
         act_username = QAction('Reset Username', self, triggered=self.set_username)
         act_tsi_username = QAction('Set TSI Username', self, triggered=self.set_tsi_username)
@@ -333,6 +347,8 @@ def get_minesite():
         return minesite
 
 def get_settings():
+    from . import startup
+    app = startup.get_qt_app()
     mainwindow = get_mainwindow()
     if not mainwindow is None:
         return mainwindow.settings
