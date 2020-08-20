@@ -6,33 +6,44 @@ from .__init__ import *
 log = logging.getLogger(__name__)
 
 class EventFolder(object):
-    def __init__(self, e, table_model=None, irow=None, table_widget=None):
+    def __init__(self, unit, dateadded, workorder, title, uid=None, table_model=None, irow=None, table_widget=None):
         # table_model only needed to set pics in table view
         self.dt_format = '%Y-%m-%d'
 
-        f.copy_model_attrs(model=e, target=self)
+        # f.copy_model_attrs(model=e, target=self)
 
         # get unit's row from unit table, save to self attributes
-        m = db.get_df_unit().loc[self.unit]
+        m = db.get_df_unit().loc[unit]
         f.copy_dict_attrs(m=m, target=self)
 
         modelpath = self.get_modelpath() # needs model and model_map
-        year = self.dateadded.year
+        year = dateadded.year
 
         wo_blank = 'WO' + ' ' * 14
-        if not self.workorder:
-            self.workorder = wo_blank
+        if not workorder:
+            workorder = wo_blank
 
         # confirm unit, date, title exist?
-        folder_title = self.get_folder_title(self.unit, self.dateadded, self.workorder, self.title)
+        folder_title = self.get_folder_title(unit, dateadded, workorder, title)
 
-        unitpath = f'{self.unit} - {self.serial}'
+        unitpath = f'{unit} - {self.serial}'
 
         p_base = f.drive / f'{self.equippath}/{modelpath}/{unitpath}/Events/{year}'
         _p_event = p_base / folder_title
-        p_event_blank = p_base / self.get_folder_title(self.unit, self.dateadded, wo_blank, self.title)
+        p_event_blank = p_base / self.get_folder_title(unit, dateadded, wo_blank, title)
 
         f.set_self(vars())
+    
+    @classmethod
+    def from_model(cls, e, **kw):
+        # create eventfolder from database/row model 'e', used when single query to db first is okay
+        # NOTE works with row model OR df.itertuples
+        efl = cls(unit=e.Unit, dateadded=e.DateAdded, workorder=e.WorkOrder, title=e.Title, **kw)
+
+        if hasattr(e, 'Pictures'):
+            efl.pictures = e.Pictures
+            
+        return efl
 
     @property
     def equippath(self):
@@ -40,6 +51,7 @@ class EventFolder(object):
     
     @property
     def p_event(self):
+        # NOTE careful when using this if don't want to check/correct path > use _p_event instead
         self.check()
         return self._p_event
 
@@ -60,18 +72,11 @@ class EventFolder(object):
             if not self.table_widget is None:
                 self.table_widget.mainwindow.update_statusbar(msg=f'Folder path updated: {self.folder_title}')
 
-    def get_modelbase(self):
-        # get modelbase from db for units in Regional
-        # TODO this probably needs to move somewhere else eventually
-        t = T('EquipType')
-        q = t.select(t.ModelBase).where(t.Model==self.model)
-        return db.query_single_val(q)
-
     def get_folder_title(self, unit, dateadded, workorder, title):
         d_str = dateadded.strftime(self.dt_format)
         return f'{unit} - {d_str} - {workorder} - {title}'
 
-    def check(self, p_prev=None):
+    def check(self, p_prev=None, check_pics=True):
         if not fl.drive_exists():
             return
             
@@ -102,7 +107,7 @@ class EventFolder(object):
                         self.create_folder()
         
         if p.exists():
-            self.set_pics()
+            if check_pics: self.set_pics()
             return True
         else:
             return False
@@ -127,11 +132,12 @@ class EventFolder(object):
             model.setData(index=index, val=num_pics)
         else:
             # just set str8 to db with uid
-            row = Row(keys=dict(UID=self.uid), dbtable=dbm.EventLog)
+            if self.uid is None: return
+
+            row = dbt.Row(keys=dict(UID=self.uid), dbtable=dbm.EventLog)
             row.update(vals=dict(Pictures=num_pics))
             print(f'num pics updated in db: {num_pics}')
 
-    
     def create_folder(self, show=True, ask_show=False):
         if not fl.drive_exists():
             return
@@ -157,21 +163,29 @@ class EventFolder(object):
             log.error(msg)
 
     def get_modelpath(self):
-        model = self.model.lower()
+        model = self.model
         
         if hasattr(self, 'model_map'):
             m = self.model_map
             # loop model_map and convert to model folder path if found
             for k, v in m.items():
-                if k.lower() in model:
+                if k.lower() in model.lower():
                     return v
 
-        modelbase = self.get_modelbase()
-        if not modelbase is None:
-            return modelbase
-        else:
-            return 'temp'
-        
+        modelbase = db.get_modelbase(model=model)
+        return modelbase if not modelbase is None else 'temp'
+
+    @property
+    def has_condition_report(self):
+        return len(self.condition_reports) > 0
+    
+    @property
+    def condition_reports(self):
+        if not hasattr(self, '_condition_reports') or self._condition_reports is None:
+            self._condition_reports = fl.find_files_partial(p=self._p_event, partial_text='cond')
+
+        return self._condition_reports 
+
 class FortHills(EventFolder):
     model_map = {
         '980':'1. 980E Trucks',
