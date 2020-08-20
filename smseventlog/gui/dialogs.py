@@ -9,7 +9,7 @@ from . import formfields as ff
 log = logging.getLogger(__name__)
 
 class InputField():
-    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, blank=True):
+    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, enforce=False):
         if col_db is None: col_db = text.replace(' ', '')
         boxLayout = None
         f.set_self(vars())
@@ -109,9 +109,28 @@ class InputForm(QDialog):
         return super().accept()
 
     def accept(self):
+        if not self.check_enforce_items():
+            return
+
         self.items = self.get_items()
         self._save_settings()
         super().accept()
+    
+    def check_enforce_items(self):
+        # loop all enforceable fields, make sure vals arent blank/default
+        if self.enforce_all:
+            fields = self.fields
+        else:
+            fields = list(filter(
+                lambda field: field.enforce==True and isinstance(field.box.val, str), self.fields))
+
+        for field in fields:
+            if len(field.val) == 0:
+                msg = f'"{field.text}" cannot be blank.'
+                dlg = msg_simple(msg=msg, icon='warning')
+                return False
+        
+        return True
 
     def get_items(self):
         # return dict of all field items: values
@@ -580,6 +599,7 @@ class CreateModelbase(AddRow):
 class InputUserName(InputForm):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Enter User Name')
+        self.enforce_all = True
         layout = self.vLayout
         layout.insertWidget(0, QLabel('Welcome to the SMS Event Log! \
             \nPlease enter your first/last name and work email to begin:\n'))
@@ -598,31 +618,12 @@ class InputUserName(InputForm):
 class TSIUserName(InputForm):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Enter Password')
-        # self.setMaximumWidth(200)
+        self.enforce_all = True
         layout = self.vLayout
         layout.insertWidget(0, QLabel('To use the automated TSI system,\nplease enter your username and password for www.komatsuamerica.net:\n'))
 
-        self.add_input(field=InputField(text='Username', blank=False))
-        self.add_input(field=InputField(text='Password', blank=False))
-        self.show()
-
-    def check_val(self, val_name):
-        # check username and password
-        val = self.items[val_name].strip()
-        ans = val if len(val) > 0 else False
-        return ans
-
-    def accept(self):
-        # check username and password, if good save to mainwindow's QSettings
-        self.items = self.get_items()
-        username, password = self.check_val('Username'), self.check_val('Password')
-
-        if not (username or password):
-            msg = 'Bad username or password!'
-            msg_simple(msg=msg, icon='critical')
-            return False
-        else:
-            return super().accept()
+        self.add_input(field=InputField(text='Username'))
+        self.add_input(field=InputField(text='Password'))
 
 class ChangeMinesite(InputForm):
     def __init__(self, parent=None, window_title='Change MineSite'):
