@@ -1,3 +1,5 @@
+import inspect
+
 from .__init__ import *
 from .. import functions as f
 from distutils.util import strtobool
@@ -18,8 +20,14 @@ class FormFields(object):
     # simplify getting/setting all form field values
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
-        baseclass = self.__class__.__bases__[0] # eg PyQt5.QtWidgets.QTextEdit, (class object not str)
-        type_ = obj_vals[baseclass]
+
+        # loop base classes till find a match in obj_vals
+        for cls in inspect.getmro(self.__class__):
+            type_ = obj_vals.get(cls, None)
+            if not type_ is None:
+                parentclass = cls # eg PyQt5.QtWidgets.QTextEdit, (class object not str)
+                break
+
         getter, setter = type_[0], type_[1] # currentText, setCurrentText
         f.set_self(vars())
 
@@ -41,13 +49,22 @@ class FormFields(object):
     def set_name(self, name):
         # give widget a unique objectName to save/restore state
         if hasattr(self, 'setObjectName'):
-            self.setObjectName(f'{name}_{self.baseclass.__name__}'.replace(' ', '').lower())
+            self.setObjectName(f'{name}_{self.parentclass.__name__}'.replace(' ', '').lower())
+    
+    def select_all(self):
+        try:
+            self.setFocus()
+            self.selectAll()
+        except:
+            print(f'{self.__class__.__name__}: couldnt select all text')
+            pass # NOTE not sure which methods select text in all types of boxes yet
 
 class ComboBox(QComboBox, FormFields):
     def __init__(self, items=None, editable=True, *args, **kw):
         super().__init__(*args, **kw)
         self.setMaxVisibleItems(20)
         self.setEditable(editable)
+        self.setDuplicatesEnabled(False)
 
         if items is None: items = []
         self.addItems(items)
@@ -58,6 +75,65 @@ class ComboBox(QComboBox, FormFields):
         # prevent adding previous default items not in this list
         if value in self.items:
             self._set_val(value)
+    
+    def select_all(self):
+        self.setFocus()
+        self.lineEdit().selectAll()
+
+class ComboBoxTable(ComboBox):
+    """
+    Special combo box for use as cell editor in TableView
+
+    To implement a persistent state for the widgetd cell, must provide
+    `getWidgetedCellState` and `setWidgetedCellState` methods.  This is how
+    the WidgetedCell framework can create and destory widget as needed.
+    """
+    escapePressed = pyqtSignal()
+    returnPressed = pyqtSignal()
+
+    def __init__(self, parent=None, delegate=None, **kw):
+        super().__init__(parent=parent, **kw)
+        # need parent so TableView knows where to draw editor
+        
+        self.delegate = delegate
+        if not delegate is None:
+            self.escapePressed.connect(self.delegate.close_editor)
+            # self.returnPressed.connect(self.delegate.commitAndCloseEditor)
+
+    # NOTE not sure if this is still needed 2020-08-21
+    # def keyPressEvent(self, event):
+    #     if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+    #         print('returnPressed')
+    #         # self.delegate.commitAndCloseEditor()
+    #         self.returnPressed.emit()
+    #         return
+
+    #     return super().keyPressEvent(event)
+    
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_Escape:
+                self.escapePressed.emit()
+        return super().eventFilter(obj, event)
+    
+    def commit_list_data(self):
+        # need to manually set the editors's index/value when list item is pressed, then commit
+        self.setCurrentIndex(self.view().currentIndex().row())
+        self.delegate.commitAndCloseEditor()
+
+    def showPopup(self):
+        # need event filter to catch combobox view's ESC event and close editor completely
+        super().showPopup()
+        view = self.view()
+        view.installEventFilter(self)
+        view.pressed.connect(self.commit_list_data)
+
+    def getWidgetedCellState(self):
+        return self.currentIndex()
+
+    def setWidgetedCellState(self, state):
+        self.setCurrentIndex(state)
+
 
 class TextEdit(QTextEdit, FormFields):
     def __init__(self, *args, **kw):
