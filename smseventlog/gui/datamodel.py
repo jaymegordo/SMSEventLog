@@ -1,7 +1,10 @@
 from .__init__ import *
 
+log = logging.getLogger(__name__)
 # irow, icol = row/column integer locations eg 3, 5
 # row, col = row/column index names eg (if no actual index) 3, 'StartDate'
+
+# NOTE calling index.data() defaults to role=DisplayRole, NOT model.data(role=RawDataRole) careful!
 
 class TableModel(QAbstractTableModel):
     RawDataRole = 64
@@ -235,61 +238,42 @@ class TableModel(QAbstractTableModel):
             return (irow, icol)
 
         return None
-
-    def add_queue(self, vals, irow=None):
-        # vals is dict of view_col: val
-        # add either single val or entire row
-        # TODO just using default dbtable for now
-        # could have multiple dbtables per row... have to check headers for each? bulk update once per table??
-
-        # if keys aren't in update_vals, need to use irow to get from current df row
-        check_key_vals = self.df.iloc[irow].to_dict() if not irow is None else vals
-
-        key_tuple, key_dict = dbt.get_dbtable_key_vals(dbtable=self.dbtable_default, vals=check_key_vals)
-        self.queue[key_tuple].update(**key_dict, **vals) # update all vals - existing key, or create new key
-    
-    def flush_queue(self):
-        # bulk uptate all items in queue, could be single row or vals from multiple rows
-        # TODO trigger the update with signal?
-        
-        txn = dbt.DBTransaction(table_model=self) \
-            .add_items(update_items=list(self.queue.values())) \
-            .update_all()
-    
-        self.set_queue()
-    
-    # @e
+   
     def setData(self, index, val, role=Qt.EditRole, triggers=True, queue=False, update_db=True):
         if not index.isValid(): return False
-        val_prev = index.data(role=Qt.EditRole)
+        val_prev = index.data(role=Qt.EditRole) # self.RawDataRole doesnt work great with pd.NA
+        row, col = index.data(role=self.NameIndexRole)
+        irow, icol = self.getRowCol(index)
+        df = self.df
 
+        # if val type doesn't match column dtype, try to enforce and convert
+        m_type = {'object': str, 'float64': float, 'int64': int, 'bool': bool, 'datetime64[ns]': dt}
+        m_conv = m_type.copy() # bool/date need different func to convert
+        m_conv.update({'bool': f.str_to_bool, 'datetime64[ns]': f.convert_date})
+
+        dtype = self.get_dtype(icol=icol)
+
+        if not type(val) == m_type[dtype]:
+            try:
+                val = m_conv[dtype](val)
+            except:
+                msg = f'Error: incorrect data type "{type(val)}" for "{val}"'
+                self.table_widget.mainwindow.update_statusbar(msg=msg)
+                log.info(msg)
+                return
+
+        # dont update db if value is same as previous
         if role == Qt.EditRole and val_prev != val:
-            irow, icol = self.getRowCol(index)
-            row, col = index.data(role=self.NameIndexRole)
-            df = self.df
-
-            dtype = str(df.dtypes[icol]).lower()
-
-            if dtype in ('float64', 'int64') and not f.isnum(val):
-                val = None
-            else:
-                if dtype == 'object':
-                    val = str(val)
-                elif dtype == 'float64':
-                    val = float(val)
-                elif dtype == 'int64':
-                    val = int(val)
 
             # keep original df copy in sync for future filtering
             self._df_orig.loc[row, col] = val
             df.loc[row, col] = val
 
             # either add items to the queue, or update single val
-            if not queue:
-                if update_db:
-                    self.update_db(index=index, val=val)               
-            else:
+            if queue:
                 self.add_queue(vals={col: val}, irow=irow)
+            elif update_db:
+                self.update_db(index=index, val=val)               
             
             # reset stylemap when val in dynamic_cols is changed
             if col in self.parent.mcols['dynamic']:
@@ -297,16 +281,14 @@ class TableModel(QAbstractTableModel):
 
             self.dataChanged.emit(index, index)
 
-            # stop other funcs from updating in a loop
-            if triggers:
-                func_list = self.parent.col_func_triggers.get(col, None) # dd of list of funcs to run
-                if not func_list is None:
-                    for func in func_list:
-                        func(index=index, val_prev=val_prev)
-            
-            return True
+        # trigger column update funcs, stop other funcs from updating in a loop
+        if triggers:
+            func_list = self.parent.col_func_triggers.get(col, None) # dd of list of funcs to run
+            if not func_list is None:
+                for func in func_list:
+                    func(index=index, val_new=val, val_prev=val_prev)
         
-        return False
+        return True
 
     def sort(self, icol, order):
         if len(self.df) == 0:
@@ -361,6 +343,12 @@ class TableModel(QAbstractTableModel):
         self._resort = lambda: None
         self._df_pre_dyn_filter = None
 
+    def get_dtype(self, icol):
+        return str(self.df.dtypes[icol]).lower()
+    
+    def get_col_name(self, icol):
+        return self._cols[icol]
+
     def get_col_idx(self, col):
         try:
             return self._cols.index(col) # cant use df.columns, they may be changed
@@ -388,6 +376,28 @@ class TableModel(QAbstractTableModel):
         e = dbt.Row(table_model=self, dbtable=dbtable, i=index.row())
         e.update_single(header=header, val=val, check_exists=check_exists)
     
+    def add_queue(self, vals, irow=None):
+        # vals is dict of view_col: val
+        # add either single val or entire row
+        # TODO just using default dbtable for now
+        # could have multiple dbtables per row... have to check headers for each? bulk update once per table??
+
+        # if keys aren't in update_vals, need to use irow to get from current df row
+        check_key_vals = self.df.iloc[irow].to_dict() if not irow is None else vals
+
+        key_tuple, key_dict = dbt.get_dbtable_key_vals(dbtable=self.dbtable_default, vals=check_key_vals)
+        self.queue[key_tuple].update(**key_dict, **vals) # update all vals - existing key, or create new key
+    
+    def flush_queue(self):
+        # bulk uptate all items in queue, could be single row or vals from multiple rows
+        # TODO trigger the update with signal?
+        
+        txn = dbt.DBTransaction(table_model=self) \
+            .add_items(update_items=list(self.queue.values())) \
+            .update_all()
+    
+        self.set_queue()
+
     def create_model(self, i):
         # create dbmodel from table model given row index i
         table_widget = self.table_widget
