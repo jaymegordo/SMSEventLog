@@ -3,6 +3,7 @@ import functools
 import json
 import re
 import traceback
+from distutils.util import strtobool
 
 import pandas as pd
 import six
@@ -200,6 +201,19 @@ def nice_title(title):
 
     return ' '.join(f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w for w in title.split(' '))  
     
+def str_to_bool(val):
+    return bool(strtobool(val))
+
+def convert_date(val):
+    try:
+        if isinstance(val, date):
+            return dt.combine(val, dt.min.time())
+        elif isinstance(val, str):
+            return dt.strptime(val, '%Y-%m-%d')
+        else:
+            return val
+    except:
+        return val
 
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
@@ -391,8 +405,8 @@ def format_traceback():
     
     return msg
 
-def send_error(msg='', prnt=False, func=None, display=False):   
-    
+def send_error(msg='', prnt=False, func=None, display=False, logger=None):   
+    # send error to discord, print, or log error
     err = format_traceback()
 
     if not msg == '':
@@ -408,6 +422,9 @@ def send_error(msg='', prnt=False, func=None, display=False):
     if display:
         from .gui import errors as err
         err.display_error()
+    
+    if not logger is None:
+        log.error(msg)
 
 def create_logger(func=None):
     # not used yet
