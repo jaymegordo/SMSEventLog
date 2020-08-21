@@ -1,5 +1,3 @@
-import pandas as pd
-import pypika as pk
 import sqlalchemy as sa
 from sqlalchemy import and_, literal
 
@@ -152,8 +150,7 @@ class Row():
         except:
             operation = 'update' if not delete else 'delete'
             msg = f'Couldn\'t {operation} value: {vals}'
-            f.send_error(msg=msg, display=True)
-            log.error(msg)
+            f.send_error(msg=msg, display=True, logger=log)
     
     def create_model_from_db(self):
         # query sqalchemy orm session using model eg dbo.EventLog, and keys eg {UID=123456789}

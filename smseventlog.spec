@@ -98,5 +98,6 @@ coll = COLLECT(exe,
                upx=False,
                upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
                name=dist_folder_name,
-               icon=icon)
+               icon=icon,
+               console=False)
 

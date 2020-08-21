@@ -345,7 +345,7 @@ class TSIWebPage(Web):
 
             # saving clears the date fields, need to fill again
             # NOTE may just need to fill them in a ifferent format
-            vals = {k, v for k, v in self.field_vals if k in ('Failure SMR', 'Failure Date')}
+            vals = {k:v for k, v in self.field_vals.items() if k in ('Failure SMR', 'Failure Date')}
             self.fill_all_fields(field_vals=vals)
 
         

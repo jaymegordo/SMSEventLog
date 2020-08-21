@@ -1,9 +1,11 @@
-from .__init__ import *
-from . import gui, tables, dialogs, refreshtables # importing these to wrap errors
-from .. import functions as f
 import sentry_sdk
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-from sentry_sdk import configure_scope
+
+from .. import functions as f
+from . import (dialogs, gui, refreshtables,  # importing these to wrap errors
+               tables, delegates)
+from .__init__ import *
+
 
 def decorate_modules():
     # decorate all classes' methods in these modules with @e error handler

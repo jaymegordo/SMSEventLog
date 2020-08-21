@@ -388,7 +388,7 @@ class DB(object):
         
         val = self.query_single_val(q)
         
-        return dt.combine(val, dt.min.time())
+        return f.convert_date(val)
 
 print(f'{__name__}: loading db')
 db = DB()

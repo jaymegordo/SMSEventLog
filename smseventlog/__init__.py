@@ -24,6 +24,7 @@ from pypika import functions as fn
 from pypika.analytics import RowNumber
 
 __version__ = '3.0.1'
+VERSION = __version__
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
 azure_web = os.getenv('WEBSITE_INSTANCE_ID')

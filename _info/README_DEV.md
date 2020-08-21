@@ -14,7 +14,7 @@
     * git commands
         <!-- todo: link good guide? -->
         * [Guide](https://product.hubspot.com/blog/git-and-github-tutorial-for-beginners)
-        * [initialize local project](https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-clone): `git clone https://github.com/jaymegordo/SMSEventLog .`
+        * [initialize local project](https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-clone): `git clone https://github.com/jaymegordo/SMSEventLog .` (the period is important!)
         * check current staged files: `git status`
         * ignore line endings (if project is worked on between mac and windows): `git config --global core.autocrlf true`
         * exit logs/messages: `q`
@@ -45,9 +45,9 @@
 
 ### Build Process
 1. Commit all changes to git, add comments etc (use github menu in vscode)
-2. Increment version with eg `bumpversion minor` (must be run inside active pipenv)
+2. Increment version with eg `bumpversion patch --verbose` (must be run inside active pipenv)
 3. Push changes to git `git push --tags` (imporant to include tags to increment version on github)
-4. Build using custom build script `python -m build` (see pyinstaller below for more info)
+4. Build exe using custom build script `python -m build` (see pyinstaller below for more info)
 
 * [bump2version](https://github.com/c4urself/bump2version)
     * Use bumpversion to control version increments

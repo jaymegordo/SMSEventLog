@@ -13,10 +13,7 @@ minesite, customer = 'FortHills', 'Suncor'
 # FEATURES NEEDED
 # TODO copy selected cells
 # TODO Keyboard shortcuts > ctrl + down, right
-# TODO column bold
 # TODO green 'flash' for user confirmation value updated in db
-# TODO remember state of refresh dialogs
-# TODO refresh dialog tab order
 # TODO save previous query and run when tab first selected
 # TODO selected rows highlight behind existing colors
 
@@ -73,7 +70,6 @@ class MainWindow(QMainWindow):
         self.active_table_widget().refresh(default=True)
         self.init_sentry()
 
-        
         self.u = users.User(username=self.username, mainwindow=self).login()
 
     def init_sentry(self):
@@ -82,7 +78,8 @@ class MainWindow(QMainWindow):
             scope.user = dict(
                 username=self.username,
                 email=self.get_setting('email'))
-
+            
+            scope.set_extra('version', VERSION)
     
     def active_table_widget(self):
         return self.tabs.currentWidget()
@@ -119,7 +116,7 @@ class MainWindow(QMainWindow):
         # show username dialog and save first/last name to settings
         s = self.settings
         dlg = dlgs.InputUserName(self)
-        dlg.exec_()
+        if not dlg.exec_(): return
 
         s.setValue('username', dlg.username)
         s.setValue('email', dlg.email)
@@ -195,16 +192,15 @@ class MainWindow(QMainWindow):
         database_.addAction(self.act_open_sap)
 
         help_ = bar.addMenu('Help')
+        help_.addAction(self.act_show_about) # this actually goes to main 'home' menu
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_username)
-        help_.addAction(self.act_test_error)
 
     def create_actions(self):
         # Menu/shortcuts
         t = self.active_table_widget
 
-        act_test_error = QAction('Test Error', self, triggered=lambda: 1 / 0)
-
+        act_show_about = QAction('About', self, triggered=dlgs.about)
         act_username = QAction('Reset Username', self, triggered=self.set_username)
         act_tsi_username = QAction('Set TSI Username', self, triggered=self.set_tsi_username)
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)

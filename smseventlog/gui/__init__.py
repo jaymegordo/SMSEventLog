@@ -30,7 +30,7 @@ from smseventlog import queries as qr
 from smseventlog import users
 from smseventlog.__init__ import *
 from smseventlog.database import db
-from smseventlog.gui import errors as er
-from smseventlog.gui.errors import e, wrap_all_class_funcs
+from smseventlog import errors as er
+from smseventlog.errors import e, wrap_all_class_funcs
 
 from sentry_sdk import configure_scope

@@ -454,7 +454,7 @@ class FCSummary(FCBase):
             df2.drop(columns=['Total', 'Complete'], inplace=True)
 
             # can't pivot properly if Hours column (int) is NULL > just set to 0
-            df.Hrs[df.Hrs.isnull()] = 0
+            df.loc[df.Hrs.isnull(), 'Hrs'] = 0
 
             index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
             df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete') \
