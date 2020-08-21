@@ -1,11 +1,18 @@
 from . import gui as ui
+from .formfields import ComboBoxTable
 from .datamodel import TableModel
 from .__init__ import *
 
 log = logging.getLogger(__name__)
+global m_align
+m_align =  {
+    'object': Qt.AlignLeft,
+    'float64': Qt.AlignRight,
+    'int64': Qt.AlignRight,
+    'bool': Qt.AlignCenter,
+    'datetime64[ns]': Qt.AlignCenter}
 
-# TODO: Int columns
-
+# TODO maybe move to formfields
 class TextEditor(QTextEdit):
     returnPressed = pyqtSignal()
 
@@ -19,22 +26,36 @@ class TextEditor(QTextEdit):
         
         if (modifiers != Qt.ShiftModifier and 
             event.key() in (Qt.Key_Return, Qt.Key_Enter)):
-            # print(event.key())
             self.returnPressed.emit()
             return
 
         super().keyPressEvent(event)
-
-class AlignDelegate(QStyledItemDelegate):
-    def initStyleOption(self, option, index):
-        option.displayAlignment = Qt.AlignCenter
-        super().initStyleOption(option, index)
 
 class CellDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.parent = parent
         self.index = None
+    
+    def _initStyleOption(self, option, index):
+        # bypass to parent
+        super().initStyleOption(option, index)
+    
+    def initStyleOption(self, option, index):
+        # set column alignment based on data type
+        model = self.parent.model()
+        icol = index.column()
+        dtype = model.get_dtype(icol=icol)
+        
+        # align all cols except 'longtext' VCenter
+        alignment = m_align.get(dtype, Qt.AlignLeft)
+        col_name = model.get_col_name(icol=icol)
+
+        if not col_name in self.parent.mcols['longtext']:
+            alignment |= Qt.AlignVCenter
+
+        option.displayAlignment = alignment
+        self._initStyleOption(option, index)
     
     def sizeHint(self, option, index):
         size = super().sizeHint(option, index)
@@ -109,61 +130,11 @@ class CellDelegate(QStyledItemDelegate):
         self.closeEditor.emit(editor, QStyledItemDelegate.NoHint)
         self.parent.resizeRowToContents(self.index.row())
 
-    # def updateEditorGeometry(self, editor, option, index):
-        # editor.setGeometry(option.rect)
-
-class ComboWidget(QComboBox):
-    """
-    To implement a persistent state for the widgetd cell, you must provide
-    a `getWidgetedCellState` and `setWidgetedCellState` methods.  This is how
-    the WidgetedCell framework can create and destory your widget as needed.
-    """
-    escapePressed = pyqtSignal()
-    returnPressed = pyqtSignal()
-
-    def __init__(self, parent, delegate=None):
-        super().__init__(parent)
-        self.delegate = delegate
-        self.setMaxVisibleItems(20)
-        self.setEditable(True)
-        self.setDuplicatesEnabled(False)
-        self.escapePressed.connect(self.delegate.close_editor)
-        self.returnPressed.connect(self.delegate.commitAndCloseEditor)
-
-    def keyPressEvent(self, event):       
-        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            self.returnPressed.emit()
-            return
-
-        return super().keyPressEvent(event)
-    
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_Escape:
-                self.escapePressed.emit()
-        return super().eventFilter(obj, event)
-    
-    def commit_list_data(self):
-        # need to manually set the editors's index/value when list item is pressed, then commit
-        self.setCurrentIndex(self.view().currentIndex().row())
-        self.delegate.commitAndCloseEditor()
-
-    def showPopup(self):
-        # need event filter to catch combobox view's ESC event and close editor completely
-        super().showPopup()
-        view = self.view()
-        view.installEventFilter(self)
-        view.pressed.connect(self.commit_list_data)
-
-    def getWidgetedCellState(self):
-        return self.currentIndex()
-
-    def setWidgetedCellState(self, state):
-        self.setCurrentIndex(state)
 
 class ComboDelegate(CellDelegate):
     def __init__(self, parent, items):
         super().__init__(parent)
+        # parent is TableView
 
         items_lower = [item.lower() for item in items]
         _cell_widget_states = {}
@@ -171,13 +142,12 @@ class ComboDelegate(CellDelegate):
 
     def initStyleOption(self, option, index):
         option.displayAlignment = Qt.AlignCenter
-        super().initStyleOption(option, index)
+        self._initStyleOption(option, index)
 
     def createEditor(self, parent, option, index):
         self.index = index
-        editor = ComboWidget(parent=parent, delegate=self)
-        editor.addItems(self.items)
-        editor.setMinimumWidth(editor.minimumSizeHint().width() - 20)
+        editor = ComboBoxTable(parent=parent, delegate=self, items=self.items)
+        editor.setMinimumWidth(editor.minimumSizeHint().width())
 
         self.editor = editor
         return editor
@@ -208,13 +178,15 @@ class ComboDelegate(CellDelegate):
 
     def setModelData(self, editor, model, index):
         # convert any matching string to good value even if case mismatched
-        val_lower = str(editor.currentText()).lower()
+        val = editor.val
+        val_lower = val.lower()
+
         if val_lower in self.items_lower:
             val = self.items[self.items_lower.index(val_lower)]
             model.setData(index=index, val=val, role=Qt.EditRole)
         else:
-            pass
-            # TODO find way to let user know, without annoying popup
+            msg = f'Error setting value: "{val}" not in list.'
+            self.parent.update_statusbar(msg=msg)
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -222,26 +194,6 @@ class ComboDelegate(CellDelegate):
 class DateDelegateBase(CellDelegate):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-
-    def initStyleOption(self, option, index):
-        option.displayAlignment = Qt.AlignCenter
-        super().initStyleOption(option, index)
-    
-    # def paint(self, painter, option, index):
-    #     # option.backgroundBrush = QBrush(Qt.red)
-    #     option.backgroundBrush.setColor(QColor(100, 200, 100, 200))
-    #     super().paint(painter, option, index)
-
-    # def sizeHint(self, option, index):
-    #     size = super().sizeHint(option, index)
-    #     return QSize(self.width, size.height())
-
-    # def displayText(self, value, locale):
-    #     # print(value, type(value))
-    #     if isinstance(value, dt) and not pd.isnull(value):
-    #         return value.strftime(self.display_format)
-    #     else:
-    #         return ''
 
     def createEditor(self, parent, option, index):
         self.index = index
@@ -260,7 +212,6 @@ class DateDelegateBase(CellDelegate):
         val = index.data(role=TableModel.RawDataRole)
 
         if pd.isnull(val):
-            # val = QDateTime.currentDateTime().toPyDateTime()
             val = self.cur_date
 
         getattr(editor, self.set_editor)(val)
