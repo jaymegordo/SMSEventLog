@@ -1,33 +1,25 @@
 import re
 
 from .. import email as em
+from .. import errors as er
 from .. import factorycampaign as fc
 from .. import functions as f
 from .. import queries as qr
 from .. import styles as st
 from . import dialogs as dlgs
-from . import errors as err
-from . import gui as ui
 from . import eventfolders as efl
+from . import gui as ui
 from .__init__ import *
 from .datamodel import TableModel
-from .delegates import (AlignDelegate, CellDelegate, ComboDelegate,
+from .delegates import (CellDelegate, ComboDelegate,
                         DateDelegate, DateTimeDelegate)
 
 log = logging.getLogger(__name__)
 
 # TODO change how multiple selection works, don't select all rows
 # TODO row selection - highlight behind existing cell colors
-# TODO trigger on title changed?
-# TODO trigger on componentCO changed
-# TODO Component CO highlight null SNs + other vals
 # TODO highlight header red when filter active
 # TODO add tsi status to WO page
-# TODO UnitINFO add new function/menu
-# TODO create function to evaluate '=' formulas
-
-# TODO Header menu click to sort not working (look at new header class)
-# TODO Event closed functions, set date closed
 
 
 class TableView(QTableView):
@@ -38,6 +30,7 @@ class TableView(QTableView):
         super().__init__(*args, **kwargs)
 
         # self.activated.connect(self.double_click_enter)
+        mainwindow = ui.get_mainwindow()
 
         self.mcols = dd(tuple)
         col_widths = {'Title': 150, 'Part Number': 150, 'Failure Cause': 300}
@@ -49,6 +42,7 @@ class TableView(QTableView):
         
         # set up initial empty model
         self.parent = parent # model needs this to access parent table_widget
+        self.table_widget = parent if isinstance(parent, TableWidget) else None
         _data_model = TableModel(parent=self)
         self.setModel(_data_model)
         rows_initialized = True
@@ -106,8 +100,6 @@ class TableView(QTableView):
         self.hide_columns()
         self.resizeColumnsToContents()
         self.set_date_delegates()
-
-        # cols = ['Passover', 'Unit', 'Work Order', 'Seg', 'Customer WO', 'Customer PO', 'Serial', 'Side']
         self.set_column_widths()
 
         self.rows_initialized = True
@@ -163,6 +155,13 @@ class TableView(QTableView):
                         color_code = self.colors['text'].get(color_name, None)
                         if not color_code is None:
                             return QColor(color_code)
+
+    def highlight_blanks(self, val, role, **kw):
+        if val in ('', None):
+            if role == Qt.BackgroundRole:
+                return QColor(self.colors['bg']['bad'])
+            elif role == Qt.ForegroundRole:
+                return QColor(self.colors['text']['bad'])
 
     def highlight_pics(self, val, role, **kw):
         color = 'goodgreen' if f.isnum(val) and val > 0 else 'bad'
@@ -431,6 +430,9 @@ class TableView(QTableView):
         if i is None: i = self.active_row_index()
         self.model().removeRows(i=i)
 
+    def update_statusbar(self, msg):
+        if not self.mainwindow is None:
+            self.mainwindow.update_statusbar(msg=msg)
 
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
@@ -485,7 +487,7 @@ class TableWidget(QWidget):
         return self.view.row
         
     def add_action(self, name, func, shortcut=None, btn=False):
-        act = QAction(name, self, triggered=err.e(func))
+        act = QAction(name, self, triggered=er.e(func))
 
         if not shortcut is None:
             act.setShortcut(QKeySequence(shortcut))
@@ -514,7 +516,7 @@ class TableWidget(QWidget):
         dlg = dlgs.AddEvent(parent=self)
         dlg.exec_()
 
-    def show_component(self):
+    def show_component(self, **kw):
         dlg = dlgs.ComponentCO(parent=self)
         dlg.exec_()
             
@@ -624,6 +626,10 @@ class TableWidget(QWidget):
         # default, just remove from table view (doesn't do anything really)
         self.view.remove_row()
 
+    def update_statusbar(self, msg):
+        if not self.mainwindow is None:
+            self.mainwindow.update_statusbar(msg=msg)
+
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -633,9 +639,10 @@ class EventLogBase(TableWidget):
         def __init__(self, parent):
             super().__init__(parent=parent)
             self.add_col_funcs(['Work Order', 'Title', 'Date Added'], self.update_eventfolder_path)
-            self.add_col_funcs(['Status'], self.parent.close_event)
+            self.add_col_funcs('Status', self.parent.close_event)
             self.highlight_funcs['Status'] = self.highlight_by_val
             self.mcols['hide'] = ('UID',)
+            self.mcols['longtext'] = ('Description', 'Failure Cause', 'Comments', 'Details', 'Notes')
             self.mcols['disabled'] = ('Model', 'Serial')
             self.highlight_vals.update({
                 'closed': 'goodgreen',
@@ -649,7 +656,9 @@ class EventLogBase(TableWidget):
                 'waiting parts (up)': 'lightyellow',
                 'missing info': 'lightyellow',
                 'waiting parts (down)': 'bad',
-                'x': 'good'})
+                'x': 'good',
+                'true': 'goodgreen',
+                'false': 'bad'})
             
             self.formats.update({
                 'Unit SMR': '{:,.0f}',
@@ -693,7 +702,10 @@ class EventLogBase(TableWidget):
             # set dateclosed in table view but don't update
             model = index.model()
             update_index = index.siblingAtColumn(model.get_col_idx('Date Complete'))
-            model.setData(index=update_index, val=d, triggers=False, update_db=False)
+
+            # Update if DateComplete is null
+            if not update_index.data():
+                model.setData(index=update_index, val=d, triggers=False, update_db=False)
 
             row.update(vals=vals)
             self.mainwindow.update_statusbar(
@@ -792,19 +804,20 @@ class WorkOrders(EventLogBase):
                 'Customer PO': 90,
                 'Comp CO': 50,
                 'Comments': 400,
-                'Seg': 30})
+                'Seg': 30,
+                'Pics': 40})
             
+            self.add_col_funcs('Comp CO', self.set_component)
             self.highlight_funcs['Pics'] = self.highlight_pics
-            # self.highlight_funcs['Comp CO'] = self. TODO finish this
+            self.highlight_funcs['Comp CO'] = self.highlight_by_val
 
             lists = f.config['Lists']
             self.set_combo_delegate(col='Wrnty', items=lists['WarrantyType'])
             self.set_combo_delegate(col='Comp CO', items=lists['TrueFalse'])
-
-    
-        def set_component(self, index):
-            # update floc in db when CompCO set to True
-            if index.data() == True: pass
+        
+        def set_component(self, val_new, **kw):
+            if val_new == True:
+                self.parent.show_component()
 
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
@@ -817,6 +830,9 @@ class ComponentCO(EventLogBase):
             self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
             self.col_widths.update(dict(Notes=400))
             self.highlight_funcs['Unit'] = self.highlight_alternating
+
+            cols = ['Unit SMR', 'Comp SMR', 'SN Removed', 'SN Installed', 'Removal Reason']
+            self.add_highlight_funcs(cols=cols, func=self.highlight_blanks)
 
             self.set_combo_delegate(col='Reman', items=['True', 'False'])
 
