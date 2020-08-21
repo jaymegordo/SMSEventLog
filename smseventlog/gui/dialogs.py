@@ -7,6 +7,7 @@ from .__init__ import *
 from . import formfields as ff
 
 log = logging.getLogger(__name__)
+# TODO reload ff.Combobox items on toggle - signal/slot somehow?
 
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, enforce=False):
@@ -41,6 +42,7 @@ class InputForm(QDialog):
         vLayout.addLayout(formLayout)
         fields = []
         items = None
+        enforce_all = False
 
         add_okay_cancel(dlg=self, layout=vLayout)
         f.set_self(vars())
@@ -152,17 +154,10 @@ class InputForm(QDialog):
         # toggle input field enabled/disabled based on checkbox
         source = self.sender()
         box = source.box
-        # TODO need to subclass QCombobox and reload items on toggle? signal/slot somehow?
 
         if state == Qt.Checked:
             box.setEnabled(True)
-            box.setFocus()
-
-            if isinstance(box, (ff.LineEdit, ff.TextEdit)):
-                box.selectAll()
-            elif isinstance(box, ff.ComboBox):
-                box.lineEdit().selectAll()
-
+            box.select_all()
         else:
             box.setEnabled(False)
 
@@ -331,6 +326,7 @@ class AddEvent(AddRow):
 
         self.add_component_fields()
 
+        self.fUnit.box.select_all()
         f.set_self(vars())
         self.show()
     
@@ -630,9 +626,9 @@ class ChangeMinesite(InputForm):
     def __init__(self, parent=None, window_title='Change MineSite'):
         super().__init__(parent=parent, window_title=window_title)
         lst = db.get_list_minesite()
-        self.add_input(field=InputField('MineSite', default=ui.get_minesite()), items=lst)
+        self.add_input(field=InputField('MineSite', default=ui.get_minesite()), items=lst) \
+            .box.select_all()
 
-        self.fMineSite.box.setFocus()
         self.show()
 
     def accept(self):
@@ -643,25 +639,26 @@ class ChangeMinesite(InputForm):
 class ComponentCO(InputForm):
     def __init__(self, parent=None, window_title='Select Component'):
         super().__init__(parent=parent, window_title=window_title)
-        # TODO model > equipclass
 
-        df = db.get_df_component()
+        df = db.get_df_component().copy()
         lst = f.clean_series(s=df.Combined)
-        self.add_input(field=InputField('Component'), items=lst)
-
+        self.add_input(field=InputField('Component'), items=lst) \
+            .box.select_all()
+        
         f.set_self(vars())
-
+        
     def accept(self):
-        super().accept()
-        df = self.df
+        df, table_widget = self.df, self.parent
         val = self.fComponent.val
-        print(val)
         floc = df[df.Combined==val].Floc.values[0]
-        print(floc)
 
-        if not self.parent is None:
-            row = self.parent.view.row_from_activerow()
+        if not table_widget is None:           
+            # only need to update floc in database
+            row = table_widget.row
             row.update(vals=dict(Floc=floc, ComponentCO=True))
+            table_widget.update_statusbar(msg=f'Component updated: {val}')
+        
+        super().accept()
 
 class BiggerBox(QMessageBox):
     # Qmessagebox that resizes x% bigger than the default
@@ -959,6 +956,7 @@ class QFileDialogPreview(QFileDialog):
     def getFilesSelected(self):
         return self._filesSelected
 
+
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = check_app()
     dlg = MsgBox_Advanced(msg=msg, window_title=ui.title, yesno=yesno, statusmsg=statusmsg)
@@ -1007,6 +1005,10 @@ def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
         val = dlg.intValue()
 
     return ok, val
+
+def about():
+    msg = f'SMS Event Log\n\nVersion: {VERSION}'
+    return msg_simple(msg=msg)
 
 def set_multiselect(dlg):
     # allow selecting multiple directories for QFileDialog. # NOTE not currently used
