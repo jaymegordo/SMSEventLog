@@ -215,6 +215,8 @@ class TableView(QTableView):
             self.edit(self.currentIndex())
         elif event.matches(QKeySequence.Copy):
             self.copy()
+        elif event.key() == Qt.Key_D and event.modifiers() == Qt.ControlModifier:
+            self.fill_down()
         else:
             super().keyPressEvent(event)
 
@@ -313,9 +315,14 @@ class TableView(QTableView):
         model = self.model()
         if irow is None:
             irow = self.active_row_index()
+
         if col_name is None:
-            icol = self.selectionModel().selectedColumns()
-        return model.createIndex(irow, model.get_col_idx(col_name))
+            icol = self.selectionModel().currentIndex().column()
+        else:
+            icol = model.get_col_idx(col_name)
+
+        if None in (irow, icol): return
+        return model.createIndex(irow, icol)
 
     def active_row_index(self):
         rows = self.selectionModel().selectedRows() # list of selected rows
@@ -324,6 +331,7 @@ class TableView(QTableView):
         else:
             msg = 'No row selected in table.'
             dlgs.msg_simple(msg=msg, icon='warning')
+            return None
     
     def row_from_activerow(self):
         i = self.active_row_index()
@@ -392,6 +400,16 @@ class TableView(QTableView):
 
         # Send to clipboard
         QApplication.clipboard().setText(s)
+
+    def fill_down(self):
+        index = self.create_index_activerow()
+        if index.row() == 0: return # cant fill down at first row
+
+        model = self.model()
+        index_copy = index.siblingAtRow(index.row() - 1)
+
+        val = index_copy.data(role=model.RawDataRole)
+        model.setData(index=index, val=val)
 
     def _icon(self, icon_name):
         # Convinence function to get standard icons from Qt
@@ -708,8 +726,7 @@ class EventLogBase(TableWidget):
                 model.setData(index=update_index, val=d, triggers=False, update_db=False)
 
             row.update(vals=vals)
-            self.mainwindow.update_statusbar(
-                msg=f'Event closed: {e.Unit} - {d.strftime("%Y-%m-%d")} - {e.Title} ')
+            self.update_statusbar(msg=f'Event closed: {e.Unit} - {d.strftime("%Y-%m-%d")} - {e.Title} ')
         
     def view_folder(self):
         view, i, e = self.view, self.i, self.e_db 
