@@ -2,14 +2,21 @@ import sentry_sdk
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from .. import functions as f
-from . import (dialogs, gui, refreshtables,  # importing these to wrap errors
-               tables, delegates)
+from . import delegates, dialogs, gui, refreshtables, tables
 from .__init__ import *
 
+try:
+    # try setting app ID for windows only
+    from PyQt5.QtWinExtras import QtWin # noqa
+    app_id = f'com.sms.smseventlog.{VERSION}'
+    print(app_id)
+    QtWin.setCurrentProcessExplicitAppUserModelID(app_id)    
+except ImportError:
+    f.send_error()
 
 def decorate_modules():
     # decorate all classes' methods in these modules with @e error handler
-    modules = [gui, tables, dialogs, refreshtables]
+    modules = [gui, tables, dialogs, refreshtables, delegates]
     for module in modules:
         er.decorate_all_classes(module=module)
 
