@@ -251,8 +251,6 @@ class TableModel(QAbstractTableModel):
         m_conv = m_type.copy() # bool/date need different func to convert
         m_conv.update({'bool': f.str_to_bool, 'datetime64[ns]': f.convert_date})
 
-        # TODO need to handle null values/clearing cell
-
         dtype = self.get_dtype(icol=icol)
 
         if not type(val) == m_type[dtype]:
