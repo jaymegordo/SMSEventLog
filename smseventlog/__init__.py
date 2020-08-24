@@ -23,7 +23,7 @@ from pypika import Table as T
 from pypika import functions as fn
 from pypika.analytics import RowNumber
 
-__version__ = '3.0.3'
+__version__ = '3.0.4'
 VERSION = __version__
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
