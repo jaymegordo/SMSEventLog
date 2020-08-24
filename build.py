@@ -32,7 +32,7 @@ spec_file = str(cwd / 'smseventlog.spec')
 p_build = f.buildfolder / f'build/{name}'
 p_dist = f.buildfolder / 'dist'
 
-args = ['--clean', '--noconsole', '--noconfirm', f'--workpath={str(p_build)}', f'--distpath={str(p_dist)}', spec_file]
+args = ['--clean', '--noconfirm', f'--workpath={str(p_build)}', f'--distpath={str(p_dist)}', spec_file]
 
 if f.is_win():
     # --upx-dir is path to folder containing upx.exe (need to download upx from github)

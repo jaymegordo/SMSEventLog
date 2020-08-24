@@ -58,7 +58,7 @@ elif f.is_win():
     dist_folder_name = 'smseventlog_win'
     icon_name = 'sms_icon.ico'
 
-icon = str(f.datafolder / f'images/{icon_name}')
+icon = f'data/images/{icon_name}' # copies icon file from working files after
 
 a = Analysis([f.projectfolder / 'run.py'],
              pathex=[f.buildfolder],
@@ -87,7 +87,8 @@ exe = EXE(pyz,
           upx=False,
           upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
           console=False,  # console=False means don't show cmd (only seems to work on windows)
-          runtime_tmpdir=None)
+          runtime_tmpdir=None,
+          icon=icon)
 
 # using COLLECT means app will be '--onedir', cant use with '--onefile'
 coll = COLLECT(exe,
