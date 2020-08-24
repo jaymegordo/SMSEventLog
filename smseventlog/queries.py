@@ -233,7 +233,7 @@ class EventLogBase(QueryBase):
         f.set_self(vars())
 
         self.default_dtypes.update(
-            **f.dtypes_dict('Int64', ['SMR', 'Unit SMR', 'Part SMR', 'Pics']),
+            **f.dtypes_dict('Int64', ['SMR', 'Unit SMR', 'Comp SMR', 'Part SMR', 'Pics']),
             **f.dtypes_dict('bool', ['Comp CO']))
     
     def set_minesite(self):
