@@ -58,7 +58,7 @@ elif f.is_win():
     dist_folder_name = 'smseventlog_win'
     icon_name = 'sms_icon.ico'
 
-icon = f'data/images/{icon_name}' # copies icon file from working files after
+icon = str(f.datafolder / f'images/{icon_name}')
 
 a = Analysis([f.projectfolder / 'run.py'],
              pathex=[f.buildfolder],
