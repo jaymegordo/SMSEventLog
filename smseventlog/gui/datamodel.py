@@ -259,10 +259,14 @@ class TableModel(QAbstractTableModel):
             try:
                 val = m_conv[dtype](val)
             except:
-                msg = f'Error: incorrect data type "{type(val)}" for "{val}"'
-                self.table_widget.mainwindow.update_statusbar(msg=msg)
-                log.info(msg)
-                return
+                if isinstance(val, str) and val.strip() == '':
+                    # set numeric cols to None if given blank string
+                    val = None
+                else:
+                    msg = f'Error: incorrect data type "{type(val)}" for "{val}"'
+                    self.table_widget.mainwindow.update_statusbar(msg=msg)
+                    log.info(msg)
+                    return
 
         # dont update db if value is same as previous
         if role == Qt.EditRole and val_prev != val:
