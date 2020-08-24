@@ -237,6 +237,8 @@ class SuncorConnect(Web):
 
         element = wait(10, EC.presence_of_element_located(
             (By.XPATH, '/html/body/div[1]/div[2]/div[1]/span[13]/span[2]')))
+            
+        if element is None: return
         element.click()
 
         # first click the popup window to make it active

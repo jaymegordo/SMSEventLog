@@ -89,6 +89,13 @@
                 except:
                     VERSION = __version__ = ''
                 ```
+        
+        2. Matplotlib
+            * [this isssue](https://stackoverflow.com/questions/63163027/how-to-use-pyinstaller-with-matplotlib-in-use)
+            * change `PyInstaller\hooks\hook-matplotlib.py` to:
+                ```
+                datas = [(mpl_data_dir, "matplotlib/mpl-data")]
+                ```
 
 * PyUpdater
 

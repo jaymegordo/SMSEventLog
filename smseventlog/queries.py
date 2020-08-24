@@ -2,7 +2,7 @@ import inspect
 import json
 
 import numpy as np
-import seaborn as sns
+from seaborn import diverging_palette
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 
 from . import dbmodel as dbm
@@ -102,7 +102,7 @@ class QueryBase(object):
         background_gradients = []
         _minesite_default = 'FortHills'
         # color_good = 240 if theme == 'light' else 120
-        cmap = sns.diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
+        cmap = diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
         sql, df = None, pd.DataFrame()
         m = f.config['TableName']
         color = f.config['color']

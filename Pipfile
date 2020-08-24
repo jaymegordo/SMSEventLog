@@ -9,7 +9,6 @@ jupyter = "*"
 sqlacodegen = "*"
 xlwings = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
-pyinstaller = "*"
 bump2version = "*"
 
 [packages]
@@ -38,6 +37,7 @@ weasyprint = "==51"
 jinja2 = "*"
 cairosvg = "==2.4.2"
 sentry-sdk = "*"
+pyinstaller = "*"
 
 [requires]
 python_version = "3.8"
