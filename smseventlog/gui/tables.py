@@ -11,8 +11,8 @@ from . import eventfolders as efl
 from . import gui as ui
 from .__init__ import *
 from .datamodel import TableModel
-from .delegates import (CellDelegate, ComboDelegate,
-                        DateDelegate, DateTimeDelegate)
+from .delegates import (CellDelegate, ComboDelegate, DateDelegate,
+                        DateTimeDelegate)
 
 log = logging.getLogger(__name__)
 

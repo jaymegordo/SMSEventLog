@@ -1,4 +1,3 @@
-from . import gui as ui
 from .formfields import ComboBoxTable
 from .datamodel import TableModel
 from .__init__ import *
