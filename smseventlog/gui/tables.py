@@ -157,6 +157,8 @@ class TableView(QTableView):
                             return QColor(color_code)
 
     def highlight_blanks(self, val, role, **kw):
+        if val is pd.NA or val is np.NaN: val = None
+
         if val in ('', None):
             if role == Qt.BackgroundRole:
                 return QColor(self.colors['bg']['bad'])

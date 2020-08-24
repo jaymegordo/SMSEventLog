@@ -304,13 +304,13 @@ class AddEvent(AddRow):
 
         self.add_input(field=IPF(text='MineSite', default=minesite), items=f.config['MineSite'])
         self.add_input(field=IPF(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
+        self.add_input(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
 
         # Add btn to check smr 
         btn = self.create_button('get')
         btn.clicked.connect(self.get_smr)
         self.add_input(field=IPF(text='SMR', dtype='int'), btn=btn)
 
-        self.add_input(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
 
         self.formLayout.addRow('', cb_eventfolder)
         self.formLayout.addRow('', cb_tsi)
