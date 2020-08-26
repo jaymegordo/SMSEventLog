@@ -10,6 +10,7 @@ sqlacodegen = "*"
 xlwings = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
 bump2version = "*"
+pyupdater-s3-plugin = "*"
 
 [packages]
 pandas = "*"
@@ -38,6 +39,7 @@ jinja2 = "*"
 cairosvg = "==2.4.2"
 sentry-sdk = "*"
 pyinstaller = "*"
+pyupdater-s3-plugin = "*"
 
 [requires]
 python_version = "3.8"

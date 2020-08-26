@@ -377,8 +377,8 @@ class TableModel(QAbstractTableModel):
         dbtable = self.table_widget.get_dbtable(header=header)
         check_exists = False if not header in self.parent.mcols['check_exist'] else True
 
-        e = dbt.Row(table_model=self, dbtable=dbtable, i=index.row())
-        e.update_single(header=header, val=val, check_exists=check_exists)
+        row = dbt.Row(table_model=self, dbtable=dbtable, i=index.row())
+        row.update_single(header=header, val=val, check_exists=check_exists)
     
     def add_queue(self, vals, irow=None):
         # vals is dict of view_col: val

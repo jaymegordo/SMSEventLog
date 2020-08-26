@@ -12,7 +12,7 @@ try:
     print(app_id)
     QtWin.setCurrentProcessExplicitAppUserModelID(app_id)    
 except ImportError:
-    f.send_error()
+    pass
 
 def decorate_modules():
     # decorate all classes' methods in these modules with @e error handler

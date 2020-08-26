@@ -155,7 +155,6 @@ Headers:
         Comp CO: ComponentCO
         Pics: Pictures
 
-  # Columns only used for default headers, not actual query
     FC Summary:
         MineSite: MineSite
         FC Number: FCNumber
@@ -185,6 +184,7 @@ Headers:
         Date Complete KA: DateCompleteKA
         Expiry Date: ExpiryDate
         SMR: SMR
+        Pics: Pictures
         Notes: Notes
 
     TSI:
@@ -205,6 +205,7 @@ Headers:
         Failure Cause: FailureCause
         Details: TSIDetails
         Author: TSIAuthor
+        Pics: Pictures
 
     Component CO:
         UID: UID

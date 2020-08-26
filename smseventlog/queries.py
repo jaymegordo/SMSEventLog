@@ -350,7 +350,7 @@ class TSI(EventLogBase):
         super().__init__(**kw)
         a, b = self.a, self.b
 
-        cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, b.Model, a.Unit, b.Serial, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.FailureCause, a.TSIDetails, a.TSIAuthor]
+        cols = [a.UID, a.StatusTSI, a.DateAdded, a.TSINumber, a.WorkOrder, b.Model, a.Unit, b.Serial, a.Title, a.SMR, a.ComponentSMR, a.TSIPartName, a.PartNumber, a.SNRemoved, a.FailureCause, a.TSIDetails, a.TSIAuthor, a.Pictures]
         
         q = self.q \
             .orderby(a.DateAdded, a.Unit)
@@ -396,6 +396,13 @@ class FCBase(QueryBase):
         super().__init__(da=da, **kw)
         a = self.select_table
         b, c, d = pk.Tables('FCSummary', 'FCSummaryMineSite', 'UnitID')
+
+        self.default_dtypes.update(
+            **f.dtypes_dict('Int64', ['SMR', 'Pics']))
+        
+        self.formats.update({
+            'SMR': '{:,.0f}',
+            'Pics': '{:,.0f}'})
 
         q = Query.from_(a) \
             .left_join(b).on_field('FCNumber') \
@@ -579,7 +586,7 @@ class FCDetails(FCBase):
         super().__init__(**kw)
         a, b, c, d = self.a, self.b, self.c, self.d
 
-        self.cols = [d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Notes]
+        self.cols = [a.UID, d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Pictures, a.Notes]
 
     def set_default_filter(self):
         super().set_default_filter()

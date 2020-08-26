@@ -72,8 +72,8 @@ class ComboBox(QComboBox, FormFields):
     
     @FormFields.val.setter
     def val(self, value):
-        # prevent adding previous default items not in this list
-        if value in self.items:
+        # prevent adding previous default items not in this list, allow wildcards
+        if value in self.items or '*' in value:
             self._set_val(value)
     
     def select_all(self):

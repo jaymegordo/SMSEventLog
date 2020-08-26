@@ -283,7 +283,8 @@ class TSIWebPage(Web):
             'Failed Part Qty': 1,
             'Cause': 'Uncertain.',
             'Correction': 'Component replaced with new.'}
-        field_vals.update(form_vals_default)
+        form_vals_default.update(field_vals)
+        field_vals = form_vals_default.copy()
 
         form_fields = {
             'Failure SMR': 'elogic_machinesmr',

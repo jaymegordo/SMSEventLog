@@ -420,8 +420,8 @@ def send_error(msg='', prnt=False, func=None, display=False, logger=None):
         discord(msg=err, channel='err')
 
     if display:
-        from .gui import errors as err
-        err.display_error()
+        from . import errors as er
+        er.display_error()
     
     if not logger is None:
         log.error(msg)

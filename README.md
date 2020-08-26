@@ -1,11 +1,9 @@
 # SMSEventLog
-
 ## Install Instructions
 1. Download `smseventlog_win.zip` from OneDrive folder. (ask Jayme for link if you don't have it).
 2. Extract folder to `C:\Users\your_user_name\smseventlog_win` (eg jgordon)
-3. Right click `SMS Event Log.exe` and press `Create Shortcut`
-4. Drag shortcut to taskbar for quick access
-
+3. Double click `SMS Event Log.exe` to open
+4. Right click icon in taskbar and select `Pin to Taskbar` or `Pin to Start` to create a persistent shortcut
 
 ### Update
 * If you have previously downloaded and extraced the full zip, future updates will usually only require you to download `SMS Event Log.exe` from the `smseventlog_win` folder and replace your existing exe.

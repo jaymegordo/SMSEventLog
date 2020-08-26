@@ -120,5 +120,5 @@ def dt_exclusions_ma_example():
     units.extend(fl.all_units(rng=(300,322)))
     units.extend(fl.all_units(rng=(331,348)))
 
-    rng = (dt(2020,8,3), dt(2020,8,9))
+    rng = (dt(2020,8,7), dt(2020,8,23))
     update_dt_exclusions_ma(units=units, rng_dates=rng)
