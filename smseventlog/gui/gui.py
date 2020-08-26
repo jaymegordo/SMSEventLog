@@ -1,6 +1,7 @@
 from . import dialogs as dlgs
 from . import tables as tbls
 from .__init__ import *
+from .update import Updater
 
 log = logging.getLogger(__name__)
 
@@ -71,6 +72,24 @@ class MainWindow(QMainWindow):
         self.init_sentry()
 
         self.u = users.User(username=self.username, mainwindow=self).login()
+
+        self.update_statusbar(msg=f'SMS Event Log - Current Version: {VERSION}')
+
+        # self.updater = Updater(_version='3.0.3')
+        # self.check_update()
+
+    def check_update(self):
+        updater = self.updater
+        app_update = updater.get_app_update()
+        # msg = f'Update available: {updater.update_available} | Current: {updater.version}, Latest: {updater.latest_version}'
+        # self.update_statusbar(msg=msg)
+
+        if updater.update_available:
+            msg = f'An updated version of the Event Log is available.\n\nCurrent: {updater.version}\nLatest: {updater.latest_version}\n\nWould you like to update now?'
+            if not dlgs.msgbox(msg=msg, yesno=True): return
+
+            app_update.download(background=True)
+
 
     def init_sentry(self):
         # sentry is error logging application
@@ -195,6 +214,7 @@ class MainWindow(QMainWindow):
         help_.addAction(self.act_show_about) # this actually goes to main 'home' menu
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_username)
+        help_.addAction(self.act_check_update)
 
     def create_actions(self):
         # Menu/shortcuts
@@ -204,6 +224,7 @@ class MainWindow(QMainWindow):
         act_username = QAction('Reset Username', self, triggered=self.set_username)
         act_tsi_username = QAction('Set TSI Username', self, triggered=self.set_tsi_username)
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
+        act_check_update = QAction('Check for Update', self, triggered=self.check_update)
 
         act_refresh = QAction('Refresh Menu', self,
             triggered=lambda: t().show_refresh(),
