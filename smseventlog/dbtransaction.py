@@ -98,11 +98,11 @@ class Row():
                 raise AttributeError('df not set!')
 
             for pk in pks:
-                header = f.convert_header(title=title, header=pk, inverse_=True)
                 if not i is None:
+                    header = f.convert_header(title=title, header=pk, inverse_=True)
                     keys[pk] = df.iloc[i, df.columns.get_loc(header)] # get key value from df, key must exist in df
                 elif col:
-                    keys[pk] = df.loc[header, col] #transposed df
+                    keys[pk] = df.loc[pk, col] # transposed df from Details dialog, all fields are db_cols eg 'FCNumber' not 'FC Number'
 
         f.set_self(vars())
 
