@@ -10,17 +10,20 @@ from PyInstaller.utils.hooks import collect_submodules
 from pathlib import Path
 
 # NOTE hookspath and project_path will need to be made dynamic for other devs to build project
+# TODO set up environment variables file for multiple users
+
 if not sys.platform.startswith('win'):
     project_path = '/Users/Jayme/OneDrive/Python/SMS' 
 else:
     project_path = 'Y:/OneDrive/Python/SMS'
 
-sys.path.append(project_path)
+sys.path.append(project_path) # so we can import from smseventlog
 from smseventlog import functions as f
 
 datas = [
     ('smseventlog/data', 'data')]
 
+# NOTE could also figure out how to write hooks for some of these instead of *gasp* modifying source files
 package_imports = [
     ['pandas', 'io/formats/templates', ('',)],
     ['tinycss2', '', ('VERSION',)],
@@ -48,6 +51,7 @@ if f.is_mac():
     hookspath = [Path.home() / '.local/share/virtualenvs/SMS-4WPEHYhu/lib/python3.8/site-packages/pyupdater/hooks']
     dist_folder_name = 'smseventlog_mac'
     icon_name = 'sms_icon.icns'
+    name_pyu = 'mac' # pyupdater needs to keep this name the same, is changed for final upload/dist
     
     # this saves ~20mb, but windows matplotlib needs tkinter for some reason
     excludes.extend(['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'])
@@ -57,8 +61,16 @@ elif f.is_win():
     hookspath = [Path.home() / '.virtualenvs/SMS-27IjYSAU/Lib/site-packages/pyupdater/hooks']
     dist_folder_name = 'smseventlog_win'
     icon_name = 'sms_icon.ico'
+    name_pyu = 'win'
 
 icon = str(f.datafolder / f'images/{icon_name}')
+
+# TODO check if run with pyinstaller or pyupdater
+if True:
+    name = name_pyu
+    dist_folder_name = name
+else:
+    name = 'SMS Event Log'
 
 a = Analysis([f.projectfolder / 'run.py'],
              pathex=[f.buildfolder],
@@ -80,7 +92,7 @@ exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True, # False if using --onedir
-          name='SMS Event Log',
+          name=name,
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -102,3 +114,8 @@ coll = COLLECT(exe,
                icon=icon,
                console=False)
 
+if f.is_mac():
+    app = BUNDLE(coll,
+                name=f'{name}.app',
+                icon=icon,
+                bundle_identifier=None)
