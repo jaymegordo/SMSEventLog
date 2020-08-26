@@ -353,8 +353,10 @@ class TableView(QTableView):
         if row is None: return
         return row.create_model_from_db() # TODO this won't work with mixed tables eg FCSummary
     
-    def df_from_activerow(self):
-        i = self.active_row_index()
+    def df_from_activerow(self, i=None):
+        if i is None:
+            i = self.active_row_index()
+
         if i is None: return
         return self.model().df.iloc[[i]]
     
@@ -661,6 +663,7 @@ class EventLogBase(TableWidget):
             self.add_col_funcs(['Work Order', 'Title', 'Date Added'], self.update_eventfolder_path)
             self.add_col_funcs('Status', self.parent.close_event)
             self.highlight_funcs['Status'] = self.highlight_by_val
+            self.highlight_funcs['Pics'] = self.highlight_pics
             self.mcols['hide'] = ('UID',)
             self.mcols['longtext'] = ('Description', 'Failure Cause', 'Comments', 'Details', 'Notes')
             self.mcols['disabled'] = ('Model', 'Serial')
@@ -827,7 +830,6 @@ class WorkOrders(EventLogBase):
                 'Pics': 40})
             
             self.add_col_funcs('Comp CO', self.set_component)
-            self.highlight_funcs['Pics'] = self.highlight_pics
             self.highlight_funcs['Comp CO'] = self.highlight_by_val
 
             lists = f.config['Lists']
@@ -873,7 +875,7 @@ class TSI(EventLogBase):
 
         m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
 
-        msg = f'Are you sure you would like to remove the tsi for:\n\n{f.pretty_dict(m)}\n\n \
+        msg = f'Are you sure you would like to remove the TSI for:\n\n{f.pretty_dict(m)}\n\n \
             (This will only set the TSI Status to Null, not delete the event).'
         if dlgs.msgbox(msg=msg, yesno=True):
             row.update(vals=dict(StatusTSI=None))
@@ -927,7 +929,9 @@ class TSI(EventLogBase):
             'Part Name': e.TSIPartName,
             'New Part Serial': e.SNInstalled,
             'Work Order': e.WorkOrder,
-            'Complaint': e.TSIDetails}
+            'Complaint': e.Title,
+            'Cause': e.FailureCause,
+            'Notes': e.Description}
 
         msg = 'Would you like to save the TSI after it is created?'
         save_tsi = True if dlgs.msgbox(msg=msg, yesno=True) else False
@@ -1054,13 +1058,15 @@ class FCSummary(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.add_button(name='Email New FC', func=self.email_new_fc)
+        self.add_button(name='Close FC', func=self.close_fc)
 
         # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
         self.db_col_map = {
             'Action Reqd': tbl_b,
             'Parts Avail': tbl_b,
-            'Comments': tbl_b}
+            'Comments': tbl_b,
+            'ManualClosed': tbl_b} # bit sketch, not actual header in table, just in db
 
         self.view.mcols['check_exist'] = tuple(self.db_col_map.keys()) # rows for cols may not exist yet
 
@@ -1120,18 +1126,63 @@ class FCSummary(FCBase):
         if not p is None:
             for attach in p.glob('*.pdf'):
                 msg.add_attachment(p=attach)
+    
+    def close_fc(self):
+        e = self.e
+
+        msg = f'Would you like close FC "{e.FCNumber}" for MineSite "{e.MineSite}"?'
+        if not dlgs.msgbox(msg=msg, yesno=True): return
+
+        row = dbt.Row(table_model=self.view.model(), dbtable=self.get_dbtable(header='ManualClosed'), i=self.i)
+
+        row.update(vals=dict(ManualClosed=True))
+        self.view.remove_row()
+
+        msg = f'FC: "{e.FCNumber} - {e.Subject}" closed for MineSite: "{e.MineSite}"'
+        self.update_statusbar(msg=msg)
 
 class FCDetails(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject')
-        view.col_widths.update({
-            'Complete': 60,
-            'Closed': 60,
-            'Type': 60,
-            'Subject': 400,
-            'Notes': 400})
+
+        tbl_b = 'EventLog'
+        self.db_col_map = {
+            'Pics': tbl_b}
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+
+            self.highlight_funcs['Pics'] = self.highlight_pics
+            self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject', 'Pics')
+            self.mcols['hide'] = ('UID',)
+            self.col_widths.update({
+                'Complete': 60,
+                'Closed': 60,
+                'Type': 60,
+                'Subject': 400,
+                'Notes': 400})
+    
+    def view_folder(self):
+        view, i, e = self.view, self.i, self.e
+
+        df = view.df_from_activerow()
+        unit, uid = df.Unit.values[0], df.UID.values[0]
+
+        print(unit, uid)
+
+        minesite = db.get_unit_val(unit, 'MineSite')
+
+        if uid is None:
+            msg = f'FC not yet linked to an event, cannot view event folder.'
+            dlgs.msg_simple(msg=msg, icon='warning')
+            return
+        
+        # create EventLog row/e with UID
+        row = dbt.Row(dbtable=dbm.EventLog, keys=dict(UID=uid))
+        e2 = row.create_model_from_db()
+
+        efl.get_eventfolder(minesite=minesite).from_model(e=e2, irow=i, table_model=view.model()).show()
 
 class EmailList(TableWidget):
     def __init__(self, parent=None):
@@ -1616,7 +1667,7 @@ class HeaderView(QHeaderView):
             painter.rotate(-90)
             painter.setFont(self._font)
             painter.drawText(- rect.height() + self._margin,
-                            rect.left() + (rect.width() + self._descent) / 2, col)
+                            rect.left() + int((rect.width() + self._descent) / 2), col)
         else:
             super().paintSection(painter, rect, index)
 
