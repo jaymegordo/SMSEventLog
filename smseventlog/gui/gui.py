@@ -2,14 +2,10 @@ from . import dialogs as dlgs
 from . import tables as tbls
 from .__init__ import *
 from .update import Updater
+from .multithread import Worker
+from . import _global as gbl
 
 log = logging.getLogger(__name__)
-
-global title, minsize, minsize_ss, minesite, customer
-title = 'SMS Event Log'
-minsize = QSize(200, 100)
-minsize_ss = 'QLabel{min-width: 100px}'
-minesite, customer = 'FortHills', 'Suncor'
 
 # FEATURES NEEDED
 # TODO copy selected cells
@@ -22,8 +18,8 @@ class MainWindow(QMainWindow):
     minesite_changed = pyqtSignal(str)
 
     def __init__(self):
-        super(MainWindow, self).__init__()
-        self.setWindowTitle(title)
+        super().__init__()
+        self.setWindowTitle(gbl.title)
         self.setMinimumSize(QSize(1000, 400))
         self.minesite_changed.connect(self.update_minesite_label)
         self.status_label = QLabel() # permanent label for status bar so it isnt changed by statusTips
@@ -46,6 +42,8 @@ class MainWindow(QMainWindow):
         self.update_minesite_label()
 
         self.tabs = tabs
+
+        self.threadpool = QThreadPool()
     
     @property
     def minesite(self):
@@ -68,28 +66,47 @@ class MainWindow(QMainWindow):
     def after_init(self):
         # TODO: need to show window first, then show loading message
         self.username = self.get_username()
-        self.active_table_widget().refresh(default=True)
         self.init_sentry()
+        self.active_table_widget().refresh(default=True)
 
         self.u = users.User(username=self.username, mainwindow=self).login()
 
         self.update_statusbar(msg=f'SMS Event Log - Current Version: {VERSION}')
-
-        # self.updater = Updater(_version='3.0.3')
-        # self.check_update()
+        self.check_update()
 
     def check_update(self):
-        updater = self.updater
-        app_update = updater.get_app_update()
-        # msg = f'Update available: {updater.update_available} | Current: {updater.version}, Latest: {updater.latest_version}'
-        # self.update_statusbar(msg=msg)
+        # check for update and download in a worker thread
 
-        if updater.update_available:
-            msg = f'An updated version of the Event Log is available.\n\nCurrent: {updater.version}\nLatest: {updater.latest_version}\n\nWould you like to update now?'
-            if not dlgs.msgbox(msg=msg, yesno=True): return
+        if hasattr(self, 'updater'):
+            updater = self.updater
+            if updater.update_available:
+                # update has been previously checked and downloaded but user declined to install initially
+                self._install_update(updater=updater)
+            else:
+                msg = 'No update available.'
+                dlgs.msg_simple(msg=msg, icon='warning')
+        else:
+            updater = Updater(test_version='3.0.3', mw=self)
+            self.updater = updater
+            
+            worker = Worker(func=updater.check_update)
+            worker.signals.result.connect(self._install_update)
+            # worker.signals.result.connect(updater.print_output)
+            # worker.signals.progress.connect(self.progress_fn)
 
-            app_update.download(background=True)
+            self.threadpool.start(worker)
+    
+    def _install_update(self, updater=None):
+        if updater is None: return
 
+        # prompt user to install update and restart
+        msg = f'An updated version of the Event Log is available.\n\n\
+            Current: {updater.version}\n\
+            Latest: {updater.latest_version}\n\n\
+            Would you like to restart and update now?'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            updater.install_update()
+        
 
     def init_sentry(self):
         # sentry is error logging application
@@ -346,32 +363,7 @@ class TabWidget(QTabWidget):
     def activate_previous(self):
         self.setCurrentIndex(self.prev_index)
 
-
-def get_mainwindow():
-    # Global function to find the (open) QMainWindow in application
-    app = QApplication.instance()
-    for widget in app.topLevelWidgets():
-        if isinstance(widget, QMainWindow):
-            return widget
-    return None
-
-def get_minesite():
-    # get minesite from mainwindow, or use global default for dev
-    mainwindow = get_mainwindow()
-    if not mainwindow is None:
-        return mainwindow.minesite
-    else:
-        return minesite
-
-def get_settings():
-    from . import startup
-    app = startup.get_qt_app()
-    mainwindow = get_mainwindow()
-    if not mainwindow is None:
-        return mainwindow.settings
-    else:
-        return QSettings('sms', 'smseventlog')
-        
+      
 # ARCHIVE
 def disable_window_animations_mac(window):
     # We need to access `.winId()` below. This method has an unwanted (and not
