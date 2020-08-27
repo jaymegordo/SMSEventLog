@@ -6,13 +6,14 @@ from .. import factorycampaign as fc
 from .. import functions as f
 from .. import queries as qr
 from .. import styles as st
+from . import _global as gbl
 from . import dialogs as dlgs
 from . import eventfolders as efl
-from . import _global as gbl
 from .__init__ import *
 from .datamodel import TableModel
 from .delegates import (CellDelegate, ComboDelegate, DateDelegate,
                         DateTimeDelegate)
+from .multithread import Worker
 
 log = logging.getLogger(__name__)
 
@@ -329,6 +330,19 @@ class TableView(QTableView):
 
         if None in (irow, icol): return
         return model.createIndex(irow, icol)
+    
+    def get_irow_uid(self, uid):
+        # get irow from uid
+        # TODO this is only for EventLog tables with UID, should probably adapt this for any key
+        df = self.model().df
+
+        index = df[df.UID==uid].index
+        if len(index.values) == 1:
+            irow = index.values[0] # uid exists in df.UID
+        else:
+            irow = None # uid doesn't exist
+
+        return irow
 
     def active_row_index(self):
         rows = self.selectionModel().selectedRows() # list of selected rows
@@ -915,8 +929,7 @@ class TSI(EventLogBase):
         self.driver = tsi.driver
     
     def fill_tsi_webpage(self):
-        # TODO make this secondary process
-        from .. import web
+        from ..web import TSIWebPage
         view, e, e2 = self.view, self.e_db, self.e
 
         d = e.DateAdded.strftime('%m/%d/%Y')
@@ -938,24 +951,43 @@ class TSI(EventLogBase):
         msg = 'Would you like to save the TSI after it is created?'
         save_tsi = True if dlgs.msgbox(msg=msg, yesno=True) else False
             
-        tsi = web.TSIWebPage(
+        tsi = TSIWebPage(
             field_vals=field_vals,
             serial=e2.Serial,
             model=e2.Model,
             _driver=self.driver,
-            parent=self)
+            parent=self,
+            uid=e.UID)
         
         if not tsi.is_init: return
 
-        tsi.open_tsi(save_tsi=save_tsi)
+        Worker(func=tsi.open_tsi, mw=self.mainwindow, save_tsi=save_tsi) \
+            .add_signals(signals=('result', dict(func=self.accept_tsi_result))) \
+            .start()
+
+        self.update_statusbar('Creating new TSI in worker thread. GUI free to use.')
+
+    def accept_tsi_result(self, tsi=None):
+        # get TSIWebpage obj back from worker thread, save TSI Number back to table
+        if tsi is None: return
+        
         self.driver = tsi.driver
+        tsi_number, uid, view = tsi.tsi_number, tsi.uid, self.view
 
-        # fill tsi number back to current row
-        if not tsi.tsi_number is None:
-            index = view.create_index_activerow(col_name='TSI No')
-            view.model().setData(index=index, val=tsi.tsi_number)
+        # fill tsi number back to table or db
+        # Get correct row number by UID > user may have reloaded table or changed tabs
 
-        dlgs.msg_simple(msg=f'New TSI created.\nTSI Number: {tsi.tsi_number}')
+        if not tsi_number is None:
+            irow = view.get_irow_uid(uid=uid)
+
+            if not irow is None:
+                index = view.create_index_activerow(irow=irow, col_name='TSI No')
+                view.model().setData(index=index, val=tsi_number)
+            else:
+                dbt.Row(dbtable=self.get_dbtable(), keys=dict(UID=uid)) \
+                    .update(vals=dict(TSINumber=tsi_number))
+
+        self.update_statusbar(f'New TSI created. TSI Number: {tsi_number}')
 
     def create_failure_report(self):
         from . import eventfolders as efl
