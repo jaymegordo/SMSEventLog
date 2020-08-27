@@ -260,7 +260,7 @@ class SuncorConnect(Web):
         # driver.close()
 
 class TSIWebPage(Web):
-    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, parent=None):
+    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, parent=None, uid=None):
         super().__init__()
         tsi_number = None
         is_init = True
@@ -322,7 +322,7 @@ class TSIWebPage(Web):
 
         f.set_self(vars())
 
-    def open_tsi(self, serial=None, model=None, save_tsi=True):
+    def open_tsi(self, serial=None, model=None, save_tsi=True, **kw):
         # open web browser and log in to tsi form
         if serial is None: serial = self.serial
         if model is None: model = self.model
@@ -350,8 +350,9 @@ class TSIWebPage(Web):
             # NOTE may just need to fill them in a ifferent format
             vals = {k:v for k, v in self.field_vals.items() if k in ('Failure SMR', 'Failure Date')}
             self.fill_all_fields(field_vals=vals)
-
         
+        return self
+  
     def fill_field(self, name, val):
         id_ = self.form_fields.get(name, None)
 

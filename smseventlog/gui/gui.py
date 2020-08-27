@@ -70,14 +70,18 @@ class MainWindow(QMainWindow):
 
         self.u = users.User(username=self.username, mainwindow=self).login()
 
-        self.update_statusbar(msg=f'SMS Event Log - Current Version: {VERSION}')
+        # initialize updater
+        # test_version = '3.0.4'
+        test_version = None
+        self.updater = Updater(test_version=test_version, mw=self)
+
         self.check_update()
         self.start_update_timer()
     
     def start_update_timer(self, mins=180):
         # check for updates every 3 hrs
         if not SYS_FROZEN: return
-        
+
         msec = mins * 60 * 1000
 
         self.update_timer = QTimer(parent=self)
@@ -91,22 +95,18 @@ class MainWindow(QMainWindow):
             self.update_statusbar('App not frozen, not checking for updates.')
             return
 
-        if hasattr(self, 'updater') and self.updater.update_available:
+        if self.updater.update_available:
             # update has been previously checked and downloaded but user declined to install initially
             self._install_update(updater=self.updater)
         else:
-            test_version = '3.0.4'
-            updater = Updater(test_version=test_version, mw=self)
-            self.updater = updater
-            
-            worker = Worker(func=updater.check_update)
-            worker.signals.result.connect(self._install_update)
-            # worker.signals.result.connect(updater.print_output)
-            # worker.signals.progress.connect(self.progress_fn)
+            Worker(func=self.updater.check_update, mw=self) \
+                .add_signals(signals=('result', dict(func=self._install_update))) \
+                .start()
 
-            self.threadpool.start(worker)
+            # worker.signals.result.connect(self._install_update)
+            # worker.signals.progress.connect(self.progress_fn)
     
-    def _install_update(self, updater=None):
+    def _install_update(self, updater=None, ask_user=True):
         if updater is None: return
 
         # prompt user to install update and restart
@@ -115,9 +115,10 @@ class MainWindow(QMainWindow):
             Latest: {updater.latest_version}\n\n\
             Would you like to restart and update now?'
 
-        if dlgs.msgbox(msg=msg, yesno=True):
-            updater.install_update()
-        
+        if ask_user:
+            if not dlgs.msgbox(msg=msg, yesno=True): return
+
+        Worker(func=updater.install_update, mw=self).start()
 
     def init_sentry(self):
         # sentry is error logging application
@@ -144,6 +145,10 @@ class MainWindow(QMainWindow):
         s.setValue('window position', self.pos())
         s.setValue('minesite', self.minesite)
         s.setValue('active table', self.active_table_widget().title)
+
+        # update on closeEvent if update available... maybe not yet
+        # if self.updater.update_available:
+        #     self._install_update(updater=self.updater, ask_user=False)
     
     def get_setting(self, key):
         return self.settings.value(key, defaultValue=None)

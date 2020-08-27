@@ -2,7 +2,7 @@ import sentry_sdk
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from .. import functions as f
-from . import delegates, dialogs, gui, refreshtables, tables
+from . import delegates, dialogs, gui, refreshtables, tables, update
 from .__init__ import *
 
 try:
@@ -16,7 +16,7 @@ except ImportError:
 
 def decorate_modules():
     # decorate all classes' methods in these modules with @e error handler
-    modules = [gui, tables, dialogs, refreshtables, delegates]
+    modules = [delegates, dialogs, gui, refreshtables, tables, update]
     for module in modules:
         er.decorate_all_classes(module=module)
 
