@@ -260,3 +260,28 @@ def chart_frame_cracks(df, smr_bin=False, **kw):
         xaxis=xaxis)
     
     return fig
+
+def chart_engine_dt(df):
+    title = 'Engine Downtime'
+    bar = go.Bar(
+            name='Engine Downtime',
+            x=df.Period,
+            y=df.Total,
+            marker_color=color()['navyblue'])
+    
+    fig = go.Figure(data=bar)
+    update_fig(fig, title=title)
+
+    fig.update_layout(
+        height=400,
+        width=600,
+        bargap=0.5,
+        xaxis=dict(
+            tickangle=-90,
+            title='Period (Month)'),
+        yaxis=dict(
+            title='Downtime Hours'),
+        xaxis_type='category',
+        )
+        
+    return fig
