@@ -31,13 +31,9 @@ except ModuleNotFoundError:
 __version__ = '3.0.5'
 VERSION = __version__
 
-azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
-azure_web = os.getenv('WEBSITE_INSTANCE_ID')
-sys_frozen = getattr(sys, 'frozen', False)
+AZURE_ENV = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT") # dont think these are used
+AZURE_WEB = os.getenv('WEBSITE_INSTANCE_ID')
 
-m = dict(azure_env=azure_env,
-    azure_web=azure_web,
-    sys_frozen=sys_frozen,
-    sys_platform=sys.platform)
+SYS_FROZEN = getattr(sys, 'frozen', False)
 
 
