@@ -28,7 +28,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-__version__ = '3.0.6'
+__version__ = '3.1.0'
 VERSION = __version__
 
 AZURE_ENV = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT") # dont think these are used
