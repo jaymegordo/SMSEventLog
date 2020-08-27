@@ -1,5 +1,6 @@
 # from pkg_resources import parse_version
 import warnings
+import logging
 
 from pyupdater.client import Client
 from hurry.filesize import size
@@ -8,6 +9,7 @@ from .. import functions as f
 from ..__init__ import VERSION
 
 warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
+log = logging.getLogger(__name__)
 
 # Use Pyupdater Client/AppUpdate classes to check, download, and install updates
 
@@ -28,14 +30,21 @@ class Updater(object):
         _version = VERSION if test_version is None else test_version
         update_available = False
         app_update = None
+        status = 'initialized'
 
         f.set_self(vars())
 
     def update_statusbar(self, msg):
+        self.set_status(msg=msg)
+
         if not self.mw is None:
             self.mw.update_statusbar(msg)
         else:
             print(msg)
+    
+    def set_status(self, msg):
+        self.status = msg
+        log.info(msg)
 
     def get_app_update(self):
         client = self.client
@@ -48,28 +57,37 @@ class Updater(object):
 
         return app_update
     
-    def check_update(self):
+    def check_update(self, **kw):
         app_update = self.get_app_update()
+        self.update_statusbar(msg='Checking for update.')
 
         if self.update_available:
-            self.update_statusbar(msg='Update is available, download started.')
+            self.update_statusbar(msg='Update available, download started.')
 
             app_update.download() # background=True # don't need, already in a worker thread
             if app_update.is_downloaded():
-                self.update_statusbar(msg='Update successfully downloaded.')
+                self.update_statusbar(msg=f'Update successfully downloaded. New version: {self.latest_version}')
 
                 return self
 
         else:
-            self.update_statusbar(msg='No update available.')
+            self.update_statusbar(msg=f'No update available. Current version: {self.version}')
         
-    def install_update(self):
+    def install_update(self, restart=True):
         app_update = self.app_update
         if not app_update is None and app_update.is_downloaded():
-            app_update.extract_restart()
+            if restart:
+                self.set_status(msg='Extracting update and restarting.')
+                app_update.extract_restart()
+            else:
+                self.set_status(msg='Extracting on close without restart.')
+                app_update.extract_overwrite()
 
     def print_finished(self):
-        self.update_statusbar(msg='download finished.')
+        self.update_statusbar(msg='Download finished.')
+    
+    def print_failed(self, *args, **kw):
+        self.update_statusbar(msg=f'Update failed at: {self.status}')
     
     def print_status_info(self, info):
         total = info.get('total')
@@ -94,17 +112,3 @@ class Updater(object):
         else:
             return None
 
-
-
-
-
-def create_client():
-    # from smseventlog.gui.client_config import ClientConfig
-
-
-    # warnings.simplefilter('ignore', DeprecationWarning)
-    # logging.basicConfig(level='ERROR')
-    client.refresh()
-
-
-    return client
