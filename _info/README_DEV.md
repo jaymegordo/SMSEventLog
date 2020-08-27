@@ -47,7 +47,11 @@
 1. Commit all changes to git, add comments etc (use github menu in vscode)
 2. Increment version with eg `bumpversion patch --verbose` (must be run inside active pipenv)
 3. Push changes to git `git push --tags` (imporant to include tags to increment version on github)
-4. Build exe using custom build script `python -m build` (see pyinstaller below for more info)
+4. 
+    * Local testing - Build exe using custom build script `python -m build` (see pyinstaller below for more info)
+    * Production - Build exe with `build.sh {version}` (mac) or `build.bat {version}` (win) - this uses pyupdater
+    * TODO make build script which handles version automatically
+5. Push build with `upload.sh` or `upload.bat`
 
 * [bump2version](https://github.com/c4urself/bump2version)
     * Use bumpversion to control version increments
