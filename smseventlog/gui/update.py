@@ -7,11 +7,13 @@ from hurry.filesize import size
 from .. import functions as f
 from ..__init__ import VERSION
 
+warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
+
 # Use Pyupdater Client/AppUpdate classes to check, download, and install updates
 
 class ClientConfig(object):
     PUBLIC_KEY = 'Rbk396oV6YSKhJtYTZHGdu/z7P/Gom11LdqI/w3AlyQ'
-    APP_NAME = 'smseventlog'
+    APP_NAME = 'SMS Event Log'
     COMPANY_NAME = 'SMS Equipment Inc.'
     HTTP_TIMEOUT = 30
     MAX_DOWNLOAD_RETRIES = 3
@@ -46,7 +48,7 @@ class Updater(object):
 
         return app_update
     
-    def check_update(self, progress_callback=None):
+    def check_update(self):
         app_update = self.get_app_update()
 
         if self.update_available:
@@ -74,7 +76,7 @@ class Updater(object):
         downloaded = info.get('downloaded')
         status = info.get('status')
         pct = downloaded / total
-        self.update_statusbar(msg=f'Update {status} - {size(total)} - {pct:.2%}')
+        self.update_statusbar(msg=f'Update {status} - {size(total)} - {pct:.0%}')
     
     @property
     def version(self):
