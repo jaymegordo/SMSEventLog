@@ -104,7 +104,7 @@ class Widget(QtWidgets.QWidget):
         self.tbl.setModel(model)
 
 def launch(df):
-    app = ui.get_qt_app()
+    app = gbl.get_qt_app()
     w = Widget()
     w.loadFile(df)
     w.show()

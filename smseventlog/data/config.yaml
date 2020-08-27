@@ -172,6 +172,7 @@ Headers:
         Hrs: Hours
 
     FC Details:
+        UID: UID
         MineSite: MineSite
         Model: Model
         Unit: Unit

@@ -8,7 +8,7 @@ from .. import queries as qr
 from .. import styles as st
 from . import dialogs as dlgs
 from . import eventfolders as efl
-from . import gui as ui
+from . import _global as gbl
 from .__init__ import *
 from .datamodel import TableModel
 from .delegates import (CellDelegate, ComboDelegate, DateDelegate,
@@ -30,11 +30,15 @@ class TableView(QTableView):
         super().__init__(*args, **kwargs)
 
         # self.activated.connect(self.double_click_enter)
-        mainwindow = ui.get_mainwindow()
+        mainwindow = gbl.get_mainwindow()
 
         self.mcols = dd(tuple)
         col_widths = {'Title': 150, 'Part Number': 150, 'Failure Cause': 300}
-        highlight_funcs, highlight_vals, col_func_triggers, formats = dd(type(None)), {}, dd(list), {} # NOTE use all lowercase!
+        highlight_funcs, col_func_triggers, formats = dd(type(None)), dd(list), {} # NOTE use all lowercase!
+        highlight_vals = {
+                'true': 'goodgreen',
+                'false': 'bad'}
+
         colors = f.config['color']
 
         query = parent.query
@@ -177,7 +181,7 @@ class TableView(QTableView):
 
     def highlight_color_scale(self, val, **kw):
         # highlight values using max/min within range of multiple columns
-        # get color scale
+
         if self.col_maxmin is None:
             df = self.model().df
             df = df[self.maxmin_cols]
@@ -465,7 +469,7 @@ class TableWidget(QWidget):
         self.name = name
         self.title = f.config['TableName']['Class'][name]
 
-        self.mainwindow = ui.get_mainwindow()
+        self.mainwindow = gbl.get_mainwindow()
 
         vLayout = QVBoxLayout(self)
         btnbox = QHBoxLayout()
@@ -679,9 +683,7 @@ class EventLogBase(TableWidget):
                 'waiting parts (up)': 'lightyellow',
                 'missing info': 'lightyellow',
                 'waiting parts (down)': 'bad',
-                'x': 'good',
-                'true': 'goodgreen',
-                'false': 'bad'})
+                'x': 'good'})
             
             self.formats.update({
                 'Unit SMR': '{:,.0f}',
@@ -1154,6 +1156,7 @@ class FCDetails(FCBase):
             super().__init__(parent=parent)
 
             self.highlight_funcs['Pics'] = self.highlight_pics
+            self.highlight_funcs['Complete'] = self.highlight_by_val
             self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject', 'Pics')
             self.mcols['hide'] = ('UID',)
             self.col_widths.update({
@@ -1168,12 +1171,9 @@ class FCDetails(FCBase):
 
         df = view.df_from_activerow()
         unit, uid = df.Unit.values[0], df.UID.values[0]
-
-        print(unit, uid)
-
         minesite = db.get_unit_val(unit, 'MineSite')
 
-        if uid is None:
+        if pd.isnull(uid):
             msg = f'FC not yet linked to an event, cannot view event folder.'
             dlgs.msg_simple(msg=msg, icon='warning')
             return

@@ -2,7 +2,7 @@ import inspect
 
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView
 
-from . import gui as ui
+from . import _global as gbl
 from .__init__ import *
 from . import formfields as ff
 
@@ -30,8 +30,8 @@ class InputField():
 class InputForm(QDialog):
     def __init__(self, parent=None, window_title=''):
         super().__init__(parent=parent)
-        mainwindow = ui.get_mainwindow()
-        settings = ui.get_settings()
+        mainwindow = gbl.get_mainwindow()
+        settings = gbl.get_settings()
         name = self.__class__.__name__
         _names_to_avoid = ('minesite_qcombobox') # always want to use 'current' minesite
         self.setWindowTitle(window_title)
@@ -285,7 +285,6 @@ class AddEmail(AddRow):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Add Email')
 
-
 class AddEvent(AddRow):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Add Event')
@@ -521,7 +520,7 @@ class AddUnit(AddRow):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Add Unit')
         df = db.get_df_unit()
-        minesite = ui.get_minesite()
+        minesite = gbl.get_minesite()
         self.tablename = 'UnitID'
 
         self.add_input(field=InputField(text='Unit'))
@@ -626,7 +625,7 @@ class ChangeMinesite(InputForm):
     def __init__(self, parent=None, window_title='Change MineSite'):
         super().__init__(parent=parent, window_title=window_title)
         lst = db.get_list_minesite()
-        self.add_input(field=InputField('MineSite', default=ui.get_minesite()), items=lst) \
+        self.add_input(field=InputField('MineSite', default=gbl.get_minesite()), items=lst) \
             .box.select_all()
 
         self.show()
@@ -690,7 +689,7 @@ class MsgBox_Advanced(QDialog):
         super().__init__(parent=parent)
         self.parent = parent
         self.setWindowTitle(window_title)
-        self.setMinimumSize(ui.minsize)
+        self.setMinimumSize(gbl.minsize)
         self.setMaximumWidth(1000)
 
         layout = QVBoxLayout(self)
@@ -959,14 +958,14 @@ class QFileDialogPreview(QFileDialog):
 
 def msgbox(msg='', yesno=False, statusmsg=None):
     app = check_app()
-    dlg = MsgBox_Advanced(msg=msg, window_title=ui.title, yesno=yesno, statusmsg=statusmsg)
+    dlg = MsgBox_Advanced(msg=msg, window_title=gbl.title, yesno=yesno, statusmsg=statusmsg)
     return dlg.exec_()
 
 def msg_simple(msg='', icon='', infotext=None):
     app = check_app()
     dlg = QMessageBox()
     dlg.setText(msg)
-    dlg.setWindowTitle(ui.title)
+    dlg.setWindowTitle(gbl.title)
 
     icon = icon.lower()
     
@@ -982,8 +981,8 @@ def msg_simple(msg='', icon='', infotext=None):
 def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
     app = check_app()
     dlg = QInputDialog()
-    dlg.resize(ui.minsize)
-    dlg.setWindowTitle(ui.title)
+    dlg.resize(gbl.minsize)
+    dlg.setWindowTitle(gbl.title)
     dlg.setLabelText(msg)
 
     if dtype == 'text':
@@ -1089,7 +1088,7 @@ def print_children(obj, depth=0, maxdepth=3):
         print_children(obj=o, depth=depth + 1, maxdepth=maxdepth)
 
 def show_item(name, parent=None, *args, **kw):
-    # show message dialog by name eg ui.show_item('InputUserName')
+    # show message dialog by name eg gbl.show_item('InputUserName')
     app = check_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent, *args, **kw)
     print(dlg.styleSheet())

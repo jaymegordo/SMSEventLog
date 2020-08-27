@@ -1,5 +1,5 @@
 from .__init__ import *
-from . import gui as ui
+from . import _global as gbl
 from .dialogs import InputForm, InputField, check_app
 
 log = logging.getLogger(__name__)
@@ -20,8 +20,8 @@ class RefreshTable(InputForm):
                 parent = parent_name()
             
         super().__init__(parent=parent, window_title='Refresh Table')      
-        self.minesite = ui.get_minesite()
-        self.mainwindow = ui.get_mainwindow()
+        self.minesite = gbl.get_minesite()
+        self.mainwindow = gbl.get_mainwindow()
 
         # create list of default boxes, call with dict
         # m = dict()
@@ -248,7 +248,7 @@ class AvailReport(Availability):
 
 # NOTE this doesn't need to be duplicated here
 def show_item(name, parent=None):
-    # show message dialog by name eg ui.show_item('InputUserName')
+    # show message dialog by name eg gbl.show_item('InputUserName')
     app = check_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent)
     return dlg, dlg.exec_()

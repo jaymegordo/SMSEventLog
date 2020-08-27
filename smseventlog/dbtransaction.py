@@ -5,10 +5,6 @@ from . import functions as f
 from .__init__ import *
 from .database import db, e
 
-try:
-    from IPython.display import display
-except ModuleNotFoundError:
-    pass
 
 log = logging.getLogger(__name__)
 

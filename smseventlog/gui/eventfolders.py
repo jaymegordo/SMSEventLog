@@ -125,7 +125,7 @@ class EventFolder(object):
         if hasattr(self, 'pictures') and num_pics == self.pictures: return # same as previous pictures
 
         # if WorkOrders table active, use setData to set table + db
-        if not model is None and model.table_widget.title in ('Work Orders', 'TSI'):
+        if not model is None and model.table_widget.title in ('Work Orders', 'TSI', 'FC Details'):
             if irow is None: return # need model/row to set value in table view
 
             index = model.createIndex(irow, model.get_col_idx('Pics'))

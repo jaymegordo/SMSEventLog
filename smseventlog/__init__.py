@@ -23,6 +23,11 @@ from pypika import Table as T
 from pypika import functions as fn
 from pypika.analytics import RowNumber
 
+try:
+    from IPython.display import display
+except ModuleNotFoundError:
+    pass
+
 __version__ = '3.0.4'
 VERSION = __version__
 

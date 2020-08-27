@@ -405,7 +405,7 @@ def format_traceback():
     
     return msg
 
-def send_error(msg='', prnt=False, func=None, display=False, logger=None):   
+def send_error(msg='', prnt=False, func=None, display=False, logger=None):
     # send error to discord, print, or log error
     err = format_traceback()
 

@@ -10,6 +10,8 @@ from . import functions as f
 from . import styles as st
 from .__init__ import *
 
+log = logging.getLogger(__name__)
+
 # Queries control how data is queried/filtered from database.
 # Can be consumed by tables/views, reports, etc
 # da is 'default args' to be passed to filter when query is executed
@@ -461,9 +463,11 @@ class FCSummary(FCBase):
             df2.drop(columns=['Total', 'Complete'], inplace=True)
 
             # can't pivot properly if Hours column (int) is NULL > just set to 0
+            # NOTE also can't pivot if ALL values in any column are null > eg ExpiryDate with only 1 FC refreshed
             df.loc[df.Hrs.isnull(), 'Hrs'] = 0
 
             index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
+
             df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete') \
                 .reset_index() \
                 .merge(right=df2, how='left', on='FC Number') # merge summary
@@ -476,10 +480,9 @@ class FCSummary(FCBase):
             df = df.loc[:, cols]
 
             df.pipe(self.sort_by_fctype)
-            
 
         except:
-            f.send_error(msg='Can\'t pivot fc summary dataframe')
+            f.send_error(msg='Can\'t pivot fc summary dataframe', logger=log)
 
         return df      
 

@@ -27,7 +27,7 @@ def push_update_ui(vertype='patch'):
     p.rename(p.parent / f'{v_new}.txt')
 
     msg = f'{title} UI updated.\n\nOld: {v_current.base_version}\nNew: {v_new}'
-    # ui.msg_simple(msg=msg)
+    # gbl.msg_simple(msg=msg)
     print(msg)
 
 def v_txt():

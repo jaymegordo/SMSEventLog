@@ -155,7 +155,6 @@ class ComboDelegate(CellDelegate):
         # NOTE not used yet, maybe draw an arrow on the cell?
         val = index.data(Qt.DisplayRole)
         style = QApplication.instance().style()
-        # style = ui.get_qt_app().style()
 
         opt = QStyleOptionComboBox()
         opt.text = str(val)
