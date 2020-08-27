@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
                 msg = 'No update available.'
                 dlgs.msg_simple(msg=msg, icon='warning')
         else:
-            updater = Updater(test_version='3.0.3', mw=self)
+            updater = Updater(test_version=None, mw=self)
             self.updater = updater
             
             worker = Worker(func=updater.check_update)
