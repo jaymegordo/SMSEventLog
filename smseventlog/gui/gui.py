@@ -1,9 +1,9 @@
+from . import _global as gbl
 from . import dialogs as dlgs
 from . import tables as tbls
 from .__init__ import *
-from .update import Updater
 from .multithread import Worker
-from . import _global as gbl
+from .update import Updater
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +31,6 @@ class MainWindow(QMainWindow):
         self.move(s.value('window position', defaultValue=QPoint(50, 50)))
         self.minesite = s.value('minesite', defaultValue='FortHills')
         self.settings = s
-
 
         self.create_actions()
         self.create_menu()
@@ -73,20 +72,31 @@ class MainWindow(QMainWindow):
 
         self.update_statusbar(msg=f'SMS Event Log - Current Version: {VERSION}')
         self.check_update()
+        self.start_update_timer()
+    
+    def start_update_timer(self, mins=180):
+        # check for updates every 3 hrs
+        if not SYS_FROZEN: return
+        
+        msec = mins * 60 * 1000
+
+        self.update_timer = QTimer(parent=self)
+        self.update_timer.timeout.connect(self.check_update)
+        self.update_timer.start(msec)
 
     def check_update(self):
         # check for update and download in a worker thread
 
-        if hasattr(self, 'updater'):
-            updater = self.updater
-            if updater.update_available:
-                # update has been previously checked and downloaded but user declined to install initially
-                self._install_update(updater=updater)
-            else:
-                msg = 'No update available.'
-                dlgs.msg_simple(msg=msg, icon='warning')
+        if not SYS_FROZEN:
+            self.update_statusbar('App not frozen, not checking for updates.')
+            return
+
+        if hasattr(self, 'updater') and self.updater.update_available:
+            # update has been previously checked and downloaded but user declined to install initially
+            self._install_update(updater=self.updater)
         else:
-            updater = Updater(test_version=None, mw=self)
+            test_version = '3.0.4'
+            updater = Updater(test_version=test_version, mw=self)
             self.updater = updater
             
             worker = Worker(func=updater.check_update)
@@ -104,6 +114,7 @@ class MainWindow(QMainWindow):
             Current: {updater.version}\n\
             Latest: {updater.latest_version}\n\n\
             Would you like to restart and update now?'
+
         if dlgs.msgbox(msg=msg, yesno=True):
             updater.install_update()
         
