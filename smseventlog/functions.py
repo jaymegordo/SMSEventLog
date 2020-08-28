@@ -418,7 +418,8 @@ def send_error(msg='', prnt=False, func=None, display=False, logger=None, err=No
     err = f'*------------------*\n{err}'
 
     if prnt or not 'linux' in sys.platform:
-        print(err)
+        if not SYS_FROZEN:
+            print(err)
     else:
         discord(msg=err, channel='err')
 

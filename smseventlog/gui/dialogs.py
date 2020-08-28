@@ -873,7 +873,7 @@ class QFileDialogPreview(QFileDialog):
     def __init__(self, parent=None, caption='', directory=None, filter=None, standalone=True, **kw):
         super().__init__(parent, caption, directory, filter, **kw)
 
-        box = QVBoxLayout(self)
+        box = QVBoxLayout()
         if not standalone: self.disable_buttons()
  
         self.setFixedSize(self.width() + 400, self.height())
