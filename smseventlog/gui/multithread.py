@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 class WorkerSignals(QObject):
     finished = pyqtSignal()
-    error = pyqtSignal(str)
+    error = pyqtSignal(str, str, object)
     result = pyqtSignal(object)
     progress = pyqtSignal(int)
 
@@ -21,8 +21,8 @@ class Worker(QRunnable):
     def __init__(self, func, mw=None, *args, **kw):
         super().__init__()
         signals = WorkerSignals()
-        kw['progress_callback'] = signals.progress
-        signals.error.connect(f.send_error)
+        # kw['progress_callback'] = signals.progress
+        signals.error.connect(send_error)
         f.set_self(vars())
 
     @pyqtSlot()
@@ -31,10 +31,15 @@ class Worker(QRunnable):
         try:
             result = self.func(*self.args, **self.kw)
         except:
-            # traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
+            # exctype, value = sys.exc_info()[:2]
             # self.signals.error.emit((exctype, value, traceback.format_exc()))
-            self.signals.error.emit(str(exctype))
+            
+            # need to use logger internal to thread to properly capture stack trace
+            msg = f'Multithread Error - {self.func.__name__}' #\n{f.format_traceback()}'
+            log.error(msg, exc_info=True)
+
+            # also emit for gui to display
+            self.signals.error.emit('Multithread Error', f.format_traceback(), self.func)
         else:
             self.signals.result.emit(result)  # Return the result of the processing
         finally:
@@ -53,7 +58,7 @@ class Worker(QRunnable):
                     *m.get('args', ()),
                     **m.get('kw', {}))
             except:
-                self.signals.error.emit(f'failed to connect signal: {sig, m}')
+                self.signals.error.emit(f'Failed to connect signal: {sig, m}', f.format_traceback())
 
         return self
 
@@ -63,3 +68,15 @@ class Worker(QRunnable):
             mw.threadpool.start(self)
         else:
             log.error('Multithread Worker has no mainwindow or threadpool to start.')
+    
+def send_error(msg, err=None, func=None):
+    # wrapper to send **kw args to f.send_error from a signal in different thread
+    # not sure if need this..
+    # This error handling is so messy I'm sorry future me or someone else..
+    if err is None:
+        err = traceback.format_exc()
+    
+    if not func is None:
+        msg = f'{msg} - {func.__name__}'
+    
+    f.send_error(msg=msg, err=err, logger=None, display=True, func=func)
