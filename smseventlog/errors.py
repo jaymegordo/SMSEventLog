@@ -46,13 +46,13 @@ def e(func):
             except TypeError:
                 return func(args[0]) # for signals passed with self, + other args that aren't needed *split
         except:
-            name = func.__name__
-            print(f'func: {name}, args: {args}, kwargs: {kwargs}')
-            f.send_error() # just print stack trace to terminal
-            display_error(func_name=name)
-
+            func_name = func.__name__
             log = logging.getLogger(inspect.getmodule(func).__name__) # get logger from func's module
-            log.error(name, exc_info=True) # exc_info=True > sentry always captures stack trace
+            log.error(func_name, exc_info=True) # exc_info=True > sentry always captures stack trace
+
+            print(f'func: {func_name}, args: {args}, kwargs: {kwargs}')
+            f.send_error() # just print stack trace to terminal
+            display_error(func_name=func_name)
 
     return wrapper
 
