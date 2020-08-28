@@ -8,7 +8,7 @@ from .__init__ import *
 try:
     # try setting app ID for windows only
     from PyQt5.QtWinExtras import QtWin # noqa
-    app_id = f'com.sms.smseventlog.{VERSION}'
+    app_id = f'com.sms.smseventlog' # .{VERSION}' > dont include version, windows thinks its a different app
     print(app_id)
     QtWin.setCurrentProcessExplicitAppUserModelID(app_id)    
 except ImportError:
