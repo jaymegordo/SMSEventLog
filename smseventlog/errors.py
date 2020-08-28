@@ -56,11 +56,13 @@ def e(func):
 
     return wrapper
 
-def display_error(func_name=None):
+def display_error(func_name=None, err=None):
     # show error message to user
     from .gui.dialogs import BiggerBox
     msg = f'Couldn\'t run function:\n\n{func_name}\n'
     dlg = BiggerBox(icon=QMessageBox.Critical, text=msg) 
     dlg.setWindowTitle('Error')
-    dlg.setDetailedText(f.format_traceback())
+
+    err = f.format_traceback() if err is None else err
+    dlg.setDetailedText(err)
     dlg.exec_()

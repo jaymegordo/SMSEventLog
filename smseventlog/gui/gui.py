@@ -3,6 +3,7 @@ from . import dialogs as dlgs
 from . import tables as tbls
 from .__init__ import *
 from .multithread import Worker
+from . import multithread as mlt
 from .update import Updater
 
 log = logging.getLogger(__name__)
@@ -212,9 +213,10 @@ class MainWindow(QMainWindow):
         return username, password
             
     def open_sap(self):
-        from .. import web
-        sc = web.SuncorConnect()
-        sc.open_sap()
+        from ..web import SuncorConnect
+        sc = SuncorConnect(ask_token=True)
+        Worker(func=sc.open_sap, mw=self).start()
+        self.update_statusbar('SAP opened in worker thread.')
 
     def create_menu(self):
         bar = self.menuBar()
@@ -333,9 +335,9 @@ class MainWindow(QMainWindow):
             dlgs.msg_simple(msg=msg, icon='warning')
             return
 
-        e = view.model_from_activerow()
-        row = view.row_from_activerow()
+        e, row = view.e, view.row
         if row is None: return
+
         row.update(vals=dict(StatusTSI='Open', TSIAuthor=self.username))
         self.update_statusbar(msg=f'TSI opened for: {e.Unit} - {e.Title}')  
 

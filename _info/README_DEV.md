@@ -72,13 +72,16 @@
 
         1. Pandas.io.formats.style
             * [not exact issue but related](https://stackoverflow.com/questions/52429350/cant-perform-this-operation-for-unregistered-loader-type-is-there-any-workaro)
+            * this needs to be fixed any time pandas is udpated.
+            
             1. open [*virtualenv*]/Lib/site-packages/pandas/io/formats/style.py
-            2. change line 120 from:
+            2. change line 135 from:
                 ```
                 template = env.get_template("html.tpl")
                 
                 # to
 
+                import os
                 path = os.path.dirname(__file__) + "/templates/html.tpl"
                     with open(path) as fin:
                         data = fin.read()

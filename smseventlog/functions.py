@@ -405,9 +405,12 @@ def format_traceback():
     
     return msg
 
-def send_error(msg='', prnt=False, func=None, display=False, logger=None):
+def send_error(msg='', prnt=False, func=None, display=False, logger=None, err=None, **kw):
     # send error to discord, print, or log error
-    err = format_traceback()
+
+    # err is alwas just a formatted traceback
+    if err is None:
+        err = format_traceback()
 
     if not msg == '':
         err = f'{msg}:\n{err}'.replace(':\nNoneType: None', '')
@@ -421,10 +424,11 @@ def send_error(msg='', prnt=False, func=None, display=False, logger=None):
 
     if display:
         from . import errors as er
-        er.display_error()
+        func_name = func.__name__ if not func is None else 'unknown function'   
+        er.display_error(func_name=func_name, err=err)
     
     if not logger is None:
-        log.error(msg)
+        logger.error(msg, exc_info=True)
 
 def create_logger(func=None):
     # not used yet
