@@ -20,7 +20,7 @@
 ![](docs/gifs/View-Event-Folder.gif)
 
 
-## Developer Guide
+# Developer Guide
 ### Software
 
 * [VS Code](https://code.visualstudio.com/download) 
@@ -73,10 +73,10 @@
 2. Increment version with eg `bumpversion patch --verbose` (must be run inside active pipenv)
 3. Push changes to git `git push --tags` (imporant to include tags to increment version on github)
 4. 
-    a. Local testing - Build exe using custom build script `python -m build` (see pyinstaller below for more info)
-    b. Production - Build exe with pyupdater:
-        * Mac: `build.sh` or
-        * Win: `build.bat true` (true to upload after build is complete)
+    * Local testing - Build exe using custom build script `python -m build` (see pyinstaller below for more info)
+    * Production - Build exe with pyupdater:
+        * Mac: `build.sh`
+        * Win: `build.bat true` (true = upload after build is complete)
 5. Push build package to s3 bucket with `upload.sh` or `upload.bat`
 
 * [bump2version](https://github.com/c4urself/bump2version)

@@ -990,37 +990,32 @@ class TSI(EventLogBase):
         self.update_statusbar(f'New TSI created. TSI Number: {tsi_number}')
 
     def create_failure_report(self):
-        from . import eventfolders as efl
-
-        view = self.view
-        row = view.row_from_activerow()
+        e, row, view = self.e_db, self.row, self.view
         if row is None: return
-        e = row.create_model_from_db()
 
         # get event folder
         ef = efl.get_eventfolder(minesite=e.MineSite).from_model(e=e, irow=row.i, table_model=view.model())
 
         # get pics, body text from dialog
+        cause = e.FailureCause if not e.FailureCause == '' else 'Uncertain.'
+        complaint = f'{e.Title}\n\n{e.TSIDetails}'.rstrip('\n\n')
         text = dict(
-            complaint=e.TSIDetails,
-            cause='Uncertain.',
+            complaint=complaint,
+            cause=cause,
             correction='Component replaced with new.',
             details=e.Description)
 
-        dlg = dlgs.FailureReport(parent=self, p_start=ef.p_event / 'Pictures', text=text)
+        dlg = dlgs.FailureReport(parent=self, p_start=ef.p_pics, text=text)
         if not dlg.exec_(): return
 
         # create header data from event dict + unit info
         header_data = f.model_dict(e, include_none=True)
         header_data.update(db.get_df_unit().loc[e.Unit])
 
-        # keys = dict(UID=e.UID)
-        # header_data = dbt.join_query(tables=(EventLog, UnitID), keys=keys, join_field='Unit')
-
         # create report obj and save as pdf in event folder
         from .. import reports as rp
         rep = rp.FailureReport(header_data=header_data, pictures=dlg.pics, body=dlg.text, e=e)
-        p_rep = rep.create_pdf(p_base=ef.p_event)
+        p_rep = rep.create_pdf(p_base=ef._p_event)
 
         msg = 'Failure report created, open now?'
         if dlgs.msgbox(msg=msg, yesno=True):

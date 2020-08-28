@@ -55,6 +55,10 @@ class EventFolder(object):
         self.check()
         return self._p_event
 
+    @property
+    def p_pics(self):
+        return self._p_event / 'Pictures'
+    
     def update_eventfolder_path(self, vals):
         # update folder path with defaults (actually new vals) + changed vals (previous)
         m_prev = dict(
@@ -120,8 +124,7 @@ class EventFolder(object):
         # count number of pics in folder and set model + save to db
         model, irow = self.table_model, self.irow
         
-        p_pics = self._p_event / 'Pictures'
-        num_pics = fl.count_files(p=p_pics, ftype='pics')
+        num_pics = fl.count_files(p=self.p_pics, ftype='pics')
         if hasattr(self, 'pictures') and num_pics == self.pictures: return # same as previous pictures
 
         # if WorkOrders table active, use setData to set table + db
