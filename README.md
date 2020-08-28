@@ -79,6 +79,7 @@
         * Win: `build.bat true` (true = upload after build is complete)
 5. Push build package to s3 bucket with `upload.sh` or `upload.bat`
 
+### Build Software
 * [bump2version](https://github.com/c4urself/bump2version)
     * Use bumpversion to control version increments
     * creates a git tag before pushing
