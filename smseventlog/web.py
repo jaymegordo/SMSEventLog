@@ -180,18 +180,22 @@ class Web(object):
 
 class SuncorConnect(Web):
     # auto login to suncor's SAP system
-    def __init__(self):
+    def __init__(self, ask_token=True):
         super().__init__()
         self.pages.update({'home': 'https://connect.suncor.com'})
+        token = None
 
         user = Path.home().name
         if user == 'Jayme':
             with open(f.datafolder / 'apikeys/credentials.yaml') as file:
                 m = yaml.full_load(file)['sap']
 
-            self.username = m['username']
-            self.password = m['password']
-            self.token_pin = m['token_pin']
+            username = m['username']
+            password = m['password']
+            token_pin = m['token_pin']
+        
+        f.set_self(vars())
+        if ask_token: self.set_token()
 
     def get_options(self):
         # need to trick Suncor Connect to thinking chrome is safari
@@ -200,13 +204,16 @@ class SuncorConnect(Web):
 
         return options
 
-    def login(self):
-        # get rsa fob
-        from .gui import dialogs as dlgs
-
+    def set_token(self):
         # get current RSA token before login
-        ok, token = dlgs.inputbox(msg='Enter RSA token:')
-        if not ok: return
+        # may want to ask during init or may not
+        from .gui import dialogs as dlgs
+        ok, self.token = dlgs.inputbox(msg='Enter RSA token:')
+        return False if not ok else True
+
+    def login(self):
+        if self.token is None:
+            if ask_token or not self.set_token(): return # cant login if token not set, dont ask twice
 
         driver = self.driver
 
@@ -221,7 +228,7 @@ class SuncorConnect(Web):
         self.set_val(element, self.password)
 
         element = driver.find_element_by_id('input_3')
-        self.set_val(element, self.token_pin + token)
+        self.set_val(element, self.token_pin + self.token)
 
         element = driver.find_element_by_class_name('credentials_input_submit')
         element.send_keys(Keys.ENTER)
