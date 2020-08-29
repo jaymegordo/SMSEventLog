@@ -378,7 +378,6 @@ def fix_dls_all_units(d_lower=None):
         units=unit,
         d_lower=d_lower) for unit in units)
 
-
 def date_from_dsc(p):
     # parse date from dsc folder name, eg 328_dsc_20180526-072028
     # if no dsc, use date created
@@ -481,7 +480,54 @@ def zip_recent_dls(units, d_lower=dt(2020,1,1)):
 
     return lst_zip
 
+def date_from_title(title):
+    # parse date obj from date in folder title
+    date_reg_exp = re.compile('(\d{4}[-]\d{2}[-]\d{2})')
+    ans = re.search(date_reg_exp, title)
 
+    if not ans or len(ans.groups()) < 1: return
+
+    d = dt.strptime(ans.group(1), '%Y-%m-%d')
+    return d
+
+def get_recent_dls_unit(unit):
+    # get most recent dls folder for single unit
+    from .gui.dialogs import msg_simple
+
+    p_unit = unitpath_from_unit(unit=unit)
+    p_dls = p_unit / 'Downloads'
+
+    # get all downloads/year folders
+    lst_year = [p for p in p_dls.iterdir() if p.is_dir()]
+
+    if len(lst_year) == 0:
+        msg_simple(msg='No download folders fonund.', icon='warning')
+        return
+
+    # sort year folders by name, newest first, select first
+    lst_year_sorted = sorted(lst_year, key=lambda p: p.name, reverse=True) # sort by year
+    p_year = lst_year_sorted[0]
+
+    # sort all dls folders on date from folder title
+    lst_dls = [p for p in p_year.iterdir() if p.is_dir()]
+    lst_dls_sorted = sorted(filter(lambda p: date_from_title(p.name) is not None, lst_dls), key=lambda p: date_from_title(p.name), reverse=True)
+    return lst_dls_sorted[0]
+
+def zip_recent_dls_unit(unit, _zip=True):
+    # find/zip most recent dls folder by parsing date in folder title
+
+    p_dls = get_recent_dls_unit(unit=unit)
+
+    from .gui.dialogs import msgbox
+    msg = f'Found dls folder: {p_dls.name},\n\nZip now?'
+    if not msgbox(msg=msg, yesno=True): return
+
+    if _zip:
+        p_zip = zip_folder(p=p_dls, delete=False)
+        return p_zip
+    else:
+        return p_dls
+        
 def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020,1,1), maxdepth=4, import_=True):
     # top level control function - pass in single unit or list of units
         # 1. get list of files (haul, fault, dsc)
