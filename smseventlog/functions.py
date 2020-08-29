@@ -215,6 +215,17 @@ def convert_date(val):
     except:
         return val
 
+def _input(msg):
+    # get yes/no answer from user in terminal
+    reply = str(input(msg + ' (y/n): ')).lower().strip()
+    if len(reply) <= 0: return False
+    if reply[0] == 'y':
+        return True
+    elif reply[0] == 'n':
+        return False
+    else:
+        return False
+
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
     # https://github.com/pandas-dev/pandas/issues/23955

@@ -51,7 +51,6 @@ class Worker(QRunnable):
         # ('signal', m_args) > eg dict(func=self._install_update, args=None, kw=None)
 
         for sig, m in signals:
-
             try:
                 getattr(self.signals, sig).connect(
                     m.get('func', None),
@@ -71,7 +70,6 @@ class Worker(QRunnable):
     
 def send_error(msg, err=None, func=None):
     # wrapper to send **kw args to f.send_error from a signal in different thread
-    # not sure if need this..
     # This error handling is so messy I'm sorry future me or someone else..
     if err is None:
         err = traceback.format_exc()

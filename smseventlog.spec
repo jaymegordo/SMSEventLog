@@ -19,6 +19,7 @@ else:
 
 sys.path.append(project_path) # so we can import from smseventlog
 from smseventlog import functions as f
+from smseventlog import VERSION
 
 datas = [
     ('smseventlog/data', 'data')]
@@ -115,7 +116,14 @@ coll = COLLECT(exe,
                console=False)
 
 if f.is_mac():
-    app = BUNDLE(coll,
-                name=f'{name}.app',
-                icon=icon,
-                bundle_identifier=None)
+    app = BUNDLE(
+        coll,
+        name=f'{name}.app',
+        icon=icon,
+        bundle_identifier='com.sms.smseventlog',
+        info_plist={
+            'NSPrincipalClass': 'NSApplication',
+            'NSAppleScriptEnabled': False,
+            'CFBundleShortVersionString': VERSION,
+            },
+        )

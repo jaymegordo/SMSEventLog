@@ -957,9 +957,15 @@ class QFileDialogPreview(QFileDialog):
 
 
 def msgbox(msg='', yesno=False, statusmsg=None):
-    app = check_app()
-    dlg = MsgBox_Advanced(msg=msg, window_title=gbl.title, yesno=yesno, statusmsg=statusmsg)
-    return dlg.exec_()
+    # TODO fix this
+    if True or SYS_FROZEN or not yesno:
+        # show dialog no matter what
+        app = check_app()
+        dlg = MsgBox_Advanced(msg=msg, window_title=gbl.title, yesno=yesno, statusmsg=statusmsg)
+        return dlg.exec_()
+    elif yesno:
+        # if yesno and NOT frozen, prompt user through terminal
+        return f._input(msg)
 
 def msg_simple(msg='', icon='', infotext=None):
     app = check_app()

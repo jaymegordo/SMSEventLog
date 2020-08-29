@@ -89,12 +89,12 @@
         * `bumpversion minor` > will increment version from 3.0.1 to 3.1.0       
 
 * [PyUpdater](https://www.pyupdater.org/installation/)
-    * Pyupdater handles package build (wraps pyinstaller), signs code, uploads to amazon s3, and handles app update checks/downloads/restarts
+    * PyUpdater handles package build (wraps PyInstaller), signs code, uploads to amazon s3, and handles app update checks/downloads/restarts
     * [AppUpdatesDemo](https://github.com/jameswettenhall/pyupdater-wx-demo/blob/master/run.py)
 
-* Pyinstaller
-    * in project dir (SMS), `python -m build` (runs custom build python file which calls PyInstaller with args)
-    * (old) To build, activate pipenv with `pipenv shell` then run `pyinstaller smseventlog.spec --noconfirm`
+* [PyInstaller](https://pyinstaller.readthedocs.io/en/stable/usage.html)
+    * In project dir (SMS), `python -m build` (runs custom build python file which calls PyInstaller with args)
+    * Only use PyInstaller on its own to create a test build because PyUpdater auto zips everything.
     * This will package app and output files to /dist/[mac|win]
 
     * Build Issues
