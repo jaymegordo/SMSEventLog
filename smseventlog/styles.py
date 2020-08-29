@@ -16,6 +16,7 @@ def left_justified(df, header=False):
 
 def format_dtype(df, formats):
     # match formats to df.dtypes
+    # format can be either string or func
     # formats = {'int64': '{:,}'}
     # df.dtypes = {'Unit': dtype('O'),
                 # datetime.dt(2020, 3, 1): dtype('int64'),
@@ -24,6 +25,15 @@ def format_dtype(df, formats):
         m.update({col: fmt for col, val in df.dtypes.to_dict().items() if val==key})
     
     return m
+
+def apply_formats(style, formats):
+    # apply other formats that may not be defaults
+    m = format_dtype(df=style.data, formats=formats)
+    return style.format(m)
+
+def format_date(x):
+    fmt = '{:%Y-%m-%d}'
+    return fmt.format(x) if not pd.isnull(x) else ''
 
 def alternating_rows(style):
     s = []
@@ -130,7 +140,7 @@ def default_style(df, outlook=False):
     table_attrs = f'style="border-collapse: collapse;"'
 
     style = df.style \
-        .format(lambda x: '{:,.0f}'.format(x) if x > 1e3 else '{:,.2f}'.format(x), # default number format
+        .format(lambda x: f'{x:,.0f}' if x > 1e3 else f'{x:,.2f}', # default number format
                     subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
         .pipe(add_table_style, s) \
         .pipe(alternating_rows_outlook, outlook=outlook) \
