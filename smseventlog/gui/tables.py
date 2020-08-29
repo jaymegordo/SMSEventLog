@@ -833,6 +833,9 @@ class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
+        self.add_button(name='Email WO Request', func=self.email_wo_request)
+
+
     class View(EventLogBase.View):
         def __init__(self, parent):
             super().__init__(parent=parent)
@@ -855,6 +858,30 @@ class WorkOrders(EventLogBase):
         def set_component(self, val_new, **kw):
             if val_new == True:
                 self.parent.show_component()
+
+    def email_wo_request(self):
+        e = self.e
+        if e is None: return # no row selected in table
+        df = self.view.df_from_activerow() \
+            .drop(columns=['UID', 'Status', 'Work Order', 'Seg', 'Date Complete', 'Pics'])
+
+        formats = {'int64': '{:,}', 'datetime64[ns]': st.format_date}
+        style = st.default_style(df=df, outlook=True) \
+            .pipe(st.apply_formats, formats=formats)
+
+        title = f'Open WO Request - {e.Unit} - {e.Title}'
+
+        body = f'{f.greeting()}Please open a warranty work order for:<br><br>\
+            {style.hide_index().render()}'
+
+        # get email list from db
+        df2 = db.get_df(query=qr.EmailList())
+
+        # TODO put this into a better func
+        lst = list(df2[(df2.MineSite==self.minesite) & (df2['WO Request'].notnull())].Email)
+
+        # show new email
+        msg = em.Message(subject=title, body=body, to_recip=lst)
 
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
@@ -880,6 +907,7 @@ class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
+        self.add_button(name='Zip Recent DLS', func=self.zip_recent_dls)
         self.add_button(name='Create Failure Report', func=self.create_failure_report)
         self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
@@ -1021,6 +1049,20 @@ class TSI(EventLogBase):
         if dlgs.msgbox(msg=msg, yesno=True):
             fl.open_folder(p_rep)
 
+    def zip_recent_dls(self):
+        e = self.e
+        unit = e.Unit
+
+        p_dls = fl.zip_recent_dls_unit(unit=unit, _zip=False)
+
+        def _handle_zip_result(p_zip):
+            self.update_statusbar(f'Folder successfully zipped: {p_zip.name}')
+
+        Worker(func=fl.zip_folder, mw=self.mainwindow, p=p_dls) \
+            .add_signals(signals=('result', dict(func=_handle_zip_result))) \
+            .start()
+        self.update_statusbar(f'Zipping folder in worker thread: {p_dls.name}')
+
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -1132,10 +1174,10 @@ class FCSummary(FCBase):
     def email_new_fc(self):
         # get df of current row
         df = self.view.df_from_activerow().iloc[:, :10]
-        style = st.default_style(df=df, outlook=True)
+
         formats = {'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
-        m = st.format_dtype(df=df, formats=formats)
-        style.format(m)
+        style = st.default_style(df=df, outlook=True) \
+            .pipe(st.apply_formats, formats=formats)
 
         fcnumber = df['FC Number'].iloc[0]
         subject = df.Subject.iloc[0]
