@@ -238,7 +238,7 @@ class TableView(QTableView):
         elif event.key() == Qt.Key_D and event.modifiers() == Qt.ControlModifier:
             self.fill_down()
         elif event.key() == Qt.Key_Escape:
-            self.sel.clear()
+            self.sel.clear() # clear selected row highlight
         else:
             super().keyPressEvent(event)
 

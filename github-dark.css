@@ -568,6 +568,7 @@
   display: block;
   width: 100%;
   overflow: auto;
+
 }
 
 .vscode-body table th {
@@ -578,6 +579,7 @@
 .vscode-body table td {
   padding: 6px 13px;
   border: 1px solid #dfe2e5;
+  background-color: #24292e;
 }
 
 .vscode-body table tr {
