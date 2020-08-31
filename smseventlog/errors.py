@@ -8,13 +8,46 @@ from PyQt5.QtWidgets import QMessageBox
 
 from . import functions as f
 
+def test_wrapper(func):
+    # handle all errors in Web, allow suppression of errors if eg user closes window
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            print('Im wrapped!')
+            return func(*args, **kwargs)
+        except:
+            print(f'failed to execute func: {func.__name__}')
+    
+    return wrapper
+
+def wrap_all_class_methods_static(obj, err_func=None, exclude=None):
+    # use inspect.getattr_static to avoid calling @property methods during inspect
+
+    if not isinstance(exclude, list): exclude = [exclude]
+    if err_func is None: err_func = test_wrapper
+
+    for name in dir(obj):
+        fn = inspect.getattr_static(obj, name) # if getattr called here, it would evaluate the @property
+
+        if isinstance(fn, types.FunctionType) and not 'init' in name and not name in exclude:
+            # print(name, fn)
+            meth = getattr(obj, name)
+            setattr(obj, name, err_func(meth))
+
+def wrap_all_class_methods(obj, err_func, exclude=None):
+    if not isinstance(exclude, list): exclude = [exclude]
+    # wrap an already instantiated object's functions with err handler
+    for name, fn in inspect.getmembers(obj):
+        if isinstance(fn, types.MethodType) and not 'init' in name and not name in exclude:
+            setattr(obj, name, err_func(fn))
 
 def wrap_all_class_funcs(cls, err_func=None):
+    # wrap all funcs in uninstantiated class defn with @e error handler
     
     # use default err handler @e
     if err_func is None: err_func = getattr(sys.modules[__name__], 'e')
 
-    # wrap all methods in class obj with @e error handler
     module_name = inspect.getmodule(cls).__file__.split('/')[-1]
     for name, fn in inspect.getmembers(cls):
         if isinstance(fn, types.FunctionType):
@@ -23,17 +56,17 @@ def wrap_all_class_funcs(cls, err_func=None):
     
     return cls
 
-def decorate_all_classes(module_name=None, module=None):      
+def decorate_all_classes(module_name=None, module=None, err_func=None):      
     # get all classes in module and add the @e decorator to handle errors
-
     # pass either module or module name, but need both
+
     if module is None: module = sys.modules[module_name]
     if module_name is None: module_name = module.__name__
 
     for name, obj in inspect.getmembers(module):
         # only wrap classes definied in the module, not other imports
         if inspect.isclass(obj) and obj.__module__ == module_name:
-            wrap_all_class_funcs(obj)
+            wrap_all_class_funcs(obj, err_func=err_func)
 
 def e(func):
     # error handler/wrapper for the gui
