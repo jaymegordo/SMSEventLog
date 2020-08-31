@@ -20,6 +20,7 @@
 | Change MineSite      | Ctrl + Shift + M |
 | Show Details View    | Ctrl + Shift + D |
 | Jump to Previous Tab | Ctrl + Tab       |
+| New line in cell     | Shift + Enter    |
 
 ### Examples
 * Create a new event:
