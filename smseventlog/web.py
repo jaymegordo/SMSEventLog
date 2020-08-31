@@ -1,14 +1,30 @@
+import functools
+import traceback
+
 import yaml
 from selenium import webdriver
-from selenium.common.exceptions import InvalidArgumentException
+from selenium.common.exceptions import (InvalidArgumentException,
+                                        NoSuchElementException,
+                                        NoSuchWindowException,
+                                        WebDriverException)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
 
+from . import errors as er
 from . import functions as f
 from .__init__ import *
+
+log = logging.getLogger(__name__)
+level = logging.INFO
+log.setLevel(level)
+sh.setLevel(level)
+
+fmt = logging.Formatter('%(lineno)d:%(levelname)s - %(message)s')
+sh.setFormatter(fmt)
+log.addHandler(sh)
 
 # find_element_by_class_name',
 # 'find_element_by_css_selector',
@@ -48,10 +64,41 @@ def tsi_form_vals():
     return field_vals
 
 class Web(object):
-    def __init__(self):
+    def __init__(self, table_widget=None, mw=None, **kw):
         pages = {}
         _driver = None
+        if not table_widget is None: mw = table_widget.mainwindow
+
+        # if specific error, may need to exit with a nice message and suppress all else
+        # NOTE loose end > may need a way to turn this back on if object is to be reused
+        suppress_errors = False
         f.set_self(vars())
+
+        er.wrap_all_class_methods_static(obj=self, err_func=self.e, exclude='driver')
+
+    def e(self, func):
+        # handle all errors in Web, allow suppression of errors if eg user closes window
+        if self.suppress_errors:
+            log.info(f'ignoring function: {func}')
+            return
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except:
+                if not self.suppress_errors:
+                    raise
+                else:
+                    log.debug('error suppressed')
+        
+        return wrapper
+
+    def update_statusbar(self, msg):
+        if not self.mw is None:
+            self.mw.update_statusbar(msg)
+        else:
+            log.warning('self.mainwindow is none')
 
     def get_options(self):
         # user-data-dir specifices the location of default chrome profile, to create browser with user's extensions, settings, etc
@@ -79,6 +126,7 @@ class Web(object):
         return options
 
     def create_driver(self, browser='Chrome'):
+
         def _create_driver(options=None):
             kw = dict(executable_path=f.topfolder / 'selenium/webdriver/chromedriver') if f.frozen else {}
             return webdriver.Chrome(options=options, **kw)
@@ -88,7 +136,8 @@ class Web(object):
 
             try:
                 driver = _create_driver(options=options)
-            except InvalidArgumentException:
+            except InvalidArgumentException as e:
+                log.debug('InvalidArgumentException\n' + traceback.format_exc())
                 # user already has a chrome window open with default profile open
                 # delete user-data-dir from options args and try again
                 # NOTE try and quit the initial browser too > (kinda hard)
@@ -106,6 +155,9 @@ class Web(object):
 
         return driver
     
+    def set_driver(self):
+        self._driver = self.create_driver()
+
     def check_driver(self):
         if self._driver is None:
             self.set_driver()
@@ -113,11 +165,13 @@ class Web(object):
         try:
             self._driver.title # check if driver is alive and attached
             self._driver.current_url
-        except:        
+        except:
+            log.debug('failed driver title check, setting driver again.')      
             self.set_driver()
 
     @property
     def driver(self):
+        if self.suppress_errors: return None
         self.check_driver()
 
         # NOTE not sure if this actually works
@@ -129,18 +183,20 @@ class Web(object):
 
         return self._driver
     
-    def set_driver(self):
-        self._driver = self.create_driver()
 
     def wait(self, time, cond):
-        driver = self.driver
         try:
-            element = WebDriverWait(driver, time).until(cond)
+            element = WebDriverWait(self.driver, time).until(cond)
             return element
-        except:
-            # f.send_error()
-            print(f'Failed waiting for: {cond}')
-            return None
+        except (NoSuchWindowException, WebDriverException):
+            # user closed the window
+            self.suppress_errors = True
+            self._driver.quit()
+            self.update_statusbar('User closed browser window, stopping execution.')
+        except Exception as e:
+            # add extra info to selenium's error message
+            e.msg += f'\n\nFailed waiting for web element: {cond.locator}'
+            raise
 
     def set_val(self, element, val, disable_check=False):
         driver = self.driver
@@ -154,7 +210,8 @@ class Web(object):
             #     element.send_keys(val)
 
         except:
-            print(f'couldn\'t set value: {val}')
+            log.warning(f'couldn\'t set value: {val}')
+            if self.suppress_errors: return
             element.send_keys(val)
         
         # TODO check val was set, if not, try again using send_keys(val)
@@ -180,7 +237,7 @@ class Web(object):
 
 class SuncorConnect(Web):
     # auto login to suncor's SAP system
-    def __init__(self, ask_token=True):
+    def __init__(self, ask_token=True, **kw):
         super().__init__()
         self.pages.update({'home': 'https://connect.suncor.com'})
         token = None
@@ -267,15 +324,16 @@ class SuncorConnect(Web):
         # driver.close()
 
 class TSIWebPage(Web):
-    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, parent=None, uid=None):
-        super().__init__()
+    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, table_widget=None, uid=None, attach_docs=None, **kw):
+        super().__init__(table_widget=table_widget, **kw)
         tsi_number = None
         is_init = True
+        if attach_docs is None: attach_docs = []
         # serial, model = 'A40029', '980E-4'
 
         # try loading username + pw from QSettings if running in app
-        if not parent is None:
-            username, password = parent.mainwindow.get_tsi_username()
+        if not table_widget is None:
+            username, password = table_widget.mainwindow.get_tsi_username()
 
             if username is None:
                 from .gui import dialogs as dlgs
@@ -341,6 +399,9 @@ class TSIWebPage(Web):
 
         self.fill_dropdowns()
 
+        if self.attach_docs:
+            self.upload_attachments()
+
         if save_tsi:
             driver = self.driver
 
@@ -358,8 +419,15 @@ class TSIWebPage(Web):
             vals = {k:v for k, v in self.field_vals.items() if k in ('Failure SMR', 'Failure Date')}
             self.fill_all_fields(field_vals=vals)
         
+        if self.suppress_errors: return None
         return self
-  
+    
+    def upload_attachments(self):
+        # also try wait for upload attachments link to load
+        wait = self.wait
+        element = wait(30, EC.presence_of_element_located((By.LINK_TEXT, 'Upload Attachments')))
+        element.send_keys(Keys.ENTER)
+
     def fill_field(self, name, val):
         id_ = self.form_fields.get(name, None)
 
@@ -371,8 +439,8 @@ class TSIWebPage(Web):
                 # element.send_keys(val)
                 self.set_val(element, val)
             except:
-                f.send_error()
-                print(f'Couldn\'t set field value: {name, val}')
+                # f.send_error()
+                log.warning(f'Couldn\'t set field value: {name, val}')
 
         return
 
@@ -386,19 +454,17 @@ class TSIWebPage(Web):
 
             # try to wait and fill first element, then give up
             if not self.current_page_name() == 'tsi_create':
-                print('not at tsi_create page')
+                log.warning('not at tsi_create page')
                 return
 
     def fill_dropdowns(self):
-        driver = self.driver
         for name, vals in self.form_dropdowns.items():
             id_, val = vals[0], vals[1]
             try:
                 element = self.wait(10, EC.element_to_be_clickable((By.ID, id_)))
                 Select(element).select_by_visible_text(val)
             except:
-                f.send_error()
-                print(f'Couldn\'t set dropdown value: {name}')
+                log.warning(f'Couldn\'t set dropdown value: {name}')
     
     def tsi_home(self):
         self.login_tsi(max_page='home')
@@ -416,23 +482,21 @@ class TSIWebPage(Web):
             self.new_browser()
             driver.get(self.pages['login'])
 
-            # TODO save/load user pw from QSettings
-            try:
-                element = driver.find_element_by_id('txtUserID')
-                self.set_val(element, self.username)
-                
-                element = driver.find_element_by_id('Password')
-                self.set_val(element, self.password, disable_check=True)
+            element = driver.find_element_by_id('txtUserID')
+            self.set_val(element, self.username)
+            
+            element = driver.find_element_by_id('Password')
+            self.set_val(element, self.password, disable_check=True)
 
-                driver.find_element_by_id('btnSubmit').submit()
-            finally:
-                element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'Go to (SQIS)TSR Portal')))
-                element.send_keys(Keys.ENTER)
+            driver.find_element_by_id('btnSubmit').submit()
 
+            element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'Go to (SQIS)TSR Portal')))
+            element.send_keys(Keys.ENTER)
+            
         def home():            
             element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'MACHINE QUALITY INFORMATION')))
             element.send_keys(Keys.ENTER)
-        
+      
         def tsi_home():
             # enter serial number
             if serial is None: raise AttributeError('Serial number missing!')
@@ -453,9 +517,6 @@ class TSIWebPage(Web):
             
             # wait for KA to populate serial number before filling dropdowns
             element = wait(30, EC.text_to_be_present_in_element_value((By.ID, 'elogic_serialnumber'), serial))
-            
-            # also try wait for upload attachments link to load
-            # element = wait(30, EC.presence_of_element_located((By.LINK_TEXT, 'Upload Attachments')))
 
         # check where current page is in order of pages we need to log in, then complete funcs from there
         original_index = self.current_page_index(page_order)
@@ -464,9 +525,10 @@ class TSIWebPage(Web):
             check_index = page_order.index(func_name)
             # print(f'func_name: {func_name}, check_index: {check_index}, original_index: {original_index}')
             if check_index >= original_index and check_index <= max_index:
+                
+                # loop funcs in login steps
                 vars().get(func_name)()
-
-
+        
 def attach_to_session(executor_url, session_id):
     original_execute = WebDriver.execute
     def new_command_execute(self, command, params=None):
@@ -489,3 +551,32 @@ def get_driver_id(driver):
     session_id = driver.session_id
 
     return executor_url, session_id
+
+def tsi_example():
+    from .dbtransaction import example
+    uid = 101133020820
+    e = example(uid=uid)
+    serial, model = 'A40048', '980E-4'
+    d = e.DateAdded.strftime('%m/%d/%Y')
+
+    field_vals = {
+        'Failure Date': d,
+        'Repair Date': d,
+        'Failure SMR': e.SMR,
+        'Hours On Parts': e.ComponentSMR,
+        'Serial': e.SNRemoved,
+        'Part Number': e.PartNumber,
+        'Part Name': e.TSIPartName,
+        'New Part Serial': e.SNInstalled,
+        'Work Order': e.WorkOrder,
+        'Complaint': e.Title,
+        'Cause': e.FailureCause,
+        'Notes': e.Description}
+        
+    tsi = TSIWebPage(
+        field_vals=field_vals,
+        serial=serial,
+        model=model,
+        uid=e.UID)
+
+    return tsi
