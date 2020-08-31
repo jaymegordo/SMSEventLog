@@ -10,6 +10,18 @@
 * When an update is available, follow the prompts to download/extract update/restart. (Restart can take ~30-60s)
 
 ## Usage
+### Keyboard shortcuts
+| Action               | Shortcut         |
+|----------------------|------------------|
+| Show Refresh Menu    | Ctrl + R         |
+| Refresh All Open     | Ctrl + Shift + R |
+| View Folder          | Ctrl + Shift + V |
+| Create New Event     | Ctrl + Shift + N |
+| Change MineSite      | Ctrl + Shift + M |
+| Show Details View    | Ctrl + Shift + D |
+| Jump to Previous Tab | Ctrl + Tab       |
+
+### Examples
 * Create a new event:
 ![](docs/gifs/Add-New-Event.gif)
 
