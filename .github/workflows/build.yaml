@@ -1,6 +1,9 @@
 name: Create Sentry Release
 
 on:
+    push:
+        branches:
+            - master
     release:
         types: [published, created]
 
