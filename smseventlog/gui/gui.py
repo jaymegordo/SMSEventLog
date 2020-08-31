@@ -125,9 +125,8 @@ class MainWindow(QMainWindow):
             scope.user = dict(
                 username=self.username,
                 email=self.get_setting('email'))
-            
-            scope.set_extra('version', VERSION)
-    
+            # scope.set_extra('version', VERSION) # added to sentry release field
+                
     def active_table_widget(self):
         return self.tabs.currentWidget()
        

@@ -323,10 +323,9 @@ class DB(object):
             .left_join(b).on_field('FCNumber') \
             .left_join(c).on_field('Unit')
         
-        # if not minesite is None:
-        #     q = q.where(c.MineSite == minesite)
-            
-        self.df_fc = self.read_query(q=q)
+        df = self.read_query(q=q)
+        df['Title'] = df.FCNumber + ' - ' + df.Subject
+        self.df_fc = df
     
     def get_df_component(self):
         if self.df_component is None:    

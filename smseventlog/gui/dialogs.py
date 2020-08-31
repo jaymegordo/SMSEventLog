@@ -436,9 +436,9 @@ class AddEvent(AddRow):
     
     def link_fc(self):
         # add event's UID to FC in FactoryCampaign table
-        unit = self.row.Unit
+        unit, uid = self.row.Unit, self.row.UID
         row = dbt.Row(keys=dict(FCNumber=self.FCNumber, Unit=unit), dbtable=dbm.FactoryCampaign)
-        row.update(vals=dict(UID=self.uid))
+        row.update(vals=dict(UID=uid))
 
     def create_fc(self):
         unit = self.fUnit.val
@@ -448,7 +448,6 @@ class AddEvent(AddRow):
             df = db.get_df_fc()
             df = df[df.Unit==unit]
             prefix = 'FC '
-            df['Title'] = df.FCNumber + ' - ' + df.Subject
 
             ok, val = inputbox(msg='Select FC:', dtype='choice', items=list(df.Title), editable=True)
             if ok:
