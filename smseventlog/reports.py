@@ -158,7 +158,7 @@ class Report(object):
     def get_query(self, name):
         return self.dfs[name].get('query', None)
     
-    def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False):
+    def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False):
         self.render_dfs()
         self.render_charts()
         if hasattr(self, 'set_exec_summary'):
@@ -182,9 +182,11 @@ class Report(object):
                 include_items=self.include_items,
                 signatures=self.signatures))
 
-        html_out = template.render(template_vars)
-        with open('html_out.html', 'w+', encoding='utf-8') as file:
-            file.write(html_out)
+        # may need to write html to file to debug issues
+        if write_html:
+            html_out = template.render(template_vars)
+            with open('html_out.html', 'w+', encoding='utf-8') as file:
+                file.write(html_out)
 
         if p_base is None:
             p_base = Path.home() / 'Desktop'

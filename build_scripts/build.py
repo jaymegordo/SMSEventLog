@@ -19,14 +19,14 @@ from smseventlog import (
     folders as fl,
     functions as f)
 
+# build using pyinstaller only (not pyupdater) to quickly build a local frozen version of the app (not used much anymore)
+
 cwd = Path.cwd()
 
 if f.is_win():
     name = 'smseventlog_win'
-    # icon_name = 'sms_icon.ico'
 else:
     name = 'smseventlog_mac'
-    # icon_name = 'sms_icon.icns'
 
 spec_file = str(cwd / 'smseventlog.spec')
 p_build = f.buildfolder / f'build/{name}'
