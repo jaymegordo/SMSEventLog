@@ -34,9 +34,4 @@ html_out.html
 smseventlog/data/csv/fleet_monthly_report_email.csv
 run.spec
 _info/utils/generate-iconset.py
-build.bat
-build.sh
-upload.bat
-upload.sh
 pyu.log
-test.bat
