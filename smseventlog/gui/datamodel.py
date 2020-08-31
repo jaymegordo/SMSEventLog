@@ -24,10 +24,11 @@ class TableModel(QAbstractTableModel):
         _cols = []
         table_widget = parent.parent #sketch
         _stylemap = {}
+        current_row = -1
+        selection_color = QColor(f.config['color']['bg']['yellowrow'])
         self.set_queue()
 
         color_enabled = False
-        color_back = Qt.magenta
 
         f.set_self(vars(), exclude='df')
 
@@ -211,7 +212,10 @@ class TableModel(QAbstractTableModel):
             func = self.parent.highlight_funcs[col]
             if not func is None:
                 try:
-                    return func(**dict(df=df, row=row, col=col, irow=irow, icol=icol, val=val, role=role, index=index))
+                    color = func(df=df, row=row, col=col, irow=irow, icol=icol, val=val, role=role, index=index)
+
+                    # if color is None need to keep checking if selected
+                    if not color is None: return color
                 except:
                     return None
             
@@ -227,6 +231,13 @@ class TableModel(QAbstractTableModel):
                     return QColor(color) if not color == '' else None
                 except:
                     return None
+            
+            # highlight current selected row manually
+            if irow == self.current_row:
+                if role == Qt.BackgroundRole:
+                    return self.selection_color
+                elif role == Qt.ForegroundRole:
+                    return QColor('#000000')
 
         # return named row/col index for use with df.loc
         elif role == self.NameIndexRole:
@@ -450,6 +461,11 @@ class TableModel(QAbstractTableModel):
 
     def columnCount(self, index=QModelIndex()):
         return self.df.shape[1]
+
+    def selection_changed(self, current_row=0):
+        self.layoutAboutToBeChanged.emit()
+        self.current_row = current_row
+        self.layoutChanged.emit()
 
     def change_color(self, qt_color, color_enabled):
         self.layoutAboutToBeChanged.emit()
