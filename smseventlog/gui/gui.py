@@ -9,11 +9,9 @@ from .update import Updater
 log = logging.getLogger(__name__)
 
 # FEATURES NEEDED
-# TODO copy selected cells
 # TODO Keyboard shortcuts > ctrl + down, right
 # TODO green 'flash' for user confirmation value updated in db
 # TODO save previous query and run when tab first selected
-# TODO selected rows highlight behind existing colors
 
 class MainWindow(QMainWindow):
     minesite_changed = pyqtSignal(str)
@@ -214,7 +212,7 @@ class MainWindow(QMainWindow):
             
     def open_sap(self):
         from ..web import SuncorConnect
-        sc = SuncorConnect(ask_token=True)
+        sc = SuncorConnect(ask_token=True, mw=self)
         Worker(func=sc.open_sap, mw=self).start()
         self.update_statusbar('SAP opened in worker thread.')
 

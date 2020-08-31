@@ -1035,6 +1035,18 @@ def get_filepath_from_dialog(p_start):
         return Path(s)
     return None
 
+def get_filepaths(p_start):
+    # select multiple files from directory
+    app = check_app()
+
+    lst = QFileDialog.getOpenFileNames(
+        directory=str(p_start),
+        options=QFileDialog.DontUseNativeDialog
+    )
+    if lst:
+        return lst[0] # lst is list of files selected + filetypes > ignore filetypes part
+    return None
+
 def save_file(p_start=None, name=None):
     # TODO save last folder location to QSettings?
     if p_start is None: 

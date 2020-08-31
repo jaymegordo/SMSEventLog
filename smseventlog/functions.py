@@ -151,6 +151,11 @@ def set_self(m, prnt=False, exclude=()):
         if not k in exclude:
             setattr(obj, k, v)
 
+def truncate(val, max_len):
+    val = str(val)
+    s = val[:max_len]
+    if len(val) > max_len: s = f'{s}...'
+    return s
 
 
 def is_win():
@@ -426,11 +431,9 @@ def send_error(msg='', prnt=False, func=None, display=False, logger=None, err=No
     if not msg == '':
         err = f'{msg}:\n{err}'.replace(':\nNoneType: None', '')
     
-    err = f'*------------------*\n{err}'
-
     if prnt or not 'linux' in sys.platform:
         if not SYS_FROZEN:
-            print(err)
+            print(f'*------------------*\n{err}')
     else:
         discord(msg=err, channel='err')
 

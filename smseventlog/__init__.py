@@ -36,4 +36,9 @@ AZURE_WEB = os.getenv('WEBSITE_INSTANCE_ID')
 
 SYS_FROZEN = getattr(sys, 'frozen', False)
 
-
+# create logger
+fmt = logging.Formatter('%(levelname)s: %(name)s - %(lineno)d -  %(message)s')
+sh = logging.StreamHandler()
+sh.setLevel(logging.INFO)
+sh.setFormatter(fmt)
+# log.addHandler(sh)

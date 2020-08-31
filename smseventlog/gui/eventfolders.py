@@ -28,7 +28,8 @@ class EventFolder(object):
 
         unitpath = f'{unit} - {self.serial}'
 
-        p_base = f.drive / f'{self.equippath}/{modelpath}/{unitpath}/Events/{year}'
+        p_unit = f.drive / f'{self.equippath}/{modelpath}/{unitpath}'
+        p_base = p_unit / f'Events/{year}'
         _p_event = p_base / folder_title
         p_event_blank = p_base / self.get_folder_title(unit, dateadded, wo_blank, title)
 
@@ -229,11 +230,9 @@ def get_eventfolder(minesite=None):
     # Try to get minesite specific event folder, else use default
     return getattr(sys.modules[__name__], minesite, EventFolder)
 
-def example():
+def example(uid=None):
     from . import startup
     from .. import dbtransaction as dbt
     app = startup.get_qt_app()
-    e = dbt.example()
-    efl = get_eventfolder(minesite=e.MineSite)(e=e)
-
-    return efl
+    e = dbt.example(uid=uid)
+    return get_eventfolder(minesite=e.MineSite).from_model(e=e)

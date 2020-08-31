@@ -35,6 +35,10 @@ def format_date(x):
     fmt = '{:%Y-%m-%d}'
     return fmt.format(x) if not pd.isnull(x) else ''
 
+def format_datetime(x):
+    fmt = '{:%Y-%m-%d  %H:%M}'
+    return fmt.format(x) if not pd.isnull(x) else ''
+
 def alternating_rows(style):
     s = []
     s.append(dict(

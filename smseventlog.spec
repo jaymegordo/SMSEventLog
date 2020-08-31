@@ -125,5 +125,6 @@ if f.is_mac():
             'NSPrincipalClass': 'NSApplication',
             'NSAppleScriptEnabled': False,
             'CFBundleShortVersionString': VERSION,
+            'CFBundleVersion': VERSION,
             },
         )

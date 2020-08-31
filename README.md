@@ -75,7 +75,7 @@
 4. 
     * Local testing - Build exe using custom build script `python -m build` (see pyinstaller below for more info)
     * Production - Build exe with pyupdater:
-        * Mac: `build.sh`
+        * Mac: `build.sh true`
         * Win: `build.bat true` (true = upload after build is complete)
 5. Push build package to s3 bucket with `upload.sh` or `upload.bat`
 

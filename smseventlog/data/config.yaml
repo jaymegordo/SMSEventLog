@@ -23,6 +23,7 @@ color:
         bad: '#FFC7CE'
         greyrow: '#E4E4E4'
         yellowrow: '#ffff64'
+        darkyellow: '#cccc4e'
         darkgrey: '#999999'
         navyblue: '#244062'
         skyblue: '#91c3ff'
