@@ -1,8 +1,10 @@
 name: Create Sentry Release
 
 on:
-    release:
-        types: [published, created]
+    push:
+        tags:
+          - '*'
+        # types: [published, created]
 
 jobs:
     createSentryRelease:
