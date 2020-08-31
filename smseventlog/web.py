@@ -98,7 +98,7 @@ class Web(object):
         if not self.mw is None:
             self.mw.update_statusbar(msg)
         else:
-            log.warning('self.mainwindow is none')
+            log.warning(f'self.mainwindow is none, msg: {msg}')
 
     def get_options(self):
         # user-data-dir specifices the location of default chrome profile, to create browser with user's extensions, settings, etc
@@ -183,10 +183,9 @@ class Web(object):
 
         return self._driver
     
-
-    def wait(self, time, cond):
+    def wait(self, time, cond, msg=None):
         try:
-            element = WebDriverWait(self.driver, time).until(cond)
+            element = WebDriverWait(self.driver, time).until(method=cond, message=msg)
             return element
         except (NoSuchWindowException, WebDriverException):
             # user closed the window
@@ -198,15 +197,19 @@ class Web(object):
             e.msg += f'\n\nFailed waiting for web element: {cond.locator}'
             raise
 
-    def set_val(self, element, val, disable_check=False):
+    def set_val(self, element, val, disable_check=False, send_enter=False):
         driver = self.driver
         val = str(val).replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
         try:
             driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
 
+            if send_enter: element.send_keys(Keys.ENTER)
+
             # some form fields (eg tsi date) dont work to set this way^, try setting with keys
             # TODO fix this better
             # if not disable_check and not element.get_property('value') == val:
+            #     print(f'trying to set value with send_keys: {val}')
+            #     element.click()
             #     element.send_keys(val)
 
         except:
@@ -324,11 +327,11 @@ class SuncorConnect(Web):
         # driver.close()
 
 class TSIWebPage(Web):
-    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, table_widget=None, uid=None, attach_docs=None, **kw):
+    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, table_widget=None, uid=None, docs=None, **kw):
         super().__init__(table_widget=table_widget, **kw)
         tsi_number = None
         is_init = True
-        if attach_docs is None: attach_docs = []
+        uploaded_docs = 0
         # serial, model = 'A40029', '980E-4'
 
         # try loading username + pw from QSettings if running in app
@@ -387,7 +390,7 @@ class TSIWebPage(Web):
 
         f.set_self(vars())
 
-    def open_tsi(self, serial=None, model=None, save_tsi=True, **kw):
+    def open_tsi(self, serial=None, model=None, save_tsi=True, submit_tsi=False, **kw):
         # open web browser and log in to tsi form
         if serial is None: serial = self.serial
         if model is None: model = self.model
@@ -398,9 +401,6 @@ class TSIWebPage(Web):
             self.fill_all_fields(field_vals=self.field_vals)
 
         self.fill_dropdowns()
-
-        if self.attach_docs:
-            self.upload_attachments()
 
         if save_tsi:
             driver = self.driver
@@ -414,19 +414,51 @@ class TSIWebPage(Web):
                 .find_element_by_class_name('active')
             self.tsi_number = element.text
 
-            # saving clears the date fields, need to fill again
-            # NOTE may just need to fill them in a ifferent format
-            vals = {k:v for k, v in self.field_vals.items() if k in ('Failure SMR', 'Failure Date')}
-            self.fill_all_fields(field_vals=vals)
+            # cant attach docs unless tsi is 'saved' first
+            self.upload_attachments()
+            
+            if submit_tsi:
+                self.submit_tsi()
         
         if self.suppress_errors: return None
         return self
     
     def upload_attachments(self):
         # also try wait for upload attachments link to load
-        wait = self.wait
+        wait, docs = self.wait, self.docs
+        if docs is None: return
+
         element = wait(30, EC.presence_of_element_located((By.LINK_TEXT, 'Upload Attachments')))
         element.send_keys(Keys.ENTER)
+
+        # 'Other' button
+        element = wait(10, EC.element_to_be_clickable(
+            (By.XPATH, '/html/body/div[1]/div/div[3]/div/div/div[2]/div/div/div[1]/button[4]')))
+        element.click()
+
+        # loop docs and attach in dialog
+        id_num_start = 30 # 'Other' Choose File buttons start at id=30
+        for i, doc in enumerate(docs):
+            if i > 7:
+                log.warning('Can only attach max 8 files.')
+                break
+            
+            try:
+                element = wait(10, EC.presence_of_element_located(
+                    (By.XPATH, f'//*[@id="{id_num_start + i}"]')))
+                element.send_keys(doc)
+            except:
+                log.warning(f'Couldn\'t attach file: {doc}')
+        
+        # Upload Selected Files
+        element = wait(10, EC.element_to_be_clickable(
+            (By.ID, 'upload-modal-button')))
+        element.click()
+
+        # wait for confirmation alert to pop up
+        alert_obj = wait(120, EC.alert_is_present(), msg='Timed out waiting for upload confirmation alert.')
+        alert_obj.accept()
+        self.uploaded_docs = len(docs)
 
     def fill_field(self, name, val):
         id_ = self.form_fields.get(name, None)
@@ -434,10 +466,11 @@ class TSIWebPage(Web):
         if not id_ is None:
             try:
                 element = self.wait(10, EC.element_to_be_clickable((By.ID, id_)))
-                # element = self.driver.find_element_by_id(id_)
-                # element.click()
-                # element.send_keys(val)
-                self.set_val(element, val)
+
+                # date fields need to set text + press enter to set val properly
+                send_enter = False if not 'date' in name.lower() else True
+
+                self.set_val(element, val, send_enter=send_enter)
             except:
                 # f.send_error()
                 log.warning(f'Couldn\'t set field value: {name, val}')
@@ -454,7 +487,7 @@ class TSIWebPage(Web):
 
             # try to wait and fill first element, then give up
             if not self.current_page_name() == 'tsi_create':
-                log.warning('not at tsi_create page')
+                log.warning(f'Not at tsi_create page, couldn\'t fill value: {name, val}')
                 return
 
     def fill_dropdowns(self):
@@ -528,7 +561,14 @@ class TSIWebPage(Web):
                 
                 # loop funcs in login steps
                 vars().get(func_name)()
-        
+    
+    def submit_tsi(self):
+        # not used yet
+        element = self.wait(30, EC.element_to_be_clickable((By.ID, 'SendForApproval')))
+        element.click()
+
+        self.update_statusbar(f'TSI Submitted: {self.tsi_number}')
+
 def attach_to_session(executor_url, session_id):
     original_execute = WebDriver.execute
     def new_command_execute(self, command, params=None):
@@ -552,7 +592,7 @@ def get_driver_id(driver):
 
     return executor_url, session_id
 
-def tsi_example():
+def tsi_example(docs=None):
     from .dbtransaction import example
     uid = 101133020820
     e = example(uid=uid)
@@ -577,6 +617,7 @@ def tsi_example():
         field_vals=field_vals,
         serial=serial,
         model=model,
-        uid=e.UID)
+        uid=e.UID,
+        docs=docs)
 
     return tsi
