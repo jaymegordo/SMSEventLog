@@ -84,14 +84,16 @@
 ### Build Process
 1. Commit all changes to git, add comments etc (use github menu in vscode)
 2. Increment version with eg `bumpversion patch --verbose` (must be run inside active pipenv)
-3. Push changes to git `git push --tags` (only pushes tags, increments version on github)
+3. Push tags to git `git push --tags` (only pushes tags, increments version on github)
 4. `git push` > pushes all changes (could also use vscode menu to push)
 5. 
     * Local testing - Build exe using custom build script `python -m build` (see pyinstaller below for more info)
     * Production - Build exe with pyupdater:
-        * Mac: `build.sh true`
-        * Win: `build.bat true` (true = upload after build is complete)
-6. Push build package to s3 bucket with `upload.sh` or `upload.bat`
+        * Note - dev needs to get the .env file with saved settings/passwords (ask jayme)
+        * first `cd build_scripts` (location of the build scripts)
+        * Mac: `zsh build.sh true` (true = upload after build is complete)
+        * Win: `build.bat true`
+6. Push build package to s3 bucket with `zsh upload.sh` or `upload.bat`
 
 ### Build Software
 * [bump2version](https://github.com/c4urself/bump2version)

@@ -203,22 +203,13 @@ class Web(object):
         try:
             driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
 
-            if send_enter: element.send_keys(Keys.ENTER)
-
-            # some form fields (eg tsi date) dont work to set this way^, try setting with keys
-            # TODO fix this better
-            # if not disable_check and not element.get_property('value') == val:
-            #     print(f'trying to set value with send_keys: {val}')
-            #     element.click()
-            #     element.send_keys(val)
+            if send_enter: element.send_keys(Keys.ENTER) # date fields need an ENTER to set val properly
 
         except:
             log.warning(f'couldn\'t set value: {val}')
             if self.suppress_errors: return
             element.send_keys(val)
-        
-        # TODO check val was set, if not, try again using send_keys(val)
-    
+           
     def new_browser(self):
         driver = self.driver
         driver.set_window_position(0, 0)
