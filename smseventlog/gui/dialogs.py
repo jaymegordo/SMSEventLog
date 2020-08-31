@@ -444,7 +444,6 @@ class AddEvent(AddRow):
         unit = self.fUnit.val
 
         if self.cb_fc.isChecked():
-            # TODO: This can eventually go into its own function
             df = db.get_df_fc()
             df = df[df.Unit==unit]
             prefix = 'FC '

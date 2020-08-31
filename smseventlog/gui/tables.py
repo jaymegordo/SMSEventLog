@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 # TODO highlight header red when filter active
 # TODO add tsi status to WO page
-
+# TODO create undo function
 
 class TableView(QTableView):
     dataFrameChanged = pyqtSignal()
@@ -85,9 +85,6 @@ class TableView(QTableView):
         self.set_default_headers()
         self.setVisible(True)
     
-    def selection_changed(self, cur, prev):
-        self.model().selection_changed(current_row=cur.row())
-
     @property
     def e(self):
         return self.model_from_activerow()
@@ -103,6 +100,9 @@ class TableView(QTableView):
     @property
     def row(self):
         return self.row_from_activerow()
+
+    def selection_changed(self, cur, prev):
+        self.model().selection_changed(current_row=cur.row())
 
     def display_data(self, df):
         self.rows_initialized = False 
@@ -1009,7 +1009,7 @@ class TSI(EventLogBase):
             _driver=self.driver,
             table_widget=self,
             uid=e.UID,
-            attach_docs=docs)
+            docs=docs)
         
         if not tsi.is_init: return
 
@@ -1024,7 +1024,7 @@ class TSI(EventLogBase):
         if tsi is None: return
         
         self.driver = tsi.driver
-        tsi_number, uid, view = tsi.tsi_number, tsi.uid, self.view
+        tsi_number, uid, num_files, view = tsi.tsi_number, tsi.uid, tsi.uploaded_docs, self.view
 
         # fill tsi number back to table or db
         # Get correct row number by UID > user may have reloaded table or changed tabs
@@ -1039,7 +1039,7 @@ class TSI(EventLogBase):
                 dbt.Row(dbtable=self.get_dbtable(), keys=dict(UID=uid)) \
                     .update(vals=dict(TSINumber=tsi_number))
 
-        self.update_statusbar(f'New TSI created. TSI Number: {tsi_number}')
+        self.update_statusbar(f'New TSI created. TSI Number: {tsi_number}, Files Uploaded: {num_files}')
 
     def create_failure_report(self):
         e, row, view = self.e_db, self.row, self.view

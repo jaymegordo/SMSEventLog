@@ -50,7 +50,7 @@ from smseventlog.gui import (
     refreshtables as rtbls,
     tables as tbls,
     datamodel as dm,
-    eventfolders as ef,
+    eventfolders as efl,
     formfields as ff)
 
 from smseventlog.dbmodel import *
