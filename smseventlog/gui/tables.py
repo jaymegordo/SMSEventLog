@@ -17,8 +17,6 @@ from .multithread import Worker
 
 log = logging.getLogger(__name__)
 
-# TODO change how multiple selection works, don't select all rows
-# TODO row selection - highlight behind existing cell colors
 # TODO highlight header red when filter active
 # TODO add tsi status to WO page
 
@@ -55,7 +53,7 @@ class TableView(QTableView):
         # Signals/Slots
         _data_model.modelReset.connect(self.dataFrameChanged)
         _data_model.dataChanged.connect(self.dataFrameChanged)
-        self.clicked.connect(self._on_click) # NOTE not sure if need this..
+        # self.clicked.connect(self._on_click) # NOTE not sure if need this..
         self.dataFrameChanged.connect(self._enable_widgeted_cells) # NOTE or this
 
         header = HeaderView(self)
@@ -64,23 +62,31 @@ class TableView(QTableView):
         self.setItemDelegate(CellDelegate(parent=self))
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
-        self.setSelectionBehavior(QTableView.SelectRows)
+        # self.setSelectionBehavior(QTableView.SelectRows)
         self.setWordWrap(True)
         self.setSortingEnabled(True)
 
-        # yellowrow = colors['bg'].get('yellowrow', 'green')
-        yellowrow = '#ffff64'
-        darkyellow = '#cccc4e'
-        lightblue = '#148CD2' ##19232D # border: 1px solid red; 
-        self.setStyleSheet(' \
-            QTableView::item:selected {color: #000000; background-color: #ffff64;} \
-            QTableView::item:selected:active {color: black; background-color: #ffff64;} \
-            QTableView:item:selected:focus {color: black; background-color: #ffff64; border: 1px solid red; } \
-            QTableView::item:selected:hover {color: black; background-color: #cccc4e;}') \
+        bg = colors['bg']
+        yellow, darkyellow, lightblue = bg['yellowrow'], bg['darkyellow'], '#148CD2'
+        location = 'background-color'
         
+        location, colr = 'background-color', 'inherit'
+        transparent = 'initial'
+        self.setStyleSheet(f' \
+            QTableView::item:selected {{color: {colr}; {location}: {yellow};}} \
+            QTableView::item:selected:active {{color: {colr}; {location}: {yellow};}} \
+            QTableView:item:selected:focus {{color: {colr}; border: 1px solid red; }} \
+            QTableView::item:selected:hover {{color: {colr}; {location}: {darkyellow};}}')
+
+        sel = self.selectionModel()
+        sel.currentChanged.connect(self.selection_changed)
+
         f.set_self(vars())
         self.set_default_headers()
         self.setVisible(True)
+    
+    def selection_changed(self, cur, prev):
+        self.model().selection_changed(current_row=cur.row())
 
     @property
     def e(self):
@@ -193,10 +199,17 @@ class TableView(QTableView):
     def get_style(self, df=None, outlook=False, exclude_cols=None):
         model = self.model()
         if df is None:
-            df = model.df
+            df = model.df.copy() \
+                .drop(columns=list(self.mcols['hide']))
         
         # only pass a subset to get_background_colors if exclude_cols are passed
         kw = dict(subset=[c for c in df.columns if not c in exclude_cols]) if not exclude_cols is None else {}
+
+        # HACK replace date formats '{:%Y-%m-%d}' with func which skips pd.NaT, styler cant handle
+        m_replace = {
+            '{:%Y-%m-%d}': st.format_date,
+            '{:%Y-%m-%d     %H:%M}': st.format_datetime}
+        formats = {k:v if not v in m_replace else m_replace[v] for k,v in self.formats.items()}
 
         s = []
         s.append(dict(
@@ -205,7 +218,7 @@ class TableView(QTableView):
 
         return st.default_style(df=df, outlook=outlook) \
             .apply(model.get_background_colors_from_df, axis=None, **kw) \
-            .format(self.formats) \
+            .format(formats) \
             .pipe(st.add_table_style, s=s)
 
     def resizeRowsToContents(self):
@@ -224,6 +237,8 @@ class TableView(QTableView):
             self.copy()
         elif event.key() == Qt.Key_D and event.modifiers() == Qt.ControlModifier:
             self.fill_down()
+        elif event.key() == Qt.Key_Escape:
+            self.sel.clear()
         else:
             super().keyPressEvent(event)
 
@@ -345,9 +360,9 @@ class TableView(QTableView):
         return irow
 
     def active_row_index(self):
-        rows = self.selectionModel().selectedRows() # list of selected rows
-        if rows:
-            return rows[0].row()
+        irow = self.selectionModel().currentIndex().row()
+        if irow > -1:
+            return irow
         else:
             msg = 'No row selected in table.'
             dlgs.msg_simple(msg=msg, icon='warning')
@@ -398,30 +413,27 @@ class TableView(QTableView):
         self.selectionModel().setCurrentIndex(index, QItemSelectionModel.Current) # make new index 'active'
 
     def copy(self):
-        """Copy selected cells into copy-buffer"""
-        selection = self.selectionModel()
-        indexes = selection.selectedIndexes()
+        # copy selected cells to clipboard
+        sel = self.selectionModel()
+        indexes = sel.selectedIndexes() # list of selected index items
 
-        if len(indexes) < 1: return # Nothing selected
-        print(f'len index: {len(indexes)}')
+        if len(indexes) == 1:
+            # just copy text from single cell
+            index = indexes[0]
+            s = str(index.data())
+            msg = f.truncate(val=s, max_len=20)
+            QApplication.clipboard().setText(s)
 
-        # Capture selection into a DataFrame
-        df = pd.DataFrame() # NOTE may need to set size?
-        for idx in indexes:
-            row, col, item = idx.row(), idx.column(), idx.data()
-            print(row, col, item)
-        
-        return
+        elif len(indexes) > 1:
+            # Capture selection into a DataFrame with max/min of selected indicies
+            idx_min, idx_max = indexes[0], indexes[-1]
+            df = self.model().df.iloc[
+                idx_min.row(): idx_max.row() + 1,
+                idx_min.column(): idx_max.column() + 1]
+            df.to_clipboard(index=False)
+            msg = f'rows: {df.shape[0]}, cols: {df.shape[1]}'
 
-            # if item:
-            #     df.iloc[row, col] = str(item)
-
-        # Make into tab-delimited text (best for Excel)
-        items = list(df.itertuples(index=False))
-        s = '\n'.join(['\t'.join([cell for cell in row]) for row in df])
-
-        # Send to clipboard
-        QApplication.clipboard().setText(s)
+        self.update_statusbar(f'Cell data copied - {msg}')
 
     def fill_down(self):
         index = self.create_index_activerow()
@@ -473,6 +485,8 @@ class TableView(QTableView):
     def update_statusbar(self, msg):
         if not self.mainwindow is None:
             self.mainwindow.update_statusbar(msg=msg)
+
+
 
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
@@ -860,6 +874,7 @@ class WorkOrders(EventLogBase):
                 self.parent.show_component()
 
     def email_wo_request(self):
+        # email a WorkOrder request for the currently selected row
         e = self.e
         if e is None: return # no row selected in table
         df = self.view.df_from_activerow() \
@@ -951,14 +966,16 @@ class TSI(EventLogBase):
     def open_tsi_homepage(self):
         # just login and show the homepage so user can go from there, check TSIs etc
         from .. import web
-        tsi = web.TSIWebPage(parent=self, _driver=self.driver)
+        tsi = web.TSIWebPage(table_widget=self, _driver=self.driver)
         if not tsi.is_init: return
         tsi.tsi_home()
         self.driver = tsi.driver
     
     def fill_tsi_webpage(self):
         from ..web import TSIWebPage
-        view, e, e2 = self.view, self.e_db, self.e
+        e2 = self.e
+        if e2 is None: return
+        view, e = self.view, self.e_db
 
         d = e.DateAdded.strftime('%m/%d/%Y')
 
@@ -978,14 +995,21 @@ class TSI(EventLogBase):
 
         msg = 'Would you like to save the TSI after it is created?'
         save_tsi = True if dlgs.msgbox(msg=msg, yesno=True) else False
+
+        msg, docs = 'Select documents to attach?', None
+        if dlgs.msgbox(msg=msg, yesno=True):
+            from ..tsi import attach_docs
+            ef = efl.get_eventfolder(minesite=e.MineSite).from_model(e=e)
+            docs = attach_docs(ef=ef)
             
         tsi = TSIWebPage(
             field_vals=field_vals,
             serial=e2.Serial,
             model=e2.Model,
             _driver=self.driver,
-            parent=self,
-            uid=e.UID)
+            table_widget=self,
+            uid=e.UID,
+            attach_docs=docs)
         
         if not tsi.is_init: return
 
@@ -1175,7 +1199,7 @@ class FCSummary(FCBase):
         # get df of current row
         df = self.view.df_from_activerow().iloc[:, :10]
 
-        formats = {'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
+        formats = {'int64': '{:,}', 'datetime64[ns]': st.format_date}
         style = st.default_style(df=df, outlook=True) \
             .pipe(st.apply_formats, formats=formats)
 
@@ -1362,7 +1386,7 @@ class Availability(TableWidget):
 
     def email_assignments(self, filter_assignments=True):
         model = self.view.model()
-        df = model.df
+        df = model.df.copy()
         if filter_assignments:
             df = df[df.Assigned==0]
 
@@ -1379,10 +1403,6 @@ class Availability(TableWidget):
         subject = f'Downtime Assignment | {dates}'
 
         body = f'{f.greeting()}See below for current downtime assignments. Please correct and respond with any updates as necessary.'
-
-        # p = f.topfolder.parent / 'avail.html'
-        # with open(str(p), 'w+') as file:
-        #     file.write(style.render())
 
         super().email_table(subject=subject, body=body, email_list=self.get_email_list(), df=df)
         
