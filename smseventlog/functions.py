@@ -201,6 +201,7 @@ def getattr_chained(obj, methods):
 
 def nice_title(title):
     # Remove slashes, capitalize first letter, avoid acronyms
+    if title.strip() == '': return title
     excep = 'the a on in of an'.split(' ')
     title = re.sub('[\\\/.]', '', title)
 
