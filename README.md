@@ -151,6 +151,11 @@
                 datas = [(mpl_data_dir, "matplotlib/mpl-data")]
                 ```
 
+* Code Signing
+    * (mac only so far)
+    * Sign - `codesign --deep -s "SMS Event Log" "SMS Event Log.app"`
+    * Verify - `codesign -dv --verbose=4 "/Applications/SMS Event Log.app"`
+
 * [pypi](https://packaging.python.org/tutorials/packaging-projects/)
     * create `.pypirc` file at 'c:\users\username' (one time, stores api key for login)
     * make sure user installed setuptools is up to date (or bdist_wheel doesn't work) `python -m pip install --user --upgrade setuptools wheel`
