@@ -123,7 +123,8 @@ if f.is_mac():
         bundle_identifier='com.sms.smseventlog',
         info_plist={
             'NSPrincipalClass': 'NSApplication',
-            'NSAppleScriptEnabled': True,
+            'NSAppleScriptEnabled': 'YES',
+            'NSAppleEventsUsageDescription': 'Allow SMS Event Log to control other apps.',
             'CFBundleShortVersionString': VERSION,
             'CFBundleVersion': VERSION,
             },
