@@ -29,6 +29,9 @@ class Message(object):
         is_win = parent.is_win
         client = parent.client
 
+        font = 'Calibri'
+        body = f'<div style="font-family: {font};">{body}</div>'
+
         if is_win:
             _msg = client.CreateItem(0)
             _msg.Subject = subject

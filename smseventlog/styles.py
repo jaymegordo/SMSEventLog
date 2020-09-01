@@ -129,7 +129,7 @@ def default_style(df, outlook=False):
         props=[('text-align', 'center'), ('background', m['thead'])]))
     s.append(dict(
         selector='th, td',
-        props=[('padding', '2.5px 5px')]))
+        props=[('font-family', 'Calibri'), ('padding', '2.5px 5px')]))
     s.append(dict(
         selector='table',
         props=[('border', '1px solid #000000'), ('margin-top', '0px'), ('margin-bottom', '2px')]))
