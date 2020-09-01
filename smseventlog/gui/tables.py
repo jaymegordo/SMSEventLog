@@ -827,6 +827,8 @@ class EventLog(EventLogBase):
     def remove_old_dates(self, s):
         # split description on newlines, remove old dates if too long, color dates red
         if s is None: return None
+        if s.strip() == '': return s
+
         lst = s.splitlines()
         cur_len, max_len = 0, 400
 
