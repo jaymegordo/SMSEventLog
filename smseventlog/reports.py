@@ -65,6 +65,8 @@ class Report(object):
         # call each df's function with its args and assign to df
         for name in self.dfs:
             self.load_df(name=name, saved=saved)
+        
+        return self
 
     def load_df(self, name, saved=False):
         # load df from either function defn or query obj
@@ -127,17 +129,25 @@ class Report(object):
     
     def render_charts(self):
         # render all charts from dfs, save as svg image
-        if f.frozen:
-            # TODO user has to install orca manually, need to check and give instructions
+        if SYS_FROZEN:
             # have to specify absolute path to orca for exporting plotly charts as images
             import plotly.io.orca as orca
             if not f.is_win():
-                orca_path = '/Applications/orca.app/Contents/MacOS/orca' 
+                p_orca = Path('/Applications/orca.app/Contents/MacOS/orca')
             else:
-                # TODO figure out this path for windows
-                orca_path = '/path/to/pyinstalled/orca/orca.exe'
+                p_orca = Path.home() / 'AppData/Local/Programs/orca/orca.exe'
+
+            # NOTE user has to install orca manually, check and give instructions
+            if not p_orca.exists():
+                from .gui.dialogs import msg_simple
+                orca_download = 'https://github.com/plotly/orca/releases'
+                msg = f'Could not find Orca executable at:\n\n{p_orca}\n\n\
+                    Orca is required to render charts in the pdf. \
+                    Please download the latest release from:\n{orca_download}'
+                msg_simple(msg=msg, icon='warning')
+                return False
                 
-            orca.config.executable = orca_path
+            orca.config.executable = str(p_orca)
             orca.config._constants['plotlyjs']  = str(f.topfolder / 'plotly/package_data/plotly.min.js')
 
         for m in self.charts.values():
@@ -147,6 +157,8 @@ class Report(object):
             p = p_reports / 'images/{}.svg'.format(m['name'])
             m['path'] = str(p)
             fig.write_image(m['path'])
+        
+        return True
 
     def get_all_dfs(self):
         # TODO: could probably use a filter here
@@ -160,7 +172,7 @@ class Report(object):
     
     def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False):
         self.render_dfs()
-        self.render_charts()
+        if not self.render_charts(): return # orca not installed, charts not rendered
         if hasattr(self, 'set_exec_summary'):
             self.set_exec_summary()
 
