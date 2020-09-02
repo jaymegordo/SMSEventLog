@@ -1,20 +1,24 @@
+# file must be copied to:
+# /Users/Jayme/.ipython/profile_default/startup
+# these commands/imports run when vscode Python Interactive window is started/reloaded
+# print statements dont show
+
 #%% IMPORTS
 import sys
+import os
+import json
+import yaml
 from pathlib import Path
 import logging
 from collections import defaultdict as dd
-# logging.basicConfig(level=logging.WARNING)
+import inspect
 
-from datetime import (date, datetime as dt, timedelta as delta)
-
-import json
 from time import time
 from timeit import Timer
 
 import pandas as pd
 import numpy as np
 import pypika as pk
-import yaml
 import sqlalchemy as sa
 
 from pypika import Case, Criterion
@@ -23,6 +27,20 @@ from pypika import Order, Query
 from pypika import Table as T
 from pypika import functions as fn
 from pypika.analytics import RowNumber
+
+try:
+    # logging.basicConfig(level=logging.NOTSET)
+    log = logging.getLogger(__name__)
+    log.setLevel(logging.DEBUG)
+    # sh = logging.StreamHandler()
+    # sh.setLevel(logging.DEBUG)
+    # log.addHandler(sh)
+    # log.info('imports started')
+except:
+    pass
+
+from datetime import (date, datetime as dt, timedelta as delta)
+
 
 project_path = '/Users/Jayme/OneDrive/Python/SMS'
 sys.path.append(project_path) # so we can import from smseventlog
@@ -57,6 +75,7 @@ from smseventlog.dbmodel import *
 from smseventlog.database import db
 
 print('**import finished')
+
 
 # from PyQt5.QtCore import (QDate, QDateTime)
 

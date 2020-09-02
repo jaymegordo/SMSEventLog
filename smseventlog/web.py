@@ -128,7 +128,7 @@ class Web(object):
     def create_driver(self, browser='Chrome'):
 
         def _create_driver(options=None):
-            kw = dict(executable_path=f.topfolder / 'selenium/webdriver/chromedriver') if f.frozen else {}
+            kw = dict(executable_path=f.topfolder / 'selenium/webdriver/chromedriver') if SYS_FROZEN else {}
             return webdriver.Chrome(options=options, **kw)
 
         if browser == 'Chrome':

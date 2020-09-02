@@ -220,6 +220,7 @@ class MainWindow(QMainWindow):
         file_ = bar.addMenu('File')
         file_.addAction(self.act_new_item)
         file_.addAction(self.act_refresh)
+        file_.addAction(self.act_refresh_allopen)
         file_.addAction(self.act_prev_tab)
         file_.addAction(self.act_change_minesite)
         file_.addAction(self.act_viewfolder)
@@ -247,10 +248,19 @@ class MainWindow(QMainWindow):
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_username)
         help_.addAction(self.act_check_update)
+        help_.addAction(self.act_test_error)
+
+    def test_error(self):
+        a = 5
+        b = 6
+
+        return a / 0
 
     def create_actions(self):
         # Menu/shortcuts
         t = self.active_table_widget
+
+        act_test_error = QAction('Test Error', self, triggered=self.test_error)
 
         act_show_about = QAction('About', self, triggered=dlgs.about)
         act_username = QAction('Reset Username', self, triggered=self.set_username)
@@ -283,7 +293,8 @@ class MainWindow(QMainWindow):
 
         # TODO: only add these to context menu with specific tables, eg not FC Summary?
         act_refresh_allopen = QAction('Refresh All Open', self, 
-            triggered=lambda: t().refresh_allopen(default=True), shortcut=QKeySequence('Ctrl+Shift+R'))
+            triggered=lambda: t().refresh_allopen(default=True),
+            shortcut=QKeySequence('Ctrl+Shift+R'))
         
         act_refresh_lastweek = QAction('Refresh Last Week', self, 
             triggered=lambda: t().refresh_lastweek(default=True))

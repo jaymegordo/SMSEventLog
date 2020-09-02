@@ -164,7 +164,7 @@ class EventFolder(object):
         except:
             msg = 'Can\'t create folder!'
             dlgs.msg_simple(msg=msg, icon='critical')
-            log.error(msg)
+            log.error(msg, exc_info=True)
 
     def get_modelpath(self):
         model = self.model

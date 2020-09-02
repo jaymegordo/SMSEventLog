@@ -4,9 +4,11 @@ import logging
 import sys
 import types
 
+import sentry_sdk
 from PyQt5.QtWidgets import QMessageBox
 
 from . import functions as f
+from .__init__ import SYS_FROZEN
 
 def test_wrapper(func):
     # handle all errors in Web, allow suppression of errors if eg user closes window

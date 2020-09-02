@@ -142,7 +142,7 @@ class DB(object):
                 self.__init__()
                 self._cursor = get_cursor()
             else:
-                log.error(e)
+                log.error(e, exc_info=True)
         
         return self._cursor
 
@@ -154,8 +154,7 @@ class DB(object):
                 self._session = sessionmaker(bind=self.engine)()
             except:
                 msg = 'Couldnt create session'
-                f.send_error(msg=msg)
-                log.error(msg)
+                f.send_error(msg=msg, logger=log)
 
         return self._session
 
@@ -165,7 +164,7 @@ class DB(object):
         try:
             self._engine.raw_connection().close()
         except:
-            log.error('Error closing raw_connection')
+            log.error('Error closing raw_connection', exc_info=True)
 
     def __del__(self):
         self.close()
@@ -240,8 +239,7 @@ class DB(object):
                 dfs[title] = df
             except:
                 msg = f'Couldn\'t get dataframe: {query.name}'
-                f.send_error(msg=msg)
-                log.error(msg)
+                f.send_error(msg=msg, logger=log)
                 df = pd.DataFrame()
 
             query.set_fltr() # reset filter after every refresh call
