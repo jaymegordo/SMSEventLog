@@ -1,34 +1,33 @@
 """
-run pyinstaller from python script (easier) and with platform-specific args
+Build using pyinstaller only (not pyupdater) to quickly build a local frozen version of the app (not used much anymore)
 
-Only the following command-line options have an effect when building from a spec file:
-
+NOTE Only the following command-line options have an effect when building from a spec file:
 --upx-dir=
 --distpath=
 --workpath=
 --noconfirm
 --ascii
 --clean
-
 """
 
 import PyInstaller.__main__
 from pathlib import Path
 import sys
+
+if sys.platform.startswith('win'):
+    project_path = 'Y:/OneDrive/Python/SMS'
+    name = 'smseventlog_win'
+else:
+    project_path = '/Users/Jayme/OneDrive/Python/SMS'
+    name = 'smseventlog_mac'
+
+sys.path.append(project_path) # so we can import from smseventlog
+
 from smseventlog import (
     folders as fl,
     functions as f)
 
-# build using pyinstaller only (not pyupdater) to quickly build a local frozen version of the app (not used much anymore)
-
-cwd = Path.cwd()
-
-if f.is_win():
-    name = 'smseventlog_win'
-else:
-    name = 'smseventlog_mac'
-
-spec_file = str(cwd / 'smseventlog.spec')
+spec_file = str(f.projectfolder / 'smseventlog.spec')
 p_build = f.buildfolder / f'build/{name}'
 p_dist = f.buildfolder / 'dist'
 
