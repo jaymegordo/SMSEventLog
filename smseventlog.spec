@@ -58,7 +58,17 @@ if f.is_mac():
     excludes.extend(['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'])
 
 elif f.is_win():
+    # binaries = [('File we want to copy', 'folder we want to put it in')]
     binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
+
+    # add gtk libs for weasyprint/cairo
+    gtk_base = 'C:/Program Files/GTK3-Runtime Win64/bin'
+    gtk_libs = ['libcairo-2.dll', 'libgdk_pixbuf-2.0-0.dll', 'libgobject-2.0-0.dll', 'libglib-2.0-0.dll', 'libgdk-3-0.dll']
+    binaries.extend([(f'{gtk_base}/{lib}', 'GTK3-Runtime Win64') for lib in gtk_libs])
+
+    # orca > 40mb file.. just make user download manually if needed
+    # binaries.append(('C:/Users/Jayme/AppData/Local/Programs/orca/orca.exe', 'orca'))
+
     hookspath = [Path.home() / '.virtualenvs/SMS-27IjYSAU/Lib/site-packages/pyupdater/hooks']
     dist_folder_name = 'smseventlog_win'
     icon_name = 'sms_icon.ico'
@@ -66,12 +76,14 @@ elif f.is_win():
 
 icon = str(f.datafolder / f'images/{icon_name}')
 
-# TODO check if run with pyinstaller or pyupdater
-if True:
-    name = name_pyu
+if 'pyupdater' in os.environ.get('_', ''):
+    name = name_pyu # running from pyupdater
     dist_folder_name = name
+    console = False
 else:
-    name = 'SMS Event Log'
+    name = 'SMS Event Log' # running from pyinstaller
+    console = True
+
 
 a = Analysis([f.projectfolder / 'run.py'],
              pathex=[f.buildfolder],
@@ -88,7 +100,6 @@ a = Analysis([f.projectfolder / 'run.py'],
 pyz = PYZ(a.pure, a.zipped_data)
 
 # TODO need to figure out which other files upx is messing up
-
 exe = EXE(pyz,
           a.scripts,
           [],
@@ -99,7 +110,7 @@ exe = EXE(pyz,
           strip=False,
           upx=False,
           upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
-          console=False,  # console=False means don't show cmd (only seems to work on windows)
+          console=console,  # console=False means don't show cmd (only seems to work on windows)
           runtime_tmpdir=None,
           icon=icon)
 
@@ -113,7 +124,7 @@ coll = COLLECT(exe,
                upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
                name=dist_folder_name,
                icon=icon,
-               console=False)
+               console=console)
 
 if f.is_mac():
     app = BUNDLE(
@@ -124,7 +135,7 @@ if f.is_mac():
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'NSAppleScriptEnabled': 'YES',
-            'NSAppleEventsUsageDescription': 'Allow SMS Event Log to control other apps.',
+            'NSAppleEventsUsageDescription': 'SMS Event Log would like to automate actions in other applications.',
             'CFBundleShortVersionString': VERSION,
             'CFBundleVersion': VERSION,
             },
