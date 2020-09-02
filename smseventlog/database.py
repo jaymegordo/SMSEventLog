@@ -81,19 +81,18 @@ def e(func):
             return func(*args, **kwargs)
         except (exc.StatementError, exc.InvalidRequestError):
             # rollback invalid transaction
-            # log.warning('Rollback and retry operation.')
-            print('Rollback and retry operation.')
+            log.warning('Rollback and retry operation.')
             session = db.session # this is pretty sketch
             session.rollback() # NOTE doesn't seem to actually work, gets called 10 times
             return func(*args, **kwargs)
             
         except exc.OperationalError:
-            print('Handling OperationalError')
+            log.warning('Handling OperationalError')
             db.reset()
             return func(*args, **kwargs)
 
         except:
-            print('Handling other errors')
+            log.warning('Handling other errors')
             db.reset()
             return func(*args, **kwargs)
 

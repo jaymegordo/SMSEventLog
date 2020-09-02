@@ -97,7 +97,7 @@ class Report(object):
             query = self.get_query(name=name)
             style_func = self.style_funcs.get(name, None)
 
-        style = st.default_style(df)
+        style = st.default_style(df, outlook=outlook)
 
         # outlook can't use css nth-child selectors, have to do manually
         if outlook:
@@ -183,8 +183,8 @@ class Report(object):
                 signatures=self.signatures))
 
         # may need to write html to file to debug issues
+        html_out = template.render(template_vars)
         if write_html:
-            html_out = template.render(template_vars)
             with open('html_out.html', 'w+', encoding='utf-8') as file:
                 file.write(html_out)
 

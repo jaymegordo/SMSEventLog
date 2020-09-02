@@ -9,4 +9,4 @@ pipenv run pyupdater build --app-version=%version% smseventlog.spec
 pipenv run pyupdater pkg --process --sign
 
 if %upload%==true (
-    call upload.bat)
+    call build_scripts\upload.bat)

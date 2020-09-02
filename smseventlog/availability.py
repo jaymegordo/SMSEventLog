@@ -113,12 +113,14 @@ def ahs_pa_monthly():
     df = df.pivot(index='Unit', columns='MonthStart', values='Sum_DT')
     return df
 
-def dt_exclusions_ma_example():
+def dt_exclusions_ma_example(d_rng=None):
     # create all units with MA hrs below hrs in period
     from . import folders as fl
     units = []
     units.extend(fl.all_units(rng=(300,322)))
     units.extend(fl.all_units(rng=(331,348)))
 
-    rng = (dt(2020,8,7), dt(2020,8,23))
-    update_dt_exclusions_ma(units=units, rng_dates=rng)
+    if d_rng is None:
+        d_rng = (dt(2020,8,7), dt(2020,8,23))
+        
+    update_dt_exclusions_ma(units=units, rng_dates=d_rng)
