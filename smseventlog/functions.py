@@ -22,19 +22,6 @@ log = logging.getLogger(__name__)
 global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, datafolder, frozen, azure_env
 
 azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
-    
-topfolder = Path(__file__).parent
-projectfolder = topfolder.parent
-buildfolder = Path.home() / 'Documents/smseventlog'
-frozen = False
-
-if getattr(sys, 'frozen', False):
-    frozen = True
-    topfolder = topfolder.parent
-
-datafolder = topfolder / 'data'
-orca_path = topfolder.parent / 'orca' # for using orca to save plotly images when frozen
-os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(orca_path)])
 
 if sys.platform.startswith('win'):
     drive = Path('P:')
@@ -42,6 +29,23 @@ if sys.platform.startswith('win'):
 else:
     drive = Path('/Volumes/Public')
     platform = 'mac'
+    
+topfolder = Path(__file__).parent # smseventlog
+projectfolder = topfolder.parent # SMS
+buildfolder = Path.home() / 'Documents/smseventlog'
+
+if SYS_FROZEN:
+    topfolder = projectfolder
+    # NOTE for now, if users need to run reports with images eg Availability, get them to manually dl orca
+    # orca_path = projectfolder / 'orca' # for using orca to save plotly images when frozen
+    # os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(orca_path)]) # not needed, path passed to plotly manually in render_charts
+
+    if platform == 'win':
+        # add manual gtk path to PATH for weasyprint/cairo if windows
+        gtk_path = projectfolder / 'GTK3-Runtime Win64'
+        os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(gtk_path)])
+
+datafolder = topfolder / 'data' # data folder location is shifted out of smseventlog for frozen build
 
 def set_config():
     # config is yaml file with config details, dictionary conversions etc
