@@ -1124,9 +1124,19 @@ class FCBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_button(name='Import FCs', func=lambda: fc.import_fc(upload=True))
+        self.add_button(name='Import FCs', func=self.import_fc)
         self.add_button(name='View FC Folder', func=self.view_fc_folder)
-   
+
+    def import_fc(self):
+        lst_csv = fc.get_import_files()
+        if lst_csv is None: return
+
+        # NOTE not sure if result signals will pass properly yet
+        Worker(func=fc.import_fc, mw=self.mainwindow, lst_csv=lst_csv, upload=True, worker_thread=True) \
+            .add_signals(signals=('result', dict(func=fc.ask_delete_files))) \
+            .start()
+        self.update_statusbar('FC import started in worker thread.')
+    
     def get_fc_folder(self):
         if not fl.drive_exists():
             return
@@ -1209,7 +1219,7 @@ class FCSummary(FCBase):
         subject = df.Subject.iloc[0]
         title = f'New FC - {fcnumber} - {subject}'
 
-        body = f'Hello,<br><br>New FC Released:<br><br>{style.hide_index().render()}'
+        body = f'{f.greeting()}New FC Released:<br><br>{style.hide_index().render()}'
 
         # get email list from db
         df2 = db.get_df(query=qr.EmailList())
