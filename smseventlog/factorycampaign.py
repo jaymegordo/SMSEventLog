@@ -10,13 +10,14 @@ from .__init__ import *
 from .database import db
 from .gui import dialogs as dlgs
 
+# NOTE could make FCImport object to store results better
 
 def tblcount(tbl):
     cursor = db.cursor
     sql = f'Select count(*) From {tbl}'
     return cursor.execute(sql).fetchval()
 
-def import_fc(upload=True, df=None):
+def get_import_files():
     # load all csv files from import folder to df
     p = f.drive / f.config['FilePaths']['Import FC']
         
@@ -26,17 +27,19 @@ def import_fc(upload=True, df=None):
         msg = ('Found file(s): \n\t' + 
             '\n\t'.join([p.name for p in lst]) +
             '\n\nWould you like to import?')
-        if not dlgs.msgbox(msg=msg, yesno=True):
-            return
+        if not dlgs.msgbox(msg=msg, yesno=True): return
     else:
         msg = f'No files founnd in import folder: \n\n{p}'
         dlgs.msg_simple(msg=msg, icon='Warning')
         return
-    
+
+    return lst
+
+def import_fc(lst_csv, upload=True, df=None, worker_thread=False):   
     start = timer()
 
     if df is None:
-        df = pd.concat([read_fc(p=p) for p in lst], sort=False) \
+        df = pd.concat([read_fc(p=p) for p in lst_csv], sort=False) \
             .drop_duplicates(['FCNumber', 'Unit'])
     
     # NOTE for now just auto filter to FCs in last 2 yrs
@@ -44,7 +47,7 @@ def import_fc(upload=True, df=None):
     df = df[df.StartDate >= d_lower]
 
     print('Loaded ({}) FCs from {} file(s) in: {}s' \
-        .format(len(df), len(lst), f.deltasec(start, timer())))
+        .format(len(df), len(lst_csv), f.deltasec(start, timer())))
 
     # import to temp staging table in db, then merge new rows to FactoryCampaign
     if upload:
@@ -80,11 +83,16 @@ def import_fc(upload=True, df=None):
             cursor.close()
 
         statusmsg = 'Elapsed time: {}s'.format(f.deltasec(start, timer()))
-        msg += '\n\nWould you like to delete files?'
-        if dlgs.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
-            for p in lst: p.unlink()
+        if worker_thread:
+            return msg, statusmsg, lst_csv
+        else:
+            ask_delete_files(msg=msg, statusmsg=statusmsg, lst_csv=lst_csv)
 
-    return df
+def ask_delete_files(msg=None, statusmsg=None, lst_csv=None):
+    if msg is None: return
+    msg += '\n\nWould you like to delete files?'
+    if dlgs.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
+        for p in lst_csv: p.unlink()
 
 def create_fc_folder(fc_number):
     try:
