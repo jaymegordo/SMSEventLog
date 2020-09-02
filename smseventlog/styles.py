@@ -31,13 +31,18 @@ def apply_formats(style, formats):
     m = format_dtype(df=style.data, formats=formats)
     return style.format(m)
 
+def defaut_number_format(x):
+    # give default number format to vals in the 'numeric col mask', handle nulls
+    if not pd.isnull(x):
+        return f'{x:,.0f}' if x > 1e3 else f'{x:,.2f}'
+    else:
+        return ''
+
 def format_date(x):
-    fmt = '{:%Y-%m-%d}'
-    return fmt.format(x) if not pd.isnull(x) else ''
+    return f'{x:%Y-%m-%d}' if not pd.isnull(x) else ''
 
 def format_datetime(x):
-    fmt = '{:%Y-%m-%d  %H:%M}'
-    return fmt.format(x) if not pd.isnull(x) else ''
+    return f'{x:%Y-%m-%d  %H:%M}' if not pd.isnull(x) else ''
 
 def alternating_rows(style):
     s = []
@@ -122,6 +127,8 @@ def default_style(df, outlook=False):
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
     df[cols] = df[cols].replace('\n', '<br>', regex=True)
 
+    font_family = 'Tahoma, Geneva, sans-serif;' if not outlook else 'Calibri'
+
     s = []
     m = f.config['color']
     s.append(dict(
@@ -129,7 +136,7 @@ def default_style(df, outlook=False):
         props=[('text-align', 'center'), ('background', m['thead'])]))
     s.append(dict(
         selector='th, td',
-        props=[('font-family', 'Calibri'), ('padding', '2.5px 5px')]))
+        props=[('font-family', font_family), ('padding', '2.5px 5px')]))
     s.append(dict(
         selector='table',
         props=[('border', '1px solid #000000'), ('margin-top', '0px'), ('margin-bottom', '2px')]))
@@ -144,8 +151,7 @@ def default_style(df, outlook=False):
     table_attrs = f'style="border-collapse: collapse;"'
 
     style = df.style \
-        .format(lambda x: f'{x:,.0f}' if x > 1e3 else f'{x:,.2f}', # default number format
-                    subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
+        .format(defaut_number_format, subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
         .pipe(add_table_style, s) \
         .pipe(alternating_rows_outlook, outlook=outlook) \
         .pipe(add_table_attributes, s=table_attrs) \
