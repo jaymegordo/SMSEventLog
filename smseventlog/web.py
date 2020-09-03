@@ -64,9 +64,8 @@ def tsi_form_vals():
     return field_vals
 
 class Web(object):
-    def __init__(self, table_widget=None, mw=None, **kw):
+    def __init__(self, table_widget=None, mw=None, _driver=None, **kw):
         pages = {}
-        _driver = None
         if not table_widget is None: mw = table_widget.mainwindow
 
         # if specific error, may need to exit with a nice message and suppress all else
@@ -187,14 +186,18 @@ class Web(object):
         try:
             element = WebDriverWait(self.driver, time).until(method=cond, message=msg)
             return element
-        except (NoSuchWindowException, WebDriverException):
+        except NoSuchWindowException:
             # user closed the window
             self.suppress_errors = True
             self._driver.quit()
             self.update_statusbar('User closed browser window, stopping execution.')
         except Exception as e:
             # add extra info to selenium's error message
-            e.msg += f'\n\nFailed waiting for web element: {cond.locator}'
+            msg = f'\n\nFailed waiting for web element: {cond.locator}'
+            if hasattr(e, 'msg'):
+                e.msg += msg
+            else:
+                log.warning(msg)
             raise
 
     def set_val(self, element, val, disable_check=False, send_enter=False):
@@ -232,7 +235,7 @@ class Web(object):
 class SuncorConnect(Web):
     # auto login to suncor's SAP system
     def __init__(self, ask_token=True, **kw):
-        super().__init__()
+        super().__init__(**kw)
         self.pages.update({'home': 'https://connect.suncor.com'})
         token = None
 
@@ -303,22 +306,27 @@ class SuncorConnect(Web):
         element = wait(2, EC.presence_of_element_located((By.CLASS_NAME, 'browserCitrix')))
         element.click()
 
-        element = wait(30, EC.presence_of_element_located(
+        # SAP 760 button
+        element = wait(30, EC.element_to_be_clickable(
             (By.XPATH, '/html/body/div[4]/div[3]/div/span[2]/span[2]')))
-        element.click()
+        if not element is None:
+            element.click()
+        else:
+            log.warning('Failed to find "SAP Logon 760" button.')
 
         # citrix option > doesn't always come up
-        try:
-            element = wait(2, EC.presence_of_element_located(
-                (By.XPATH, '/html/body/div[4]/div[3]/input[1]')))
-            element.click()
-        except:
-            pass
+        # try:
+        #     element = wait(2, EC.presence_of_element_located(
+        #         (By.XPATH, '/html/body/div[4]/div[3]/input[1]')))
+        #     element.click()
+        # except:
+        #     pass
         
+        return self
         # driver.close()
 
 class TSIWebPage(Web):
-    def __init__(self, field_vals={}, serial=None, model=None, _driver=None, table_widget=None, uid=None, docs=None, **kw):
+    def __init__(self, field_vals={}, serial=None, model=None, table_widget=None, uid=None, docs=None, **kw):
         super().__init__(table_widget=table_widget, **kw)
         tsi_number = None
         is_init = True
