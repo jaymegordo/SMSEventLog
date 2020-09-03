@@ -56,6 +56,7 @@ class InputForm(QDialog):
 
         if not items is None or dtype == 'combobox':
             box = ff.ComboBox(items=items)
+            box.setMaximumWidth(300)
         elif dtype == 'text':
             box = ff.LineEdit()
         elif dtype == 'textbox':
@@ -77,7 +78,7 @@ class InputForm(QDialog):
             cb = ff.CheckBox(checked=cb_enabled)
             box.setEnabled(cb_enabled)
             cb.box = box # attach box to toggle later
-            cb.stateChanged.connect(self.toggle_input)
+            cb.stateChanged.connect(self.toggle)
             boxLayout.addWidget(cb)
             field.cb = cb
             cb.set_name(name=text)
@@ -150,7 +151,7 @@ class InputForm(QDialog):
                 print(f'adding input | field={field.col_db}, table={field.table}')
                 fltr.add(field=field.col_db, val=field.val, table=field.table, opr=field.opr)
 
-    def toggle_input(self, state):
+    def toggle(self, state):
         # toggle input field enabled/disabled based on checkbox
         source = self.sender()
         box = source.box

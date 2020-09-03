@@ -616,7 +616,7 @@ class NewFCs(FCBase):
     
 class FCComplete(FCBase):
     def __init__(self, d_rng, minesite):
-        super().__init__()
+        super().__init__(minesite=minesite)
         a, d = self.a, self.d
         # get all FCs complete during month, datecompletesms
         # group by FC number, count
@@ -629,7 +629,7 @@ class FCComplete(FCBase):
         self.add_fltr_args([
             dict(vals=dict(DateCompleteSMS=d_rng), term='between'),
             dict(vals=dict(MineSite=minesite), table=d)])
-    
+
     def process_df(self, df):
         return df.pipe(self.sort_by_fctype)
     

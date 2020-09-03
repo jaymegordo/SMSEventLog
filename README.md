@@ -22,6 +22,10 @@
 | Jump to Previous Tab | Ctrl + Tab       |
 | New line in cell     | Shift + Enter    |
 
+### Refreshing Tables
+* Any text field can handle a \*wildcard\* search
+    * Eg, search for any event with a title like \*Alternator\*
+
 ### Examples
 * Create a new event:
 ![](docs/gifs/Add-New-Event.gif)
