@@ -1068,12 +1068,12 @@ class TSI(EventLogBase):
 
         # create report obj and save as pdf in event folder
         from .. import reports as rp
-        rep = rp.FailureReport(header_data=header_data, pictures=dlg.pics, body=dlg.text, e=e)
-        p_rep = rep.create_pdf(p_base=ef._p_event)
+        rep = rp.FailureReport(header_data=header_data, pictures=dlg.pics, body=dlg.text, e=e) \
+            .create_pdf(p_base=ef._p_event)
 
         msg = 'Failure report created, open now?'
         if dlgs.msgbox(msg=msg, yesno=True):
-            fl.open_folder(p_rep)
+            fl.open_folder(rep.p_rep)
 
     def zip_recent_dls(self):
         e = self.e
@@ -1192,8 +1192,11 @@ class FCSummary(FCBase):
                 'Total Complete': 60,
                 '% Complete': 45})
 
-            self.highlight_vals.update({'m': 'maroon'})
+            self.highlight_vals.update({
+                'm': 'maroon',
+                'sms rel': 'lightyellow'})
             self.highlight_funcs['Type'] = self.highlight_by_val
+            self.highlight_funcs['Action Reqd'] = self.highlight_by_val
 
             # TODO: add dropdown menu for Type, Action Reqd, Parts Avail
         
@@ -1493,22 +1496,36 @@ class Availability(TableWidget):
         from ..folders import drive_exists
 
         dlg = AvailReport(parent=self)
-        if not drive_exists() or not dlg.exec_(): return
-
-        rep = AvailabilityReport(d_rng=dlg.d_rng, period_type=dlg.period_type, name=dlg.name)
-        rep.load_all_dfs()
+        self.dlg = dlg
+        if not dlg.exec_(): return
 
         p_base = self.get_report_base(dlg.period_type)
-        p = rep.create_pdf(p_base=p_base)
-        self.report = rep
 
-        fl.open_folder(p)
+        if not drive_exists():
+            msg = 'Not connected to drive, create report at desktop?'
+            if not dlgs.msgbox(msg=msg, yesno=True):
+                return
+            else:
+                p_base = Path.home() / 'Desktop'
+
+        rep = AvailabilityReport(d_rng=dlg.d_rng, period_type=dlg.period_type, name=dlg.name)
+        
+        Worker(func=rep.create_pdf, mw=self.mainwindow, p_base=p_base) \
+            .add_signals(signals=('result', dict(func=self.handle_report_result))) \
+            .start()
+        self.update_statusbar('Creating Availability report in worker thread.')
+    
+    def handle_report_result(self, rep=None):
+        if rep is None: return
+        self.report = rep
+        dlg = self.dlg
+        fl.open_folder(rep.p_rep)
 
         msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
         if dlgs.msgbox(msg=msg, yesno=True):
-            self.email_report(period_type=dlg.period_type, p_rep=p, name=dlg.name)
-        
-    def email_report(self, period_type=False, p_rep=False, name=None):
+            self.email_report(period_type=dlg.period_type, p_rep=rep.p_rep, name=dlg.name)
+            
+    def email_report(self, period_type=False, p_rep=None, name=None):
         from .refreshtables import AvailReport
         
         if not period_type:
@@ -1525,6 +1542,7 @@ class Availability(TableWidget):
 
         if not self.report is None:
             rep = self.report
+            if not rep.p_rep is None: p_rep = rep.p_rep # lol
             style1 = rep.style_df('Fleet Availability', outlook=True).hide_index().render()
             style2 = rep.style_df('Summary Totals', outlook=True).hide_index().render()
 
