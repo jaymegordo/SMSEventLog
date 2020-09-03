@@ -24,6 +24,8 @@ class Report(object):
         dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
         signatures = []
         self.html_template = 'report_template.html'
+        dfs_loaded = False
+        p_rep = None
 
         if d is None: d = dt.now() + delta(days=-31)
         if d_rng is None: d_rng = qr.first_last_month(d=d)
@@ -66,6 +68,7 @@ class Report(object):
         for name in self.dfs:
             self.load_df(name=name, saved=saved)
         
+        self.dfs_loaded = True
         return self
 
     def load_df(self, name, saved=False):
@@ -171,6 +174,9 @@ class Report(object):
         return self.dfs[name].get('query', None)
     
     def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False):
+        if not self.dfs_loaded:
+            self.load_all_dfs()
+
         self.render_dfs()
         if not self.render_charts(): return # orca not installed, charts not rendered
         if hasattr(self, 'set_exec_summary'):
@@ -213,7 +219,8 @@ class Report(object):
 
         HTML(string=html_out, base_url=str(p_reports)).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
 
-        return p
+        self.p_rep = p
+        return self
     
     def render_html(self, p_html, p_out=None):
         # for testing pre-created html
@@ -308,7 +315,7 @@ class SMRReport(Report):
         df.to_csv(p)
 
 class AvailabilityReport(Report):
-    def __init__(self, d_rng, name, period_type='week', minesite='FortHills'):
+    def __init__(self, d_rng, name, period_type='week', minesite='FortHills', **kw):
         super().__init__(d_rng=d_rng)
 
         signatures = ['Suncor Reliability', 'Suncor Maintenance', 'SMS', 'Komatsu']
@@ -651,7 +658,6 @@ class FCs(Section):
                 query=qr.NewFCs(d_rng=d_rng, minesite=minesite),
                 caption='All new FCs released during the report period.')
         
-        print(minesite)
         sec = SubSection('Completed FCs', self) \
             .add_df(
                 query=qr.FCComplete(d_rng=d_rng, minesite=minesite),
