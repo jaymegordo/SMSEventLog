@@ -78,7 +78,7 @@ class RefreshTable(InputForm):
         elif name == 'fc number':
             df = db.get_df_fc()
             lst = f.clean_series(s=df[df.MineSite==ms].FCNumber)
-            add_input(field=IPF(text=title), items=lst, checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text='FC Number'), items=lst, checkbox=True, cb_enabled=False)
         
         elif name == 'fc complete':
             add_input(field=IPF(text=title, col_db='Complete'), items=['False', 'True'], checkbox=True, cb_enabled=False)
@@ -110,7 +110,12 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title, default='True', table=table, col_db='Major'), items=['True', 'False'], checkbox=True, cb_enabled=False)
         
         elif name == 'title':
-            add_input(field=IPF(text='*Title', col_db=title), checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text='Title (*)', col_db=title), checkbox=True, cb_enabled=False)
+        
+        elif name == 'fc subject':
+            df = db.get_df_fc()
+            lst = f.clean_series(df.Subject)
+            add_input(field=IPF(text='Subject', table=T('FCSummary')), items=lst, checkbox=True, cb_enabled=False)
 
     def add_refresh_button(self, name, func):
         layout = self.vLayout
@@ -161,18 +166,47 @@ class TSI(EventLogBase):
         super().__init__(parent=parent)
         self.add_features(features=['tsi author'])
 
-class FCSummary(RefreshTable):
+class FCBase(RefreshTable):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.df = db.get_df_fc()
+    
+    def toggle(self, state):
+        # filter FC subjects to current minesite
+        # IF minesite is enabled AND subject is enabled
+        # if minesite not enabled, filter to all
+        source = self.sender()
+        box = source.box
+        cb_minesite = self.fMineSite.cb
+        minesite = self.fMineSite.val
+        df = self.df
+
+        if box is self.fSubject.box:
+            if state == Qt.Checked:
+                if cb_minesite.isChecked():
+                    # filter to FCs for active minesite
+                    items = f.clean_series(s=df[df.MineSite==minesite].Subject)
+                    box.set_items(items=items)
+                    self.update_statusbar(f'Filtering FC Subjects for MineSite: {minesite}')
+                else:
+                    # minseite not enabled, set to everything
+                    box.reset()
+                    self.update_statusbar('Resetting FC Subjects for all MineSites.')
+
+        super().toggle(state)
+
+class FCSummary(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['all open', 'minesite', 'fc number', 'type', 'manualclosed', 'model', 'Unit']
+        features = ['all open', 'minesite', 'fc number', 'fc subject', 'type', 'manualclosed', 'model', 'Unit']
         self.add_features(features=features)
 
-class FCDetails(RefreshTable):
+class FCDetails(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['all open', 'minesite', 'fc number', 'type', 'manualclosed', 'fc complete', 'model', 'unit']
+        features = ['all open', 'minesite', 'fc number', 'fc subject', 'type', 'manualclosed', 'fc complete', 'model', 'unit']
         self.add_features(features=features)
 
 class UnitInfo(RefreshTable):
