@@ -48,6 +48,7 @@ class FormFields(object):
 
     def set_name(self, name):
         # give widget a unique objectName to save/restore state
+        self.name = name
         if hasattr(self, 'setObjectName'):
             self.setObjectName(f'{name}_{self.parentclass.__name__}'.replace(' ', '').lower())
     
@@ -69,6 +70,7 @@ class ComboBox(QComboBox, FormFields):
         if items is None: items = []
         self.addItems(items)
         self.items = items
+        self.items_original = items
     
     @FormFields.val.setter
     def val(self, value):
@@ -79,6 +81,14 @@ class ComboBox(QComboBox, FormFields):
     def select_all(self):
         self.setFocus()
         self.lineEdit().selectAll()
+    
+    def set_items(self, items):
+        # clear all items and add new
+        self.clear()
+        self.addItems(items)
+    
+    def reset(self):
+        self.set_items(items=self.items_original)
 
 class ComboBoxTable(ComboBox):
     """
