@@ -824,7 +824,10 @@ class FailureReport(QDialog):
         
         text_fields = {}
         if text is None: text = {} # default text for text fields
-        if p_start is None: p_start = Path.home() / 'Desktop'
+        if p_start is None:
+            p_start = Path.home() / 'Desktop'
+        elif not p_start.exists():
+            self.update_statusbar(f'Couldn\'t find event images path: {p_start}')
         
         dlg = QFileDialogPreview(directory=str(p_start), options=QFileDialog.DontUseNativeDialog, standalone=False)
         vLayout.addWidget(dlg)
@@ -838,6 +841,10 @@ class FailureReport(QDialog):
         add_okay_cancel(dlg=self, layout=vLayout)
 
         # TODO OilSamples, Faults, PLM?
+    
+    def update_statusbar(self, msg):
+        if not self.parent is None:
+            self.parent.mainwindow.update_statusbar(msg=msg)
     
     def add_textbox(self, names):
         def _add_textbox(name):
