@@ -5,6 +5,7 @@ import pyodbc
 from sqlalchemy import exc, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.engine.base import Connection #just to wrap errors
+from sqlalchemy.pool.base import Pool
 
 from . import functions as f
 from .__init__ import *
@@ -21,7 +22,9 @@ def wrap_connection_funcs():
     # try to wrap specific sqlalchemy class funcs in error handler to reset db connection on disconnects
     # NOTE may need to wrap more than just this
     
-    funcs = [(Connection, 'execute')]
+    funcs = [
+        (Connection, 'execute'),
+        (Pool, 'connect')]
     
     for cls, func_name in funcs:
         wrap_single_class_func(cls=cls, func_name=func_name, err_func=e)
@@ -86,8 +89,8 @@ def e(func):
             session.rollback() # NOTE doesn't seem to actually work, gets called 10 times
             return func(*args, **kwargs)
             
-        except exc.OperationalError:
-            log.warning('Handling OperationalError')
+        except (exc.OperationalError, exc.DBAPIError) as e:
+            log.warning(f'Handling {type(e)}')
             db.reset()
             return func(*args, **kwargs)
 
