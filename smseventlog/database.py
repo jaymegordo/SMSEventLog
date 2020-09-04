@@ -251,7 +251,7 @@ class DB(object):
         self.set_df_unit()
         dfu = self.df_unit
 
-        return dfu.loc[unit, field]
+        return dfu.loc[unit.strip(), field]
     
     def get_modelbase(self, model):      
         df = self.get_df_equiptype()
