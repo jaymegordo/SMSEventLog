@@ -80,7 +80,7 @@ elif f.is_win():
     run_pyupdater = os.environ.get('KMP_INIT_AT_FORK', None) is None # this key doesnt exist with pyu
     py_ext = ('pyd', 'dll')
 
-upx = True
+upx = False
 if upx:
     upx_exclude = ['vcruntime140.dll', 'ucrtbase.dll', 'Qt5Core.dll', 'Qt5Core.dll', 'Qt5DBus.dll', 'Qt5Gui.dll', 'Qt5Network.dll', 'Qt5Qml.dll', 'Qt5QmlModels.dll', 'Qt5Quick.dll', 'Qt5Svg.dll', 'Qt5WebSockets.dll', 'Qt5Widgets.dll', 'Qt5WinExtras.dll', 'chromedriver.exe']
 
