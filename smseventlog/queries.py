@@ -452,6 +452,8 @@ class FCSummary(FCBase):
         self.df_orig = df.copy()
 
         try:
+            df_shape = df.shape # saving to var for err troubleshooting
+            if len(df) == 0: return df
             # create summary (calc complete %s)
             df2 = pd.DataFrame()
             gb = df.groupby('FC Number')
