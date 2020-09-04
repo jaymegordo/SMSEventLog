@@ -101,9 +101,6 @@ class MainWindow(QMainWindow):
             Worker(func=self.updater.check_update, mw=self) \
                 .add_signals(signals=('result', dict(func=self._install_update))) \
                 .start()
-
-            # worker.signals.result.connect(self._install_update)
-            # worker.signals.progress.connect(self.progress_fn)
     
     def _install_update(self, updater=None, ask_user=True):
         if updater is None: return
@@ -118,6 +115,7 @@ class MainWindow(QMainWindow):
             if not dlgs.msgbox(msg=msg, yesno=True): return
 
         Worker(func=updater.install_update, mw=self).start()
+        self.update_statusbar('Extracting update and restarting...')
 
     def init_sentry(self):
         # sentry is error logging application

@@ -195,7 +195,10 @@ class Web(object):
             # add extra info to selenium's error message
             msg = f'\n\nFailed waiting for web element: {cond.locator}'
             if hasattr(e, 'msg'):
-                e.msg += msg
+                if not e.msg is None:
+                    e.msg += msg
+                else:
+                    e.msg = msg
             else:
                 log.warning(msg)
             raise
