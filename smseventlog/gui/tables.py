@@ -764,8 +764,13 @@ class EventLogBase(TableWidget):
             self.update_statusbar(msg=f'Event closed: {e.Unit} - {d.strftime("%Y-%m-%d")} - {e.Title} ')
         
     def view_folder(self):
-        view, i, e = self.view, self.i, self.e_db 
-        minesite = db.get_unit_val(e.Unit, 'MineSite')
+        view, i, e = self.view, self.i, self.e_db
+        if e is None: return
+        try:
+            minesite = db.get_unit_val(e.Unit, 'MineSite')
+        except KeyError:
+            self.update_statusbar(f'Could not get minesite for unit: "{e.Unit}". Does it exist in the database?')
+            return
 
         # try to get minesite-specific EventFolder, if not use default
         efl.get_eventfolder(minesite=minesite).from_model(e=e, irow=i, table_model=view.model()).show()
