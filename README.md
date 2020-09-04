@@ -1,4 +1,9 @@
 # SMSEventLog
+The SMS Event Log is a desktop application to create a single source of truth for a variety of technical information related to equipment events/failures/work completed. It is designed to be highly available, fast, user friendly, and scalable to any number of equipment fleets/mine sites.
+
+The log is structured around several main tables, each of which can be used to input and retrieve data, as well as perform other automated tasks such as emailing tables, importing data from other sources, and creating reports.
+
+
 ## Install Instructions
 1. Download latest version of `SMS Event Log-win-{version}.zip` from download link. (ask Jayme for link if you don't have it).
 2. Extract folder to `C:\Users\your_user_name\SMS Event Log` (eg jgordon)
