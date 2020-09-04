@@ -69,8 +69,8 @@ def _create_engine():
     # connect_args = {'autocommit': True}
     # , isolation_level="AUTOCOMMIT"
     try:
-        engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
         wrap_connection_funcs()
+        engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
         return engine
     except:
         # any errors reading db_creds results in None engine
@@ -89,7 +89,7 @@ def e(func):
             session.rollback() # NOTE doesn't seem to actually work, gets called 10 times
             return func(*args, **kwargs)
             
-        except (exc.OperationalError, exc.DBAPIError) as e:
+        except (exc.OperationalError, exc.DBAPIError, exc.ResourceClosedError) as e:
             log.warning(f'Handling {type(e)}')
             db.reset()
             return func(*args, **kwargs)
