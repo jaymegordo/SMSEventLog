@@ -1,8 +1,5 @@
 import re
 
-import numpy as np
-import pandas as pd
-
 from . import functions as f
 from . import queries as qr
 from .__init__ import *

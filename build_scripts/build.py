@@ -13,6 +13,20 @@ NOTE Only the following command-line options have an effect when building from a
 import PyInstaller.__main__
 from pathlib import Path
 import sys
+import argparse
+
+CLI=argparse.ArgumentParser()
+# CLI.add_argument(
+#     '--upx',  
+#     type=bool,
+#     default=False)
+
+CLI.add_argument(
+    '--zip',  
+    type=bool,
+    default=False)
+
+a = CLI.parse_args()
 
 if sys.platform.startswith('win'):
     project_path = 'Y:/OneDrive/Python/SMS'
@@ -46,7 +60,7 @@ PyInstaller.__main__.run(args)
 print(s_args)
 
 # move exe, zip package for distribution to users
-if f.is_win():
+if f.is_win() and a.zip:
     p_share = f.projectfolder / 'dist'
     name_exe = 'SMS Event Log.exe'
     fl.copy_file(p_src=p_dist / f'{name}/{name_exe}', p_dst=p_share / name_exe, overwrite=True)

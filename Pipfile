@@ -40,6 +40,7 @@ cairosvg = "==2.4.2"
 sentry-sdk = "*"
 pyinstaller = "*"
 pyupdater-s3-plugin = "*"
+pycparser = "==2.14"
 
 [requires]
 python_version = "3.8"

@@ -41,8 +41,10 @@ except:
 
 from datetime import (date, datetime as dt, timedelta as delta)
 
-
-project_path = '/Users/Jayme/OneDrive/Python/SMS'
+if not sys.platform.startswith('win'):
+    project_path = '/Users/Jayme/OneDrive/Python/SMS' 
+else:
+    project_path = 'Y:/OneDrive/Python/SMS'
 sys.path.append(project_path) # so we can import from smseventlog
 
 from smseventlog import (

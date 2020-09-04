@@ -42,7 +42,7 @@ if SYS_FROZEN:
 
     if platform == 'win':
         # add manual gtk path to PATH for weasyprint/cairo if windows
-        gtk_path = projectfolder / 'GTK3-Runtime Win64'
+        gtk_path = projectfolder / 'GTK3-Runtime Win64/bin'
         os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(gtk_path)])
 
 datafolder = topfolder / 'data' # data folder location is shifted out of smseventlog for frozen build

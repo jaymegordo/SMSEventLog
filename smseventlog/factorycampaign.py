@@ -1,7 +1,5 @@
 from timeit import default_timer as timer
 
-import pandas as pd
-import pypika as pk
 from bs4 import BeautifulSoup
 
 from . import functions as f

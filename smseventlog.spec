@@ -18,8 +18,10 @@ else:
     project_path = 'Y:/OneDrive/Python/SMS'
 
 sys.path.append(project_path) # so we can import from smseventlog
-from smseventlog import functions as f
-from smseventlog import VERSION
+from smseventlog import (
+    functions as f,
+    folders as fl,
+    VERSION)
 
 datas = [
     ('smseventlog/data', 'data')]
@@ -56,15 +58,17 @@ if f.is_mac():
     
     # this saves ~20mb, but windows matplotlib needs tkinter for some reason
     excludes.extend(['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'])
+    run_pyupdater = 'pyupdater' in os.environ.get('_', '')
+    py_ext = ('so',)
 
 elif f.is_win():
     # binaries = [('File we want to copy', 'folder we want to put it in')]
+    # binaries are analyzed for dependencies, datas are not
     binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
 
-    # add gtk libs for weasyprint/cairo
-    gtk_base = 'C:/Program Files/GTK3-Runtime Win64/bin'
-    gtk_libs = ['libcairo-2.dll', 'libgdk_pixbuf-2.0-0.dll', 'libgobject-2.0-0.dll', 'libglib-2.0-0.dll', 'libgdk-3-0.dll']
-    binaries.extend([(f'{gtk_base}/{lib}', 'GTK3-Runtime Win64') for lib in gtk_libs])
+    # gtk used for weasyprint/cairo to render images in pdfs. costs ~20mb to zip
+    datas.append(('C:/Program Files/GTK3-Runtime Win64', 'GTK3-Runtime Win64'))
+    binaries.append(('C:/Program Files/GTK3-Runtime Win64/bin', 'GTK3-Runtime Win64/bin'))
 
     # orca > 40mb file.. just make user download manually if needed
     # binaries.append(('C:/Users/Jayme/AppData/Local/Programs/orca/orca.exe', 'orca'))
@@ -73,17 +77,36 @@ elif f.is_win():
     dist_folder_name = 'smseventlog_win'
     icon_name = 'sms_icon.ico'
     name_pyu = 'win'
+    run_pyupdater = os.environ.get('KMP_INIT_AT_FORK', None) is None # this key doesnt exist with pyu
+    py_ext = ('pyd', 'dll')
+
+upx = True
+if upx:
+    upx_exclude = ['vcruntime140.dll', 'ucrtbase.dll', 'Qt5Core.dll', 'Qt5Core.dll', 'Qt5DBus.dll', 'Qt5Gui.dll', 'Qt5Network.dll', 'Qt5Qml.dll', 'Qt5QmlModels.dll', 'Qt5Quick.dll', 'Qt5Svg.dll', 'Qt5WebSockets.dll', 'Qt5Widgets.dll', 'Qt5WinExtras.dll', 'chromedriver.exe']
+
+    # exclude pandas from upx
+    import pandas
+    import PyQt5
+    import scipy
+
+    for mod in (pandas, PyQt5, scipy):
+        p = Path(mod.__file__).parent
+        upx_exclude.extend([p.name for p in fl.find_files_ext(p, py_ext)])
 
 icon = str(f.datafolder / f'images/{icon_name}')
 
-if 'pyupdater' in os.environ.get('_', ''):
+if run_pyupdater or True:
+    print('**** PYUPDATER ****')
     name = name_pyu # running from pyupdater
     dist_folder_name = name
     console = False
 else:
+    print('**** PYINSTALLER ****')
     name = 'SMS Event Log' # running from pyinstaller
     console = True
 
+# print(os.environ)
+# raise Exception('abord')
 
 a = Analysis([f.projectfolder / 'run.py'],
              pathex=[f.buildfolder],
@@ -108,7 +131,7 @@ exe = EXE(pyz,
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=False,
+          upx=upx,
           upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
           console=console,  # console=False means don't show cmd (only seems to work on windows)
           runtime_tmpdir=None,
@@ -120,8 +143,8 @@ coll = COLLECT(exe,
                a.zipfiles,
                a.datas,
                strip=False,
-               upx=False,
-               upx_exclude=['vcruntime140.dll', 'ucrtbase.dll'],
+               upx=upx,
+               upx_exclude=upx_exclude,
                name=dist_folder_name,
                icon=icon,
                console=console)
