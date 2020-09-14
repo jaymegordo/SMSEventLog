@@ -244,9 +244,7 @@ class SuncorConnect(Web):
 
         user = Path.home().name
         if user == 'Jayme':
-            with open(f.datafolder / 'apikeys/credentials.yaml') as file:
-                m = yaml.full_load(file)['sap']
-
+            m = f.get_credentials(name='sap')
             username = m['username']
             password = m['password']
             token_pin = m['token_pin']
@@ -338,7 +336,8 @@ class TSIWebPage(Web):
 
         # try loading username + pw from QSettings if running in app
         if not table_widget is None:
-            username, password = table_widget.mainwindow.get_tsi_username()
+            # username, password = table_widget.mainwindow.get_tsi_username()
+            username, password = CredentialManager('tsi').load()
 
             if username is None:
                 from .gui import dialogs as dlgs
