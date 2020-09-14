@@ -609,16 +609,29 @@ class InputUserName(InputForm):
         self.email = self.fEmail.val.lower()
         super().accept()
     
-class TSIUserName(InputForm):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent, window_title='Enter Password')
+class PasswordPrompt(InputForm):
+    def __init__(self, id_type='Username', prompt=''):
+        super().__init__(window_title='Input Credentials')
         self.enforce_all = True
         layout = self.vLayout
-        layout.insertWidget(0, QLabel('To use the automated TSI system,\
-            \nplease enter your username and password for www.komatsuamerica.net:\n'))
+        layout.insertWidget(0, QLabel(f'{prompt}:\n'))
 
-        self.add_input(field=InputField(text='Username'))
+        self.add_input(field=InputField(text=id_type.title()))
         self.add_input(field=InputField(text='Password'))
+
+    
+class TSIUserName(PasswordPrompt):
+    def __init__(self):
+        prompt = 'To use the automated TSI system,\
+            \nplease enter your username and password for www.komatsuamerica.net'
+
+        super().__init__(prompt=prompt)
+
+class ExchangeLogin(PasswordPrompt):
+    def __init__(self, parent=None):
+        prompt = 'Please enter your Exchange email and password'
+
+        super().__init__(id_type='email', prompt=prompt)
 
 class ChangeMinesite(InputForm):
     def __init__(self, parent=None, window_title='Change MineSite'):
