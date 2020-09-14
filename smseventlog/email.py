@@ -14,6 +14,8 @@ elif f.is_win():
 class Outlook(object):
     def __init__(self):
         is_win = f.is_win()
+        _folders = None
+        _wo_folder = None
 
         if is_win:
             client = win32.Dispatch('Outlook.Application')
@@ -21,6 +23,41 @@ class Outlook(object):
             client = app('Microsoft Outlook')
 
         f.set_self(vars())
+
+    @property
+    def folders(self):
+        if self._folders is None:
+            if self.is_win:
+                pass
+            else:
+                self._folders = self.client.mail_folders.get()
+        
+        return self._folders
+    
+    def get_folder_messages(self, folder):
+        # return folder messages sorted by date_received descending
+        if not self.is_win:
+            messages = folder.messages()
+            messages = sorted(messages, key=lambda x: x.time_received(), reverse=True)
+        else:
+            pass
+    
+        return messages
+            
+    @property
+    def wo_folder(self):
+        # WO Request folder, used for finding WO request emails to read back into event log
+        if self._wo_folder is None:
+            wo_folder_list = list(filter(lambda x: 'wo request' in str(x.name()).lower(), self.folders))
+            if wo_folder_list:
+                self._wo_folder = wo_folder_list[0]
+
+        return self._wo_folder
+    
+    def get_wo_number(self, unit, title):
+        # get WO number from outlook folder 'WO Request'
+        # match on unit and title
+        return
     
 class Message(object):
     def __init__(self, parent=None, subject='', body='', to_recip=None, cc_recip=None, show_=True):
@@ -104,7 +141,7 @@ class Message(object):
             recipient = k.cc_recipient
 
         self._msg.make(new=recipient, with_properties={k.email_address: {k.address: email}})
-
+    
 def email_test(df=None):
     # testing to figure out outlook column widths
     from . import styles as st
