@@ -121,7 +121,7 @@ class Row():
             
             session = db.session
             cond = [getattr(t, pk)==keys[pk] for pk in keys] # list of multiple key:value pairs for AND clause
-    
+
             if not delete:
                 if vals is None: raise AttributeError('No values to update!')
                 sql = sa.update(t).values(vals).where(and_(*cond))
