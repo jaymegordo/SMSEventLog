@@ -788,6 +788,18 @@ class EventLogBase(TableWidget):
             view.remove_row(i=row.i)
             self.mainwindow.update_statusbar(msg=f'Event removed from database: {e.Unit} - {e.Title}')
     
+    def get_wo_from_email(self):
+        # find WO for selected row in email inbox, write back to table
+        e = self.e_db
+        if e is None: return
+
+        if not wo is None:
+            msg = f'WO number found in outlook: {wo}'
+        else:
+            msg = f'No WO found in outlook for: {e.Unit}, {e.Title}'
+        self.update_statusbar(msg=msg)
+
+
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
