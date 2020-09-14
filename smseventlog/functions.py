@@ -58,6 +58,12 @@ def set_config():
 config = set_config()
 config_platform = config['Platform'][platform]
 
+def get_credentials(name):
+    with open(f.datafolder / 'apikeys/credentials.yaml') as file:
+        m = yaml.full_load(file).get(name, None)
+    return m
+
+
 # DICT & CONVERSIONS
 def inverse(m):
     return {v: k for k, v in m.items()}
