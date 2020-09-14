@@ -99,7 +99,7 @@ class Filter():
             print('\t', list(ct.tables_)[0], ct)
 
 class QueryBase(object):
-    def __init__(self, parent=None, minesite=None, da=None, theme='light'):
+    def __init__(self, parent=None, minesite=None, da=None, theme='light', select_tablename=None):
         formats, default_dtypes, stylemap_cols = {}, {}, {}
         background_gradients = []
         _minesite_default = 'FortHills'
@@ -116,10 +116,11 @@ class QueryBase(object):
             if not title is None: break
 
         # loop through base classes till we find a working select_table
-        for base_class in inspect.getmro(self.__class__):
-            select_tablename = m['Select'].get(base_class.__name__, None)
-            if not select_tablename is None: break
-        
+        if select_tablename is None:
+            for base_class in inspect.getmro(self.__class__):
+                select_tablename = m['Select'].get(base_class.__name__, None)
+                if not select_tablename is None: break
+            
         select_table = T(select_tablename)
         
         # try to get updatetable, if none set as name of select table
@@ -1177,6 +1178,15 @@ class OilReportSpindle(OilSamplesRecent):
         return super().process_df(df=df) \
             .pipe(oil.flatten_test_results, keep_cols=['visc40', 'visc100']) \
             .drop(columns=['oilChanged', 'testResults', 'results', 'recommendations', 'comments'])
+
+class UserSettings(QueryBase):
+    def __init__(self, parent=None, **kw):
+        select_tablename='UserSettings'
+        super().__init__(parent=parent, select_tablename=select_tablename, **kw)
+        a = T(select_tablename)
+        cols = [a.UserName, a.Email, a.LastLogin, a.Ver, a.Domain]
+        q = Query.from_(a)
+        f.set_self(vars())
 
 def table_with_args(table, args):
     def fmt(arg):
