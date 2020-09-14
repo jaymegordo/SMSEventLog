@@ -5,6 +5,7 @@ from .__init__ import *
 from .multithread import Worker
 from . import multithread as mlt
 from .update import Updater
+from .credentials import CredentialManager
 
 log = logging.getLogger(__name__)
 
@@ -171,41 +172,29 @@ class MainWindow(QMainWindow):
         self.username = dlg.username
 
     def set_tsi_username(self):
-        dlg = dlgs.TSIUserName()
-        if dlg.exec_():
-            print('setting username/pw')
-            m = dlg.items
-            username, password = m['Username'], m['Password']
-
-            s = self.settings
-            s.setValue('tsi_username', username)
-            s.setValue('tsi_password', password)
-            print(f'Setting user/pw: {username}, {password}')
-            dlgs.msg_simple(msg='TSI username/password set.')
-            return True
-        else:
-            return False
+        CredentialManager(name='tsi').prompt_credentials()
     
-    def load_tsi_username(self):
-        # try to load from settings
-        s = self.settings
-        username = s.value('tsi_username', defaultValue=None)
-        password = s.value('tsi_password', defaultValue=None)
+    # def load_tsi_username(self):
+    #     # try to load from settings
+    #     return CredentialManager(name='tsi').load()
+    #     s = self.settings
+    #     username = s.value('tsi_username', defaultValue=None)
+    #     password = s.value('tsi_password', defaultValue=None)
 
-        return username, password
+    #     return username, password
 
-    def get_tsi_username(self):
-        # TSIWebpage asks main window for username/pw
-        username, password = self.load_tsi_username()
+    # def get_tsi_username(self):
+    #     # TSIWebpage asks main window for username/pw
+    #     username, password = self.load_tsi_username()
 
-        # if not in settings, prompt user with dialog
-        if username is None or password is None:
-            if self.set_tsi_username():
-                return self.load_tsi_username() # try one more time
-            else:
-                return None, None
+    #     # if not in settings, prompt user with dialog
+    #     if username is None or password is None:
+    #         if self.set_tsi_username():
+    #             return self.load_tsi_username() # try one more time
+    #         else:
+    #             return None, None
         
-        return username, password
+    #     return username, password
             
     @property
     def driver(self):
