@@ -9,29 +9,48 @@ from .__init__ import *
 log = logging.getLogger(__name__)
 
 
-def get_credentials():
-    p = Path(f.datafolder / 'email.yaml')
-    with open(p) as file:
-        m = yaml.full_load(file)
-    return m
+class ExchangeAccount(object):
+    def __init__(self, gui=False, login=True):
+        if login: self.login()
+        _exch = None
 
-def create_account(failcount=0):
-    log.info(f'Test logging with named logger works')
-    try:
-        m = get_credentials()
-        credentials = ex.Credentials(m['email'], m['password'])
-        account = ex.Account(m['email'], credentials=credentials, autodiscover=True)
-    except:
-        log.warning(f'Failed creating account: {failcount}')
-        failcount +=1
-        if failcount <=5:
-            account = create_account(failcount=failcount)
+        f.set_self(vars(), exclude='login')
     
-    return account
+    @property
+    def exch(self):
+        # exchangelib account object
+        if self._exch is None:
+            self._exch = self.create_account()
+        
+        return self._exch
+    
+    def get_credentials(self):
+        # try getting credentials from QSettings or saved credentials file
+        if self.gui:
+            from .gui.credentials import CredentialManager
+            email, password = CredentialManager(name='exchange').load()
 
-def get_account():
-    account = create_account()
-    return account
+        else:
+            m = f.get_credentials(name='exchange')
+            email, password = m['email'], m['password']
+        
+        return email, password
+    
+    def login(self):
+        self._exch = self.create_account()
+
+    def create_account(self, failcount=0):
+        try:
+            email, password = self.get_credentials()
+            credentials = ex.Credentials(email, password)
+            account = ex.Account(m['email'], credentials=credentials, autodiscover=True)
+        except:
+            log.warning(f'Failed creating account: {failcount}')
+            failcount +=1
+            if failcount <=5:
+                account = create_account(failcount=failcount)
+        
+        return account
 
 def parse_attachment(attachment, d=None, header=2):
     result = str(attachment.content, 'UTF-8')
@@ -41,7 +60,7 @@ def parse_attachment(attachment, d=None, header=2):
     return df
 
 def combine_email_data(folder, maxdate, subject=None, header=2):
-    a = get_account()
+    a = ExchangeAccount().get_account()
     fldr = a.root / 'Top of Information Store' / folder
     tz = ex.EWSTimeZone.localzone()
 
