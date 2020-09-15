@@ -8,7 +8,7 @@ The log is structured around several main tables, each of which can be used to i
 1. Download latest version of `SMS Event Log-win-{version}.zip` from download link. (ask Jayme for link if you don't have it).
 2. Extract folder to `C:\Users\your_user_name\SMS Event Log` (eg jgordon)
 3. Double click `SMS Event Log.exe` to open
-    * Note: Windows may prevent the app from opening with a blue 'Protected your PC' screen. Press <u>Advanced</u> and select <u>Run Anyways</u>. 
+    * Note: Windows may prevent the app from opening with a blue 'Protected your PC' screen. Press <u>More info</u> then select <u>Run Anyways</u>. 
 4. Right click icon in taskbar and select `Pin to Taskbar` or `Pin to Start` to create a persistent shortcut
 
 ### Update
