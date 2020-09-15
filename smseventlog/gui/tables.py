@@ -793,10 +793,41 @@ class EventLogBase(TableWidget):
         e = self.e_db
         if e is None: return
 
+        from ..exchange import ExchangeAccount
+        if not hasattr(self, 'exchange_account') or self.exchange_account is None:
+            # need to make sure logged in and good before passing control to worker
+            self.exchange_account = ExchangeAccount(gui=True)
+
+        Worker(
+            func=self.exchange_account.get_wo_from_email,
+            mw=self.mainwindow,
+            unit=e.Unit,
+            title=e.Title) \
+            .add_signals(
+                signals=('result', dict(func=self.handle_wo_result, kw=dict(uid=e.UID)))) \
+            .start()
+        
+        self.update_statusbar(f'Searching Outlook for work order...')
+
+    def handle_wo_result(self, wo, uid=None):
+        # need row uid
+
         if not wo is None:
+            # write wo back to table/db
+            # NOTE not DRY, could put this into a func
+            view = self.view
             msg = f'WO number found in outlook: {wo}'
+            irow = view.get_irow_uid(uid=uid)
+
+            if not irow is None:
+                index = view.create_index_activerow(irow=irow, col_name='Work Order')
+                view.model().setData(index=index, val=wo)
+            else:
+                dbt.Row(dbtable=self.get_dbtable(), keys=dict(UID=uid)) \
+                    .update(vals=dict(WorkOrder=wo))
         else:
-            msg = f'No WO found in outlook for: {e.Unit}, {e.Title}'
+            msg = f'No WO found in outlook for selected event.'
+
         self.update_statusbar(msg=msg)
 
 
@@ -1094,6 +1125,7 @@ class TSI(EventLogBase):
 
     def zip_recent_dls(self):
         e = self.e
+        if e is None: return
         unit = e.Unit
 
         p_dls = fl.zip_recent_dls_unit(unit=unit, _zip=False)
