@@ -843,6 +843,7 @@ class FailureReport(QDialog):
         self.setMinimumSize(QSize(800, 800))
         self.setSizeGripEnabled(True)
         vLayout = QVBoxLayout(self)
+        self.parent = parent
         
         text_fields = {}
         if text is None: text = {} # default text for text fields
