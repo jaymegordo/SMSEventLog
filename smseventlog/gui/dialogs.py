@@ -614,7 +614,8 @@ class PasswordPrompt(InputForm):
         super().__init__(window_title='Input Credentials')
         self.enforce_all = True
         layout = self.vLayout
-        layout.insertWidget(0, QLabel(f'{prompt}:\n'))
+        prompt = f'{prompt}:\n\n(Passwords are always encrypted before storage).\n'
+        layout.insertWidget(0, QLabel(prompt))
 
         self.add_input(field=InputField(text=id_type.title()))
         self.add_input(field=InputField(text='Password'))
@@ -632,6 +633,14 @@ class ExchangeLogin(PasswordPrompt):
         prompt = 'Please enter your Exchange email and password'
 
         super().__init__(id_type='email', prompt=prompt)
+
+class SuncorConnect(PasswordPrompt):
+    def __init__(self, parent=None):
+        prompt = 'Please enter your Suncor uesrname (without @email.com), password, and 4-6 digit token pin'
+
+        super().__init__(prompt=prompt)
+
+        self.add_input(field=InputField(text='Token'))
 
 class ChangeMinesite(InputForm):
     def __init__(self, parent=None, window_title='Change MineSite'):
