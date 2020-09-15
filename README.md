@@ -39,7 +39,7 @@ There are several extra functions in the menubar, such as:
 * Export current table to excel file
 * Delete selected row
 * Create TSI
-* Get WorkOrder from email
+* Get WorkOrder number from email (Work order emails must be in a folder titled "WO REQUEST")
 * Reset database connection (useful if getting connection related errors)
 * Reset your username/any other credentials
 
