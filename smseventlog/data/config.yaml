@@ -40,8 +40,7 @@ color:
 MineSite:
     - BaseMine
     - BaseMine_CWC
-    - Bighorn_Build
-    - Bighorn_Opps
+    - Bighorn
     - CoalValley
     - CWC_Other
     - Elkford
