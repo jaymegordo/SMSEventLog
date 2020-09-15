@@ -47,15 +47,14 @@ class Worker(QRunnable):
 
     def add_signals(self, signals=None):
         # add signals as list of tuples of:
+        # eg: ('signal', m_args) > eg dict(func=self._install_update, args=None, kw=dict(uid=uid))
         if not isinstance(signals, list): signals = [signals]
-        # ('signal', m_args) > eg dict(func=self._install_update, args=None, kw=None)
 
         for sig, m in signals:
             try:
+                # use lambda to connect func when result finished, and pass result func extra args
                 getattr(self.signals, sig).connect(
-                    m.get('func', None),
-                    *m.get('args', ()),
-                    **m.get('kw', {}))
+                    lambda x: m.get('func', None)(x, *m.get('args', ()), **m.get('kw', {})))
             except:
                 self.signals.error.emit(f'Failed to connect signal: {sig, m}', f.format_traceback())
 
