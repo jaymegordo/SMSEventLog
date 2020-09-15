@@ -13,6 +13,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
 
+from .credentials import CredentialManager
 from . import errors as er
 from . import functions as f
 from .__init__ import *
@@ -242,12 +243,7 @@ class SuncorConnect(Web):
         self.pages.update({'home': 'https://connect.suncor.com'})
         token = None
 
-        user = Path.home().name
-        if user == 'Jayme':
-            m = f.get_credentials(name='sap')
-            username = m['username']
-            password = m['password']
-            token_pin = m['token_pin']
+        username, password, token_pin = CredentialManager('sap').load()
         
         f.set_self(vars())
         if ask_token: self.set_token()
@@ -316,15 +312,14 @@ class SuncorConnect(Web):
             log.warning('Failed to find "SAP Logon 760" button.')
 
         # citrix option > doesn't always come up
-        # try:
-        #     element = wait(2, EC.presence_of_element_located(
-        #         (By.XPATH, '/html/body/div[4]/div[3]/input[1]')))
-        #     element.click()
-        # except:
-        #     pass
+        try:
+            element = wait(2, EC.presence_of_element_located(
+                (By.XPATH, '/html/body/div[4]/div[3]/input[1]')))
+            element.click()
+        except:
+            pass
         
         return self
-        # driver.close()
 
 class TSIWebPage(Web):
     def __init__(self, field_vals={}, serial=None, model=None, table_widget=None, uid=None, docs=None, **kw):
@@ -336,7 +331,6 @@ class TSIWebPage(Web):
 
         # try loading username + pw from QSettings if running in app
         if not table_widget is None:
-            # username, password = table_widget.mainwindow.get_tsi_username()
             username, password = CredentialManager('tsi').load()
 
             if username is None:
