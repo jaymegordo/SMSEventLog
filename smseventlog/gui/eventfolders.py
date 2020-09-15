@@ -31,6 +31,7 @@ class EventFolder(object):
         p_unit = f.drive / f'{self.equippath}/{modelpath}/{unitpath}'
         p_base = p_unit / f'Events/{year}'
         _p_event = p_base / folder_title
+        print(_p_event)
         p_event_blank = p_base / self.get_folder_title(unit, dateadded, wo_blank, title)
 
         f.set_self(vars())
@@ -176,7 +177,15 @@ class EventFolder(object):
                 if k.lower() in model.lower():
                     return v
 
-        modelbase = db.get_modelbase(model=model)
+        # NOTE very ugly and sketch but w/e
+        lst_full_model = ["Bighorn", "RainyRiver", "GahchoKue", "CoalValley", "ConumaCoal", "IOC-RioTinto"]
+
+        if not self.minesite in lst_full_model:
+            modelbase = db.get_modelbase(model=model)
+        else:
+            # TODO eventually maybe migrate all these folders to a modelbase structure
+            modelbase = model
+            
         return modelbase if not modelbase is None else 'temp'
 
     @property
@@ -201,7 +210,7 @@ class FortHills(EventFolder):
 
     @property
     def equippath(self):
-        return f'Fort Hills/02. Equipment Files'
+        return 'Fort Hills/02. Equipment Files'
 
 class BaseMine(EventFolder):
     # NOTE may need to add other models in here eg shovels?
@@ -216,7 +225,7 @@ class BaseMine(EventFolder):
 
     @property
     def equippath(self):
-        return f'Fort McMurray/service/2. Customer Equipment Files/1. Suncor'
+        return 'Fort McMurray/service/2. Customer Equipment Files/1. Suncor'
 
 class Elkford(EventFolder):   
     def __init__(self, **kw):
@@ -226,8 +235,63 @@ class Elkford(EventFolder):
     def equippath(self):
         return 'Elkford/Equipment'
 
+class RainyRiver(EventFolder):   
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    @property
+    def equippath(self):
+        return 'Rainy River/02. Equipment Files'
+
+class Bighorn(EventFolder):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    @property
+    def equippath(self):
+        return 'Acheson/COALSPUR - BIGHORN/02. Equipment Files'
+
+# TODO get rid of this eventually > change everything in db to Bighorn
+class Bighorn_Opps(Bighorn):   
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+class GahchoKue(EventFolder):   
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    @property
+    def equippath(self):
+        return 'Gahcho Kue/02. Equipment Files'
+
+class CoalValley(EventFolder):   
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    @property
+    def equippath(self):
+        return 'Acheson/COAL VALLEY/02. Equipment Files'
+
+class ConumaCoal(EventFolder):   
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    @property
+    def equippath(self):
+        return 'Acheson/Conuma Coal/02. Equipment Files'
+
+class Shovels63N(EventFolder):   
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    @property
+    def equippath(self):
+        return 'Regional/Fort McMurray/BU-145-ShovelTechs/Customer Equipment Files'
+
+
 def get_eventfolder(minesite=None):
     # Try to get minesite specific event folder, else use default
+    minesite = minesite.replace('-', '') # for Shovels-63N
     return getattr(sys.modules[__name__], minesite, EventFolder)
 
 def example(uid=None):
