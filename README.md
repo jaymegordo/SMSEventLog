@@ -31,6 +31,7 @@ The log is structured around several main tables, each of which can be used to i
 ### Refreshing Tables
 * Any text field can handle a \*wildcard\* search
     * Eg, search for any event with a title like \*Alternator\*
+* Filter/sort the contents of the current table by right clicking on a header cell
 
 ### Menu Bar Functions
 There are several extra functions in the menubar, such as:
@@ -48,6 +49,9 @@ There are several extra functions in the menubar, such as:
 
 * Refresh 'All Open', or specific events with the Refresh Menu:
 ![](docs/gifs/Refresh-Events.gif)
+
+* Filter/sort (right click header cell)
+![](docs/gifs/Filter-Menu.gif)
 
 * View event folder and failure pictures:
 ![](docs/gifs/View-Event-Folder.gif)
