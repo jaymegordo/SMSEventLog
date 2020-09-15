@@ -5,7 +5,7 @@ from .__init__ import *
 from .multithread import Worker
 from . import multithread as mlt
 from .update import Updater
-from .credentials import CredentialManager
+from ..credentials import CredentialManager
 
 log = logging.getLogger(__name__)
 
@@ -172,30 +172,8 @@ class MainWindow(QMainWindow):
         self.username = dlg.username
 
     def set_tsi_username(self):
-        CredentialManager(name='tsi').prompt_credentials()
-    
-    # def load_tsi_username(self):
-    #     # try to load from settings
-    #     return CredentialManager(name='tsi').load()
-    #     s = self.settings
-    #     username = s.value('tsi_username', defaultValue=None)
-    #     password = s.value('tsi_password', defaultValue=None)
-
-    #     return username, password
-
-    # def get_tsi_username(self):
-    #     # TSIWebpage asks main window for username/pw
-    #     username, password = self.load_tsi_username()
-
-    #     # if not in settings, prompt user with dialog
-    #     if username is None or password is None:
-    #         if self.set_tsi_username():
-    #             return self.load_tsi_username() # try one more time
-    #         else:
-    #             return None, None
-        
-    #     return username, password
-            
+        CredentialManager('tsi').prompt_credentials()
+               
     @property
     def driver(self):
         return self._driver if hasattr(self, '_driver') else None
@@ -239,6 +217,7 @@ class MainWindow(QMainWindow):
         rows_.addAction(self.act_delete_event)
         rows_.addAction(self.act_update_component)
         rows_.addAction(self.act_detailsview)
+        rows_.addAction(self.act_get_wo)
 
         database_ = bar.addMenu('Database')
         database_.addAction(self.act_update_comp_smr)
@@ -247,10 +226,13 @@ class MainWindow(QMainWindow):
 
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_show_about) # this actually goes to main 'home' menu
-        help_.addAction(self.act_username)
-        help_.addAction(self.act_tsi_username)
         help_.addAction(self.act_check_update)
-        help_.addAction(self.act_test_error)
+        # help_.addAction(self.act_test_error)
+        help_.addSeparator()
+        help_.addAction(self.act_username)
+        help_.addAction(self.act_tsi_creds)
+        help_.addAction(self.act_exchange_creds)
+        help_.addAction(self.act_sap_creds)
 
     def test_error(self):
         a = 5
@@ -265,10 +247,17 @@ class MainWindow(QMainWindow):
         act_test_error = QAction('Test Error', self, triggered=self.test_error)
 
         act_show_about = QAction('About', self, triggered=dlgs.about)
-        act_username = QAction('Reset Username', self, triggered=self.set_username)
-        act_tsi_username = QAction('Set TSI Username', self, triggered=self.set_tsi_username)
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
         act_check_update = QAction('Check for Update', self, triggered=self.check_update)
+        
+        # Reset credentials
+        act_username = QAction('Reset Username', self, triggered=self.set_username)
+        act_tsi_creds = QAction('Reset TSI Credentials', self,
+            triggered=lambda: CredentialManager('tsi').prompt_credentials())
+        act_exchange_creds = QAction('Reset Exchange Credentials', self,
+            triggered=lambda: CredentialManager('exchange').prompt_credentials())
+        act_sap_creds = QAction('Reset SAP Credentials', self,
+            triggered=lambda: CredentialManager('sap').prompt_credentials())
 
         act_refresh = QAction('Refresh Menu', self,
             triggered=lambda: t().show_refresh(),
@@ -303,9 +292,16 @@ class MainWindow(QMainWindow):
         act_refresh_lastmonth = QAction('Refresh Last Month', self, 
             triggered=lambda: t().refresh_lastmonth(default=True))
 
-        act_viewfolder = QAction('View Folder', self, triggered=lambda: t().view_folder(), shortcut=QKeySequence('Ctrl+Shift+V'))
+        act_viewfolder = QAction('View Folder', self,
+            triggered=lambda: t().view_folder(),
+            shortcut=QKeySequence('Ctrl+Shift+V'))
 
-        act_detailsview = QAction('Details View', self, triggered=lambda: t().show_details(), shortcut=QKeySequence('Ctrl+Shift+D'))
+        act_detailsview = QAction('Details View', self,
+            triggered=lambda: t().show_details(),
+            shortcut=QKeySequence('Ctrl+Shift+D'))
+        
+        act_get_wo = QAction('Get WO from email', self,
+            triggered=lambda: t().get_wo_from_email())
 
         act_update_component = QAction('Update Component', self, triggered=lambda: t().show_component())
         act_email_table = QAction('Email Table', self, 
