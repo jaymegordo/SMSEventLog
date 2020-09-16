@@ -259,7 +259,10 @@ class EventLog(EventLogBase):
         f.set_self(vars())
     
     def set_allopen(self):
-        self.fltr.add(field='StatusEvent', val='complete', opr=op.ne)
+        a = self.a
+        ct = ((a.StatusEvent != 'complete') | (a.PassoverSort.like('x')))
+        self.fltr.add(ct=ct)
+
 
 class WorkOrders(EventLogBase):
     def __init__(self, **kw):
