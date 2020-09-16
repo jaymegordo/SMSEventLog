@@ -311,7 +311,6 @@ class AddEvent(AddRow):
         btn.clicked.connect(self.get_smr)
         self.add_input(field=IPF(text='SMR', dtype='int'), btn=btn)
 
-
         self.formLayout.addRow('', cb_eventfolder)
         self.formLayout.addRow('', cb_tsi)
         self.formLayout.addRow('', cb_fc)
