@@ -486,7 +486,25 @@ class TableView(QTableView):
         if not self.mainwindow is None:
             self.mainwindow.update_statusbar(msg=msg)
 
+    def filter_column(self, col_name, val):
+        # toggle specific filter on column
+        model = self.model()
+        name_index = self.nameindex_from_activerow() # TODO probably connect this to a signal to use other places
 
+        if not hasattr(self, 'filter_state') or not self.filter_state:
+            model.filter_by_items(col=col_name, items=[str(val)])
+            self.filter_state = True
+            
+        else:
+            model.reset()
+            self.filter_state = False
+        
+        # reapply stylemap after filter (eg unit is alternating rows)
+        for col in self.mcols['sort_filter']:
+            model.set_stylemap(col=col)
+
+        if not name_index is None:
+            self.select_by_nameindex(name_index=name_index)
 
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
@@ -846,22 +864,22 @@ class EventLogBase(TableWidget):
 
         self.update_statusbar(msg=msg)
 
-
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.add_action(name='Email Passover', func=self.email_passover, btn=True)
+        self.add_action(name='Filter Passover', func=lambda x: self.view.filter_column('Passover', 'x'), btn=True)
 
     class View(EventLogBase.View):
         def __init__(self, parent):
             super().__init__(parent=parent)
             self.col_widths.update(dict(Passover=50, Description=800, Status=100))
             self.highlight_funcs['Passover'] = self.highlight_by_val
+            self.set_combo_delegate(col='Passover', items=['x'])
 
         def get_style(self, df=None, outlook=False):
             return super().get_style(df=df, outlook=outlook) \
                 .pipe(st.set_column_widths, vals=dict(Status=80, Description=400, Title=100), outlook=outlook)
-
 
     def email_passover(self):
         df = self.view.model().df
@@ -913,8 +931,8 @@ class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_button(name='Email WO Open', func=self.email_wo_request)
-        self.add_button(name='Email WO Close', func=self.email_wo_close)
+        self.add_action(name='Email WO Open', func=self.email_wo_request, btn=True)
+        self.add_action(name='Email WO Close', func=self.email_wo_close, btn=True)
 
     class View(EventLogBase.View):
         def __init__(self, parent):
@@ -1380,7 +1398,12 @@ class Availability(TableWidget):
         self.add_action(name='Create Report', func=self.create_report, btn=True)
         self.add_action(name='Email Report', func=self.email_report, btn=True)
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
-        self.add_action(name='Filter Assigned', func=self.filter_assigned, shortcut='Ctrl+Shift+A', btn=True)
+        self.add_action(
+            name='Filter Assigned',
+            func=lambda x: self.view.filter_column('Assigned', '0'),
+            shortcut='Ctrl+Shift+A',
+            btn=True)
+
         self.add_action(name='Save Assignments', func=self.save_assignments, btn=True)
         self.add_action(name='Assign Suncor', func=self.assign_suncor, shortcut='Ctrl+Shift+Z')
         self.add_action(name='Show Unit EL', func=self.filter_unit_eventlog, shortcut='Ctrl+Shift+F', btn=True)
@@ -1503,25 +1526,7 @@ class Availability(TableWidget):
             .update_all()
         
         dlgs.msg_simple(msg='Records updated.')
-    
-    def filter_assigned(self):
-        # filter unassigned items out or back into table
-        model = self.view.model()
-        name_index = self.view.nameindex_from_activerow() # TODO probably connect this to a signal so can use other places
-
-        if not hasattr(self, 'filter_state') or not self.filter_state:
-            model.filter_by_items(col='Assigned', items=[str(0)])
-            self.filter_state = True
-            
-        else:
-            model.reset()
-            self.filter_state = False
-        
-        model.set_stylemap(col='Unit')
-
-        if not name_index is None:
-            self.view.select_by_nameindex(name_index=name_index)
-    
+       
     def assign_suncor(self):
         # func ctrl+shift+Z to auto assign suncor
         # TODO loop selected rows and bulk update
