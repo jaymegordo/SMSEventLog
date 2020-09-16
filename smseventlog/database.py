@@ -1,13 +1,14 @@
 from urllib import parse
-import yaml
 
 import pyodbc
-from sqlalchemy import exc, create_engine
+import yaml
+from sqlalchemy import create_engine, exc
+from sqlalchemy.engine.base import Connection  # just to wrap errors
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.engine.base import Connection #just to wrap errors
 from sqlalchemy.pool.base import Pool
 
 from . import functions as f
+from . import queries as qr
 from .__init__ import *
 
 global db
@@ -213,6 +214,13 @@ class DB(object):
         
         return self.query_single_val(q)
 
+    def get_df_saved(self, name):
+        # Return df from saved, TODO load if doesn't exist?
+        return self.dfs.get(name, None)
+    
+    def save_df(self, df, name):
+        self.dfs[name] = df
+
     def get_df(self, query, refresh=True, default=False, prnt=False):
         # get df by name and save for later reuse
         dfs = self.dfs
@@ -269,6 +277,22 @@ class DB(object):
     def unique_units(self):
         df = self.get_df_unit()
         return df.Unit.unique()
+
+    def get_df_emaillist(self):
+        name = 'emaillist'
+        df = self.get_df_saved(name)
+
+        if df is None:
+            query = qr.EmailList()
+            df = query.get_df()
+            self.save_df(df, name)
+        
+        return df
+
+    def get_email_list(self, name, minesite):
+        # Get list of emails from db for specified name eg 'WO Request'
+        df = self.get_df_emaillist()
+        return list(df[(df.MineSite==minesite) & (df[name].notnull())].Email)
 
     def get_list_minesite(self):
         lst_minesite = getattr(self, 'lst_minesite', None)
@@ -328,15 +352,19 @@ class DB(object):
         self.df_fc = df
     
     def get_df_component(self):
-        if self.df_component is None:    
+        name = 'component'
+        df = self.get_df_saved(name)
+
+        if df is None:    
             a = T('ComponentType')
             q = Query.from_(a).select('*')
             df = self.read_query(q=q)
-            df['Combined'] = df[['Component', 'Modifier']].apply(lambda x: f'{x[0]}, {x[1]}' if not x[1] is None else x[0], axis=1)
+            df['Combined'] = df[['Component', 'Modifier']].apply(
+                lambda x: f'{x[0]}, {x[1]}' if not x[1] is None else x[0], axis=1)
+            
+            self.save_df(df, name)
 
-            self.df_component = df
-
-        return self.df_component
+        return df
 
     def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None, index=False):
         rowsadded = 0
