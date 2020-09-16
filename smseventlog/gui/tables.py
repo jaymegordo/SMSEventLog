@@ -651,6 +651,22 @@ class TableWidget(QWidget):
 
         msg.show()
     
+    def email_row(self, title, email_list=None, body_text='', exclude_cols=None):
+        # Create email with df from selected row
+
+        df = self.view.df_from_activerow() \
+            .drop(columns=exclude_cols)
+        if df is None: return
+
+        formats = {'int64': '{:,}', 'datetime64[ns]': st.format_date}
+        style = st.default_style(df=df, outlook=True) \
+            .pipe(st.apply_formats, formats=formats)
+
+        body = f'{f.greeting()}{body_text}<br><br>{style.hide_index().render()}'
+
+        # show new email
+        msg = em.Message(subject=title, body=body, to_recip=email_list)
+
     def save_excel(self, style, p=None, name='temp'):
         if p is None:
             p = f.datafolder / f'csv/{name}.xlsx'
@@ -762,7 +778,7 @@ class EventLogBase(TableWidget):
 
             row.update(vals=vals)
             self.update_statusbar(msg=f'Event closed: {e.Unit} - {d.strftime("%Y-%m-%d")} - {e.Title} ')
-        
+            
     def view_folder(self):
         view, i, e = self.view, self.i, self.e_db
         if e is None: return
@@ -897,8 +913,8 @@ class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_button(name='Email WO Request', func=self.email_wo_request)
-
+        self.add_button(name='Email WO Open', func=self.email_wo_request)
+        self.add_button(name='Email WO Close', func=self.email_wo_close)
 
     class View(EventLogBase.View):
         def __init__(self, parent):
@@ -922,32 +938,35 @@ class WorkOrders(EventLogBase):
         def set_component(self, val_new, **kw):
             if val_new == True:
                 self.parent.show_component()
+   
+    def email_wo(self, title, body_text, exclude_cols):
+        # email a WorkOrder (Open|Close) for the currently selected row
+        e = self.e
+        if e is None: return # no row selected in table
+
+        title = f'{title} - {e.Unit} - {e.Title}'
+        lst = db.get_email_list(name='WO Request', minesite=self.minesite)
+
+        self.email_row(title=title, body_text=body_text, exclude_cols=exclude_cols, email_list=lst)
 
     def email_wo_request(self):
         # email a WorkOrder request for the currently selected row
-        e = self.e
-        if e is None: return # no row selected in table
-        df = self.view.df_from_activerow() \
-            .drop(columns=['UID', 'Status', 'Work Order', 'Seg', 'Date Complete', 'Pics'])
+        self.email_wo(
+            title='Open WO Request',
+            body_text='Please open a warranty work order for:',
+            exclude_cols=['UID', 'Status', 'Work Order', 'Seg', 'Date Complete', 'Pics'])
 
-        formats = {'int64': '{:,}', 'datetime64[ns]': st.format_date}
-        style = st.default_style(df=df, outlook=True) \
-            .pipe(st.apply_formats, formats=formats)
+    def email_wo_close(self):
+        # Send email to close event
+        # set status to closed, will trigger 'close event'
+        index = self.view.create_index_activerow(col_name='Status')
+        self.view.model().setData(index=index, val='Closed')
 
-        title = f'Open WO Request - {e.Unit} - {e.Title}'
-
-        body = f'{f.greeting()}Please open a warranty work order for:<br><br>\
-            {style.hide_index().render()}'
-
-        # get email list from db
-        df2 = db.get_df(query=qr.EmailList())
-
-        # TODO put this into a better func
-        lst = list(df2[(df2.MineSite==self.minesite) & (df2['WO Request'].notnull())].Email)
-
-        # show new email
-        msg = em.Message(subject=title, body=body, to_recip=lst)
-
+        self.email_wo(
+            title='Close WO Request',
+            body_text='Please close the following work order:',
+            exclude_cols=['UID', 'Pics'])
+        
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -1180,7 +1199,6 @@ class FCBase(TableWidget):
         lst_csv = fc.get_import_files()
         if lst_csv is None: return
 
-        # NOTE not sure if result signals will pass properly yet
         Worker(func=fc.import_fc, mw=self.mainwindow, lst_csv=lst_csv, upload=True, worker_thread=True) \
             .add_signals(signals=('result', dict(func=fc.ask_delete_files))) \
             .start()
