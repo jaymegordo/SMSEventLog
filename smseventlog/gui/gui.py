@@ -19,6 +19,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.app = QApplication.instance()
         self.setWindowTitle(gbl.title)
         self.setMinimumSize(QSize(1000, 400))
         self.minesite_changed.connect(self.update_minesite_label)
@@ -57,16 +58,25 @@ class MainWindow(QMainWindow):
         # status_label is special label to always show current minesite (bottom right)
         self.status_label.setText(f'Minesite: {self.minesite}')
     
+    def warn_not_implemented(self):
+        self.update_statusbar('WARNING: This feature not yet implemented.')
+    
     def update_statusbar(self, msg=None, *args):
         # statusbar shows temporary messages that disappear on any context event
         if not msg is None:
+            prev_status = self.statusBar().currentMessage()
             self.statusBar().showMessage(msg)
+            self.app.processEvents()
+    
+    def revert_status(self):
+        # revert statusbar to previous status
+        if not hasattr(self, 'prev_status'): self.prev_status = ''
+        self.update_statusbar(msg=self.prev_status)
 
     def after_init(self):
         # TODO: need to show window first, then show loading message
         self.username = self.get_username()
         self.init_sentry()
-        self.active_table_widget().refresh(default=True)
 
         self.u = users.User(username=self.username, mainwindow=self).login()
 
@@ -74,6 +84,8 @@ class MainWindow(QMainWindow):
         # test_version = '3.0.4'
         test_version = None
         self.updater = Updater(test_version=test_version, mw=self)
+
+        self.active_table_widget().refresh(default=True)
 
         self.check_update()
         self.start_update_timer()
@@ -354,7 +366,7 @@ class TabWidget(QTabWidget):
         self.tabindex = dd(int)
         
         m = f.config['TableName']['Class'] # get list of table classes from config
-        lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
+        lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'ComponentSMR', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
        
         # Add tabs to widget
         for i, title in enumerate(lst):
