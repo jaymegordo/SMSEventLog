@@ -178,17 +178,18 @@ class QueryBase(object):
         self.fltr2 = Filter(parent=self)
     
     def set_lastperiod(self, days=7):
-        if not self.date_col is None:
+        if hasattr(self, 'date_col') and not self.date_col is None:
             vals = {self.date_col: dt.now().date() + delta(days=days * -1)}
             self.fltr.add(vals=vals, opr=op.ge)
+            return True
         else:
-            raise ValueError('date_col not set!')
+            return False
     
     def set_lastweek(self):
-        self.set_lastperiod(days=7)
+        return self.set_lastperiod(days=7)
     
     def set_lastmonth(self):
-        self.set_lastperiod(days=31)
+        return self.set_lastperiod(days=31)
     
     def get_updatetable(self):
         tablename = self.select_table if self.update_table is None else self.select_table
@@ -224,6 +225,9 @@ class QueryBase(object):
         style._compute()
         return f.convert_stylemap_index(style=style)
 
+    def set_minesite(self):
+        self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
+
 class EventLogBase(QueryBase):
     def __init__(self, da=None, **kw):
         super().__init__(da=da, **kw)
@@ -238,10 +242,7 @@ class EventLogBase(QueryBase):
         self.default_dtypes.update(
             **f.dtypes_dict('Int64', ['SMR', 'Unit SMR', 'Comp SMR', 'Part SMR', 'Pics']),
             **f.dtypes_dict('bool', ['Comp CO']))
-    
-    def set_minesite(self):
-        self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
-    
+       
     def set_default_filter(self):
         self.set_minesite()
         self.set_allopen()
@@ -262,7 +263,6 @@ class EventLog(EventLogBase):
         a = self.a
         ct = ((a.StatusEvent != 'complete') | (a.PassoverSort.like('x')))
         self.fltr.add(ct=ct)
-
 
 class WorkOrders(EventLogBase):
     def __init__(self, **kw):
@@ -310,6 +310,37 @@ class ComponentCO(ComponentCOBase):
 
         f.set_self(vars())
 
+class ComponentSMR(QueryBase):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        a, b, c = self.select_table, *pk.Tables('ComponentType', 'UnitID')
+        cols = [a.MineSite, a.Model, a.Unit, a.Component, a.Modifier, a.BenchSMR, a.CurrentUnitSMR, a.SMRLastCO, a.CurrentComponentSMR, a.PredictedCODate, a.LifeRemaining]
+
+        q = Query.from_(a) \
+            .left_join(b).on_field('Floc') \
+            .left_join(c).on_field('Unit') \
+            .orderby(a.MineSite, a.Unit)
+
+        f.set_self(vars())
+
+        self.default_dtypes.update(
+            **f.dtypes_dict('Int64', ['Bench SMR', 'Curr Unit SMR', 'SMR Last CO', 'Curr Comp SMR', 'Life Remaining']))
+    
+    def set_default_filter(self):
+        self.set_allopen()
+
+    def set_allopen(self):
+        self.set_minesite()
+    
+    def background_gradient(self, style):
+        df = style.data
+        subset = pd.IndexSlice[df['Life Remaining'].notnull(), 'Life Remaining']
+        return style.background_gradient(
+            cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=-1000, vmax=1000)
+    
+    def update_style(self, style, **kw):
+        return style.pipe(self.background_gradient)
+
 class ComponentCOReport(ComponentCOBase):
     def __init__(self, da, **kw):
         super().__init__(da=da, **kw)
@@ -337,7 +368,8 @@ class ComponentCOReport(ComponentCOBase):
     def update_style(self, style, **kw):
         df = style.data
         subset = pd.IndexSlice[df['Life Achieved'].notnull(), 'Life Achieved']
-        return style.background_gradient(cmap=self.cmap.reversed(), subset=subset, axis=None)
+        return style.background_gradient(
+            cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=-1000, vmax=1000)
 
     def exec_summary(self):
         m = {}
