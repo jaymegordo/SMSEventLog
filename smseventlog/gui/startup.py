@@ -35,6 +35,7 @@ def launch():
     w = gui.MainWindow()
 
     w.show()
+    app.processEvents()
     w.after_init()
     return app.exec_()
 
