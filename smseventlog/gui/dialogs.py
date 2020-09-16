@@ -329,7 +329,17 @@ class AddEvent(AddRow):
         self.fUnit.box.select_all()
         f.set_self(vars())
         self.show()
-    
+
+        # comboBox.currentIndexChanged.connect(self.onCurrentIndexChanged)
+
+    @pyqtSlot(int)
+    def component_changed(self, ix):
+        # Update Title text when Component selected in combobox
+        combo = self.sender()
+        val = combo.val
+        if not val.strip() == '':
+            self.fTitle.val = f'{val} - CO'
+
     def create_row(self):
         row = super().create_row()
         row.UID = self.create_uid()
@@ -371,6 +381,7 @@ class AddEvent(AddRow):
             field_smr.box_comp = field_comp.box
 
         add_linesep(self.formLayout)
+        self.fComponentCO.box.currentIndexChanged.connect(self.component_changed)
     
     @property
     def df_comp(self):
