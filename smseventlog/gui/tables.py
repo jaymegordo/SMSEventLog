@@ -879,8 +879,8 @@ class EventLogBase(TableWidget):
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_action(name='Email Passover', func=self.email_passover, btn=True)
         self.add_action(name='Filter Passover', func=lambda x: self.view.filter_column('Passover', 'x'), btn=True)
+        self.add_action(name='Email Passover', func=self.email_passover, btn=True)
 
     class View(EventLogBase.View):
         def __init__(self, parent):
@@ -1020,6 +1020,8 @@ class ComponentCO(EventLogBase):
 class ComponentSMR(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        label = QLabel('Warning: this table is currently only valid for FortHills. (Other sites to be updated)')
+        self.btnbox.addWidget(label)
 
     class View(TableView):
         def __init__(self, parent):
