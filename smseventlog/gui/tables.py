@@ -609,7 +609,11 @@ class TableWidget(QWidget):
         fltr = self.query.fltr
         if default:
             self.query.set_minesite()
-        self.query.set_lastweek()
+
+        if not self.query.set_lastweek():
+            self.mainwindow.warn_not_implemented()
+            return
+
         self.refresh()
 
     def refresh_lastmonth(self, default=False):
@@ -617,7 +621,11 @@ class TableWidget(QWidget):
         fltr = self.query.fltr
         if default:
             self.query.set_minesite()
-        self.query.set_lastmonth()
+
+        if not self.query.set_lastmonth():
+            self.mainwindow.warn_not_implemented()
+            return
+
         self.refresh()
 
     def refresh_allopen(self, default=False):
@@ -629,13 +637,17 @@ class TableWidget(QWidget):
 
     def refresh(self, default=False):
         # RefreshTable dialog will have modified query's fltr, load data to table view
+        self.update_statusbar('Refreshing table, please wait...')
+        self.mainwindow.app.processEvents()
 
-        df = db.get_df(query=self.query, default=default)
+        df = self.query.get_df(default=default)
 
         if not len(df) == 0:
             self.view.display_data(df=df)
         else:
             dlgs.msg_simple(msg='No rows returned in query!', icon='warning')
+        
+        self.mainwindow.revert_status()
 
     def get_dbtable(self, header=None):
         # return dbtable (definition) for specific header
@@ -1004,6 +1016,20 @@ class ComponentCO(EventLogBase):
 
             items = ['High Hour Changeout', 'Damage/Abuse', 'Convenience', 'Failure', 'Pro Rata Buy-in', 'Warranty']
             self.set_combo_delegate(col='Removal Reason', items=items)
+
+class ComponentSMR(TableWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+
+            # disable all cols
+            self.mcols['disabled'] = f.get_default_headers(title=self.parent.title)
+
+            smr_cols = ['Bench SMR', 'Curr Unit SMR', 'SMR Last CO', 'Curr Comp SMR', 'Life Remaining']   
+            self.formats.update({col: '{:,.0f}' for col in smr_cols})
 
 class TSI(EventLogBase):
     def __init__(self, parent=None):

@@ -46,7 +46,6 @@ MineSite:
     - Elkford
     - FH-Field
     - FortHills
-    - FortHills_AHS
     - FortHills_CWC
     - GahchoKue
     - RainyRiver
@@ -94,6 +93,7 @@ TableName:
         WorkOrders: Work Orders
         TSI: TSI
         ComponentCO: Component CO
+        ComponentSMR: Component SMR
         ComponentCOReport: Component CO
         UnitInfo: Unit Info
         NewFCs: FC Summary
@@ -105,6 +105,7 @@ TableName:
     Select:
         EventLogBase: EventLog
         FCBase: viewFactoryCampaign
+        ComponentSMR: viewPredictedCO
         UnitInfo: UnitID
         EmailList: EmailList
         AvailTopDowns: Downtime
@@ -230,6 +231,19 @@ Headers:
         Removal Reason: SunCOReason
         Notes: RemovalReason
         Status: COConfirmed
+    
+    Component SMR:
+        MineSite: MineSite
+        Model: Model
+        Unit: Unit
+        Component: Component
+        Side: Modifier
+        Bench SMR: BenchSMR
+        Curr Unit SMR: CurrentUnitSMR
+        SMR Last CO: SMRLastCO
+        Curr Comp SMR: CurrentComponentSMR
+        Pred. CO Date: PredictedCODate
+        Life Remaining: LifeRemaining
 
     Unit Info:
         MineSite: MineSite

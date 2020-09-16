@@ -161,6 +161,12 @@ class ComponentCO(EventLogBase):
         super().__init__(parent=parent)
         self.add_features(features=['component', 'major components'])
 
+class ComponentSMR(RefreshTable):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        # Component/major comp need different table
+        self.add_features(features=['minesite', 'unit', 'model', 'component'])
+
 class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
