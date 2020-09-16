@@ -88,6 +88,10 @@ def import_fc(lst_csv, upload=True, df=None, worker_thread=False):
 
 def ask_delete_files(msg=None, statusmsg=None, lst_csv=None):
     if msg is None: return
+    if isinstance(msg, tuple):
+        # came back from worker thread # NOTE kinda ugly
+        msg, statusmsg, lst_csv = msg[0], msg[1], msg[2]
+        
     msg += '\n\nWould you like to delete files?'
     if dlgs.msgbox(msg=msg, yesno=True, statusmsg=statusmsg):
         for p in lst_csv: p.unlink()
