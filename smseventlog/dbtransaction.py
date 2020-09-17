@@ -1,10 +1,10 @@
 import sqlalchemy as sa
 from sqlalchemy import and_, literal
+from sqlalchemy.orm.exc import NoResultFound
 
 from . import functions as f
 from .__init__ import *
 from .database import db, e
-
 
 log = logging.getLogger(__name__)
 
@@ -143,6 +143,7 @@ class Row():
                     session.execute(sql)
                 
             session.commit()
+            return True # transaction succeeded
         except:
             operation = 'update' if not delete else 'delete'
             msg = f'Couldn\'t {operation} value: {vals}'
@@ -163,6 +164,13 @@ class Row():
             pk=self.pk,
             id=self.id)
         display(m)
+
+def select_row_by_secondary(dbtable, col, val):
+    # select single row from table by attr other than pk
+    try:
+        return db.session.query(dbtable).filter(getattr(dbtable, col)==val).one()
+    except NoResultFound:
+        return None
 
 def get_dbtable_key_vals(dbtable, vals):
     # return tuple of one or more keys in dbtable, given dict of all vals (including keys)
