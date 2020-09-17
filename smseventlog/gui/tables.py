@@ -829,10 +829,27 @@ class EventLogBase(TableWidget):
         m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
 
         msg = f'Are you sure you would like to permanently delete the event:\n\n{f.pretty_dict(m)}'
+
         if dlgs.msgbox(msg=msg, yesno=True):
-            row.update(delete=True)
-            view.remove_row(i=row.i)
-            self.mainwindow.update_statusbar(msg=f'Event removed from database: {e.Unit} - {e.Title}')
+
+            # Check if Event is linked to FC, ask to unlink
+            from ..dbmodel import FactoryCampaign
+            e_fc = dbt.select_row_by_secondary(dbtable=FactoryCampaign, col='UID', val=e.UID)
+            if not e_fc is None:
+                msg = f'This event is linked to FC {e_fc.FCNumber}, would you like to unlink the FC?'
+                if dlgs.msgbox(msg=msg, yesno=True):
+                    e_fc.UID = None
+                    e_fc.DateCompleteSMS = None
+                    db.session.commit()
+                else:
+                    self.update_statusbar('WARNING: Can\'t delete event with linked FC.')
+                    return
+
+            if row.update(delete=True):
+                view.remove_row(i=row.i)
+                self.update_statusbar(f'Event removed from database: {e.Unit} - {e.Title}')
+            else:
+                self.update_statusbar('ERROR: Event not deleted from database.')
     
     def get_wo_from_email(self):
         # find WO for selected row in email inbox, write back to table
@@ -887,7 +904,7 @@ class EventLog(EventLogBase):
             super().__init__(parent=parent)
             self.col_widths.update(dict(Passover=50, Description=800, Status=100))
             self.highlight_funcs['Passover'] = self.highlight_by_val
-            self.set_combo_delegate(col='Passover', items=['x'])
+            self.set_combo_delegate(col='Passover', items=['x', ''])
 
         def get_style(self, df=None, outlook=False):
             return super().get_style(df=df, outlook=outlook) \
