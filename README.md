@@ -27,6 +27,7 @@ The log is structured around several main tables, each of which can be used to i
 | Show Details View    | Ctrl + Shift + D |
 | Jump to Previous Tab | Ctrl + Tab       |
 | New line in cell     | Shift + Enter    |
+| Fill cell value down | Ctrl + D         |
 
 ### Refreshing Tables
 * Any text field can handle a \*wildcard\* search
@@ -44,16 +45,16 @@ There are several extra functions in the menubar, such as:
 * Reset your username/any other credentials
 
 ### Examples
-* Create a new event:
+* Create a new event | (Ctrl + Shift + N):
 ![](docs/gifs/Add-New-Event.gif)
 
-* Refresh 'All Open', or specific events with the Refresh Menu:
+* Refresh 'All Open', or specific events with the Refresh Menu | (Ctrl + R):
 ![](docs/gifs/Refresh-Events.gif)
 
-* Filter/sort (right click header cell)
+* Filter/sort | (right click header cell)
 ![](docs/gifs/Filter-Menu.gif)
 
-* View event folder and failure pictures:
+* View event folder and failure pictures | (Ctrl + Shift + V):
 ![](docs/gifs/View-Event-Folder.gif)
 
 
