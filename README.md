@@ -10,6 +10,7 @@ The log is structured around several main tables, each of which can be used to i
 3. Double click `SMS Event Log.exe` to open
     * Note: Windows may prevent the app from opening with a blue 'Protected your PC' screen. Press <u>More info</u> then select <u>Run Anyways</u>. 
 4. Right click icon in taskbar and select `Pin to Taskbar` or `Pin to Start` to create a persistent shortcut
+5. Set your default minesite with `Ctrl + Shift + M`. This will determine the default data refreshed in many tables, and is saved as a persistent setting between restarts/updates.
 
 ### Update
 * The event log checks for updates on startup, periodically, or when a user selects Help > Check for Updates
