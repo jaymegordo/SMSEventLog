@@ -83,9 +83,9 @@ def e(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except (exc.StatementError, exc.InvalidRequestError):
+        except (exc.StatementError, exc.InvalidRequestError) as e:
             # rollback invalid transaction
-            log.warning('Rollback and retry operation.')
+            log.warning(f'Rollback and retry operation: {type(e)}')
             session = db.session # this is pretty sketch
             session.rollback() # NOTE doesn't seem to actually work, gets called 10 times
             return func(*args, **kwargs)
@@ -94,9 +94,12 @@ def e(func):
             log.warning(f'Handling {type(e)}')
             db.reset()
             return func(*args, **kwargs)
+        
+        except exc.IntegrityError:
+            raise
 
-        except:
-            log.warning('Handling other errors')
+        except Exception as e:
+            log.warning(f'Handling other errors: {type(e)}')
             db.reset()
             return func(*args, **kwargs)
 
