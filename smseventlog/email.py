@@ -9,6 +9,7 @@ if f.is_mac():
 elif f.is_win():
     import win32com.client as win32 # noqa
 
+log = logging.getLogger(__file__)
 
 # OUTLOOK
 class Outlook(object):
@@ -102,6 +103,15 @@ class Message(object):
         else:
             msg.open()
             msg.activate()
+
+    def add_attachments(self, lst_attach=None):
+        if lst_attach is None: return
+        if not isinstance(lst_attach, list): lst_attach = [lst_attach]
+        for p in lst_attach:
+            try:
+                self.add_attachment(p=p)
+            except:
+                log.warning(f'Couldn\'t add attachment: {p}')
 
     def add_attachment(self, p):
         msg = self._msg
