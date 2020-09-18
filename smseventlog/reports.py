@@ -445,8 +445,7 @@ class FailureReport(Report):
         else:
             return 'temp title'
 
-        d = d.strftime('%Y-%m-%d')
-        return f'{unit} - {d} - {title}'
+        return f'{unit} - {d:%Y-%m-%d} - {title}'
 
     def df_header(self, m=None):
         if m is None: m = {}
