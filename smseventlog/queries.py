@@ -2,13 +2,14 @@ import inspect
 import json
 
 import numpy as np
-from seaborn import diverging_palette
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+from seaborn import diverging_palette
 
 from . import dbmodel as dbm
 from . import functions as f
 from . import styles as st
 from .__init__ import *
+from .gui import _global as gbl
 
 log = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ class QueryBase(object):
         elif not self.parent is None:
             return self.parent.minesite
         else:
-            return self._minesite_default
+            return gbl.get_minesite() # checks mainwindow, then returns default 'FortHills'
     
     @minesite.setter
     def minesite(self, val):
@@ -708,11 +709,13 @@ class EmailList(QueryBase):
         self.q = Query.from_(a) \
             .orderby(a.MineSite, a.Email)
         
+        # self.set_default_filter()
+    def set_allopen(self):
         self.set_default_filter()
-        
+
     def set_default_filter(self):
-        if not self.minesite is None:
-            self.fltr.add(vals=dict(MineSite=self.minesite))
+        # if not self.minesite is None:
+        self.fltr.add(vals=dict(MineSite=self.minesite))
 
 class AvailBase(QueryBase):
     def __init__(self, da=None, **kw):
