@@ -223,6 +223,7 @@ class MainWindow(QMainWindow):
         table_ = bar.addMenu('Table')
         table_.addAction(self.act_email_table)
         table_.addAction(self.act_export_excel_table)
+        table_.addAction(self.act_export_csv_table)       
         table_.addSeparator()
         table_.addAction(self.act_toggle_color)
 
@@ -322,7 +323,9 @@ class MainWindow(QMainWindow):
         act_email_table = QAction('Email Table', self, 
             triggered=lambda: t().email_table())
         act_export_excel_table = QAction('Export to Excel', self,
-            triggered=lambda: t().export_excel())
+            triggered=lambda: t().export_df('xlsx'))
+        act_export_csv_table = QAction('Export to csv', self,
+            triggered=lambda: t().export_df('csv'))
         act_toggle_color = QAction('Toggle Color', self,
             triggered=lambda: tv().model().toggle_color())
 
