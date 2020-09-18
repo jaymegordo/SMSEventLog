@@ -681,7 +681,7 @@ class TableWidget(QWidget):
 
         msg.show()
     
-    def email_row(self, title, email_list=None, body_text='', exclude_cols=None):
+    def email_row(self, title, email_list=None, body_text='', exclude_cols=None, lst_attach=None):
         # Create email with df from selected row
 
         df = self.view.df_from_activerow() \
@@ -696,6 +696,7 @@ class TableWidget(QWidget):
 
         # show new email
         msg = em.Message(subject=title, body=body, to_recip=email_list)
+        msg.add_attachments(lst_attach=lst_attach)
 
     def save_excel(self, style, p=None, name='temp'):
         if p is None:
@@ -1056,6 +1057,7 @@ class TSI(EventLogBase):
 
         self.add_button(name='Zip Recent DLS', func=self.zip_recent_dls)
         self.add_button(name='Create Failure Report', func=self.create_failure_report)
+        self.add_button(name='Email Failure Report', func=self.email_report)
         self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
         self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
         self.add_button(name='Refresh Open (User)', func=self.refresh_allopen_user)
@@ -1211,6 +1213,7 @@ class TSI(EventLogBase):
         unit = e.Unit
 
         p_dls = fl.zip_recent_dls_unit(unit=unit, _zip=False)
+        if not p_dls: return
 
         def _handle_zip_result(p_zip):
             self.update_statusbar(f'Folder successfully zipped: {p_zip.name}')
@@ -1219,6 +1222,29 @@ class TSI(EventLogBase):
             .add_signals(signals=('result', dict(func=_handle_zip_result))) \
             .start()
         self.update_statusbar(f'Zipping folder in worker thread: {p_dls.name}')
+
+    def email_report(self):
+        # email selected row, attach failure report doc if exists
+        # TODO handle multiple rows/reports
+        # TODO issue with mac attaching files, windows works 
+        view, e = self.view, self.e_db
+        if e is None: return
+
+        minesite = db.get_unit_val(e.Unit, 'MineSite')
+        ef = efl.get_eventfolder(minesite=minesite).from_model(e=e)
+        failure_title = f'{e.Unit} - {e.DateAdded:%Y-%m-%d} - {e.Title}'
+        p = ef.p_event / f'{failure_title}.pdf'
+
+        if not p.exists():
+            self.update_statusbar(f'Couldn\'t find report to attach: {p}')
+            p = None
+
+        self.email_row(
+            title=f'Failure Summary - {failure_title}',
+            exclude_cols=['UID', 'Status', 'Details', 'Author', 'Pics'],
+            email_list=db.get_email_list('TSI', minesite),
+            body_text='The following TSI(s) have been submitted:',
+            lst_attach=p)
 
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
@@ -1426,10 +1452,29 @@ class EmailList(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
+        self.add_button(name='Add New', func=self.show_addrow)
+
     def show_addrow(self):
-        # TODO Add email
         dlg = dlgs.AddEmail(parent=self)
         dlg.exec_()
+    
+    def remove_row(self):
+        # remove selected email from database
+        # NOTE this could be made a bit more DRY, combine with EventLogBase remove_row
+        view, e, row = self.view, self.e, self.row
+        if row is None: return
+
+        m = dict(MineSite=e.MineSite, Email=e.Email)
+        m_pretty = f.pretty_dict(m)
+
+        msg = f'Are you sure you would like to permanently delete the email:\n\n{m_pretty}'
+
+        if dlgs.msgbox(msg=msg, yesno=True):
+            if row.update(delete=True):
+                view.remove_row(i=row.i)
+                self.update_statusbar(f'Email removed from database:\n\n{m_pretty}')
+            else:
+                self.update_statusbar('ERROR: Email not deleted from database.')
     
     def delete_email(self):
         # TODO delete email
