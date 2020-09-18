@@ -285,6 +285,15 @@ class AddRow(InputForm):
 class AddEmail(AddRow):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Add Email')
+        IPF = InputField
+        self.add_input(field=IPF(text='MineSite', default=gbl.get_minesite()), items=f.config['MineSite'])
+        self.add_input(field=IPF(text='Email'))
+    
+    def accept(self):
+        # TODO build a more generic message for adding new rows
+        super().accept()
+        m = self.items
+        self.update_statusbar(f'New email added to database: {m.get("MineSite", None)}, {m.get("Email", None)}')
 
 class AddEvent(AddRow):
     def __init__(self, parent=None):
@@ -294,7 +303,7 @@ class AddEvent(AddRow):
 
         layout = self.vLayout
         df = db.get_df_unit()
-        minesite = self.mainwindow.minesite if not self.mainwindow is None else 'FortHills'
+        minesite = gbl.get_minesite()
 
         # Checkboxes
         cb_eventfolder = ff.CheckBox('Create Event Folder', checked=True)
@@ -328,8 +337,6 @@ class AddEvent(AddRow):
         self.fUnit.box.select_all()
         f.set_self(vars())
         self.show()
-
-        # comboBox.currentIndexChanged.connect(self.onCurrentIndexChanged)
 
     @pyqtSlot(int)
     def component_changed(self, ix):
