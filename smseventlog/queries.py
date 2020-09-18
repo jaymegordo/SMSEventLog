@@ -9,7 +9,6 @@ from . import dbmodel as dbm
 from . import functions as f
 from . import styles as st
 from .__init__ import *
-from .gui import _global as gbl
 
 log = logging.getLogger(__name__)
 
@@ -143,6 +142,7 @@ class QueryBase(object):
         elif not self.parent is None:
             return self.parent.minesite
         else:
+            from .gui import _globals as gbl
             return gbl.get_minesite() # checks mainwindow, then returns default 'FortHills'
     
     @minesite.setter
