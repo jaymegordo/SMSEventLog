@@ -1093,12 +1093,12 @@ def get_filepaths(p_start):
         return lst[0] # lst is list of files selected + filetypes > ignore filetypes part
     return None
 
-def save_file(p_start=None, name=None):
+def save_file(p_start=None, name=None, ext='xlsx'):
     # TODO save last folder location to QSettings?
     if p_start is None: 
         p_start = Path.home() / 'Desktop'
     
-    p = p_start / f'{name}.xlsx'
+    p = p_start / f'{name}.{ext}'
 
     app = check_app()
     s = QFileDialog.getSaveFileName(caption='Save File', directory=str(p), filter='*.xlsx', options=QFileDialog.DontUseNativeDialog)
