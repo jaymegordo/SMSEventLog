@@ -223,6 +223,8 @@ class MainWindow(QMainWindow):
         table_ = bar.addMenu('Table')
         table_.addAction(self.act_email_table)
         table_.addAction(self.act_export_excel_table)
+        table_.addSeparator()
+        table_.addAction(self.act_toggle_color)
 
         rows_ = bar.addMenu('Rows')
         rows_.addAction(self.act_open_tsi)
@@ -254,7 +256,7 @@ class MainWindow(QMainWindow):
 
     def create_actions(self):
         # Menu/shortcuts
-        t = self.active_table_widget
+        t, tv = self.active_table_widget, self.active_table
 
         act_test_error = QAction('Test Error', self, triggered=self.test_error)
 
@@ -315,10 +317,14 @@ class MainWindow(QMainWindow):
         act_get_wo = QAction('Get WO from email', self,
             triggered=lambda: t().get_wo_from_email())
 
-        act_update_component = QAction('Update Component', self, triggered=lambda: t().show_component())
+        act_update_component = QAction('Update Component', self,
+            triggered=lambda: t().show_component())
         act_email_table = QAction('Email Table', self, 
             triggered=lambda: t().email_table())
-        act_export_excel_table = QAction('Export to Excel', self, triggered=lambda: t().export_excel())
+        act_export_excel_table = QAction('Export to Excel', self,
+            triggered=lambda: t().export_excel())
+        act_toggle_color = QAction('Toggle Color', self,
+            triggered=lambda: tv().model().toggle_color())
 
         f.set_self(vars())
 
