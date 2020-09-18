@@ -698,30 +698,46 @@ class TableWidget(QWidget):
         msg = em.Message(subject=title, body=body, to_recip=email_list)
         msg.add_attachments(lst_attach=lst_attach)
 
-    def save_excel(self, style, p=None, name='temp'):
+    def save_df(self, style=None, df=None, p=None, name='temp', ext='xlsx'):
         if p is None:
-            p = f.datafolder / f'csv/{name}.xlsx'
+            p = Path.home() / f'Desktop/{name}.{ext}'
 
-        try:
+        if ext == 'xlsx':
             style.to_excel(p, index=False, freeze_panes=(1,0))
-            return p
-        except:
-            return None
-    
+        elif ext == 'csv':
+            df.to_csv(p, index=False)
+
+        return p
+
     def export_excel(self):
-        # export current table as excel file, prompt user for location
+        self.export_df(ext='xlsx')
+    
+    def export_csv(self):
+        self.export_df(ext='csv')
+
+    def export_df(self, ext='xlsx'):
+        # export current table as excel/csv file, prompt user for location
         from .. import folders as fl
 
-        p = dlgs.save_file(name=self.title)
+        p = dlgs.save_file(name=self.title, ext=ext)
         if p is None: return
+        p_try = p
 
-        style = self.view.get_style(df=None, outlook=True)
+        kw = dict(name=self.name, p=p, ext=ext)
 
-        p = self.save_excel(style=style, name=self.name, p=p)
+        if ext == 'xlsx':
+            kw['style'] = self.view.get_style(df=None, outlook=True)
+        elif ext == 'csv':
+            kw['df'] = self.view.model().df
+
+        p = self.save_df(**kw)
         if not p is None:
             msg = f'File created:\n\n{p}\n\nOpen now?'
             if dlgs.msgbox(msg=msg, yesno=True):
                 fl.open_folder(p=p, check_drive=False)
+        else:
+            msg = f'ERROR: File not created: {p_try}'
+            self.update_statusbar(msg)
 
     def remove_row(self):
         # default, just remove from table view (doesn't do anything really)
