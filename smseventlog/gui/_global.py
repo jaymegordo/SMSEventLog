@@ -7,7 +7,7 @@ global title, minsize, minsize_ss, minesite, customer
 title = 'SMS Event Log'
 minsize = QSize(200, 100)
 minsize_ss = 'QLabel{min-width: 100px}'
-minesite, customer = 'FortHills', 'Suncor'
+minesite_default, customer = 'FortHills', 'Suncor'
 
 def get_mainwindow():
     # Global function to find the (open) QMainWindow in application
@@ -23,7 +23,7 @@ def get_minesite():
     if not mainwindow is None:
         return mainwindow.minesite
     else:
-        return minesite
+        return minesite_default
 
 def get_settings():
     from . import startup

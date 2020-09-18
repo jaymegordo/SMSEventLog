@@ -160,7 +160,7 @@ def combine_email_data(folder, maxdate, subject=None, header=2):
         fltr = fltr.filter(subject__contains=subject)
 
     try:
-        df = pd.concat([parse_attachment(
+        df = pd.concat([parse_attachment( 
             item.attachments[0],
             header=header,
             d=item.datetime_received.date() + delta(days=-1)) for item in fltr])

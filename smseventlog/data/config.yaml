@@ -6,6 +6,15 @@ FilePaths:
     Factory Campaigns: Regional/SMS West Mining/Factory Campaigns
     Availability: Regional/SMS West Mining/Availability/Reports
 
+UnitPaths:
+    FortHills:
+        980E: Fort Hills/02. Equipment Files/1. 980E Trucks
+        930E: Fort Hills/02. Equipment Files/2. 930E Trucks
+    BaseMine:
+        980E: Fort McMurray/service/2. Customer Equipment Files/1. Suncor/1. Trucks/2. 980E
+        930E: Fort McMurray/service/2. Customer Equipment Files/1. Suncor/1. Trucks/1. 930E
+        HD1500: Fort McMurray/service/2. Customer Equipment Files/1. Suncor/1. Trucks/3. HD1500
+
 Email: jgordon@smsequip.com
 
 color:
@@ -68,6 +77,7 @@ Lists:
         - Waiting Parts (DOWN)
         - Waiting Customer
         - Work In Progress
+        - Planned
     WorkOrdersStatus:
         - Open
         - Closed

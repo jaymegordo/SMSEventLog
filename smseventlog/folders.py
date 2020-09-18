@@ -199,8 +199,9 @@ def get_stats(p):
     return df
 
 # FOLDERS
-def get_unitpaths():
-    p = f.drive / f.config['FilePaths']['980E FH']
+def get_unitpaths(minesite='FortHills', model_base='980E'):
+    # TODO change this to work with other sites
+    p = f.drive / f.config['UnitPaths'][minesite][model_base]
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
 def all_units(rng=None):

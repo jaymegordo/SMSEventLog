@@ -31,7 +31,6 @@ class EventFolder(object):
         p_unit = f.drive / f'{self.equippath}/{modelpath}/{unitpath}'
         p_base = p_unit / f'Events/{year}'
         _p_event = p_base / folder_title
-        print(_p_event)
         p_event_blank = p_base / self.get_folder_title(unit, dateadded, wo_blank, title)
 
         f.set_self(vars())
@@ -79,8 +78,7 @@ class EventFolder(object):
                 self.table_widget.mainwindow.update_statusbar(msg=f'Folder path updated: {self.folder_title}')
 
     def get_folder_title(self, unit, dateadded, workorder, title):
-        d_str = dateadded.strftime(self.dt_format)
-        return f'{unit} - {d_str} - {workorder} - {title}'
+        return f'{unit} - {dateadded:%Y-%m-%d} - {workorder} - {title}'
 
     def check(self, p_prev=None, check_pics=True):
         if not fl.drive_exists():

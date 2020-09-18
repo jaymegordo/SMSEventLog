@@ -8,6 +8,7 @@ m = dict(imptable='UnitSMRImport', impfunc='ImportUnitSMR')
 cols = ['Unit', 'DateSMR', 'SMR']
 
 def import_unit_hrs_email():
+    # NOTE will need to check maxdate per FH and 63N
     maxdate = db.max_date_db(table='UnitSMR', field='DateSMR') + delta(days=1)
     df = exh.combine_email_data(folder='SMR', maxdate=maxdate)
     df = process_df(df)

@@ -281,11 +281,11 @@ class DB(object):
         df = self.get_df_unit()
         return df.Unit.unique()
 
-    def get_df_emaillist(self):
+    def get_df_emaillist(self, force=False):
         name = 'emaillist'
         df = self.get_df_saved(name)
 
-        if df is None:
+        if df is None or force:
             query = qr.EmailList()
             df = query.get_df()
             self.save_df(df, name)

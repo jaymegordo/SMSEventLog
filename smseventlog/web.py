@@ -260,7 +260,7 @@ class SuncorConnect(Web):
         # may want to ask during init or may not
         from .gui import dialogs as dlgs
         ok, self.token = dlgs.inputbox(msg='Enter RSA token:')
-        return False if not ok else True
+        return ok
 
     def login(self):
         if self.token is None:
