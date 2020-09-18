@@ -26,6 +26,7 @@ class TableModel(QAbstractTableModel):
         _stylemap = {}
         current_row = -1
         selection_color = QColor(f.config['color']['bg']['yellowrow'])
+        display_color = True
         self.set_queue()
 
         color_enabled = False
@@ -209,6 +210,8 @@ class TableModel(QAbstractTableModel):
 
         elif role in (Qt.BackgroundRole, Qt.ForegroundRole):
             # ask table_widget for cell color given df, irow, icol
+            if not self.display_color: return None
+            
             func = self.parent.highlight_funcs[col]
             if not func is None:
                 try:
@@ -484,6 +487,10 @@ class TableModel(QAbstractTableModel):
         
         return ans
 
+    def toggle_color(self):
+        self.layoutAboutToBeChanged.emit()
+        self.display_color = not self.display_color
+        self.layoutChanged.emit()
 
 def example(name='EventLog'):
     from . import startup
