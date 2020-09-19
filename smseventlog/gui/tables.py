@@ -946,9 +946,7 @@ class EventLog(EventLogBase):
         subject = f'{company} Passover {minesite} - {shift}'
         body = f'{f.greeting()}Please see updates from {shift}:<br>'
 
-        query = qr.EmailList(minesite=minesite)
-        df2 = query.get_df()
-        email_list = df2[df2.Passover.notnull()].Email
+        email_list = db.get_email_list(name='Passover', minesite=minesite)
 
         self.email_table(subject=subject, body=body, email_list=email_list, df=df, prompts=False)
     
