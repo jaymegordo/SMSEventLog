@@ -178,7 +178,7 @@ class Report(object):
             self.load_all_dfs()
 
         self.render_dfs()
-        if not self.render_charts(): return # orca not installed, charts not rendered
+        if self.charts and not self.render_charts(): return # orca not installed, charts not rendered
         if hasattr(self, 'set_exec_summary'):
             self.set_exec_summary()
 
