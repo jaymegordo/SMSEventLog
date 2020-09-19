@@ -1101,7 +1101,7 @@ def save_file(p_start=None, name=None, ext='xlsx'):
     p = p_start / f'{name}.{ext}'
 
     app = check_app()
-    s = QFileDialog.getSaveFileName(caption='Save File', directory=str(p), filter='*.xlsx', options=QFileDialog.DontUseNativeDialog)
+    s = QFileDialog.getSaveFileName(caption='Save File', directory=str(p), filter='*.xlsx, *.csv', options=QFileDialog.DontUseNativeDialog)
     
     if s[0]:
         return Path(s[0])
