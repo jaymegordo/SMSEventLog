@@ -2,6 +2,7 @@ from PyQt5.QtCore import QSettings, QSize
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 # global functions to handle getting mainwindow/settings in dev or production independent of gui
+# NOTE need to either move this out of .gui, or move .gui.__init__ imports somewhere else
 
 global title, minsize, minsize_ss, minesite, customer
 title = 'SMS Event Log'
@@ -33,3 +34,8 @@ def get_settings():
         return mainwindow.settings
     else:
         return QSettings('sms', 'smseventlog')
+
+def update_statusbar(msg):
+    mw = get_mainwindow()
+    if not mw is None:
+        mw.update_statusbar(msg)
