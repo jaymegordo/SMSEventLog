@@ -236,7 +236,10 @@ class MainWindow(QMainWindow):
 
         database_ = bar.addMenu('Database')
         database_.addAction(self.act_update_comp_smr)
+        database_.addSeparator()
         database_.addAction(self.act_reset_db)
+        database_.addAction(self.act_reset_db_tables)
+        database_.addSeparator()
         database_.addAction(self.act_open_sap)
 
         help_ = bar.addMenu('Help')
@@ -296,6 +299,7 @@ class MainWindow(QMainWindow):
         from ..database import db
         act_update_comp_smr = QAction('Update Component SMR', self, triggered=un.update_comp_smr)
         act_reset_db = QAction('Reset Database Connection', self, triggered=db.reset)
+        act_reset_db_tables = QAction('Reset Database Tables', self, triggered=db.clear_saved_tables)
 
         # TODO: only add these to context menu with specific tables, eg not FC Summary?
         act_refresh_allopen = QAction('Refresh All Open', self, 

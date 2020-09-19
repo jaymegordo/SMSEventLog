@@ -122,6 +122,12 @@ class DB(object):
         # set engine objects to none to force reset, not ideal
         if warn: log.warning('Resetting database')
         self._engine, self._session, self._cursor = None, None, None
+    
+    def clear_saved_tables(self):
+        # reset dfs so they are forced to reload from the db
+        from .gui._global import update_statusbar
+        self.dfs = {}
+        update_statusbar('Saved database tables cleared.')
         
     @property
     def engine(self):
