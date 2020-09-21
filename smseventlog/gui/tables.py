@@ -695,8 +695,9 @@ class TableWidget(QWidget):
         body = f'{f.greeting()}{body_text}<br><br>{style.hide_index().render()}'
 
         # show new email
-        msg = em.Message(subject=title, body=body, to_recip=email_list)
+        msg = em.Message(subject=title, body=body, to_recip=email_list, show_=False)
         msg.add_attachments(lst_attach=lst_attach)
+        msg.show()
 
     def save_df(self, style=None, df=None, p=None, name='temp', ext='xlsx'):
         if p is None:
@@ -1248,17 +1249,22 @@ class TSI(EventLogBase):
         ef = efl.get_eventfolder(minesite=minesite).from_model(e=e)
         failure_title = f'{e.Unit} - {e.DateAdded:%Y-%m-%d} - {e.Title}'
         p = ef.p_event / f'{failure_title}.pdf'
+        lst_attach = [p]
 
         if not p.exists():
-            self.update_statusbar(f'Couldn\'t find report to attach: {p}')
-            p = None
+            msg = f'Couldn\'t find report:\n\n{p.name}\n\nSelect file to attach?'
+            if dlgs.msgbox(msg=msg, yesno=True):
+                lst_attach = dlgs.get_filepaths(p_start=ef._p_event)
+            else:
+                self.update_statusbar(f'Couldn\'t find report to attach: {p}')
+                lst_attach = None
 
         self.email_row(
             title=f'Failure Summary - {failure_title}',
             exclude_cols=['UID', 'Status', 'Details', 'Author', 'Pics'],
             email_list=db.get_email_list('TSI', minesite),
             body_text='The following TSI(s) have been submitted:',
-            lst_attach=p)
+            lst_attach=lst_attach)
 
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
@@ -1399,13 +1405,14 @@ class FCSummary(FCBase):
         lst = list(df2[(df2.MineSite==self.minesite) & (df2['FC Summary'].notnull())].Email)
 
         # show new email
-        msg = em.Message(subject=title, body=body, to_recip=lst)
+        msg = em.Message(subject=title, body=body, to_recip=lst, show_=False)
 
         # attach files in fc folder
         p = self.get_fc_folder()
         if not p is None:
-            for attach in p.glob('*.pdf'):
-                msg.add_attachment(p=attach)
+            msg.add_attachments(lst_attach=[p for p in p.glob('*.pdf')])
+
+        msg.show()
     
     def close_fc(self):
         e = self.e
