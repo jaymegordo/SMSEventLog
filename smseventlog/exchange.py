@@ -156,6 +156,7 @@ def combine_email_data(folder, maxdate, subject=None, header=2):
             tz.localize(ex.EWSDateTime.from_datetime(maxdate)),
             tz.localize(ex.EWSDateTime.now())))
 
+    # useful if single folder contains multiple types of emails
     if not subject is None:
         fltr = fltr.filter(subject__contains=subject)
 

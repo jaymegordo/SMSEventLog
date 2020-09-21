@@ -179,7 +179,7 @@ There are several extra functions in the menubar, such as:
 
 * Code Signing
     * (mac only so far)
-    * Sign - `codesign --deep -s "SMS Event Log" "SMS Event Log.app"`
+    * Sign - `codesign --deep -s "SMS Event Log" "/Applications/SMS Event Log.app"`
     * Verify - `codesign -dv --verbose=4 "/Applications/SMS Event Log.app"`
 
 * [pypi](https://packaging.python.org/tutorials/packaging-projects/)
