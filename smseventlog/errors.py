@@ -5,10 +5,23 @@ import sys
 import types
 
 import sentry_sdk
-from PyQt5.QtWidgets import QMessageBox
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.tornado import TornadoIntegration
+from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+
+try:
+    from PyQt5.QtWidgets import QMessageBox
+except ModuleNotFoundError:
+    pass
 
 from . import functions as f
-from .__init__ import SYS_FROZEN
+from .__init__ import SYS_FROZEN, VERSION
+
+def init_sentry():
+    sentry_sdk.init(
+        dsn="https://66c22032a41b453eac4e0aac4fb03f82@o436320.ingest.sentry.io/5397255",
+        integrations=[SqlalchemyIntegration(), TornadoIntegration(), AioHttpIntegration()],
+        release=f'sms-event-log@{VERSION}')
 
 def test_wrapper(func):
     # handle all errors in Web, allow suppression of errors if eg user closes window
