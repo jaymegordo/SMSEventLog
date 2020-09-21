@@ -17,7 +17,6 @@ m_config = dict(
 log = logging.getLogger(__name__)
 
 def import_unit_hrs_email(minesite):
-    # NOTE will need to check maxdate per FH and 63N
     maxdate = db.max_date_db(table='UnitSMR', field='DateSMR', minesite=minesite) + delta(days=1)
     df = exh.combine_email_data(folder='SMR', maxdate=maxdate, **m_config.get(minesite, {}))
 

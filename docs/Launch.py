@@ -50,6 +50,7 @@ sys.path.append(project_path) # so we can import from smseventlog
 from smseventlog import (
     functions as f,
     dbtransaction as dbt,
+    exchange as exh,
     errors as er,
     queries as qr,
     factorycampaign as fc,

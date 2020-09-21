@@ -41,7 +41,7 @@ There are several extra functions in the menubar, such as:
 * Export current table to excel file
 * Delete selected row
 * Create TSI
-* Get WorkOrder number from email (Work order emails must be in a folder titled "WO REQUEST")
+* Get WorkOrder number from email (Work order emails must be in a folder titled "WO Request")
 * Reset database connection (useful if getting connection related errors)
 * Reset your username/any other credentials
 
@@ -66,6 +66,8 @@ There are several extra functions in the menubar, such as:
     * Settings Sync
         * Install 'Settings Sync' extension
         * Sync settings from public gist: `87b79ab2b6d3dc30fcd703f2fe02b421`
+    * jupyter
+        * Add startup script from `/docs/launch.py` to jupyter startup location `/Users/{username}/.ipython/profile_default/startup`. This will import everything each time the ipython interactive window is launched.
 * [Azure Data Studio](https://docs.microsoft.com/en-us/sql/azure-data-studio/download-azure-data-studio)
 * [Github Desktop](https://desktop.github.com/)
     * Install and create a github account
@@ -200,5 +202,8 @@ There are several extra functions in the menubar, such as:
 
 * Azure Functions
     * Parts of the smseventlog package run as smseventlog-app in azure functions
-    * This runs several functions such as: daily availability imports, oil sample imports etc
-    * publish to azure with `func azure functionapp publish smseventlog-app --build-native-deps`
+    * This runs several functions such as: daily availability imports, oil sample imports, SMR hrs imports
+    * Some key azure commands are:
+        * Publish to azure `func azure functionapp publish smseventlog-app --build-native-deps`
+        * Test locally `func host start` (must be run in active pipenv shell)
+        * Manually trigger timer function `curl --request POST -H "Content-Type:application/json" --data '{"input":""}' http://localhost:7071/admin/functions/az_TimerImportSMR`

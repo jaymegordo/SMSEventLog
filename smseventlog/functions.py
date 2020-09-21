@@ -19,9 +19,7 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
-global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, datafolder, frozen, azure_env
-
-azure_env = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT")
+global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, datafolder, frozen
 
 if sys.platform.startswith('win'):
     drive = Path('P:')
