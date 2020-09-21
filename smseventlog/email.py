@@ -61,8 +61,8 @@ class Outlook(object):
         return
     
 class Message(object):
-    def __init__(self, parent=None, subject='', body='', to_recip=None, cc_recip=None, show_=True):
-        
+    def __init__(self, parent=None, subject='', body=' ', to_recip=None, cc_recip=None, show_=True):
+        # NOTE IMPORTANT - For mac, need to create the message, add attachments, THEN show!!
         if parent is None: parent = Outlook()
         is_win = parent.is_win
         client = parent.client
@@ -84,10 +84,18 @@ class Message(object):
                 string=initial_body)
 
         else: # mac
+            try:
+                # NOTE try to force add signature while on new outlook for mac, this could be improved
+                sig = list(filter(lambda x: x.name() == 'Jayme SMS', client.signatures()))[0]
+                sig = sig.content()
+                body = f'{body}{sig}'
+            except:
+                pass
+
             _msg = client.make(
                 new=k.outgoing_message,
                 with_properties={k.subject: subject, k.content: body})
-
+           
         f.set_self(vars())
 
         self.add_recipients(emails=to_recip, type_='to')
