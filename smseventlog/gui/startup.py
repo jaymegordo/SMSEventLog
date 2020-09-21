@@ -1,9 +1,7 @@
-import sentry_sdk
-from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-from sentry_sdk.integrations.tornado import TornadoIntegration
-from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+
 
 from .. import functions as f
+from .. import errors as er
 from . import delegates, dialogs, gui, refreshtables, tables, update
 from .__init__ import *
 
@@ -22,14 +20,8 @@ def decorate_modules():
     for module in modules:
         er.decorate_all_classes(module=module)
 
-def init_sentry():
-    sentry_sdk.init(
-        dsn="https://66c22032a41b453eac4e0aac4fb03f82@o436320.ingest.sentry.io/5397255",
-        integrations=[SqlalchemyIntegration(), TornadoIntegration(), AioHttpIntegration()],
-        release=f'sms-event-log@{VERSION}')
-
 def launch():
-    init_sentry()
+    er.init_sentry()
     decorate_modules()
     app = get_qt_app()
     w = gui.MainWindow()
