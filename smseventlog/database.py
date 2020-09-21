@@ -286,6 +286,10 @@ class DB(object):
     def unique_units(self):
         df = self.get_df_unit()
         return df.Unit.unique()
+    
+    def filter_database_units(self, df, col='Unit'):
+        """Filter dataframe to only units in database"""
+        return df[df[col].isin(self.unique_units())]
 
     def get_df_emaillist(self, force=False):
         name = 'emaillist'
@@ -410,8 +414,7 @@ class DB(object):
         finally:
             cursor.close()
     
-    def max_date_db(self, table=None, field=None, q=None, join_minesite=True):
-        minesite = 'FortHills'
+    def max_date_db(self, table=None, field=None, q=None, join_minesite=True, minesite='FortHills'):
         a = T(table)
         b = T('UnitID')
 
