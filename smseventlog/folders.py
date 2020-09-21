@@ -501,7 +501,7 @@ def get_recent_dls_unit(unit):
     # get all downloads/year folders
     lst_year = [p for p in p_dls.iterdir() if p.is_dir()]
 
-    if len(lst_year) == 0:
+    if not lst_year:
         msg_simple(msg='No download folders fonund.', icon='warning')
         return
 
@@ -509,19 +509,28 @@ def get_recent_dls_unit(unit):
     lst_year_sorted = sorted(lst_year, key=lambda p: p.name, reverse=True) # sort by year
     p_year = lst_year_sorted[0]
 
-    # sort all dls folders on date from folder title
-    lst_dls = [p for p in p_year.iterdir() if p.is_dir()]
-    lst_dls_sorted = sorted(filter(lambda p: date_from_title(p.name) is not None, lst_dls), key=lambda p: date_from_title(p.name), reverse=True)
-    return lst_dls_sorted[0]
+    try:
+        # sort all dls folders on date from folder title
+        lst_dls = [p for p in p_year.iterdir() if p.is_dir()]
+        lst_dls_sorted = sorted(filter(lambda p: date_from_title(p.name) is not None, lst_dls), key=lambda p: date_from_title(p.name), reverse=True)
+        return lst_dls_sorted[0]
+    except:
+        log.error('Couldn\'t find recent dls folder.')
+        return None
 
 def zip_recent_dls_unit(unit, _zip=True):
     # find/zip most recent dls folder by parsing date in folder title
 
     p_dls = get_recent_dls_unit(unit=unit)
 
-    from .gui.dialogs import msgbox
-    msg = f'Found dls folder: {p_dls.name},\n\nZip now?'
-    if not msgbox(msg=msg, yesno=True): return
+    from .gui.dialogs import msgbox, msg_simple
+    if not p_dls is None:
+        msg = f'Found dls folder: {p_dls.name},\n\nZip now?'
+        if not msgbox(msg=msg, yesno=True): return
+    else:
+        msg = f'Couldn\'t find recent DLS folder, check folder structure for issues.'
+        msg_simple(msg=msg, icon='critical')
+        return
 
     if _zip:
         p_zip = zip_folder(p=p_dls, delete=False)
