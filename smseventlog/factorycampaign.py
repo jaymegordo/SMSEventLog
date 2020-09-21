@@ -104,18 +104,16 @@ def create_fc_folder(fc_number):
         print(f'Couldn\'t make fc path for: {fc_number}')
 
 def read_fc(p):
-
-    dfu = db.get_df_unit()
-    df = pd.read_csv(p, header=5, dtype=dict(Model='object')) \
-        .rename(columns=f.config['Headers']['FCImport']) \
-        .pipe(f.parse_datecols) \
-        .merge(right=dfu[['Model', 'Serial', 'Unit']], how='left')
-
     # Remove missing units
     # Drop and reorder,  Don't import: CompletionSMR, claimnumber, ServiceLetterDate
     cols = ['FCNumber','Model', 'Serial', 'Unit', 'StartDate', 'EndDate', 'DateCompleteKA', 'Subject', 'Classification', 'Branch', 'Status']
 
-    return df[df.Unit.isin(db.unique_units())] \
+    dfu = db.get_df_unit()
+    return pd.read_csv(p, header=5, dtype=dict(Model='object')) \
+        .rename(columns=f.config['Headers']['FCImport']) \
+        .pipe(f.parse_datecols) \
+        .merge(right=dfu[['Model', 'Serial', 'Unit']], how='left') \
+        .pipe(db.filter_database_units) \
         .reset_index(drop=True) \
         [cols]
 
