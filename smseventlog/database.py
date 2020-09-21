@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool.base import Pool
 
 from . import functions as f
-from . import queries as qr
 from .__init__ import *
 
 global db
@@ -296,7 +295,8 @@ class DB(object):
         df = self.get_df_saved(name)
 
         if df is None or force:
-            query = qr.EmailList()
+            from .queries import EmailList
+            query = EmailList()
             df = query.get_df()
             self.save_df(df, name)
         
@@ -305,7 +305,7 @@ class DB(object):
     def get_email_list(self, name, minesite):
         # Get list of emails from db for specified name eg 'WO Request'
         df = self.get_df_emaillist()
-        return list(df[(df.MineSite==minesite) & (df[name].notnull())].Email)
+        return list(df[(df.MineSite==minesite) & (df[name].str.lower()=='x')].Email)
 
     def get_list_minesite(self):
         lst_minesite = getattr(self, 'lst_minesite', None)
