@@ -3,18 +3,41 @@ from . import functions as f
 from .__init__ import *
 from .database import db
 
-global m, cols
+global m, cols, m_config
 m = dict(imptable='UnitSMRImport', impfunc='ImportUnitSMR')
 cols = ['Unit', 'DateSMR', 'SMR']
+m_config = dict(
+    FortHills=dict(
+        subject='Trucks and Shovel Hours',
+        header=2),
+    BaseMine=dict(
+        subject='Mine Equipment Service Meter Report',
+        header=0))
 
-def import_unit_hrs_email():
+log = logging.getLogger(__name__)
+
+def import_unit_hrs_email(minesite):
     # NOTE will need to check maxdate per FH and 63N
-    maxdate = db.max_date_db(table='UnitSMR', field='DateSMR') + delta(days=1)
-    df = exh.combine_email_data(folder='SMR', maxdate=maxdate)
-    df = process_df(df)
+    maxdate = db.max_date_db(table='UnitSMR', field='DateSMR', minesite=minesite) + delta(days=1)
+    df = exh.combine_email_data(folder='SMR', maxdate=maxdate, **m_config.get(minesite, {}))
+
+    # get eg: process_df_forthills()
+    process_func = getattr(sys.modules[__name__], f'process_df_{minesite.lower()}')
+
+    df = process_func(df=df)
     db.import_df(df=df, imptable=m['imptable'], impfunc=m['impfunc'])
 
-def process_df(df):
+def import_unit_hrs_email_all():
+    """Import SMR emails for multiple minesites"""
+    minesites = ['FortHills', 'BaseMine']
+
+    for minesite in minesites:
+        try:
+            import_unit_hrs_email(minesite=minesite)
+        except:
+            log.error(f'Failed to import SMR email for: {minesite}')
+
+def process_df_forthills(df):
     if df is None: return None
     df = df[['SAP_Parameter', 'Date', 'Hours']]
     df.columns = cols
@@ -26,6 +49,19 @@ def process_df(df):
     df.SMR = df.SMR.astype(int)
 
     return df.reset_index(drop=True)
+
+def process_df_basemine(df):
+    if df is None: return None
+    # TODO make sure days is actually for correct time
+
+    return df \
+        [['Unit', 'SmrValue', 'BaseReadTime']] \
+        .rename(columns=dict(SmrValue='SMR', BaseReadTime='DateSMR')) \
+        .assign(
+            Unit=lambda x: x['Unit'].astype(str),
+            SMR=lambda x: x['SMR'].str.replace(',', '').astype(int),
+            DateSMR=lambda x: pd.to_datetime(x['DateSMR']).dt.date + delta(days=1)) \
+        .pipe(db.filter_database_units)
 
 def import_unit_hrs(p=None):
     if p is None:
