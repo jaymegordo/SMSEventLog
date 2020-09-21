@@ -56,7 +56,6 @@ class ExchangeAccount():
 
     def create_account(self, failcount=0, config=None, autodiscover=None):
         email, password = self.cred_manager.load()
-        # print(f'email: {email}, password: {password}')
         credentials = ex.Credentials(username=email, password=password)
 
         # first try to load saved config from QSettings
@@ -79,7 +78,6 @@ class ExchangeAccount():
 
             self.save_account_settings(account=account)
         except:
-            f.send_error()
             log.warning(f'Failed creating account: {failcount}')
             failcount +=1
 
@@ -96,6 +94,7 @@ class ExchangeAccount():
         return account
     
     def save_account_settings(self, account):
+        if AZURE_WEB: return
         m = dict(
             ews_url=account.protocol.service_endpoint,
             ews_auth_type=account.protocol.auth_type,
@@ -113,7 +112,7 @@ class ExchangeAccount():
     @property
     def wo_folder(self):
         if self._wo_folder is None:
-            self._wo_folder = self.fldr_root.glob('WO REQUEST')
+            self._wo_folder = self.fldr_root.glob('WO Request')
         
         return self._wo_folder
     
@@ -136,7 +135,6 @@ class ExchangeAccount():
             if not match is None:
                 wo = match.group(0)
                 return wo
-
 
 def parse_attachment(attachment, d=None, header=2):
     result = str(attachment.content, 'UTF-8')

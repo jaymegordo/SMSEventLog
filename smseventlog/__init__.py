@@ -31,14 +31,17 @@ except ModuleNotFoundError:
 __version__ = '3.1.16'
 VERSION = __version__
 
-AZURE_ENV = os.getenv("AZURE_FUNCTIONS_ENVIRONMENT") # dont think these are used
-AZURE_WEB = os.getenv('WEBSITE_INSTANCE_ID')
-
-SYS_FROZEN = getattr(sys, 'frozen', False)
-
 # create logger
+# log = logging.getLogger(__name__)
+# log.setLevel(logging.INFO)
+
 fmt = logging.Formatter('%(levelname)s: %(name)s - %(lineno)d -  %(message)s')
 sh = logging.StreamHandler()
 sh.setLevel(logging.INFO)
 sh.setFormatter(fmt)
 # log.addHandler(sh)
+
+AZURE_LOCAL = os.getenv('AZURE_FUNCTIONS_ENVIRONMENT', False) # dont think these are used
+AZURE_WEB = True if os.getenv('WEBSITE_SITE_NAME', None) else False
+
+SYS_FROZEN = getattr(sys, 'frozen', False)

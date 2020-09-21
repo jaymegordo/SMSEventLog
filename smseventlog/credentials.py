@@ -21,6 +21,7 @@ class CredentialManager(object):
 
     def __init__(self, name, prompt=False, gui=True, prefix=True):
         encode_key = 'wwdlkoeedfdk'
+        if AZURE_WEB or AZURE_LOCAL: gui = False
 
         if gui:
             # if gui, will need dialogs for prompts
@@ -83,6 +84,8 @@ class CredentialManager(object):
     
     def save_multi(self, vals):
         # vals is dict of keys/vals
+        if AZURE_WEB: return
+
         if self.gui:
             for key, val in vals.items():
                 self.save_single(key, val)
@@ -96,7 +99,7 @@ class CredentialManager(object):
                 with open(self.p_static_creds, 'w+') as file:
                     yaml.dump(self.static_creds_full, file)
             except:
-                log.warning(f'Failed to write credentials back to file: {m}')
+                log.warning(f'Failed to write credentials back to file: {vals}')
     
     def load_single(self, key):
         if self.gui:
