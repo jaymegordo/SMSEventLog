@@ -167,12 +167,13 @@ class TableModel(QAbstractTableModel):
 
     def data(self, index=None, role=RawDataRole, i_index=None, name_index=None):
         # TableView asks the model for data to display, edit, paint etc
+        # Qt.DisplayRole = 0
         # convert index integer values to index names for df._get_value() > fastest lookup
         # TODO create 'display' dataframe of all string values, 'background df' etc
         df = self.df
         irow, icol, row, col = None, None, None, None
 
-        if not index is None and index.isValid():
+        if not index is None:
             irow, icol = self.getRowCol(index)
         elif not i_index is None:
             irow, icol = i_index[0], i_index[1]
@@ -465,10 +466,12 @@ class TableModel(QAbstractTableModel):
     def columnCount(self, index=QModelIndex()):
         return self.df.shape[1]
 
-    def selection_changed(self, current_row=0):
-        self.layoutAboutToBeChanged.emit()
-        self.current_row = current_row
-        self.layoutChanged.emit()
+    def row_changed(self, index_current, index_prev):
+        # only redraw the table if the row index changes (faster for horizontal switching)
+        if not index_current.row() == index_prev.row():
+            self.layoutAboutToBeChanged.emit()
+            self.current_row = index_current.row()
+            self.layoutChanged.emit()
 
     def change_color(self, qt_color, color_enabled):
         self.layoutAboutToBeChanged.emit()
