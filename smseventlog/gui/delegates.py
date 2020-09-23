@@ -3,13 +3,6 @@ from .datamodel import TableModel
 from .__init__ import *
 
 log = logging.getLogger(__name__)
-global m_align
-m_align =  {
-    'object': Qt.AlignLeft,
-    'float64': Qt.AlignRight,
-    'int64': Qt.AlignRight,
-    'bool': Qt.AlignCenter,
-    'datetime64[ns]': Qt.AlignCenter}
 
 # TODO maybe move to formfields
 class TextEditor(QTextEdit):
@@ -18,7 +11,6 @@ class TextEditor(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setTabChangesFocus(True)
-        # self.textChanged.connect(self.textHasChanged) # need to make this func
 
     def keyPressEvent(self, event):       
         modifiers = QApplication.keyboardModifiers()
@@ -39,23 +31,7 @@ class CellDelegate(QStyledItemDelegate):
     def _initStyleOption(self, option, index):
         # bypass to parent
         super().initStyleOption(option, index)
-    
-    def initStyleOption(self, option, index):
-        # set column alignment based on data type
-        model = self.parent.model()
-        icol = index.column()
-        dtype = model.get_dtype(icol=icol)
         
-        # align all cols except 'longtext' VCenter
-        alignment = m_align.get(dtype, Qt.AlignLeft)
-        col_name = model.get_col_name(icol=icol)
-
-        if not col_name in self.parent.mcols['longtext']:
-            alignment |= Qt.AlignVCenter
-
-        option.displayAlignment = alignment
-        self._initStyleOption(option, index)
-    
     def sizeHint(self, option, index):
         size = super().sizeHint(option, index)
         return QSize(size.width() + 2, size.height() + 2)
