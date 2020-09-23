@@ -307,16 +307,6 @@ def clean_series(s, convert_str=False):
         
     return sorted(list(s.replace('', pd.NA).dropna().unique()))
 
-def convert_stylemap_index(style):
-    # convert irow, icol stylemap to df index
-    # m is dict of eg {(0, 4): ['background-color: #fef0f0', 'color: #000000']}
-    # NOTE styler saves everything, so if multiple styles are applied, this would only use the first
-    stylemap = style.ctx
-    df = style.data
-    m = {(df.index[k[0]], df.columns[k[1]]):v for k, v in stylemap.items()}
-
-    return m
-
 def append_default_row(df):
     # ensure df dtypes aren't changed when appending new row by creating a blank row of defaults, then filling after
     # return {col: val} for all columns in df
@@ -368,6 +358,49 @@ def df_to_color(df, highlight_funcs : dict, role):
             pass
 
     return df_out
+
+def convert_stylemap_index(style):
+    """**NOT USED** convert irow, icol stylemap to df named index
+    m is dict of eg {(0, 4): ['background-color: #fef0f0', 'color: #000000']}
+    NOTE styler saves everything, so if multiple styles are applied, this would only use the first"""
+    stylemap = style.ctx
+    df = style.data
+    m = {(df.index[k[0]], df.columns[k[1]]):v for k, v in stylemap.items()}
+
+    return m
+
+def convert_stylemap_index_color(style):
+    """Convert (irow, icol) stylemap to dict of {col: {row: QColor(value)}}
+    
+    eg stylemap = {(0, 4): ['background-color: #fef0f0', 'color: #000000']}
+
+    Returns
+    -------
+    tuple
+        (background, text) of
+            {col: {row: QColor}}
+    """
+    from PyQt5.QtGui import QColor
+
+    m_background = dd(dict)
+    m_text = dd(dict)
+    df = style.data
+
+    def set_color(style_vals, i):
+        # may only have background-color, not color
+        try:
+            color = style_vals[i].split(' ')[1]
+            return QColor(color) if not color == '' else None
+        except:
+            return None
+
+    for k, style_vals in style.ctx.items():
+        row, col = df.index[k[0]], df.columns[k[1]]
+        m_background[col][row] = set_color(style_vals, i=0)
+        m_text[col][row] = set_color(style_vals, i=1)
+
+    return m_background, m_text
+
 
 # simple obfuscation for db connection string
 def encode(key, string):
