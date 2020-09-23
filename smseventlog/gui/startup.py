@@ -24,11 +24,20 @@ def launch():
     er.init_sentry()
     decorate_modules()
     app = get_qt_app()
+
+    pixmap = QPixmap(str(f.datafolder / 'images/sms_icon.png'))
+    splash = QSplashScreen(pixmap)
+    splash.showMessage('Launching\nSMS Event Log...', color=Qt.white)
+    splash.show()
+    app.processEvents()
+
     w = gui.MainWindow()
 
     w.show()
     app.processEvents()
     w.after_init()
+    splash.finish(w)
+    
     return app.exec_()
 
 def get_qt_app():
