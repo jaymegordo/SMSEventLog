@@ -245,24 +245,15 @@ class MainWindow(QMainWindow):
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_show_about) # this actually goes to main 'home' menu
         help_.addAction(self.act_check_update)
-        # help_.addAction(self.act_test_error)
         help_.addSeparator()
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_creds)
         help_.addAction(self.act_exchange_creds)
         help_.addAction(self.act_sap_creds)
 
-    def test_error(self):
-        a = 5
-        b = 6
-
-        return a / 0
-
     def create_actions(self):
         # Menu/shortcuts
         t, tv = self.active_table_widget, self.active_table
-
-        act_test_error = QAction('Test Error', self, triggered=self.test_error)
 
         act_show_about = QAction('About', self, triggered=dlgs.about)
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
@@ -333,27 +324,31 @@ class MainWindow(QMainWindow):
         act_toggle_color = QAction('Toggle Color', self,
             triggered=lambda: tv().model().toggle_color())
 
+        act_update_smr = QAction('Update SMR', self,
+            triggered=lambda: t().update_smr())
+
         f.set_self(vars())
 
     def contextMenuEvent(self, event):
-        # TODO: use caller to check current tab?
-        source = self.sender()
+        """Add actions to right click menu, dependent on currently active table
+        """
         child = self.childAt(event.pos())
 
         menu = QMenu(self)
-        menu.addAction(self.act_viewfolder)
 
-        # add actions based on current tab
-        
-        menu.addSeparator()
-        menu.addAction(self.act_refresh)
-        menu.addAction(self.act_refresh_allopen)
-        menu.addAction(self.act_refresh_lastweek)
-        menu.addAction(self.act_refresh_lastmonth)
-
-        menu.addSeparator()
-
-        menu.addAction(self.act_detailsview)
+        table_widget = self.active_table_widget()
+        for section in table_widget.context_actions.values():
+            for action in section:
+                name_action = f'act_{action}'
+                try:
+                    menu.addAction(getattr(self, name_action))
+                except:
+                    try:
+                        menu.addAction(getattr(table_widget, name_action))
+                    except:        
+                        log.warning(f'Couldn\'t add action to context menu: {action}')
+            
+            menu.addSeparator()
 
         action = menu.exec_(self.mapToGlobal(event.pos()))
 
