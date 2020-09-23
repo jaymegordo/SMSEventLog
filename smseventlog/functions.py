@@ -333,6 +333,42 @@ def append_default_row(df):
         .append(m, ignore_index=True) \
         .astype(df.dtypes)
 
+def df_to_strings(df, formats):
+    """Convert df values to string values for faster display in table.
+
+    Example
+    -------
+    >>> formats = {
+        'StartDate': '{:%Y-%m-%d %H:%M}',
+        'Total': '{:,.2f}',
+    """
+    df = df.copy()
+    for col, fmt in formats.items():
+        if col in df.columns:
+            df[col] = df[col].apply(lambda x: fmt.format(x) if not pd.isnull(x) else '')
+
+    return df.astype('object').fillna('')
+
+def df_to_color(df, highlight_funcs : dict, role):
+    """Convert df of values to QColor for faster display in table.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+
+    highlight_funcs : dict
+        {col_name: func_to_apply}
+    """
+    df_out = pd.DataFrame(data=None, index=df.index, columns=df.columns)
+    for col, func in highlight_funcs.items():
+        try:
+            if not func is None:
+                df_out[col] = df[col].apply(lambda x: func(val=x, role=role))
+        except:
+            pass
+
+    return df_out
+
 # simple obfuscation for db connection string
 def encode(key, string):
     encoded_chars = []
