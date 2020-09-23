@@ -311,6 +311,13 @@ class ComponentCO(ComponentCOBase):
 
         f.set_self(vars())
 
+    def update_style(self, style, **kw):
+        # only using for highlight_alternating units       
+        color = 'navyblue' if self.theme == 'light' else 'maroon'
+
+        return style \
+            .apply(st.highlight_alternating, subset=['Unit'], theme=self.theme, color=color)
+
 class ComponentSMR(QueryBase):
     def __init__(self, **kw):
         super().__init__(**kw)
