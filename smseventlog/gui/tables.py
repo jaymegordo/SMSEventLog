@@ -404,14 +404,17 @@ class TableView(QTableView):
         # used to reselect items by named index after model is sorted/filtered
         model = self.model()
         # convert name_index to i_index
-        i_index = model.data(name_index=name_index, role=TableModel.iIndexRole)
-        if i_index is None:
-            i_index = (0, 0)
-
-        index = model.createIndex(*i_index)
+        index = model.data(name_index=name_index, role=TableModel.qtIndexRole)
+        if index is None:
+            index = model.createIndex(0, 0)
+        
+        self.select_by_index(index)
+    
+    def select_by_index(self, index):
         sel = QItemSelection(index, index)
         self.selectionModel().select(sel, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
         self.selectionModel().setCurrentIndex(index, QItemSelectionModel.Current) # make new index 'active'
+        self.scrollTo(index)
 
     def copy(self):
         # copy selected cells to clipboard
@@ -515,6 +518,8 @@ class TableWidget(QWidget):
         self.name = name
         self.title = f.config['TableName']['Class'][name]
 
+        self.context_actions = dd(list, refresh=['refresh', 'refresh_allopen'], details=['detailsview'])
+
         self.mainwindow = gbl.get_mainwindow()
 
         vLayout = QVBoxLayout(self)
@@ -557,9 +562,11 @@ class TableWidget(QWidget):
     @property
     def row(self):
         return self.view.row
-        
-    def add_action(self, name, func, shortcut=None, btn=False):
+
+    def add_action(self, name, func, shortcut=None, btn=False, ctx=False):
         act = QAction(name, self, triggered=er.e(func))
+        name_action = name.replace(' ', '_').lower()
+        setattr(self, f'act_{name_action}', act)
 
         if not shortcut is None:
             act.setShortcut(QKeySequence(shortcut))
@@ -567,6 +574,9 @@ class TableWidget(QWidget):
         
         if btn:
             self.add_button(act=act)
+        
+        if ctx:
+            self.context_actions[ctx].append(name_action)
 
     def add_button(self, name=None, func=None, act=None):
         if not act is None:
@@ -751,7 +761,12 @@ class TableWidget(QWidget):
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_button(name='Add New', func=self.show_addrow)
+        self.add_action(name='Add New', func=self.show_addrow, btn=True)
+
+        self.context_actions['refresh'].extend(['refresh_allopen', 'refresh_lastweek', 'refresh_lastmonth'])
+        self.context_actions['add'] = ['add_new']
+        self.context_actions['view'] = ['viewfolder']
+        self.context_actions['smr'] = ['update_smr']
 
     class View(TableView):
         def __init__(self, parent):
@@ -911,11 +926,39 @@ class EventLogBase(TableWidget):
 
         self.update_statusbar(msg=msg)
 
+    def update_smr(self):
+        row, e = self.row, self.e_db
+        if e is None: return
+
+        cur_smr = e.SMR
+        e_smr = db.session.query(dbm.UnitSMR).get(dict(Unit=e.Unit, DateSMR=e.DateAdded))
+
+        if e_smr is None:
+            msg = f'No SMR value found for Unit {e.Unit} on {e.DateAdded:%Y-%m-%d}'
+            dlgs.msg_simple(msg=msg, icon='warning')
+            return
+
+        if not pd.isnull(cur_smr):          
+            msg = f'Found existing SMR: {cur_smr:,.0f}\n\nOverwrite?'
+            if not dlgs.msgbox(msg=msg, yesno=True):
+                return
+
+        col_name = 'SMR' if self.title == 'Work Orders' else 'Unit SMR'
+        index = self.view.create_index_activerow(col_name=col_name)  
+        self.view.model().setData(index=index, val=e_smr.SMR)
+        self.update_statusbar(f'SMR updated: {e_smr.SMR}')     
+
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_action(name='Filter Passover', func=lambda x: self.view.filter_column('Passover', 'x'), btn=True)
-        self.add_action(name='Email Passover', func=self.email_passover, btn=True)
+        self.add_action(
+            name='Filter Passover',
+            func=lambda x: self.view.filter_column('Passover', 'x'),
+            btn=True,
+            ctx='passover')
+        self.add_action(name='Email Passover', func=self.email_passover, btn=True, ctx='passover')
+
+        self.context_actions['smr'] = [] # clear from menu
 
     class View(EventLogBase.View):
         def __init__(self, parent):
@@ -975,9 +1018,11 @@ class EventLog(EventLogBase):
 class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        self.context_actions['wo'] = ['get_wo']
 
-        self.add_action(name='Email WO Open', func=self.email_wo_request, btn=True)
-        self.add_action(name='Email WO Close', func=self.email_wo_close, btn=True)
+        self.add_action(name='Email WO Open', func=self.email_wo_request, btn=True, ctx='wo')
+        self.add_action(name='Email WO Close', func=self.email_wo_close, btn=True, ctx='wo')
+
 
     class View(EventLogBase.View):
         def __init__(self, parent):
@@ -1033,6 +1078,7 @@ class WorkOrders(EventLogBase):
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        self.context_actions['smr'] = ['update_smr']
     
     class View(EventLogBase.View):
         def __init__(self, parent):
@@ -1070,12 +1116,12 @@ class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_button(name='Zip Recent DLS', func=self.zip_recent_dls)
-        self.add_button(name='Create Failure Report', func=self.create_failure_report)
-        self.add_button(name='Email Failure Report', func=self.email_report)
-        self.add_button(name='TSI Homepage', func=self.open_tsi_homepage)
-        self.add_button(name='Fill TSI Webpage', func=self.fill_tsi_webpage)
-        self.add_button(name='Refresh Open (User)', func=self.refresh_allopen_user)
+        self.add_action(name='Zip Recent DLS', func=self.zip_recent_dls, btn=True, ctx='tsi')
+        self.add_action(name='Create Failure Report', func=self.create_failure_report, btn=True, ctx='report')
+        self.add_action(name='Email Failure Report', func=self.email_report, btn=True, ctx='report')
+        self.add_action(name='TSI Homepage', func=self.open_tsi_homepage, btn=True, ctx='tsi')
+        self.add_action(name='Fill TSI Webpage', func=self.fill_tsi_webpage, btn=True, ctx='tsi')
+        self.add_action(name='Refresh Open (User)', func=self.refresh_allopen_user, btn=True, ctx='refresh')
     
     def remove_row(self):
         view, e, row = self.view, self.e, self.row
@@ -1278,7 +1324,7 @@ class UnitInfo(TableWidget):
             'Current SMR': '{:,.0f}',
             'Engine Serial': '{:.0f}'})
 
-        self.add_button(name='Add New', func=self.show_addrow)
+        self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add')
     
     def show_addrow(self):
         dlg = dlgs.AddUnit(parent=self)
@@ -1301,8 +1347,10 @@ class FCBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_button(name='Import FCs', func=self.import_fc)
-        self.add_button(name='View FC Folder', func=self.view_fc_folder)
+        self.add_action(name='Import FCs', func=self.import_fc, btn=True)
+        self.add_action(name='View FC Folder', func=self.view_fc_folder, btn=True)
+
+        self.context_actions['view'] = ['viewfolder']
 
     def import_fc(self):
         lst_csv = fc.get_import_files()
@@ -1340,8 +1388,8 @@ class FCBase(TableWidget):
 class FCSummary(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_button(name='Email New FC', func=self.email_new_fc)
-        self.add_button(name='Close FC', func=self.close_fc)
+        self.add_action(name='Email New FC', func=self.email_new_fc, btn=True)
+        self.add_action(name='Close FC', func=self.close_fc, btn=True)
 
         # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
@@ -1425,7 +1473,7 @@ class FCSummary(FCBase):
         row.update(vals=dict(ManualClosed=True))
         self.view.remove_row()
 
-        msg = f'FC: "{e.FCNumber} - {e.Subject}" closed for MineSite: "{e.MineSite}"'
+        msg = f'FC: "{e.FCNumber}" closed for MineSite: "{e.MineSite}"'
         self.update_statusbar(msg=msg)
 
 class FCDetails(FCBase):
@@ -1473,7 +1521,7 @@ class EmailList(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_button(name='Add New', func=self.show_addrow)
+        self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add')
 
     def show_addrow(self):
         dlg = dlgs.AddEmail(parent=self)
@@ -1513,11 +1561,14 @@ class Availability(TableWidget):
             name='Filter Assigned',
             func=lambda x: self.view.filter_column('Assigned', '0'),
             shortcut='Ctrl+Shift+A',
-            btn=True)
+            btn=True,
+            ctx='filter')
 
         self.add_action(name='Save Assignments', func=self.save_assignments, btn=True)
         self.add_action(name='Assign Suncor', func=self.assign_suncor, shortcut='Ctrl+Shift+Z')
-        self.add_action(name='Show Unit EL', func=self.filter_unit_eventlog, shortcut='Ctrl+Shift+F', btn=True)
+        self.add_action(name='Show Unit EL', func=self.filter_unit_eventlog, shortcut='Ctrl+Shift+F', btn=True, ctx='filter')
+
+        self.context_actions['refresh'].extend(['refresh_allopen', 'refresh_lastweek', 'refresh_lastmonth'])
 
     class View(TableView):
         def __init__(self, parent):
