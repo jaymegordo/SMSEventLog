@@ -210,9 +210,12 @@ class QueryBase(object):
         return self.df
 
     def get_stylemap(self, df, col=None):
-        # convert irow, icol stylemap to indexes
+        """Convert irow, icol stylemap to indexes
+        
+        Consumed by datamodel set_stylemap()
+        """
         if df.shape[0] <= 0 or not hasattr(self, 'update_style'):
-            return {}
+            return None
 
         if col is None:
             # calc style for full dataframe
@@ -224,7 +227,7 @@ class QueryBase(object):
             style = df.style.pipe(m['func'], **m.get('da', {}))
 
         style._compute()
-        return f.convert_stylemap_index(style=style)
+        return f.convert_stylemap_index_color(style=style)
 
     def set_minesite(self):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))

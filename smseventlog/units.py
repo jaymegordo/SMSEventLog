@@ -51,11 +51,11 @@ def process_df_forthills(df):
 
 def process_df_basemine(df):
     if df is None: return None
-    # TODO make sure days is actually for correct time
 
     return df \
-        [['Unit', 'SmrValue', 'BaseReadTime']] \
-        .rename(columns=dict(SmrValue='SMR', BaseReadTime='DateSMR')) \
+        [['Unit', 'MineCareSmr', 'MineCareReadTime']] \
+        .dropna() \
+        .rename(columns=dict(MineCareSmr='SMR', MineCareReadTime='DateSMR')) \
         .assign(
             Unit=lambda x: x['Unit'].astype(str),
             SMR=lambda x: x['SMR'].str.replace(',', '').astype(int),

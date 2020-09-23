@@ -239,7 +239,7 @@ class AddRow(InputForm):
         m = f.convert_dict_db_view(title=self.title, m=m, output='view')
         
         if not self.table_model is None:
-            self.table_model.insertRows(m=m)
+            self.table_model.insertRows(m=m, select=True)
     
     def add_row_db(self, row):
         # TODO probably merge this with Row class? > update all? BULK update (with 2 component rows)
