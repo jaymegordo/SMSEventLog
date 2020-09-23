@@ -101,15 +101,7 @@ class TableModel(QAbstractTableModel):
 
         if self._df.shape[0] > 0:
             self.parent.resizeRowsToContents()
-
-    # @property
-    # def stylemap(self):
-    #     return self._stylemap
-
-    # @stylemap.setter
-    # def stylemap(self, stylemap):
-    #     self._stylemap = stylemap
-    
+   
     def set_static_dfs(self, df):
         """Set static dict copies of df string value + colors for faster display in table.
 
