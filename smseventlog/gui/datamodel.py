@@ -1,10 +1,19 @@
 from .__init__ import *
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.WARNING)
 # irow, icol = row/column integer locations eg 3, 5
 # row, col = row/column index names eg (if no actual index) 3, 'StartDate'
 
 # NOTE calling index.data() defaults to role=DisplayRole, NOT model.data(role=RawDataRole) careful!
+
+global m_align
+m_align =  {
+    'object': Qt.AlignLeft,
+    'float64': Qt.AlignRight,
+    'int64': Qt.AlignRight,
+    'bool': Qt.AlignCenter,
+    'datetime64[ns]': Qt.AlignCenter}
 
 class TableModel(QAbstractTableModel):
     RawDataRole = 64
@@ -23,11 +32,14 @@ class TableModel(QAbstractTableModel):
         _resort = lambda : None # Null resort functon
         _cols = []
         table_widget = parent.parent #sketch
+        formats = parent.formats
+        highlight_funcs = parent.highlight_funcs
         _stylemap = {}
         current_row = -1
         selection_color = QColor(f.config['color']['bg']['yellowrow'])
         display_color = True
         self.set_queue()
+        self.alignments = {}
 
         color_enabled = False
 
@@ -57,9 +69,31 @@ class TableModel(QAbstractTableModel):
         date_cols = self.get_col_idxs(df.dtypes[df.dtypes=='datetime64[ns]'].index)
         mcols['date'] = [i for i in date_cols if not i in mcols['datetime']]
 
+        self.mcols = mcols
+        self.set_date_formats()
+        self.set_static_dfs(df=df)
+
         f.set_self(vars(), exclude='df')
         self.df = df
         self.set_stylemap()
+    
+    def set_static_dfs(self, df):
+        """Set static dict copies of df string value + colors for faster display in table.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+        """        
+        self.m_display = f.df_to_strings(df=df, formats=self.formats).to_dict()
+        self.m_color_bg = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.BackgroundRole).to_dict()
+        self.m_color_text = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.ForegroundRole).to_dict()
+
+    def set_date_formats(self):
+        for i in self.mcols['date']:
+            self.formats[self.headerData(i)] = '{:%Y-%m-%d}'
+
+        for i in self.mcols['datetime']:
+            self.formats[self.headerData(i)] = '{:%Y-%m-%d     %H:%M}'
 
     @property
     def df(self):
@@ -167,13 +201,12 @@ class TableModel(QAbstractTableModel):
 
     def data(self, index=None, role=RawDataRole, i_index=None, name_index=None):
         # TableView asks the model for data to display, edit, paint etc
-        # Qt.DisplayRole = 0
         # convert index integer values to index names for df._get_value() > fastest lookup
-        # TODO create 'display' dataframe of all string values, 'background df' etc
+
         df = self.df
         irow, icol, row, col = None, None, None, None
 
-        if not index is None:
+        if not index is None and index.isValid():
             irow, icol = self.getRowCol(index)
         elif not i_index is None:
             irow, icol = i_index[0], i_index[1]
@@ -184,36 +217,24 @@ class TableModel(QAbstractTableModel):
 
         if col is None:
             row, col = df.index[irow], df.columns[icol]
-
-        try:
-            val = df._get_value(row, col)
-        except KeyError:
-            return None
         
         if role == Qt.DisplayRole:
-            if not pd.isnull(val):
-                fmt = self.parent.formats.get(col, None)
-                return str(val) if fmt is None else fmt.format(val)
-            else:
-                return ''
-        
-        elif role == Qt.EditRole:
-            return val if not pd.isnull(val) else ''
+            return str(self.m_display[col][row])
 
-        elif role == self.RawDataRole:
-            return val
-            
-        elif role == Qt.TextAlignmentRole:
-            if icol in self.mcols['center']:
-                return Qt.AlignVCenter + Qt.AlignHCenter
-            elif isinstance(val, int) or isinstance(val, float):
-                return Qt.AlignVCenter + Qt.AlignRight
-
-        elif role in (Qt.BackgroundRole, Qt.ForegroundRole):
+        if role in (Qt.BackgroundRole, Qt.ForegroundRole):
             # ask table_widget for cell color given df, irow, icol
             if not self.display_color: return None
             
-            func = self.parent.highlight_funcs[col]
+            # check self.m_color_display first
+            if role == Qt.BackgroundRole:
+                color = self.m_color_bg[col][row]
+            elif role == Qt.ForegroundRole:
+                color = self.m_color_text[col][row]
+            
+            if not pd.isnull(color):
+                return color
+            
+            func = self.parent.highlight_funcs_complex[col]
             if not func is None:
                 try:
                     color = func(df=df, row=row, col=col, irow=irow, icol=icol, val=val, role=role, index=index)
@@ -223,6 +244,7 @@ class TableModel(QAbstractTableModel):
                 except:
                     return None
             
+            # TODO merge stylemap with m_color
             # stylemap used to read static styles from df styler, eg background gradient in Availability
             style_vals = self.stylemap.get((row, col), None)
             if style_vals:
@@ -242,6 +264,24 @@ class TableModel(QAbstractTableModel):
                     return self.selection_color
                 elif role == Qt.ForegroundRole:
                     return QColor('#000000')
+            else:
+                return None
+
+        try:
+            val = df._get_value(row, col)
+        except KeyError:
+            log.warning(f'Couldn\'t get value for row: {row}, col: {col}')
+            return None
+
+
+        if role == Qt.EditRole:
+            return val if not pd.isnull(val) else ''
+
+        elif role == self.RawDataRole:
+            return val
+            
+        elif role == Qt.TextAlignmentRole:
+            return self.get_alignment(icol=icol)
 
         # return named row/col index for use with df.loc
         elif role == self.NameIndexRole:
@@ -287,6 +327,24 @@ class TableModel(QAbstractTableModel):
             # keep original df copy in sync for future filtering
             self._df_orig.loc[row, col] = val
             df.loc[row, col] = val
+            # self.m_values[col][row] = val
+
+            # set display vals, NOTE this could go into own func maybe
+            if not pd.isnull(val):
+                if col in self.formats.keys():
+                    display_val = self.formats[col].format(val)
+                else:
+                    display_val = str(val)
+            else:
+                display_val = ''
+
+            self.m_display[col][row] = display_val
+            
+            # set highlight color back to static dict
+            func = self.highlight_funcs.get(col, None)
+            if not func is None:
+                self.m_color_bg[col][row] = func(val=val, role=Qt.BackgroundRole)
+                self.m_color_text[col][row] = func(val=val, role=Qt.ForegroundRole)
 
             # either add items to the queue, or update single val
             if queue:
@@ -365,6 +423,35 @@ class TableModel(QAbstractTableModel):
     def get_dtype(self, icol):
         return str(self.df.dtypes[icol]).lower()
     
+    def get_alignment(self, icol : int) -> int:
+        """Get alignment value for specified column.
+
+        Parameters
+        ----------
+        icol : int
+            Column integer
+
+        Returns
+        -------
+        int
+            Alignment value for column
+        """        
+        saved_align = self.alignments.get(icol, None)
+
+        if not saved_align is None:
+            return saved_align
+        else:
+            dtype = self.get_dtype(icol=icol)
+            col_name = self.get_col_name(icol=icol)
+            
+            # align all cols except 'longtext' VCenter
+            alignment = m_align.get(dtype, Qt.AlignLeft)
+
+            if not col_name in self.parent.mcols['longtext']:
+                alignment |= Qt.AlignVCenter
+            
+            self.alignments[icol] = alignment
+
     def get_col_name(self, icol):
         return self._cols[icol]
 
@@ -441,6 +528,9 @@ class TableModel(QAbstractTableModel):
         self.beginInsertRows(QModelIndex(), i, i + num_rows - 1)
         self._df = self.df.pipe(f.append_default_row)
 
+        # NOTE maybe append blank row to each static df instead of resetting all..
+        self.set_static_dfs(df=self._df)
+
         for col, val in m.items():
             icol = self.get_col_idx(col)
             if not icol is None:
@@ -458,6 +548,8 @@ class TableModel(QAbstractTableModel):
         self.beginRemoveRows(QModelIndex(), i, i + num_rows - 1)
         df = self._df
         self._df = df.drop(df.index[i]).reset_index(drop=True)
+        self.set_static_dfs(df=self._df)
+
         self.endRemoveRows()
 
     def rowCount(self, index=QModelIndex()):
@@ -469,6 +561,15 @@ class TableModel(QAbstractTableModel):
     def row_changed(self, index_current, index_prev):
         # only redraw the table if the row index changes (faster for horizontal switching)
         if not index_current.row() == index_prev.row():
+            # view = self.parent
+            # view.setUpdatesEnabled(False)
+            # self.current_row = index_current.row()
+            # for row in (index_current.row(), index_prev.row()):
+            #     for col in range(self.columnCount()):
+            #         view.childAt(row, col).repaint()
+            
+            # view.setUpdatesEnabled(True)
+
             self.layoutAboutToBeChanged.emit()
             self.current_row = index_current.row()
             self.layoutChanged.emit()
