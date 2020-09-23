@@ -28,12 +28,13 @@ class TableView(QTableView):
     def __init__(self, parent=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # self.activated.connect(self.double_click_enter)
         mainwindow = gbl.get_mainwindow()
 
         self.mcols = dd(tuple)
         col_widths = {'Title': 150, 'Part Number': 150, 'Failure Cause': 300}
-        highlight_funcs, col_func_triggers, formats = dd(type(None)), dd(list), {} # NOTE use all lowercase!
+        self.highlight_funcs, col_func_triggers, self.formats = dd(type(None)), dd(list), {}
+        highlight_funcs_complex = dd(type(None))
+
         highlight_vals = {
                 'true': 'goodgreen',
                 'false': 'bad'}
@@ -41,7 +42,7 @@ class TableView(QTableView):
         colors = f.config['color']
 
         query = parent.query
-        formats.update(query.formats) # start with query formats, will be overridden if needed
+        self.formats.update(query.formats) # start with query formats, will be overridden if needed
         
         # set up initial empty model
         self.parent = parent # model needs this to access parent table_widget
@@ -53,7 +54,6 @@ class TableView(QTableView):
         # Signals/Slots
         _data_model.modelReset.connect(self.dataFrameChanged)
         _data_model.dataChanged.connect(self.dataFrameChanged)
-        # self.clicked.connect(self._on_click) # NOTE not sure if need this..
         self.dataFrameChanged.connect(self._enable_widgeted_cells) # NOTE or this
 
         header = HeaderView(self)
@@ -79,7 +79,7 @@ class TableView(QTableView):
             QTableView::item:selected:hover {{color: {colr}; {location}: {darkyellow};}}')
 
         sel = self.selectionModel()
-        sel.currentChanged.connect(self.selection_changed)
+        sel.currentChanged.connect(self.model().row_changed)
 
         f.set_self(vars())
         self.set_default_headers()
@@ -100,9 +100,6 @@ class TableView(QTableView):
     @property
     def row(self):
         return self.row_from_activerow()
-
-    def selection_changed(self, cur, prev):
-        self.model().selection_changed(current_row=cur.row())
 
     def display_data(self, df):
         self.rows_initialized = False 
@@ -128,11 +125,14 @@ class TableView(QTableView):
     def color_timeout(self):
         self.model().change_color(Qt.magenta, False)
     
-    def add_highlight_funcs(self, cols, func):
+    def add_highlight_funcs(self, cols, func, cmplx=False):
         # add same highlight func to multiple cols
         if not isinstance(cols, list): cols = [cols]
         for col in cols:
-            self.highlight_funcs[col] = func
+            if not cmplx:
+                self.highlight_funcs[col] = func
+            else:
+                self.highlight_funcs_complex[col] = func
 
     def add_col_funcs(self, cols, func):
         # add same col trigger func to multiple cols
@@ -188,6 +188,7 @@ class TableView(QTableView):
 
     def highlight_color_scale(self, val, **kw):
         # highlight values using max/min within range of multiple columns
+        # Not used
 
         if self.col_maxmin is None:
             df = self.model().df
@@ -494,7 +495,6 @@ class TableView(QTableView):
         if not hasattr(self, 'filter_state') or not self.filter_state:
             model.filter_by_items(col=col_name, items=[str(val)])
             self.filter_state = True
-            
         else:
             model.reset()
             self.filter_state = False
@@ -1040,7 +1040,7 @@ class ComponentCO(EventLogBase):
 
             self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'Component', 'Side')
             self.col_widths.update(dict(Notes=400))
-            self.highlight_funcs['Unit'] = self.highlight_alternating
+            # self.highlight_funcs['Unit'] = self.highlight_alternating
 
             cols = ['Unit SMR', 'Comp SMR', 'SN Removed', 'SN Installed', 'Removal Reason']
             self.add_highlight_funcs(cols=cols, func=self.highlight_blanks)
@@ -1528,9 +1528,8 @@ class Availability(TableWidget):
             self.mcols['dynamic'] = ('Total', 'SMS', 'Suncor')
             self.mcols['sort_filter'] = ('Unit',)
             self.col_widths.update(dict(Comment=600))
-            # self.highlight_funcs['Unit'] = self.highlight_alternating
             self.add_highlight_funcs(cols=['Category Assigned', 'Assigned'], func=self.highlight_by_val)
-            self.add_highlight_funcs(cols=['StartDate', 'EndDate'], func=self.highlight_ahs_duplicates)
+            self.add_highlight_funcs(cols=['StartDate', 'EndDate'], func=self.highlight_ahs_duplicates, cmplx=True)
             self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
             self.formats.update({
