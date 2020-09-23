@@ -21,6 +21,7 @@ class TableModel(QAbstractTableModel):
     DateRole = 66
     RawBackgroundRole = 67
     iIndexRole = 68
+    qtIndexRole = 69
 
     def __init__(self, parent, df=None):
         super().__init__()
@@ -34,7 +35,7 @@ class TableModel(QAbstractTableModel):
         table_widget = parent.parent #sketch
         formats = parent.formats
         highlight_funcs = parent.highlight_funcs
-        _stylemap = {}
+        # _stylemap = {}
         current_row = -1
         selection_color = QColor(f.config['color']['bg']['yellowrow'])
         display_color = True
@@ -75,19 +76,8 @@ class TableModel(QAbstractTableModel):
 
         f.set_self(vars(), exclude='df')
         self.df = df
-        self.set_stylemap()
+        # self.set_stylemap()
     
-    def set_static_dfs(self, df):
-        """Set static dict copies of df string value + colors for faster display in table.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-        """        
-        self.m_display = f.df_to_strings(df=df, formats=self.formats).to_dict()
-        self.m_color_bg = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.BackgroundRole).to_dict()
-        self.m_color_text = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.ForegroundRole).to_dict()
-
     def set_date_formats(self):
         for i in self.mcols['date']:
             self.formats[self.headerData(i)] = '{:%Y-%m-%d}'
@@ -112,27 +102,40 @@ class TableModel(QAbstractTableModel):
         if self._df.shape[0] > 0:
             self.parent.resizeRowsToContents()
 
-    @property
-    def stylemap(self):
-        return self._stylemap
+    # @property
+    # def stylemap(self):
+    #     return self._stylemap
 
-    @stylemap.setter
-    def stylemap(self, stylemap):
-        self._stylemap = stylemap
+    # @stylemap.setter
+    # def stylemap(self, stylemap):
+    #     self._stylemap = stylemap
     
-    def set_stylemap(self, col=None):
-        # apply style functions
-        df = self.df
+    def set_static_dfs(self, df):
+        """Set static dict copies of df string value + colors for faster display in table.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+        """        
+        self.m_display = f.df_to_strings(df=df, formats=self.formats).to_dict()
+        self.m_color_bg = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.BackgroundRole).to_dict()
+        self.m_color_text = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.ForegroundRole).to_dict()
+
+        self.set_stylemap(df=df)
+
+    def set_stylemap(self, df=None, col=None):
+        """Get colors from applying a stylemap func to df, merge to static dfs"""
+        if df is None: df = self.df
         if df.shape[0] == 0: return
 
         # only avail + FCSummary use this so far
-        stylemap = self.query.get_stylemap(df=df, col=col)
+        # m_stylemap is tuple of 2 nested dicts
+        m_stylemap = self.query.get_stylemap(df=df, col=col)
+        if m_stylemap is None: return
 
-        # either reset stylemap, or update slice
-        if col is None:
-            self.stylemap = stylemap
-        else:
-            self.stylemap.update(stylemap)
+        for col_name in m_stylemap[0].keys():
+            self.m_color_bg[col_name].update(m_stylemap[0][col_name])
+            self.m_color_text[col_name].update(m_stylemap[1][col_name])
 
     @property
     def dbtable_default(self):
@@ -221,7 +224,7 @@ class TableModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             return str(self.m_display[col][row])
 
-        if role in (Qt.BackgroundRole, Qt.ForegroundRole):
+        elif role in (Qt.BackgroundRole, Qt.ForegroundRole):
             # ask table_widget for cell color given df, irow, icol
             if not self.display_color: return None
             
@@ -234,27 +237,15 @@ class TableModel(QAbstractTableModel):
             if not pd.isnull(color):
                 return color
             
+            # TODO somehow merge complex highlight funcs
             func = self.parent.highlight_funcs_complex[col]
             if not func is None:
                 try:
                     color = func(df=df, row=row, col=col, irow=irow, icol=icol, val=val, role=role, index=index)
 
                     # if color is None need to keep checking if selected
-                    if not color is None: return color
-                except:
-                    return None
-            
-            # TODO merge stylemap with m_color
-            # stylemap used to read static styles from df styler, eg background gradient in Availability
-            style_vals = self.stylemap.get((row, col), None)
-            if style_vals:
-                i = 0 if role == Qt.BackgroundRole else 1
-
-                # may only have background-color, not color
-                try:
-                    color_temp = style_vals[i]
-                    color = color_temp.split(' ')[1]
-                    return QColor(color) if not color == '' else None
+                    if not color is None:
+                        return color
                 except:
                     return None
             
@@ -267,19 +258,6 @@ class TableModel(QAbstractTableModel):
             else:
                 return None
 
-        try:
-            val = df._get_value(row, col)
-        except KeyError:
-            log.warning(f'Couldn\'t get value for row: {row}, col: {col}')
-            return None
-
-
-        if role == Qt.EditRole:
-            return val if not pd.isnull(val) else ''
-
-        elif role == self.RawDataRole:
-            return val
-            
         elif role == Qt.TextAlignmentRole:
             return self.get_alignment(icol=icol)
 
@@ -287,10 +265,28 @@ class TableModel(QAbstractTableModel):
         elif role == self.NameIndexRole:
             return (row, col)
         
-        elif role == self.iIndexRole:
+        elif role in (self.iIndexRole, self.qtIndexRole):
             if irow is None:
-                irow, icol = df.index.get_loc(row), df.columns.get_loc(col)
-            return (irow, icol)
+                try:
+                    irow, icol = df.index.get_loc(row), df.columns.get_loc(col)
+                    if role == self.iIndexRole:
+                        return (irow, icol)
+                    elif role == self.qtIndexRole:
+                        return self.createIndex(irow, icol)
+                except KeyError:
+                    return None
+
+        try:
+            val = df._get_value(row, col)
+        except KeyError:
+            log.warning(f'Couldn\'t get value for row: {row}, col: {col}, role: {role}')
+            return None
+
+
+        if role == Qt.EditRole:
+            return val if not pd.isnull(val) else ''
+        elif role == self.RawDataRole:
+            return val           
 
         return None
    
@@ -346,15 +342,15 @@ class TableModel(QAbstractTableModel):
                 self.m_color_bg[col][row] = func(val=val, role=Qt.BackgroundRole)
                 self.m_color_text[col][row] = func(val=val, role=Qt.ForegroundRole)
 
+            # reset stylemap for single col when val in dynamic_cols is changed
+            if col in self.parent.mcols['dynamic']:
+                self.set_stylemap(col=col)
+
             # either add items to the queue, or update single val
             if queue:
                 self.add_queue(vals={col: val}, irow=irow)
             elif update_db:
                 self.update_db(index=index, val=val)               
-            
-            # reset stylemap when val in dynamic_cols is changed
-            if col in self.parent.mcols['dynamic']:
-                self.set_stylemap(col=col)
 
             self.dataChanged.emit(index, index)
 
@@ -518,7 +514,7 @@ class TableModel(QAbstractTableModel):
         
         return e
                
-    def insertRows(self, m, i=None, num_rows=1):
+    def insertRows(self, m, i=None, num_rows=1, select=False):
         # insert new row to table view
         # m is dict with view_cols
         
@@ -538,6 +534,9 @@ class TableModel(QAbstractTableModel):
                 self.setData(index=index, val=val, update_db=False, triggers=False)
 
         self.endInsertRows()
+
+        if select:
+            self.parent.select_by_index(index=self.createIndex(i, 1))
 
     def append_row(self, data):
         # TODO use this instead of insert
