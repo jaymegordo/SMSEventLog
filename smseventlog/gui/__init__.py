@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction,
                              QStyleOptionFocusRect, QStyleOptionViewItem,
                              QTableView, QTableWidget, QTableWidgetItem,
                              QTabWidget, QTextEdit, QVBoxLayout, QWidget,
-                             QWidgetAction)
+                             QWidgetAction, QSplashScreen)
 from sentry_sdk import configure_scope
 
 from smseventlog import dbmodel as dbm

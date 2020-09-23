@@ -77,6 +77,7 @@ class MainWindow(QMainWindow):
         # TODO: need to show window first, then show loading message
         self.username = self.get_username()
         self.init_sentry()
+        # self.tabs.init_tabs()
 
         self.u = users.User(username=self.username, mainwindow=self).login()
 
@@ -372,18 +373,21 @@ class TabWidget(QTabWidget):
     def __init__(self, parent):
         super().__init__(parent=parent)
         self.tabindex = dd(int)
-        
-        m = f.config['TableName']['Class'] # get list of table classes from config
-        lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'ComponentSMR', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
        
-        # Add tabs to widget
-        for i, title in enumerate(lst):
-            self.addTab(getattr(tbls, title)(parent=self), m[title])
-            self.tabindex[m[title]] = i
-        
         self.currentChanged.connect(self.save_activetab)
         self.prev_index = self.currentIndex()
         self.current_index = self.prev_index
+        self.mainwindow = parent
+        self.init_tabs()
+
+    def init_tabs(self):
+        """Add tabs to widget"""
+
+        m = f.config['TableName']['Class'] # get list of table classes from config
+        lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'ComponentSMR', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
+        for i, title in enumerate(lst):
+            self.addTab(getattr(tbls, title)(parent=self), m[title])
+            self.tabindex[m[title]] = i
 
     def get_index(self, title):
         return self.tabindex[title]

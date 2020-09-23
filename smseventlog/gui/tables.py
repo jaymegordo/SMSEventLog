@@ -28,7 +28,10 @@ class TableView(QTableView):
     def __init__(self, parent=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        mainwindow = gbl.get_mainwindow()
+        if not parent is None:
+            self.mainwindow = parent.mainwindow
+        else:
+            self.mainwindow = gbl.get_mainwindow()
 
         self.mcols = dd(tuple)
         col_widths = {'Title': 150, 'Part Number': 150, 'Failure Cause': 300}
@@ -516,11 +519,14 @@ class TableWidget(QWidget):
         super().__init__(parent)
         name = self.__class__.__name__
         self.name = name
+        if not parent is None:
+            self.mainwindow = parent.mainwindow
+        else:
+            self.mainwindow = gbl.get_mainwindow()
+
         self.title = f.config['TableName']['Class'][name]
 
         self.context_actions = dd(list, refresh=['refresh', 'refresh_allopen'], details=['detailsview'])
-
-        self.mainwindow = gbl.get_mainwindow()
 
         vLayout = QVBoxLayout(self)
         btnbox = QHBoxLayout()
@@ -761,10 +767,9 @@ class TableWidget(QWidget):
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_action(name='Add New', func=self.show_addrow, btn=True)
+        self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add', shortcut='Ctrl+Shift+N')
 
         self.context_actions['refresh'].extend(['refresh_allopen', 'refresh_lastweek', 'refresh_lastmonth'])
-        self.context_actions['add'] = ['add_new']
         self.context_actions['view'] = ['viewfolder']
         self.context_actions['smr'] = ['update_smr']
 
