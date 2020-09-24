@@ -18,6 +18,7 @@ The log is structured around several main tables, each of which can be used to i
 
 ## Usage
 ### Keyboard shortcuts
+
 | Action               | Shortcut         |
 |----------------------|------------------|
 | Show Refresh Menu    | Ctrl + R         |
