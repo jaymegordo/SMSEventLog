@@ -1,5 +1,5 @@
 <p align="right">
-    <img src="/smseventlog/data/images/sms_icon.png" width="100" height="100" title="SMS Logo"/>
+    <img src="./smseventlog/data/images/sms_icon.png" width="100" height="100" title="SMS Logo"/>
 </p>
 
 <!-- ![](smseventlog/data/images/sms_icon.png) -->
