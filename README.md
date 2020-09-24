@@ -1,6 +1,8 @@
-<img src="/smseventlog/data/images/sms_icon.png" width="100" height="100" title="SMS Logo"/>
+<p align="right">
+    <img src="/smseventlog/data/images/sms_icon.png" width="100" height="100" title="SMS Logo"/>
+</p>
 
-![](smseventlog/data/images/sms_icon.png)
+<!-- ![](smseventlog/data/images/sms_icon.png) -->
 
 The SMS Event Log is a desktop application to create a single source of truth for a variety of technical information related to equipment events/failures/work completed. It is designed to be highly available, fast, user friendly, and scalable to any number of equipment fleets/mine sites.
 
