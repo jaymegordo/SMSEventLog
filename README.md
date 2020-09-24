@@ -1,5 +1,3 @@
-<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
-
 # SMSEventLog
 The SMS Event Log is a desktop application to create a single source of truth for a variety of technical information related to equipment events/failures/work completed. It is designed to be highly available, fast, user friendly, and scalable to any number of equipment fleets/mine sites.
 
