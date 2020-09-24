@@ -1,4 +1,4 @@
-<!-- <img src="/smseventlog/data/images/sms_icon.png" width="100" height="100"/> -->
+<img src="/smseventlog/data/images/sms_icon.png" width="100" height="100" title="SMS Logo"/>
 
 ![](smseventlog/data/images/sms_icon.png)
 
