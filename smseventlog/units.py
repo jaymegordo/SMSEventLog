@@ -59,7 +59,7 @@ def process_df_basemine(df):
         .assign(
             Unit=lambda x: x['Unit'].astype(str),
             SMR=lambda x: x['SMR'].str.replace(',', '').astype(int),
-            DateSMR=lambda x: pd.to_datetime(x['DateSMR']).dt.date + delta(days=1)) \
+            DateSMR=lambda x: pd.to_datetime(x['DateSMR']).dt.date) \
         .pipe(db.filter_database_units)
 
 def import_unit_hrs(p=None):

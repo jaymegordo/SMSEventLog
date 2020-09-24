@@ -1104,7 +1104,7 @@ class ComponentCO(EventLogBase):
 class ComponentSMR(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        label = QLabel('Warning: this table is currently only valid for FortHills. (Other sites to be updated)')
+        label = QLabel('Warning: this table is currently only valid for FortHills and BaseMine. (Other sites to be updated)')
         self.btnbox.addWidget(label)
 
     class View(TableView):

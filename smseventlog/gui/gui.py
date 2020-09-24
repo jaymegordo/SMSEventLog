@@ -74,7 +74,6 @@ class MainWindow(QMainWindow):
         self.update_statusbar(msg=self.prev_status)
 
     def after_init(self):
-        # TODO: need to show window first, then show loading message
         self.username = self.get_username()
         self.init_sentry()
         # self.tabs.init_tabs()
@@ -82,9 +81,7 @@ class MainWindow(QMainWindow):
         self.u = users.User(username=self.username, mainwindow=self).login()
 
         # initialize updater
-        # test_version = '3.0.4'
-        test_version = None
-        self.updater = Updater(test_version=test_version, mw=self)
+        self.updater = Updater(mw=self)
 
         self.active_table_widget().refresh(default=True)
 
