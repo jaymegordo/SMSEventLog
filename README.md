@@ -1,13 +1,3 @@
-<head>
-    <link rel="apple-touch-icon" sizes="180x180" href="/docs/favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/docs/favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/docs/favicon/favicon-16x16.png">
-    <link rel="manifest" href="/docs/favicon/site.webmanifest">
-    <link rel="mask-icon" href="/docs/favicon/safari-pinned-tab.svg" color="#5bbad5">
-    <meta name="msapplication-TileColor" content="#da532c">
-    <meta name="theme-color" content="#ffffff">
-</head>
-
 # SMSEventLog
 The SMS Event Log is a desktop application to create a single source of truth for a variety of technical information related to equipment events/failures/work completed. It is designed to be highly available, fast, user friendly, and scalable to any number of equipment fleets/mine sites.
 
