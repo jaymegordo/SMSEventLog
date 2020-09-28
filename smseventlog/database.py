@@ -266,11 +266,18 @@ class DB(object):
         return df
 
     def get_unit_val(self, unit, field):
-        # TODO: bit messy, should have better structure to get any val from saved table
+        # TODO bit messy, should have better structure to get any val from saved table
         self.set_df_unit()
-        dfu = self.df_unit
 
-        return dfu.loc[unit.strip(), field]
+        try:
+            return self.df_unit.loc[unit.strip(), field]
+        except KeyError:
+            log.warning(f'Couldn\'t get unit "{unit}" in unit table.')
+            return None
+    
+    def unit_exists(self, unit):
+        self.set_df_unit()
+        return unit in self.df_unit.Unit
     
     def get_modelbase(self, model):      
         df = self.get_df_equiptype()

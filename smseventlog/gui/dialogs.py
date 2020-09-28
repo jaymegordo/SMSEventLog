@@ -243,7 +243,7 @@ class AddRow(InputForm):
     
     def add_row_db(self, row):
         # TODO probably merge this with Row class? > update all? BULK update (with 2 component rows)
-        dbt.print_model(model=row)
+        # dbt.print_model(model=row)
         db.add_row(row=row)
     
     def add_row_queue(self, row):
@@ -479,6 +479,8 @@ class AddEvent(AddRow):
         unit = self.fUnit.val
         rows = []
         self.add_row_queue(row=row) # need to update at least row1
+
+        if not unit_exists(unit=unit): return
 
         # add these values to display in table
         m['Model'] = db.get_unit_val(unit=unit, field='Model')
@@ -1163,3 +1165,12 @@ def check_app():
     from . import startup
     app = startup.get_qt_app()
     return app
+
+def unit_exists(unit):
+    """Check if unit exists, outside of DB class, raise error message if False"""
+    if not db.unit_exists(unit=unit):
+        msg = f'Unit "{unit}" does not exist in database. Please add it to db from the [Unit Info] tab.'
+        msg_simple(msg=msg, icon='warning')
+        return False
+    else:
+        return True
