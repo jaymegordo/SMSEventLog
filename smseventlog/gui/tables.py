@@ -413,11 +413,26 @@ class TableView(QTableView):
         
         self.select_by_index(index)
     
-    def select_by_index(self, index):
+    def select_by_int(self, irow : int = 0, icol : int = 1):
+        """Select table row by int number"""
+        model = self.model()
+        max_row = model.rowCount() - 1
+        max_col = model.columnCount() - 1
+
+        if irow > max_row: irow = max_row
+        if icol > max_col: icol = max_col
+
+        index = model.createIndex(irow, icol)
+        self.select_by_index(index=index)
+
+    def select_by_index(self, index : QModelIndex):
+        """Select table row by index"""
         sel = QItemSelection(index, index)
+        self.setUpdatesEnabled(False)
         self.selectionModel().select(sel, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
-        self.selectionModel().setCurrentIndex(index, QItemSelectionModel.Current) # make new index 'active'
         self.scrollTo(index)
+        self.selectionModel().setCurrentIndex(index, QItemSelectionModel.Current) # make new index 'active'
+        self.setUpdatesEnabled(True)
 
     def copy(self):
         # copy selected cells to clipboard
