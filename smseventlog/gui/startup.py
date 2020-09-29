@@ -1,9 +1,9 @@
-
-
 from .. import functions as f
 from .. import errors as er
 from . import delegates, dialogs, gui, refreshtables, tables, update
 from .__init__ import *
+
+log = logging.getLogger(__name__)
 
 try:
     # try setting app ID for windows only
@@ -21,13 +21,27 @@ def decorate_modules():
         er.decorate_all_classes(module=module)
 
 def launch():
+    from PyQt5.QtGui import QScreen # just used for default
+
     er.init_sentry()
     decorate_modules()
     app = get_qt_app()
 
+    s = QSettings('sms', 'smseventlog')
+
     pixmap = QPixmap(str(f.datafolder / 'images/sms_icon.png'))
     splash = QSplashScreen(pixmap)
-    splash.showMessage(f'SMS Event Log\nversion:{VERSION}', color=Qt.white)
+    splash.showMessage(f'SMS Event Log\nVersion {VERSION}', color=Qt.white)
+
+    # move splash screen, this is pretty janky
+    try:
+        last_center = s.value('screen', defaultValue=app.screens()[0].geometry().center())
+        splash_rect = splash.frameGeometry()
+        splash_rect.moveCenter(last_center)
+        splash.move(splash_rect.topLeft())
+    except:
+        log.warning('Couldn\'t move splash screen.')
+
     splash.show()
     app.processEvents()
 
