@@ -527,6 +527,24 @@ class TableView(QTableView):
         if not name_index is None:
             self.select_by_nameindex(name_index=name_index)
 
+    def jump_top_bottom(self):
+        """Jump to top or bottom of currently active table"""
+        num_rows = self.model().rowCount()
+        cur_row = self.active_row_index(warn=False)
+        cur_col = self.selectionModel().currentIndex().column()
+        if not cur_col > -1: cur_col = 1 
+        max_row = num_rows - 1
+
+        if cur_row is None:
+            self.select_by_int()
+        else:
+            midpoint = num_rows // 2
+            # if closer to bottom, but not bottom, jump bottom
+            if (cur_row == 0 or num_rows - cur_row < midpoint) and not cur_row == max_row:
+                self.select_by_int(irow=max_row, icol=cur_col) # jump bottom
+            else:
+                self.select_by_int(irow=0, icol=cur_col) # jump top
+
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
 
