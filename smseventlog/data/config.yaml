@@ -6,14 +6,27 @@ FilePaths:
     Factory Campaigns: Regional/SMS West Mining/Factory Campaigns
     Availability: Regional/SMS West Mining/Availability/Reports
 
-UnitPaths:
+EquipPaths:
+    FortHills: Fort Hills/02. Equipment Files
+    BaseMine: Fort McMurray/service/2. Customer Equipment Files/1. Suncor
+    Elkford: Elkford/Equipment
+    RainyRiver: Rainy River/02. Equipment Files
+    Bighorn: Acheson/COALSPUR - BIGHORN/02. Equipment Files
+    Bighorn_Opps: Acheson/COALSPUR - BIGHORN/02. Equipment Files # TODO remove this
+    CoalValley: Acheson/COAL VALLEY/02. Equipment Files
+    ConumaCoal: Acheson/Conuma Coal/02. Equipment Files
+    GahchoKue: Gahcho Kue/02. Equipment Files
+    Shovels63N: Regional/Fort McMurray/BU-145-ShovelTechs/Customer Equipment Files
+
+ModelPaths:
     FortHills:
-        980E: Fort Hills/02. Equipment Files/1. 980E Trucks
-        930E: Fort Hills/02. Equipment Files/2. 930E Trucks
+        980E: 1. 980E Trucks
+        930E: 2. 930E Trucks
+        HD1500: 3. HD1500
     BaseMine:
-        980E: Fort McMurray/service/2. Customer Equipment Files/1. Suncor/1. Trucks/2. 980E
-        930E: Fort McMurray/service/2. Customer Equipment Files/1. Suncor/1. Trucks/1. 930E
-        HD1500: Fort McMurray/service/2. Customer Equipment Files/1. Suncor/1. Trucks/3. HD1500
+        980E: 1. Trucks/2. 980E
+        930E: 1. Trucks/1. 930E
+        HD1500: 1. Trucks/3. HD1500
 
 Email: jgordon@smsequip.com
 
