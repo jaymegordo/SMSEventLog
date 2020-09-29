@@ -885,6 +885,7 @@ class EventLogBase(TableWidget):
             self.update_statusbar(msg=f'Event closed: {e.Unit} - {d.strftime("%Y-%m-%d")} - {e.Title} ')
             
     def view_folder(self):
+        """Open event folder of currently active row in File Explorer/Finder"""
         view, i, e = self.view, self.i, self.e_db
         if e is None: return
         try:
@@ -893,7 +894,14 @@ class EventLogBase(TableWidget):
             self.update_statusbar(f'Could not get minesite for unit: "{e.Unit}". Does it exist in the database?')
             return
 
-        # try to get minesite-specific EventFolder, if not use default
+        # Fix ugly titles if needed
+        title = e.Title
+        title_good = f.nice_title(title=title)
+        if not title == title_good:
+            index = view.create_index_activerow(col_name='Title')
+            view.model().setData(index=index, val=title_good)
+            self.update_statusbar(f'Title fixed: {title_good}')
+
         efl.EventFolder.from_model(e=e, irow=i, table_model=view.model()).show()
     
     def remove_row(self):
