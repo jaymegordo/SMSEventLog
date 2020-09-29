@@ -27,7 +27,7 @@ def launch():
 
     pixmap = QPixmap(str(f.datafolder / 'images/sms_icon.png'))
     splash = QSplashScreen(pixmap)
-    splash.showMessage('Launching\nSMS Event Log...', color=Qt.white)
+    splash.showMessage(f'SMS Event Log\nversion:{VERSION}', color=Qt.white)
     splash.show()
     app.processEvents()
 
