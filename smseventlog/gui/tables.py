@@ -2,13 +2,13 @@ import re
 
 from .. import email as em
 from .. import errors as er
+from .. import eventfolders as efl
 from .. import factorycampaign as fc
 from .. import functions as f
 from .. import queries as qr
 from .. import styles as st
 from . import _global as gbl
 from . import dialogs as dlgs
-from . import eventfolders as efl
 from .__init__ import *
 from .datamodel import TableModel
 from .delegates import (CellDelegate, ComboDelegate, DateDelegate,
@@ -1728,9 +1728,9 @@ class Availability(TableWidget):
     
     def create_report(self):
         # show menu to select period
-        from .refreshtables import AvailReport
-        from ..reports import AvailabilityReport
         from ..folders import drive_exists
+        from ..reports import AvailabilityReport
+        from .refreshtables import AvailReport
 
         dlg = AvailReport(parent=self)
         self.dlg = dlg

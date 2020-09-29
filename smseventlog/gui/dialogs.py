@@ -530,8 +530,8 @@ class AddEvent(AddRow):
             self.link_fc()
         
         if self.cb_eventfolder.isChecked():
-            from . import eventfolders as efl
-            ef = efl.get_eventfolder(minesite=row.MineSite).from_model(e=row)
+            from .. import eventfolders as efl
+            ef = efl.EventFolder.from_model(e=row)
             ef.create_folder(ask_show=True)
 
 class AddUnit(AddRow):

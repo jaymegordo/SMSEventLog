@@ -1,7 +1,7 @@
 from .__init__ import *
 from . import queries as qr
+from . import eventfolders as efl
 from .database import db
-from .gui import eventfolders as ef
 
 class ComponentCOConditions(qr.ComponentCOBase):
     def __init__(self, d_lower=None, components=None, minesite='FortHills', **kw):
@@ -35,11 +35,11 @@ def get_condition_reports(d_lower=None):
 
     # loop dataframe and check/get condition report pdfs
     for row in df.itertuples():
-        efl = ef.get_eventfolder(minesite='FortHills').from_model(e=row)
-        efl.check(check_pics=False)
-        df.loc[row.UID, 'HasReport'] = str(efl.condition_reports[0]) if efl.has_condition_report else False
+        ef = efl.EventFolder.from_model(e=row)
+        ef.check(check_pics=False)
+        df.loc[row.UID, 'HasReport'] = str(ef.condition_reports[0]) if ef.has_condition_report else False
 
-        pdfs.extend(efl.condition_reports)
+        pdfs.extend(ef.condition_reports)
     
     # save excel file of data
     p = Path.home() / 'Desktop/condition_reports.xlsx'

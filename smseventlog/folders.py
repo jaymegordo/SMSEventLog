@@ -10,6 +10,7 @@ from hurry.filesize import size
 from joblib import Parallel, delayed
 
 from . import functions as f
+from . import eventfolders as efl
 from .__init__ import *
 from .database import db
 
@@ -209,12 +210,6 @@ def all_units(rng=None):
         rng = (300, 348)
     return [f'F{n}' for n in range(*rng)]
 
-def unitpath_from_unit(unit, unitpaths=None):
-    if unitpaths is None:
-        unitpaths = get_unitpaths()
-
-    return list(filter(lambda x: unit in str(x), unitpaths))[0]
-
 def unit_from_path(p):
     parentname = '1. 980E Trucks'
 
@@ -391,12 +386,25 @@ def date_from_dsc(p):
     return d
 
 def get_recent_dsc_single(p_unit=None, d_lower=dt(2020,1,1), unit=None):
-    # return list of most recent dsc folder from each unit
-    # pass in d_lower to limit search
-    # TODO: fix this to use get_list
+    """Return list of most recent dsc folder from each unit\n
+    TODO fix this to use get_list
+
+    Parameters
+    ----------
+    p_unit : Path, optional
+        default None\n
+    d_lower : datetime, optional,
+        limit search by date, default dt(2020,1,1)\n
+    unit : str, optional
+
+    Returns
+    -------
+    list
+    """
+    df = pd.DataFrame
     lst = []
     if p_unit is None:
-        p_unit = unitpath_from_unit(unit=unit)
+        p_unit = efl.UnitFolder(unit=unit).p_unit
 
     p_dls = p_unit / 'Downloads'
     lst_unit = recurse_dsc(p_search=p_dls, maxdepth=3, d_lower=d_lower)
@@ -408,7 +416,7 @@ def get_recent_dsc_single(p_unit=None, d_lower=dt(2020,1,1), unit=None):
     return lst
 
 def get_recent_dsc_all(d_lower=dt(2020,1,1)):
-    # return list of most recent dsc folders for all units
+    """Return list of most recent dsc folders for all units"""
     p_units = get_unitpaths()
     lst = []
     
@@ -481,8 +489,8 @@ def zip_recent_dls(units, d_lower=dt(2020,1,1)):
 
     return lst_zip
 
-def date_from_title(title):
-    # parse date obj from date in folder title
+def date_from_title(title) -> dt:
+    """parse date obj from date in folder title"""
     date_reg_exp = re.compile('(\d{4}[-]\d{2}[-]\d{2})')
     ans = re.search(date_reg_exp, title)
 
@@ -491,18 +499,44 @@ def date_from_title(title):
     d = dt.strptime(ans.group(1), '%Y-%m-%d')
     return d
 
-def get_recent_dls_unit(unit):
-    # get most recent dls folder for single unit
+def is_year(name : str) -> bool:
+    """Check if passed in string is a 4 digit year, eg '2020'
+
+    Parameters
+    ----------
+    name : str
+        String to check
+
+    Returns
+    -------
+    bool
+    """
+    exp = re.compile('^[2][0-9]{3}$')
+    ans = re.search(exp, name)
+    return not ans is None
+
+def get_recent_dls_unit(unit : str) -> Path:
+    """Get most recent dls folder for single unit
+
+    Parameters
+    ----------
+    unit : str
+
+    Returns
+    -------
+    Path
+        Path to most recent dls folder
+    """    
     from .gui.dialogs import msg_simple
 
-    p_unit = unitpath_from_unit(unit=unit)
+    p_unit = efl.UnitFolder(unit=unit).p_unit
     p_dls = p_unit / 'Downloads'
 
     # get all downloads/year folders
-    lst_year = [p for p in p_dls.iterdir() if p.is_dir()]
+    lst_year = [p for p in p_dls.iterdir() if p.is_dir() and is_year(p.name)]
 
     if not lst_year:
-        msg_simple(msg='No download folders fonund.', icon='warning')
+        msg_simple(msg='No download folders found.', icon='warning')
         return
 
     # sort year folders by name, newest first, select first
@@ -518,14 +552,14 @@ def get_recent_dls_unit(unit):
         log.error('Couldn\'t find recent dls folder.')
         return None
 
-def zip_recent_dls_unit(unit, _zip=True):
-    # find/zip most recent dls folder by parsing date in folder title
+def zip_recent_dls_unit(unit :str, _zip=True) -> Path:
+    """Find (optional zip) most recent dls folder by parsing date in folder title"""
+    from .gui.dialogs import msgbox, msg_simple
 
     p_dls = get_recent_dls_unit(unit=unit)
 
-    from .gui.dialogs import msgbox, msg_simple
     if not p_dls is None:
-        msg = f'Found dls folder: {p_dls.name},\n\nZip now?'
+        msg = f'Found dls folder:\n\n{p_dls.name}\n\nZip now?'
         if not msgbox(msg=msg, yesno=True): return
     else:
         msg = f'Couldn\'t find recent DLS folder, check folder structure for issues.'
@@ -539,9 +573,9 @@ def zip_recent_dls_unit(unit, _zip=True):
         return p_dls
         
 def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020,1,1), maxdepth=4, import_=True):
-    # top level control function - pass in single unit or list of units
-        # 1. get list of files (haul, fault, dsc)
-        # 2. Process - import haul/fault or 'fix' dsc eg downloads folder structure
+    """Top level control function - pass in single unit or list of units
+        1. Get list of files (haul, fault, dsc)
+        2. Process - import haul/fault or 'fix' dsc eg downloads folder structure"""
     
     if ftype == 'tr3': search_folders.append('vibe tests') # bit sketch
 
@@ -557,7 +591,7 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
     config = get_config()[ftype]
 
     for unit in units:
-        p_unit = unitpath_from_unit(unit=unit, unitpaths=unitpaths)
+        p_unit = efl.UnitFolder(unit=unit).p_unit
         lst_search = [x for x in p_unit.iterdir() if x.is_dir() and x.name.lower() in search_folders] # start at downloads
 
         # could search more than just downloads folder (eg event too)
