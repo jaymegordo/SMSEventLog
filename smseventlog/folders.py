@@ -291,8 +291,8 @@ def date_created(p):
 def date_modified(p):
     return dt.fromtimestamp(p.stat().st_mtime)
 
-def move_folder(p_src, p_dst):
-    # copy folder or file (more like a move/rename)
+def move_folder(p_src : Path, p_dst : Path):
+    """Move folder or file from p_src to p_dst"""
     try:
         if p_src.exists() and not p_src == p_dst:
             src, dst = str(p_src), str(p_dst)

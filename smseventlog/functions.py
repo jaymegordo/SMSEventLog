@@ -203,13 +203,18 @@ def getattr_chained(obj, methods):
     except:
         return None
 
-def nice_title(title):
-    # Remove slashes, capitalize first letter, avoid acronyms
-    if title.strip() == '': return title
-    excep = 'the a on in of an'.split(' ')
-    title = re.sub('[\\\/.]', '', title)
+def remove_slashes(w : str):
+    """Remove any slash / \ in string"""
+    return re.sub('[\\\/.]', '', w)
 
-    return ' '.join(f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w for w in title.split(' '))  
+def nice_title(title: str) -> str:
+    """Remove slashes, capitalize first letter, avoid acronyms"""
+    if title.strip() == '': return title
+    excep = 'the a on in of an is'.split(' ')
+    title = remove_slashes(w=title).strip()
+
+    return ' '.join(
+        f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w for w in title.split())  
     
 def str_to_bool(val):
     return bool(strtobool(val))

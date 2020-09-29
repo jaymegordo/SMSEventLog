@@ -142,7 +142,7 @@ class QueryBase(object):
         elif not self.parent is None:
             return self.parent.minesite
         else:
-            from .gui import _globals as gbl
+            from .gui import _global as gbl
             return gbl.get_minesite() # checks mainwindow, then returns default 'FortHills'
     
     @minesite.setter
