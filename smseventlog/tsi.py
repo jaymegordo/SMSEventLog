@@ -23,7 +23,7 @@ def attach_docs(ef=None):
 
 def example_ef(uid=None):
     # get eventfolder
-    from .gui import eventfolders as efl
+    from . import eventfolders as efl
     if uid is None:
         uid = 101133020820
 

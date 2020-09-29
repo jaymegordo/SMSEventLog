@@ -128,7 +128,8 @@ def copy_model_attrs(model, target):
     m = model_dict(model=model, include_none=True)
     copy_dict_attrs(m=m, target=target)
 
-def copy_dict_attrs(m, target):
+def copy_dict_attrs(m : dict, target: object):
+    """Copy dict items to target object (lowercase)"""
     for k, v in m.items():
         setattr(target, k.lower(), v)
 

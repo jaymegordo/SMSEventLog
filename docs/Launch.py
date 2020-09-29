@@ -55,6 +55,7 @@ from smseventlog import (
     queries as qr,
     factorycampaign as fc,
     folders as fl,
+    eventfolders as efl,
     email as em,
     availability as av,
     units as un,
@@ -71,7 +72,6 @@ from smseventlog.gui import (
     refreshtables as rtbls,
     tables as tbls,
     datamodel as dm,
-    eventfolders as efl,
     formfields as ff)
 
 from smseventlog.dbmodel import *
