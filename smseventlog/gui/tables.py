@@ -336,8 +336,19 @@ class TableView(QTableView):
 
         menu.exec_(self.mapToGlobal(pos))
 
-    def create_index_activerow(self, col_name=None, irow=None):
-        # create QModelIndex from currently selected row
+    def create_index_activerow(self, col_name : str = None, irow : int = None) -> QModelIndex:
+        """Create QModelIndex from currently selected row
+
+        Parameters
+        ----------
+        col_name : str, optional
+            If col_name given, create index at that column\n
+        irow : int, optional\n
+
+        Returns
+        -------
+        QModelIndex
+        """        
         model = self.model()
         if irow is None:
             irow = self.active_row_index()
@@ -351,25 +362,20 @@ class TableView(QTableView):
         return model.createIndex(irow, icol)
     
     def get_irow_uid(self, uid):
-        # get irow from uid
-        # TODO this is only for EventLog tables with UID, should probably adapt this for any key
+        """Get irow from uid
+        - TODO this is only for EventLog tables with UID, should probably adapt this for any key"""
         df = self.model().df
+        return self.model().get_val_index(val=uid, col_name='UID')
 
-        index = df[df.UID==uid].index
-        if len(index.values) == 1:
-            irow = index.values[0] # uid exists in df.UID
-        else:
-            irow = None # uid doesn't exist
-
-        return irow
-
-    def active_row_index(self):
+    def active_row_index(self, warn=True) -> int:
+        """Return index of currently selected row, or None"""
         irow = self.selectionModel().currentIndex().row()
         if irow > -1:
             return irow
         else:
-            msg = 'No row selected in table.'
-            dlgs.msg_simple(msg=msg, icon='warning')
+            if warn:
+                msg = 'No row selected in table.'
+                dlgs.msg_simple(msg=msg, icon='warning')
             return None
     
     def row_from_activerow(self):
@@ -403,8 +409,8 @@ class TableView(QTableView):
         if index.isValid():
             return self.model().data(index=index, role=TableModel.NameIndexRole)
 
-    def select_by_nameindex(self, name_index):
-        # used to reselect items by named index after model is sorted/filtered
+    def select_by_nameindex(self, name_index : tuple):
+        """Reselect items by named index after model is sorted/filtered"""
         model = self.model()
         # convert name_index to i_index
         index = model.data(name_index=name_index, role=TableModel.qtIndexRole)
@@ -580,7 +586,7 @@ class TableWidget(QWidget):
 
         f.set_self(vars())
 
-        self.add_button(name='Refresh', func=self.show_refresh)
+        self.add_action(name='Refresh', btn=True, func=self.show_refresh, tooltip='Show Refresh menu')
     
     @property
     def minesite(self):
@@ -602,8 +608,9 @@ class TableWidget(QWidget):
     def row(self):
         return self.view.row
 
-    def add_action(self, name, func, shortcut=None, btn=False, ctx=False):
+    def add_action(self, name, func, shortcut=None, btn=False, ctx=False, tooltip=None):
         act = QAction(name, self, triggered=er.e(func))
+        act.setToolTip(tooltip)
         name_action = name.replace(' ', '_').lower()
         setattr(self, f'act_{name_action}', act)
 
@@ -612,18 +619,19 @@ class TableWidget(QWidget):
             self.addAction(act)
         
         if btn:
-            self.add_button(act=act)
+            self.add_button(act=act, tooltip=tooltip)
         
         if ctx:
             self.context_actions[ctx].append(name_action)
 
-    def add_button(self, name=None, func=None, act=None):
+    def add_button(self, name=None, func=None, act=None, tooltip=None):
         if not act is None:
             name = act.text()
             func = act.triggered
         
         btn = QPushButton(name, self)
         btn.setMinimumWidth(60)
+        btn.setToolTip(tooltip)
         btn.clicked.connect(func)
         self.btnbox.addWidget(btn)      
    
@@ -800,7 +808,13 @@ class TableWidget(QWidget):
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add', shortcut='Ctrl+Shift+N')
+        self.add_action(
+            name='Add New',
+            func=self.show_addrow,
+            btn=True,
+            ctx='add',
+            tooltip='Add new event',
+            shortcut='Ctrl+Shift+N')
 
         self.context_actions['refresh'].extend(['refresh_allopen', 'refresh_lastweek', 'refresh_lastmonth'])
         self.context_actions['view'] = ['viewfolder']
@@ -1024,11 +1038,18 @@ class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.add_action(
+            name='Jump WorkOrders',
+            func=self.jump_event,
+            btn=True,
+            ctx='view',
+            tooltip='Jump to selected event in [Work Orders] table.')
+        self.add_action(
             name='Filter Passover',
             func=lambda x: self.view.filter_column('Passover', 'x'),
             btn=True,
-            ctx='passover')
-        self.add_action(name='Email Passover', func=self.email_passover, btn=True, ctx='passover')
+            ctx='passover',
+            tooltip='Filter table to rows marked "x" in Passover column.')
+        self.add_action(name='Email Passover', func=self.email_passover, btn=True, ctx='passover', tooltip='Create new email with all rows marked "x" for passover.')
 
         self.context_actions['smr'] = [] # clear from menu
 
@@ -1091,9 +1112,17 @@ class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.context_actions['wo'] = ['get_wo']
+        self.add_action(
+            name='Jump EventLog',
+            func=self.jump_event,
+            btn=True,
+            ctx='view',
+            tooltip='Jump to selected event in [Event Log] table.')
 
-        self.add_action(name='Email WO Open', func=self.email_wo_request, btn=True, ctx='wo')
-        self.add_action(name='Email WO Close', func=self.email_wo_close, btn=True, ctx='wo')
+        self.add_action(name='Email WO Open', func=self.email_wo_request, btn=True, ctx='wo',
+            tooltip='Create new WO Request email in outlook.')
+        self.add_action(name='Email WO Close', func=self.email_wo_close, btn=True, ctx='wo',
+            tooltip='Create new WO Close email in outlook.')
 
 
     class View(EventLogBase.View):
@@ -1188,12 +1217,17 @@ class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_action(name='Zip Recent DLS', func=self.zip_recent_dls, btn=True, ctx='tsi')
-        self.add_action(name='Create Failure Report', func=self.create_failure_report, btn=True, ctx='report')
-        self.add_action(name='Email Failure Report', func=self.email_report, btn=True, ctx='report')
-        self.add_action(name='TSI Homepage', func=self.open_tsi_homepage, btn=True, ctx='tsi')
-        self.add_action(name='Fill TSI Webpage', func=self.fill_tsi_webpage, btn=True, ctx='tsi')
-        self.add_action(name='Refresh Open (User)', func=self.refresh_allopen_user, btn=True, ctx='refresh')
+        self.add_action(name='Zip DLS', func=self.zip_recent_dls, btn=True, ctx='tsi',
+            tooltip='Find and zip most recent download folder in the unit\'s main "Downloads" folder')
+        self.add_action(name='Create Failure Report', func=self.create_failure_report, btn=True, ctx='report',
+            tooltip='Create new Failure report PDF.')
+        self.add_action(name='Email Failure Report', func=self.email_report, btn=True, ctx='report',
+            tooltip='Create new email from selected row, select docs to attach.')
+        self.add_action(name='TSI Homepage', func=self.open_tsi_homepage, btn=True, ctx='tsi',
+            tooltip='Open chrome browser to TSI homepage.')
+        self.add_action(name='Fill TSI Webpage', func=self.fill_tsi_webpage, btn=True, ctx='tsi',
+            tooltip='Open TSI portal, create new TSI from selected event.')
+        self.add_action(name='Refresh Open (User)', func=self.refresh_allopen_user, btn=True, ctx='refresh', tooltip='Refresh all open TSIs for current user.')
     
     def remove_row(self):
         view, e, row = self.view, self.e, self.row
@@ -1267,6 +1301,7 @@ class TSI(EventLogBase):
         if dlgs.msgbox(msg=msg, yesno=True):
             from ..tsi import attach_docs
             ef = efl.EventFolder.from_model(e=e)
+            ef.check()
             docs = attach_docs(ef=ef)
             
         tsi = TSIWebPage(
@@ -1419,8 +1454,8 @@ class FCBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_action(name='Import FCs', func=self.import_fc, btn=True)
-        self.add_action(name='View FC Folder', func=self.view_fc_folder, btn=True)
+        self.add_action(name='Import FCs', func=self.import_fc, btn=True, tooltip=f'Import FCs from FC import folder:\n{f.config["FilePaths"]["Import FC"]}')
+        self.add_action(name='View FC Folder', func=self.view_fc_folder, btn=True, tooltip=f'Open FC folder at:\n{f.config["FilePaths"]["Factory Campaigns"]}')
 
         self.context_actions['view'] = ['viewfolder']
 
@@ -1460,8 +1495,8 @@ class FCBase(TableWidget):
 class FCSummary(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_action(name='Email New FC', func=self.email_new_fc, btn=True)
-        self.add_action(name='Close FC', func=self.close_fc, btn=True)
+        self.add_action(name='Email New FC', func=self.email_new_fc, btn=True, tooltip='Create email to send to customer, attaches FC docs.')
+        self.add_action(name='Close FC', func=self.close_fc, btn=True, tooltip='Set selected FC to "ManualClosed=True" and hide FC from this list.')
 
         # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
