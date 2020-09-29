@@ -852,10 +852,13 @@ class EventLogBase(TableWidget):
                 .from_model(e=e, table_model=self.model(), irow=index.row(), table_widget=self.parent) \
                 .update_eventfolder_path(vals={header: val_prev})
 
-    def close_event(self, index, **kw):
-        # set DateCompleted to current date when status change to 'Closed' or 'Completed' (EL + WO only)
-        # NOTE would be more ideal to queue change at start of setData and update all vals in bulk
-        # NOTE could auto link those changes through setData eg auto_update_sibling_table
+    def close_event(self, index : QModelIndex, **kw):
+        """Set DateCompleted to current date when status change to 'Closed' or 'Completed' (EL + WO only)\n
+        Notes
+        ---
+        - would be more ideal to queue change at start of setData and update all vals in bulk
+        - could auto link those changes through setData eg auto_update_sibling_table"""
+
         if not self.title in ('Event Log', 'Work Orders'): return
 
         view, e, row = self.view, self.e, self.row
@@ -864,10 +867,11 @@ class EventLogBase(TableWidget):
         if index.data() in ('Closed', 'Complete'):
             # update both StatusEvent and StatusWO in db
             d = dt.now().date()
-            vals = dict(
-                StatusEvent='Complete',
-                StatusWO='Closed',
-                DateCompleted=d)
+            m = {'Event Log': dict(StatusEvent='Complete'), 'Work Orders': dict(StatusWO='Closed')}
+            vals = dict(DateCompleted=d)
+
+            # only update StatusEvent or StatusWO based on current table
+            vals.update(m.get(self.title, {}))
             
             # set dateclosed in table view but don't update
             model = index.model()
