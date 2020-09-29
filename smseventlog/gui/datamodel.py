@@ -587,6 +587,17 @@ class TableModel(QAbstractTableModel):
         self.display_color = not self.display_color
         self.layoutChanged.emit()
 
+    def get_val_index(self, val, col_name):
+        """Get index of value in column"""
+        df = self.df
+        index = df[df[col_name]==val].index
+        if len(index.values) == 1:
+            irow = index.values[0] # uid exists in df.UID
+        else:
+            irow = None # uid doesn't exist
+
+        return irow
+
 def example(name='EventLog'):
     from . import startup
     from . import tables as tbls
