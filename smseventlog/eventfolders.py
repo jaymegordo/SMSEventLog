@@ -102,17 +102,17 @@ class EventFolder(UnitFolder):
         return efl
     
     @property
-    def p_event(self):
-        # NOTE careful when using this if don't want to check/correct path > use _p_event instead
+    def p_event(self) -> Path:
+        """NOTE careful when using this if don't want to check/correct path > use _p_event instead"""
         self.check()
         return self._p_event
 
     @property
-    def p_pics(self):
+    def p_pics(self) -> Path:
         return self._p_event / 'Pictures'
     
-    def update_eventfolder_path(self, vals):
-        # update folder path with defaults (actually new vals) + changed vals (previous)
+    def update_eventfolder_path(self, vals : dict):
+        """Update folder path with defaults (actually new vals) + changed vals (previous)"""
         m_prev = dict(
             unit=self.unit,
             dateadded=self.dateadded,
@@ -129,9 +129,24 @@ class EventFolder(UnitFolder):
                 self.table_widget.mainwindow.update_statusbar(msg=f'Folder path updated: {self.folder_title}')
 
     def get_folder_title(self, unit, dateadded, workorder, title):
+        title = f.nice_title(title=title)
+        workorder = f.remove_slashes(w=workorder)
         return f'{unit} - {dateadded:%Y-%m-%d} - {workorder} - {title}'
 
-    def check(self, p_prev=None, check_pics=True):
+    def check(self, p_prev : Path = None, check_pics=True):
+        """Check if self.p_event exists.
+
+        Parameters
+        ----------
+        p_prev : Path, optional
+            Compare against manually given path, default None\n
+        check_pics : bool, optional
+
+        Returns
+        -------
+        bool
+            True if folder exists or replace was successful.
+        """        
         from .gui import dialogs as dlgs
         if not fl.drive_exists():
             return
@@ -162,7 +177,7 @@ class EventFolder(UnitFolder):
                     if dlgs.msgbox(msg=msg, yesno=True):
                         self.create_folder()
         
-        if p.exists():
+        if p.exists():            
             if check_pics: self.set_pics()
             return True
         else:
