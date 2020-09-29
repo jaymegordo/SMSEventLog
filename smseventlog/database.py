@@ -335,7 +335,7 @@ class DB(object):
 
     def set_df_unit(self):
         a, b = pk.Tables('UnitID', 'EquipType')
-        cols = [a.MineSite, a.Customer, a.Model, a.Unit, a.Serial, a.DeliveryDate, b.EquipClass]
+        cols = [a.MineSite, a.Customer, a.Model, a.Unit, a.Serial, a.DeliveryDate, b.EquipClass, b.ModelBase]
         q = Query.from_(a).select(*cols) \
             .left_join(b).on_field('Model')
             
