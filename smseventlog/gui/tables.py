@@ -998,6 +998,28 @@ class EventLogBase(TableWidget):
         self.view.model().setData(index=index, val=e_smr.SMR)
         self.update_statusbar(f'SMR updated: {e_smr.SMR}')     
 
+    def jump_event(self):
+        """Jump to selected event in EventLog or WorkOrders table"""
+        e, mw = self.e, self.mainwindow
+        if e is None: return
+
+        m = {'Event Log': 'Work Orders', 'Work Orders': 'Event Log'}
+        other_title = m.get(self.title, None)
+        if other_title is None: return
+
+        table_widget = mw.tabs.get_widget(title=other_title)
+        model = table_widget.view.model()
+        irow = model.get_val_index(val=e.UID, col_name='UID')
+
+        if not irow is None:
+            mw.setUpdatesEnabled(False)
+            mw.tabs.activate_tab(title=other_title)
+            table_widget.view.select_by_int(irow=irow, icol=1)
+            mw.setUpdatesEnabled(True)
+        else:
+            self.update_statusbar(
+                f'Couldn\'t find matching row in [{other_title}] table. Make sure row exists in table.')
+
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
