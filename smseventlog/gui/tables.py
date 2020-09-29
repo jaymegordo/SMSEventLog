@@ -815,7 +815,7 @@ class EventLogBase(TableWidget):
             header = index.model().headerData(i=index.column()).replace(' ', '').lower()
             if header == 'codate': header = 'dateadded' # little hack for component CO table
 
-            ef = efl.get_eventfolder(minesite=minesite) \
+            ef = efl.EventFolder \
                 .from_model(e=e, table_model=self.model(), irow=index.row(), table_widget=self.parent) \
                 .update_eventfolder_path(vals={header: val_prev})
 
@@ -857,7 +857,7 @@ class EventLogBase(TableWidget):
             return
 
         # try to get minesite-specific EventFolder, if not use default
-        efl.get_eventfolder(minesite=minesite).from_model(e=e, irow=i, table_model=view.model()).show()
+        efl.EventFolder.from_model(e=e, irow=i, table_model=view.model()).show()
     
     def remove_row(self):
         # remove selected event from table and delete from db
@@ -1199,7 +1199,7 @@ class TSI(EventLogBase):
         msg, docs = 'Select documents to attach?', None
         if dlgs.msgbox(msg=msg, yesno=True):
             from ..tsi import attach_docs
-            ef = efl.get_eventfolder(minesite=e.MineSite).from_model(e=e)
+            ef = efl.EventFolder.from_model(e=e)
             docs = attach_docs(ef=ef)
             
         tsi = TSIWebPage(
@@ -1246,7 +1246,7 @@ class TSI(EventLogBase):
         if row is None: return
 
         # get event folder
-        ef = efl.get_eventfolder(minesite=e.MineSite).from_model(e=e, irow=row.i, table_model=view.model())
+        ef = efl.EventFolder.from_model(e=e, irow=row.i, table_model=view.model())
 
         # get pics, body text from dialog
         cause = e.FailureCause if not e.FailureCause == '' else 'Uncertain.'
@@ -1297,7 +1297,7 @@ class TSI(EventLogBase):
         if e is None: return
 
         minesite = db.get_unit_val(e.Unit, 'MineSite')
-        ef = efl.get_eventfolder(minesite=minesite).from_model(e=e)
+        ef = efl.EventFolder.from_model(e=e)
         failure_title = f'{e.Unit} - {e.DateAdded:%Y-%m-%d} - {e.Title}'
         p = ef.p_event / f'{failure_title}.pdf'
         lst_attach = [p]
@@ -1509,7 +1509,6 @@ class FCDetails(FCBase):
 
         df = view.df_from_activerow()
         unit, uid = df.Unit.values[0], df.UID.values[0]
-        minesite = db.get_unit_val(unit, 'MineSite')
 
         if pd.isnull(uid):
             msg = f'FC not yet linked to an event, cannot view event folder.'
@@ -1520,7 +1519,7 @@ class FCDetails(FCBase):
         row = dbt.Row(dbtable=dbm.EventLog, keys=dict(UID=uid))
         e2 = row.create_model_from_db()
 
-        efl.get_eventfolder(minesite=minesite).from_model(e=e2, irow=i, table_model=view.model()).show()
+        efl.EventFolder.from_model(e=e2, irow=i, table_model=view.model()).show()
 
 class EmailList(TableWidget):
     def __init__(self, parent=None):
