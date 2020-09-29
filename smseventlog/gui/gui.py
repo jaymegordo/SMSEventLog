@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
 
         tabs = TabWidget(self)
         self.setCentralWidget(tabs)
-        tabs.setCurrentIndex(tabs.get_index(title=s.value('active table', 'Event Log')))
+        tabs.activate_tab(title=s.value('active table', 'Event Log'))
         self.update_minesite_label()
 
         self.tabs = tabs
@@ -150,6 +150,7 @@ class MainWindow(QMainWindow):
         s = self.settings
         s.setValue('window size', self.size())
         s.setValue('window position', self.pos())
+        s.setValue('screen', self.screen().geometry().center())
         s.setValue('minesite', self.minesite)
         s.setValue('active table', self.active_table_widget().title)
 
@@ -207,6 +208,7 @@ class MainWindow(QMainWindow):
 
     def create_menu(self):
         bar = self.menuBar()
+
         file_ = bar.addMenu('File')
         file_.addAction(self.act_new_item)
         file_.addAction(self.act_refresh)
@@ -224,6 +226,7 @@ class MainWindow(QMainWindow):
         table_.addAction(self.act_export_csv_table)       
         table_.addSeparator()
         table_.addAction(self.act_toggle_color)
+        table_.addAction(self.act_jump_rows)
 
         rows_ = bar.addMenu('Rows')
         rows_.addAction(self.act_open_tsi)
@@ -290,7 +293,6 @@ class MainWindow(QMainWindow):
         act_reset_db = QAction('Reset Database Connection', self, triggered=db.reset)
         act_reset_db_tables = QAction('Reset Database Tables', self, triggered=db.clear_saved_tables)
 
-        # TODO: only add these to context menu with specific tables, eg not FC Summary?
         act_refresh_allopen = QAction('Refresh All Open', self, 
             triggered=lambda: t().refresh_allopen(default=True),
             shortcut=QKeySequence('Ctrl+Shift+R'))
@@ -307,6 +309,9 @@ class MainWindow(QMainWindow):
         act_detailsview = QAction('Details View', self,
             triggered=lambda: t().show_details(),
             shortcut=QKeySequence('Ctrl+Shift+D'))
+        act_jump_rows = QAction('Jump First/Last Row', self,
+            triggered=lambda: tv().jump_top_bottom(),
+            shortcut=QKeySequence('Ctrl+Shift+J'))
         
         act_get_wo = QAction('Get WO from email', self,
             triggered=lambda: t().get_wo_from_email())
@@ -324,6 +329,7 @@ class MainWindow(QMainWindow):
 
         act_update_smr = QAction('Update SMR', self,
             triggered=lambda: t().update_smr())
+        act_update_smr.setToolTip('Update selected event with SMR from database.')
 
         f.set_self(vars())
 
@@ -333,6 +339,7 @@ class MainWindow(QMainWindow):
         child = self.childAt(event.pos())
 
         menu = QMenu(self)
+        # menu.setToolTipsVisible(True)
 
         table_widget = self.active_table_widget()
         for section in table_widget.context_actions.values():
@@ -371,29 +378,34 @@ class TabWidget(QTabWidget):
         super().__init__(parent=parent)
         self.tabindex = dd(int)
        
-        self.currentChanged.connect(self.save_activetab)
         self.prev_index = self.currentIndex()
         self.current_index = self.prev_index
         self.mainwindow = parent
+        
         self.init_tabs()
 
-    def init_tabs(self):
-        """Add tabs to widget"""
+        self.currentChanged.connect(self.save_activetab)
 
+    def init_tabs(self):
+        """Add all tabs to widget"""
         m = f.config['TableName']['Class'] # get list of table classes from config
         lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'ComponentSMR', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
+
         for i, title in enumerate(lst):
             self.addTab(getattr(tbls, title)(parent=self), m[title])
             self.tabindex[m[title]] = i
 
-    def get_index(self, title):
+    def get_index(self, title : str) -> int:
+        """Return index number of table widget by title"""
         return self.tabindex[title]
     
-    def get_widget(self, title):
+    def get_widget(self, title : str) -> QTableWidget:
+        """Return table widget by title"""
         i = self.get_index(title)
         return self.widget(i)
     
-    def activate_tab(self, title):
+    def activate_tab(self, title : str):
+        """Activate table widget by title"""
         i = self.get_index(title)
         self.setCurrentIndex(i)
     
