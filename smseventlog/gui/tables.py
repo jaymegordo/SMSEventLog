@@ -550,7 +550,7 @@ class TableView(QTableView):
                 self.select_by_int(irow=max_row, icol=cur_col) # jump bottom
             else:
                 self.select_by_int(irow=0, icol=cur_col) # jump top
-
+    
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
 
@@ -592,6 +592,15 @@ class TableWidget(QWidget):
     def minesite(self):
         return self.mainwindow.minesite if not self.mainwindow is None else 'FortHills' # default for testing
     
+    @property
+    def u(self):
+        """Return mainwindow user, else default"""
+        if not self.mainwindow is None:
+            return self.mainwindow.u
+        else:
+            from ..users import User
+            return User.default()
+
     @property
     def e(self):
         return self.view.e
@@ -651,6 +660,7 @@ class TableWidget(QWidget):
             
     def show_refresh(self):
         dlg = self.refresh_dialog(parent=self)
+        dlg._restore_settings()
         dlg.exec_()
 
     def show_details(self):
@@ -662,26 +672,36 @@ class TableWidget(QWidget):
         dlg = dlgs.DetailsView(parent=self, df=df)
         dlg.exec_()
 
-    def refresh_lastweek(self, default=False):
-        fltr = self.query.fltr
-        if default:
-            self.query.set_minesite()
+    def set_cummins(self):
+        """Add 'Cummins' filter to self.query if user.is_cummins"""
+        if not self.mainwindow.u.is_cummins: return
 
+        query = self.query
+        if hasattr(query, 'set_cummins') and self.title in ('Event Log', 'Work Orders'):
+            query.set_cummins()
+
+    def refresh_lastweek(self, default=False):
         if not self.query.set_lastweek():
             self.mainwindow.warn_not_implemented()
             return
+
+        fltr = self.query.fltr
+        if default:
+            self.query.set_minesite()
+            self.set_cummins()
 
         self.refresh()
 
     def refresh_lastmonth(self, default=False):
         # self.sender() = PyQt5.QtWidgets.QAction > could use this to decide on filters
-        fltr = self.query.fltr
-        if default:
-            self.query.set_minesite()
-
         if not self.query.set_lastmonth():
             self.mainwindow.warn_not_implemented()
             return
+
+        fltr = self.query.fltr
+        if default:
+            self.query.set_minesite()
+            self.set_cummins()
 
         self.refresh()
 
@@ -689,6 +709,9 @@ class TableWidget(QWidget):
         query = self.query
         if hasattr(query, 'set_allopen'):
             query.set_allopen()
+        
+        if default:
+            self.set_cummins()
 
         self.refresh(default=default)
 
@@ -798,12 +821,27 @@ class TableWidget(QWidget):
             self.update_statusbar(msg)
 
     def remove_row(self):
-        # default, just remove from table view (doesn't do anything really)
+        """Default, just remove from table view (doesn't do anything really)"""
         self.view.remove_row()
 
     def update_statusbar(self, msg):
         if not self.mainwindow is None:
             self.mainwindow.update_statusbar(msg=msg)
+
+    def check_cummins(self):
+        if not self.u.is_cummins:
+            return True
+        else:
+            self.warn_not_implemented(cummins=True)
+            return False
+
+    def warn_not_implemented(self, cummins=False):
+        if not cummins:
+            msg = 'Sorry, this feature not yet implemented.'
+        else:
+            msg = 'Sorry, this feature not enabled for cummins.'
+
+        self.update_statusbar(msg=msg)
 
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
@@ -853,8 +891,17 @@ class EventLogBase(TableWidget):
             items = f.config['Lists'][f'{self.parent.name}Status']
             self.set_combo_delegate(col='Status', items=items)
         
-        def update_eventfolder_path(self, index, val_prev, **kw):
-            # update event folder path when Title/Work Order/Date Added changed
+        def update_eventfolder_path(self, index : QModelIndex, val_prev, **kw):
+            """Update event folder path when Title/Work Order/Date Added changed
+
+            Parameters
+            ----------
+            index : QModelIndex\n
+            val_prev :
+                Value before changed
+            """            
+            if self.u.is_cummins: return
+
             e = self.e
             minesite = db.get_unit_val(e.Unit, 'MineSite')
 
@@ -900,6 +947,7 @@ class EventLogBase(TableWidget):
             
     def view_folder(self):
         """Open event folder of currently active row in File Explorer/Finder"""
+        if not self.check_cummins(): return
         view, i, e = self.view, self.i, self.e_db
         if e is None: return
         try:
@@ -950,6 +998,7 @@ class EventLogBase(TableWidget):
     
     def get_wo_from_email(self):
         # find WO for selected row in email inbox, write back to table
+        if not self.check_cummins(): return
         e = self.e_db
         if e is None: return
 
@@ -1265,7 +1314,8 @@ class TSI(EventLogBase):
         self._driver = driver
        
     def open_tsi_homepage(self):
-        # just login and show the homepage so user can go from there, check TSIs etc
+        """Just login and show the homepage so user can go from there, check TSIs etc"""
+        if not self.check_cummins(): return
         from .. import web
         tsi = web.TSIWebPage(table_widget=self, _driver=self.driver)
         if not tsi.is_init: return
@@ -1273,6 +1323,7 @@ class TSI(EventLogBase):
         self.driver = tsi.driver
     
     def fill_tsi_webpage(self):
+        if not self.check_cummins(): return
         from ..web import TSIWebPage
         e2 = self.e
         if e2 is None: return
@@ -1344,6 +1395,7 @@ class TSI(EventLogBase):
         self.update_statusbar(f'New TSI created. TSI Number: {tsi_number}, Files Uploaded: {num_files}')
 
     def create_failure_report(self):
+        if not self.check_cummins(): return
         e, row, view = self.e_db, self.row, self.view
         if row is None: return
 
@@ -1376,6 +1428,7 @@ class TSI(EventLogBase):
             fl.open_folder(rep.p_rep)
 
     def zip_recent_dls(self):
+        if not self.check_cummins(): return
         e = self.e
         if e is None: return
         unit = e.Unit
@@ -1392,9 +1445,10 @@ class TSI(EventLogBase):
         self.update_statusbar(f'Zipping folder in worker thread: {p_dls.name}')
 
     def email_report(self):
-        # email selected row, attach failure report doc if exists
-        # TODO handle multiple rows/reports
-        # TODO issue with mac attaching files, windows works 
+        """Email selected row, attach failure report doc if exists
+        - TODO handle multiple rows/reports
+        - TODO issue with mac attaching files, windows works """
+        if not self.check_cummins(): return
         view, e = self.view, self.e_db
         if e is None: return
 
