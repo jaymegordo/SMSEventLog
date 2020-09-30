@@ -384,7 +384,7 @@ class TabWidget(QTabWidget):
         self.current_index = self.prev_index
         self.mainwindow = parent
         
-        # self.init_tabs()
+        self.is_init = False
 
         self.currentChanged.connect(self.save_activetab)
 
@@ -403,6 +403,8 @@ class TabWidget(QTabWidget):
         for i, title in enumerate(lst):
             self.addTab(getattr(tbls, title)(parent=self), m[title])
             self.tabindex[m[title]] = i
+        
+        self.is_init = True
 
     def get_index(self, title : str) -> int:
         """Return index number of table widget by title"""
@@ -419,6 +421,7 @@ class TabWidget(QTabWidget):
         self.setCurrentIndex(i)
     
     def save_activetab(self, *args):
+        if not self.is_init: return
         s = self.parent().settings
         s.setValue('active table', self.currentWidget().title)
         
