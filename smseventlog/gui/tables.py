@@ -235,7 +235,8 @@ class TableView(QTableView):
 
     def keyPressEvent(self, event):
         # F2 to edit cell
-        if event.key() == 16777265 and (self.state() != QAbstractItemView.EditingState):
+        # print(event.key(), event.key() == Qt.Key_Enter)
+        if event.key() in (16777265, 16777220, Qt.Key_Enter) and (self.state() != QAbstractItemView.EditingState):
             self.edit(self.currentIndex())
         elif event.matches(QKeySequence.Copy):
             self.copy()
