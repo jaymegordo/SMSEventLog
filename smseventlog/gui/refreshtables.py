@@ -21,20 +21,10 @@ class RefreshTable(InputForm):
             
         super().__init__(parent=parent, window_title='Refresh Table')      
         self.minesite = gbl.get_minesite()
-        self.mainwindow = gbl.get_mainwindow()
-
-        # create list of default boxes, call with dict
-        # m = dict()
-        # m['All Open'] = self.add_refresh_button(name='All Open', func=parent.refresh_allopen)
-        # m['All Open'] = self.add_refresh_button
-        
-        # super().show()
     
     def add_features(self, features):
         for feature in features:
             self.add_feature(name=feature)
-        
-        self._restore_settings()
     
     def add_feature(self, name):
         parent, ms = self.parent, self.minesite
@@ -110,12 +100,34 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title, default='True', table=table, col_db='Major'), items=['True', 'False'], checkbox=True, cb_enabled=False)
         
         elif name == 'title':
-            add_input(field=IPF(text='Title (*)', col_db=title), checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text='Title', col_db=title), checkbox=True, cb_enabled=False,
+                tooltip='Use wildcards * to match results containing partial text.\nEg:\n\
+                - Steering* > return "Steering Pump" and "Steering Arm", but not "Change Steering Pump"\n\
+                - *MTA* > return "The MTA Broke" and "MTA Failure"')
         
         elif name == 'fc subject':
             df = db.get_df_fc()
             lst = f.clean_series(df.Subject)
             add_input(field=IPF(text='Subject', table=T('FCSummary')), items=lst, checkbox=True, cb_enabled=False)
+        
+        elif name == 'domain':
+            u = self.mainwindow.u
+            enabled = False if not u.is_cummins else True
+
+            field = IPF(
+                    text='Limit Domain',
+                    default=db.domain_map_inv.get(u.domain, ''),
+                    col_db='Domain',
+                    table=T('UserSettings'))
+
+            field.value_map = db.domain_map # map 'Cummins' to 'CED'
+
+            add_input(
+                field=field,
+                items=db.domain_map.keys(),
+                checkbox=True,
+                cb_enabled=enabled,
+                tooltip='Limit results to only those created by users in your domain.\n(Ensure users have been correctly initialized.)')
 
     def add_refresh_button(self, name, func):
         layout = self.vLayout
@@ -151,10 +163,12 @@ class EventLogBase(RefreshTable):
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        self.add_feature(name='domain')
 
 class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        self.add_feature(name='domain')
 
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
