@@ -1,0 +1,158 @@
+category,sub_category
+Body,Axle Blower
+Body,Axle Blower Tube
+Body,Axle Box
+Body,Battery Box
+Body,Boarding Ladder
+Body,Bumper
+Body,Cab
+Body,Chassis
+Body,Deck
+Body,Dump Body
+Body,Exhaust
+Body,Frame
+Body,Grid Box
+Body,Grille
+Body,Handrails
+Body,Mirrors
+Body,Mud Flap Brackets
+Body,Nose Cone
+Body,Radiator
+Body,Skid Plate
+Body,Suspension - Front
+Body,Suspension - Rear
+Body,Transition Duct
+Brake System,Brake Accumulator
+Brake System,Hose
+Brake System,Park Brake
+Brake System,Pre-Shift Brake Test
+Brake System,Retarder
+Brake System,Service Brake - Front
+Brake System,Service Brake - Rear
+Brake System,Switch - Brake Lock
+Brake System,Switch - PB Pressure
+Brake System,Switch - Pressure
+Brake System,Valve - PB Apply
+Cab,12V
+Cab,Heater/AC
+Cab,Hoist Lever
+Cab,Horn
+Cab,Pedal
+Cab,Retarder Lever
+Cab,ROPS
+Cab,Seat
+Cab,Seatbelt
+Cab,Switch - Emergency Stop
+Cab,Switch - Multifunction
+Cab,Window
+Cab,Wipers
+Cab,2 Way Radio
+Electrical (24V),12V-24V Converter
+Electrical (24V),ACTIA Panel
+Electrical (24V),Batteries
+Electrical (24V),Control Card
+Electrical (24V),Diode
+Electrical (24V),Fuse
+Electrical (24V),Komtrax
+Electrical (24V),Lights
+Electrical (24V),Minecare
+Electrical (24V),PLM System
+Electrical (24V),PTX-C
+Electrical (24V),Selector Switch
+Electrical (24V),Sensor - Speed
+Electrical (24V),Sensors
+Electrical (24V),Software
+Electrical (24V),Switch - Axlebox Diff Pressure
+Electrical (24V),Switch - Body Up
+Electrical (24V),Switch - Ground-level PB
+Electrical (24V),Switch - Hoist Limit
+Electrical (24V),Switch - Master Disconnect
+Electrical (24V),Switch - Multi-function
+Electrical (24V),Switch - Power Ladder
+Electrical (24V),Switch - Propel Lockout
+Electrical (24V),Switch - Steering Accum
+Electrical (24V),VHMS Controller
+Electrical (24V),VHMS Controller
+Electrical (High V),Alternator
+Electrical (High V),Cables
+Electrical (High V),Control Card
+Electrical (High V),DC Link
+Electrical (High V),ECM Module
+Electrical (High V),Fuse
+Electrical (High V),Grid Blower
+Electrical (High V),Grid Resistors
+Electrical (High V),IGBTs
+Electrical (High V),Inverter
+Electrical (High V),LEMS
+Electrical (High V),Power Supply
+Electrical (High V),RP Contactor
+Engine,00 - Complete Engine
+Engine,01 - Cylinder Block
+Engine,02 - Cylinder Head
+Engine,03 - Rocker Levers
+Engine,04 - Cam Follower
+Engine,05 - Fuel System
+Engine,06 - Injectors
+Engine,07 - Lubricating Oil System
+Engine,08 - Cooling System
+Engine,09 - Drive Units
+Engine,10 - Intake System
+Engine,11 - Exhaust System
+Engine,12 - Air System
+Engine,13 - Electrical Equipment
+Engine,14 - Engine Testing
+Engine,15 - Instruments and Controls
+Engine,16 - Mounting Adaptations
+Engine,17 - Miscellaneous
+Engine,19 - Electronic Engine Controls
+Fuel System,Fast Fuel
+Fuel System,Fuel Filters
+Fuel System,Fuel Lines
+Fuel System,Fuel Pump
+Fuel System,Fuel Tank
+Fuel System,Sensor - Fuel Temp
+Fuel System,Sensor - Fuel PSI
+Grease System,Check Valve
+Grease System,Grease Injector
+Grease System,Grease Pump
+Grease System,Hose
+Grease System,Solenoid
+Grease System,Spool Valve
+Grease System,Switch - Pressure
+Grease System,T-Fitting
+Grease System,vent valve
+Hydraulic System,Accumulator
+Hydraulic System,Bleeddown Manifold
+Hydraulic System,Boarding Ladder
+Hydraulic System,Flow amplifier
+Hydraulic System,Hoist Cylinder
+Hydraulic System,Hoist Pump
+Hydraulic System,Hose
+Hydraulic System,Hosing
+Hydraulic System,Hydraulic Filters
+Hydraulic System,Hydraulic Tank
+Hydraulic System,Oil Cooler
+Hydraulic System,Overcenter Manifold
+Hydraulic System,Steering Pressure
+Hydraulic System,Steering Pump
+Hydraulic System,Switch - Filter Diff Pressure
+Hydraulic System,Switch - Pressure
+Hydraulic System,Temperature Sensor
+Hydraulic System,Valve - Hoist Pilot
+Spindle,Bearings
+Spindle,Duo Cone Seal
+Spindle,Seal - Other
+Steering System,Steering Accumulator
+Steering System,Steering Bearings
+Steering System,Steering Cylinder
+Steering System,Steering Pump
+Steering System,Steering Arm
+Steering System,Switch - Pressure
+Steering System,Valve - Steering EPC
+Steering System,Tie Rod
+Wheel Motor,AC Motor
+Wheel Motor,D-Ring Bolts
+Wheel Motor,Seal
+Wheel Motor,Sun Pinion
+Wheel Motor,Thrust Washer
+Wheel Motor,Transmission

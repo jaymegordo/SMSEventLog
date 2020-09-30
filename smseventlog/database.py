@@ -315,6 +315,24 @@ class DB(object):
         df = self.get_df_emaillist()
         return list(df[(df.MineSite==minesite) & (df[name].str.lower()=='x')].Email)
 
+    def get_df_issues(self, force=False):
+        name = 'issues'
+        df = self.get_df_saved(name)
+
+        if df is None or force:
+            df = pd.read_csv(f.datafolder / 'csv/issue_categories.csv')
+            self.save_df(df, name)
+        
+        return df
+    
+    def get_issues(self):
+        df = self.get_df_issues()
+        return f.clean_series(df.category)
+    
+    def get_sub_issue(self, issue):
+        df = self.get_df_issues()
+        return list(df.sub_category[df.category==issue])
+
     def get_list_minesite(self):
         lst_minesite = getattr(self, 'lst_minesite', None)
         if lst_minesite is None:

@@ -273,9 +273,26 @@ class TableView(QTableView):
                 self.formats[col] = '{:%Y-%m-%d     %H:%M}'
                 self.setItemDelegateForColumn(i, datetime_delegate)
 
-    def set_combo_delegate(self, col, items):
+    def set_combo_delegate(self, col : str, items : list = None, dependant_col : str = None, allow_blank=True):
+        """Assign combo delegate to column.
+
+        Parameters
+        ----------
+        col : str\n
+        items : list, optional
+            List of items for ComboBox\n
+        dependant_col : str, optional
+            Column to check before setting items (used for issue_category/sub_category)\n
+        allow_blank : bool
+            Allow blank values, will append '' to list
+        """        
         model = self.model()
-        combo_delegate = ComboDelegate(parent=self, items=items)
+        combo_delegate = ComboDelegate(
+            parent=self,
+            items=items,
+            dependant_col=dependant_col,
+            allow_blank=allow_blank)
+
         c = model.get_col_idx(col=col)
         self.setItemDelegateForColumn(c, combo_delegate)
 
@@ -889,7 +906,7 @@ class EventLogBase(TableWidget):
                 'SMR': '{:,.0f}'})
 
             items = f.config['Lists'][f'{self.parent.name}Status']
-            self.set_combo_delegate(col='Status', items=items)
+            self.set_combo_delegate(col='Status', items=items, allow_blank=False)
         
         def update_eventfolder_path(self, index : QModelIndex, val_prev, **kw):
             """Update event folder path when Title/Work Order/Date Added changed
@@ -1107,7 +1124,10 @@ class EventLog(EventLogBase):
             super().__init__(parent=parent)
             self.col_widths.update(dict(Passover=50, Description=800, Status=100))
             self.highlight_funcs['Passover'] = self.highlight_by_val
-            self.set_combo_delegate(col='Passover', items=['x', ''])
+            self.set_combo_delegate(col='Passover', items=['x'])
+
+            self.set_combo_delegate(col='Issue Category', items=db.get_issues())
+            self.set_combo_delegate(col='Sub Category', dependant_col='Issue Category')
 
         def get_style(self, df=None, outlook=False):
             return super().get_style(df=df, outlook=outlook) \
@@ -1191,7 +1211,7 @@ class WorkOrders(EventLogBase):
 
             lists = f.config['Lists']
             self.set_combo_delegate(col='Wrnty', items=lists['WarrantyType'])
-            self.set_combo_delegate(col='Comp CO', items=lists['TrueFalse'])
+            self.set_combo_delegate(col='Comp CO', items=lists['TrueFalse'], allow_blank=False)
         
         def set_component(self, val_new, **kw):
             if val_new == True:
@@ -1241,7 +1261,7 @@ class ComponentCO(EventLogBase):
             cols = ['Unit SMR', 'Comp SMR', 'SN Removed', 'SN Installed', 'Removal Reason']
             self.add_highlight_funcs(cols=cols, func=self.highlight_blanks)
 
-            self.set_combo_delegate(col='Reman', items=['True', 'False'])
+            self.set_combo_delegate(col='Reman', items=['True', 'False'], allow_blank=False)
 
             items = ['High Hour Changeout', 'Damage/Abuse', 'Convenience', 'Failure', 'Pro Rata Buy-in', 'Warranty']
             self.set_combo_delegate(col='Removal Reason', items=items)
