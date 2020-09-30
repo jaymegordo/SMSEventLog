@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
 
         tabs = TabWidget(self)
         self.setCentralWidget(tabs)
-        tabs.activate_tab(title=s.value('active table', 'Event Log'))
+        # tabs.activate_tab(title=s.value('active table', 'Event Log'))
         self.update_minesite_label()
 
         self.tabs = tabs
@@ -76,9 +76,11 @@ class MainWindow(QMainWindow):
     def after_init(self):
         self.username = self.get_username()
         self.init_sentry()
-        # self.tabs.init_tabs()
 
         self.u = users.User(username=self.username, mainwindow=self).login()
+
+        self.tabs.init_tabs()
+        self.tabs.activate_tab(title=self.settings.value('active table', 'Event Log'))
 
         # initialize updater
         self.updater = Updater(mw=self)
@@ -382,7 +384,7 @@ class TabWidget(QTabWidget):
         self.current_index = self.prev_index
         self.mainwindow = parent
         
-        self.init_tabs()
+        # self.init_tabs()
 
         self.currentChanged.connect(self.save_activetab)
 
@@ -390,6 +392,13 @@ class TabWidget(QTabWidget):
         """Add all tabs to widget"""
         m = f.config['TableName']['Class'] # get list of table classes from config
         lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'ComponentSMR', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
+
+        # Hide specific tabs per usergroup/domain
+        m_hide = dict(
+            CED=['FCSummary', 'FCDetails', 'Availability'])
+        
+        hide = m_hide.get(self.mainwindow.u.domain, [])
+        lst = [item for item in lst if not item in hide]
 
         for i, title in enumerate(lst):
             self.addTab(getattr(tbls, title)(parent=self), m[title])
