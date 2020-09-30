@@ -693,56 +693,43 @@ class TableWidget(QWidget):
         # load to details view
         dlg = dlgs.DetailsView(parent=self, df=df)
         dlg.exec_()
-
-    def set_cummins(self):
-        """Add 'Cummins' filter to self.query if user.is_cummins"""
-        if not self.mainwindow.u.is_cummins: return
-
-        query = self.query
-        if hasattr(query, 'set_cummins') and self.title in ('Event Log', 'Work Orders'):
-            query.set_cummins()
-
-    def refresh_lastweek(self, default=False):
+   
+    def refresh_lastweek(self, base=True):
+        """NOTE default means 'didn't come from refresh menu'"""
         if not self.query.set_lastweek():
             self.mainwindow.warn_not_implemented()
             return
 
-        fltr = self.query.fltr
-        if default:
-            self.query.set_minesite()
-            self.set_cummins()
+        self.refresh(base=base)
 
-        self.refresh()
-
-    def refresh_lastmonth(self, default=False):
+    def refresh_lastmonth(self, base=True):
         # self.sender() = PyQt5.QtWidgets.QAction > could use this to decide on filters
         if not self.query.set_lastmonth():
             self.mainwindow.warn_not_implemented()
             return
 
-        fltr = self.query.fltr
-        if default:
-            self.query.set_minesite()
-            self.set_cummins()
-
-        self.refresh()
+        # kinda sketch, but base = default - allopen
+        self.refresh(base=base)
 
     def refresh_allopen(self, default=False):
         query = self.query
         if hasattr(query, 'set_allopen'):
             query.set_allopen()
-        
-        if default:
-            self.set_cummins()
 
         self.refresh(default=default)
 
-    def refresh(self, default=False):
+    def refresh(self, **kw):
         # RefreshTable dialog will have modified query's fltr, load data to table view
         self.update_statusbar('Refreshing table, please wait...')
         self.mainwindow.app.processEvents()
 
-        df = self.query.get_df(default=default)
+        # NOTE should put this in a global settings dialog, eg 'Filter by UserGroup = True/False"
+        if self.u.is_cummins:
+            usergroup = self.u.usergroup
+        else:
+            usergroup = None
+        
+        df = self.query.get_df(usergroup=usergroup, **kw)
 
         if not len(df) == 0:
             self.view.display_data(df=df)
@@ -1157,7 +1144,7 @@ class EventLog(EventLogBase):
         subject = f'{company} Passover {minesite} - {shift}'
         body = f'{f.greeting()}Please see updates from {shift}:<br>'
 
-        email_list = db.get_email_list(name='Passover', minesite=minesite)
+        email_list = db.get_email_list(name='Passover', minesite=minesite, usergroup=self.u.usergroup)
 
         self.email_table(subject=subject, body=body, email_list=email_list, df=df, prompts=False)
     
@@ -1228,7 +1215,7 @@ class WorkOrders(EventLogBase):
         if e is None: return # no row selected in table
 
         title = f'{title} - {e.Unit} - {e.Title}'
-        lst = db.get_email_list(name='WO Request', minesite=self.minesite)
+        lst = db.get_email_list(name='WO Request', minesite=self.minesite, usergroup=self.u.usergroup)
 
         self.email_row(title=title, body_text=body_text, exclude_cols=exclude_cols, email_list=lst)
 
@@ -1494,7 +1481,7 @@ class TSI(EventLogBase):
         self.email_row(
             title=f'Failure Summary - {failure_title}',
             exclude_cols=['UID', 'Status', 'Details', 'Author', 'Pics'],
-            email_list=db.get_email_list('TSI', minesite),
+            email_list=db.get_email_list(name='TSI', minesite=minesite, usergroup=self.u.usergroup),
             body_text='The following TSI(s) have been submitted:',
             lst_attach=lst_attach)
 
