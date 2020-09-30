@@ -10,14 +10,20 @@ log = logging.getLogger(__name__)
 # TODO reload ff.Combobox items on toggle - signal/slot somehow?
 
 class InputField():
-    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, enforce=False):
+    def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, enforce=False, like=False):
         if col_db is None: col_db = text.replace(' ', '')
         boxLayout = None
         f.set_self(vars())
     
     @property
     def val(self):
-        return self.box.val
+        val = self.box.val
+
+        # make any value 'like'
+        if self.like:
+            val = f'*{val}*'
+
+        return val
 
     @val.setter
     def val(self, val):
