@@ -28,7 +28,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-__version__ = '3.2.0'
+__version__ = '3.2.1'
 VERSION = __version__
 
 # create logger
