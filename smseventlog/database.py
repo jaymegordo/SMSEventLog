@@ -114,7 +114,7 @@ class DB(object):
         df_fc = None
         df_component = None
         dfs = {}
-        domain_map = dict(Cummins='CED', Komatsu='KOMATSU', Suncor='NETWORK')
+        domain_map = dict(SMS='KOMATSU', Cummins='CED', Suncor='NETWORK')
         domain_map_inv = f.inverse(m=domain_map)
         f.set_self(vars())
     
@@ -230,14 +230,17 @@ class DB(object):
     def save_df(self, df, name):
         self.dfs[name] = df
 
-    def get_df(self, query, refresh=True, default=False, prnt=False):
+    def get_df(self, query, refresh=True, default=False, base=False, prnt=False, **kw):
         # get df by name and save for later reuse
         dfs = self.dfs
         title = query.title
         df = dfs.get(title, None)
 
         if default and hasattr(query, 'set_default_filter'):
-            query.set_default_filter()
+            query.set_default_filter(**kw)
+
+        if base and hasattr(query, 'set_base_filter'):
+            query.set_base_filter(**kw)
 
         if df is None or refresh:
             try:
