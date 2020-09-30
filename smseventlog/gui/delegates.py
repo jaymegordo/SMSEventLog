@@ -157,10 +157,13 @@ class ComboDelegate(CellDelegate):
         super().paint(painter, option, index)
 
     def setEditorData(self, editor, index):
-        val = index.data(Qt.DisplayRole)
+        """Set data when item already exists in list"""
+        val = index.data(Qt.DisplayRole).lower()
         try:
-            if val in self.items:
-                num = self.items.index(val)
+            if val == '':
+                editor.setCurrentIndex(0)
+            elif val in self.items_lower:
+                num = self.items_lower.index(val)
                 editor.setCurrentIndex(num)
             editor.lineEdit().selectAll()
 
