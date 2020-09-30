@@ -89,6 +89,10 @@ class TableView(QTableView):
         self.setVisible(True)
     
     @property
+    def u(self):
+        return self.parent.u
+
+    @property
     def e(self):
         return self.model_from_activerow()
 
