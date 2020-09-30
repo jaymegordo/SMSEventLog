@@ -11,16 +11,19 @@ class User():
         row, _e = None, None
         dbtable = UserSettings
         domain = os.getenv('userdomain', None)
+        usergroup = db.domain_map_inv.get(domain, 'SMS')
         new_user = False
 
         if not mainwindow is None:
             s = mainwindow.settings
             email = s.value('email', '')
+            minesite = mainwindow.minesite
         else:
             email = ''
+            minesite = ''
 
         # Disable everything for those idiots over at cummins
-        is_cummins = True if (not domain is None and 'CED' in domain) or 'cummins' in email else False
+        is_cummins = True if (not domain is None and 'CED' in domain) or 'cummins' in email.lower() or usergroup == 'Cummins' else False
         
         f.set_self(vars())
     
@@ -57,6 +60,8 @@ class User():
         e.Ver = VERSION
         e.NumOpens += 1
         e.Domain = self.domain
+        e.UserGroup = self.usergroup
+        e.MineSite = self.minesite
     
     def login(self):
         # create user row in UserSettings if doesn't exist
