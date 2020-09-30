@@ -143,7 +143,7 @@ class QueryBase(object):
             return self.parent.minesite
         else:
             from .gui import _global as gbl
-            return gbl.get_minesite() # checks mainwindow, then returns default 'FortHills'
+            return gbl.get_minesite()
     
     @minesite.setter
     def minesite(self, val):
@@ -235,11 +235,12 @@ class QueryBase(object):
 class EventLogBase(QueryBase):
     def __init__(self, da=None, **kw):
         super().__init__(da=da, **kw)
-        a, b = self.select_table, T('UnitID')
+        a, b, c = self.select_table, T('UnitID'), T('UserSettings')
         date_col = 'DateAdded'
 
         q = Query.from_(a) \
-            .left_join(b).on_field('Unit')
+            .left_join(b).on_field('Unit') \
+            .left_join(c).on(a.CreatedBy==c.UserName)
 
         f.set_self(vars())
 
@@ -250,6 +251,15 @@ class EventLogBase(QueryBase):
     def set_default_filter(self):
         self.set_minesite()
         self.set_allopen()
+    
+    def set_cummins(self):
+        self.set_domain(domain='Cummins')
+    
+    def set_domain(self, domain='Cummins'):
+        domain_map = dict(Cummins='CED', Komatsu='KOMATSU', Suncor='NETWORK') # not DRY, also in DB
+        domain = domain_map.get(domain, None)
+        if domain is None: return
+        self.fltr.add(field='Domain', val=domain, table=T('UserSettings'))
 
 class EventLog(EventLogBase):
     def __init__(self, **kw):
