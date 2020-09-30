@@ -50,7 +50,7 @@ class InputForm(QDialog):
     def show(self):
         self.setFixedSize(self.sizeHint())
 
-    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None):
+    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None, tooltip=None):
         # Add input field to form
         text, dtype = field.text, field.dtype
 
@@ -99,6 +99,8 @@ class InputForm(QDialog):
             layout = self.formLayout
 
         label = QLabel(f'{text}:')
+        if not tooltip is None:
+            label.setToolTip(tooltip)
 
         if index is None:
             layout.addRow(label, boxLayout)
@@ -136,7 +138,7 @@ class InputForm(QDialog):
         return True
 
     def get_items(self):
-        # return dict of all field items: values
+        """Return dict of all {field items: values}"""
         m = {}
         for field in self.fields:
             m[field.text] = field.val
@@ -149,7 +151,13 @@ class InputForm(QDialog):
         for field in self.fields:
             if field.box.isEnabled():
                 print(f'adding input | field={field.col_db}, table={field.table}')
-                fltr.add(field=field.col_db, val=field.val, table=field.table, opr=field.opr)
+
+                # use value_map to convert values before query
+                val = field.val
+                if hasattr(field, 'value_map'):
+                    val = field.value_map.get(val, None)
+
+                fltr.add(field=field.col_db, val=val, table=field.table, opr=field.opr)
 
     def toggle(self, state):
         # toggle input field enabled/disabled based on checkbox
@@ -180,7 +188,7 @@ class InputForm(QDialog):
         return any(isinstance(widget, t) for t in cls._get_handled_types())
 
     def _save_settings(self):
-        # save ui controls and values to QSettings
+        """Save ui controls and values to QSettings"""
         for obj in self.children():
             if self._is_handled_type(obj):
                 val = obj.val
@@ -189,7 +197,7 @@ class InputForm(QDialog):
                     self.settings.setValue(f'{self.name}_{obj.objectName()}', val)
 
     def _restore_settings(self):
-        # set saved value back to ui control
+        """Set saved value back to ui control"""
         for obj in self.children():
             name, val = obj.objectName(), None
 
