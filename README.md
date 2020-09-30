@@ -30,6 +30,7 @@ The log is structured around several main tables, each of which can be used to i
 | Create New Event     | Ctrl + Shift + N |
 | Change MineSite      | Ctrl + Shift + M |
 | Show Details View    | Ctrl + Shift + D |
+| Jump start/end table | Ctrl + Shift + J |
 | Jump to Previous Tab | Ctrl + Tab       |
 | New line in cell     | Shift + Enter    |
 | Fill cell value down | Ctrl + D         |
