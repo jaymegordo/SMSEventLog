@@ -497,6 +497,9 @@ class AddEvent(AddRow):
         # Make sure title is good
         self.fTitle.val = f.nice_title(self.fTitle.val)
 
+        if self.parent.u.is_cummins:
+            row.IssueCategory = 'Engine'
+
         # create TSI row (row 1 only)
         if self.cb_tsi.isChecked():
             row.StatusTSI = 'Open'
