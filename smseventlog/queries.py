@@ -9,12 +9,15 @@ from . import dbmodel as dbm
 from . import functions as f
 from . import styles as st
 from .__init__ import *
+from .database import db
 
 log = logging.getLogger(__name__)
 
-# Queries control how data is queried/filtered from database.
-# Can be consumed by tables/views, reports, etc
-# da is 'default args' to be passed to filter when query is executed
+"""
+- Queries control how data is queried/filtered from database.
+- Can be consumed by tables/views, reports, etc
+- da is 'default args' to be passed to filter when query is executed
+"""
 
 class Filter():
     def __init__(self, parent):
@@ -204,9 +207,8 @@ class QueryBase(object):
         for da in args:
             fltr.add(**da)
     
-    def get_df(self, default=False, **kw):
-        from .database import db
-        self.df = db.get_df(query=self, default=default, **kw)
+    def get_df(self, **kw):
+        self.df = db.get_df(query=self, **kw)
         return self.df
 
     def get_stylemap(self, df, col=None):
@@ -247,19 +249,18 @@ class EventLogBase(QueryBase):
         self.default_dtypes.update(
             **f.dtypes_dict('Int64', ['SMR', 'Unit SMR', 'Comp SMR', 'Part SMR', 'Pics']),
             **f.dtypes_dict('bool', ['Comp CO']))
-       
-    def set_default_filter(self):
+    
+    def set_base_filter(self, **kw):
         self.set_minesite()
-        self.set_allopen()
+        self.set_usergroup(**kw)  
+
+    def set_default_filter(self, **kw):
+        self.set_base_filter(**kw)
+        self.set_allopen(**kw)
     
-    def set_cummins(self):
-        self.set_domain(domain='Cummins')
-    
-    def set_domain(self, domain='Cummins'):
-        domain_map = dict(Cummins='CED', Komatsu='KOMATSU', Suncor='NETWORK') # not DRY, also in DB
-        domain = domain_map.get(domain, None)
-        if domain is None: return
-        self.fltr.add(field='Domain', val=domain, table=T('UserSettings'))
+    def set_usergroup(self, usergroup=None, **kw):
+        if usergroup is None: return
+        self.fltr.add(field='UserGroup', val=usergroup, table=T('UserSettings'))
 
 class EventLog(EventLogBase):
     def __init__(self, **kw):
@@ -273,7 +274,7 @@ class EventLog(EventLogBase):
         
         f.set_self(vars())
     
-    def set_allopen(self):
+    def set_allopen(self, **kw):
         a = self.a
         ct = ((a.StatusEvent != 'complete') | (a.PassoverSort.like('x')))
         self.fltr.add(ct=ct)
@@ -290,7 +291,7 @@ class WorkOrders(EventLogBase):
 
         f.set_self(vars())    
    
-    def set_allopen(self):
+    def set_allopen(self, **kw):
         self.fltr.add(field='StatusWO', val='open')
 
 class ComponentCOBase(EventLogBase):
@@ -304,15 +305,15 @@ class ComponentCOBase(EventLogBase):
 
         f.set_self(vars())
 
-    def set_default_filter(self):
-        super().set_default_filter()
+    def set_default_filter(self, **kw):
+        super().set_default_filter(**kw)
         self.fltr.add(vals=dict(DateAdded=dt.now().date() + delta(days=-30)))
     
     def set_fltr(self):
         super().set_fltr()
         self.fltr.add(vals=dict(ComponentCO='True'))
 
-    def set_allopen(self):
+    def set_allopen(self, **kw):
         self.fltr.add(field='COConfirmed', val='False')
 
 class ComponentCO(ComponentCOBase):
@@ -347,10 +348,10 @@ class ComponentSMR(QueryBase):
         self.default_dtypes.update(
             **f.dtypes_dict('Int64', ['Bench SMR', 'Curr Unit SMR', 'SMR Last CO', 'Curr Comp SMR', 'Life Remaining']))
     
-    def set_default_filter(self):
+    def set_default_filter(self, **kw):
         self.set_allopen()
 
-    def set_allopen(self):
+    def set_allopen(self, **kw):
         self.set_minesite()
     
     def background_gradient(self, style):
@@ -416,7 +417,7 @@ class TSI(EventLogBase):
 
         f.set_self(vars())
 
-    def set_allopen(self):
+    def set_allopen(self, **kw):
         self.fltr.add(field='StatusTSI', val='closed', opr=op.ne)
     
     def set_fltr(self):
@@ -447,7 +448,7 @@ class UnitInfo(QueryBase):
         
         f.set_self(vars())
 
-    def set_default_filter(self):
+    def set_default_filter(self, **kw):
         self.fltr.add(vals=dict(MineSite=self.minesite))
 
 class FCBase(QueryBase):
@@ -470,11 +471,11 @@ class FCBase(QueryBase):
 
         f.set_self(vars())
 
-    def set_default_filter(self):
+    def set_default_filter(self, **kw):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
         self.set_allopen()
     
-    def set_allopen(self):
+    def set_allopen(self, **kw):
         self.fltr.add(vals=dict(ManualClosed=0), table=T('FCSummaryMineSite'))
 
     def process_criterion(self):
@@ -505,7 +506,7 @@ class FCSummary(FCBase):
         f.set_self(vars())
 
     def process_df(self, df):
-        # pivot raw df for fc summary table
+        """Pivot raw df for fc summary table"""
         self.df_orig = df.copy()
 
         try:
@@ -519,7 +520,9 @@ class FCSummary(FCBase):
             df2['Complete'] = gb.apply(lambda x: x[x['Complete']=='Y']['Complete'].count())
             df2['Total Complete'] = df2.Complete.astype(str) + ' / ' +  df2.Total.astype(str)
             df2['% Complete'] = df2.Complete / df2.Total
-            df2.drop(columns=['Total', 'Complete'], inplace=True)
+            df2 = df2.drop(columns=['Total', 'Complete']) \
+                .rename_axis('FC Number') \
+                .reset_index()
 
             # can't pivot properly if Hours column (int) is NULL > just set to 0
             # NOTE also can't pivot if ALL values in any column are null > eg ExpiryDate with only 1 FC refreshed
@@ -650,8 +653,8 @@ class FCDetails(FCBase):
 
         self.cols = [a.UID, d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Pictures, a.Notes]
 
-    def set_default_filter(self):
-        super().set_default_filter()
+    def set_default_filter(self, **kw):
+        super().set_default_filter(**kw)
         self.fltr.add(vals=dict(Complete=0))
 
 class NewFCs(FCBase):
@@ -724,18 +727,21 @@ class EmailList(QueryBase):
     def __init__(self, **kw):
         super().__init__(**kw)
         a = self.select_table
-        self.cols = ['*']
+        self.cols = [a.UserGroup, a.MineSite, a.Email, a.Passover, a.WORequest, a.FCCancelled, a.PicsDLS, a.PRP, a.FCSummary, a.TSI, a.RAMP, a.Service, a.Parts]
 
         self.q = Query.from_(a) \
-            .orderby(a.MineSite, a.Email)
-        
-        # self.set_default_filter()
-    def set_allopen(self):
-        self.set_default_filter()
+            .orderby(a.UserGroup, a.MineSite, a.Email)
 
-    def set_default_filter(self):
-        # if not self.minesite is None:
-        self.fltr.add(vals=dict(MineSite=self.minesite))
+    def set_default_filter(self, usergroup=None, **kw):
+        self.fltr.add(vals=dict(MineSite=f'{self.minesite}*')) # TODO remove 'like' eventually
+        
+        if usergroup is None: usergroup = 'SMS'
+        self.fltr.add(field='UserGroup', val=usergroup)
+    
+    def process_df(self, df):
+        # TODO remove this replace, temp till _cwc can be removed
+        df.MineSite = df.MineSite.replace(dict(_CWC='', _AHS=''), regex=True)
+        return df
 
 class AvailBase(QueryBase):
     def __init__(self, da=None, **kw):
@@ -1048,7 +1054,7 @@ class Availability(AvailRawData):
         self.set_minesite()
         self.set_lastweek()
 
-    def set_allopen(self):
+    def set_allopen(self, **kw):
         self.set_minesite()
         self.fltr.add(ct=self.ct_allopen)
  
