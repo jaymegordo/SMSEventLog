@@ -335,7 +335,20 @@ class AddEvent(AddRow):
         self.add_input(field=IPF(text='Title', dtype='textbox'))
         self.add_input(field=IPF(text='Failure Cause', dtype='textbox'))
 
-        self.add_input(field=IPF(text='Warranty Status', col_db='WarrantyYN'), items=f.config['Lists']['WarrantyType'])
+        if self.parent.u.is_cummins:
+            wnty_default = 'WNTY'
+            list_name = 'WarrantyTypeCummins'
+        else:
+            list_name = 'WarrantyType'
+            wnty_default = 'Yes'
+
+        self.add_input(
+            field=IPF(
+                text='Warranty Status',
+                col_db='WarrantyYN',
+                default=wnty_default),
+            items=f.config['Lists'][list_name])
+
         self.add_input(field=IPF(text='Work Order', col_db='WorkOrder'))
         self.add_input(field=IPF(text='WO Customer', col_db='SuncorWO'))
         self.add_input(field=IPF(text='PO Customer', col_db='SuncorPO'))

@@ -83,6 +83,10 @@ Lists:
         - RAMP
         - Service
         - Parts
+    WarrantyTypeCummins:
+        - WNTY
+        - FME
+        - LEMS
     EventLogStatus:
         - Complete
         - Monitor
