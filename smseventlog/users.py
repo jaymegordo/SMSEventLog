@@ -1,5 +1,4 @@
 from .__init__ import *
-from .__init__ import __version__
 from . import functions as f
 from . import dbtransaction as dbt
 from .dbmodel import UserSettings
@@ -11,16 +10,23 @@ class User():
     def __init__(self, username, mainwindow=None):
         row, _e = None, None
         dbtable = UserSettings
-        domain = os.environ.get('userdomain', None)
+        domain = os.getenv('userdomain', None)
         new_user = False
 
         if not mainwindow is None:
             s = mainwindow.settings
-            email = s.value('email')
+            email = s.value('email', '')
         else:
             email = ''
 
+        # Disable everything for those idiots over at cummins
+        is_cummins = True if (not domain is None and 'CED' in domain) or 'cummins' in email else False
+        
         f.set_self(vars())
+    
+    @classmethod
+    def default(cls):
+        return cls(username='Jayme Gordon')
     
     @property
     def e(self):
@@ -48,7 +54,7 @@ class User():
     
     def update_vals(self, e):
         e.LastLogin = dt.now()
-        e.Ver = __version__ # NOTE this might move
+        e.Ver = VERSION
         e.NumOpens += 1
         e.Domain = self.domain
     
