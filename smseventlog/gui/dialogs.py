@@ -1090,7 +1090,10 @@ def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
     return ok, val
 
 def about():
-    msg = f'SMS Event Log\n\nVersion: {VERSION}'
+    mw = gbl.get_mainwindow()
+    u = mw.u
+    m = {'Version': VERSION, 'User Name': u.username, 'Email': u.email, 'User Group': u.usergroup}
+    msg = f'SMS Event Log\n\n{f.pretty_dict(m)}'
     return msg_simple(msg=msg)
 
 def set_multiselect(dlg):
