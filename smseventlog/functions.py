@@ -58,7 +58,8 @@ config_platform = config['Platform'][platform]
 
 
 # DICT & CONVERSIONS
-def inverse(m):
+def inverse(m : dict) -> dict:
+    """Return inverse of dict"""
     return {v: k for k, v in m.items()}
 
 def get_dict_view_db(title):

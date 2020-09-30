@@ -11,7 +11,7 @@ minsize_ss = 'QLabel{min-width: 100px}'
 minesite_default, customer = 'FortHills', 'Suncor'
 
 def get_mainwindow():
-    # Global function to find the (open) QMainWindow in application
+    """Global function to find the (open) QMainWindow in application"""
     app = QApplication.instance()
     if not app is None:
         for widget in app.topLevelWidgets():
@@ -20,7 +20,7 @@ def get_mainwindow():
     return None
 
 def get_minesite():
-    # get minesite from mainwindow, or use global default for dev
+    """Get minesite from mainwindow, or use global default for dev > FortHills"""
     mainwindow = get_mainwindow()
     if not mainwindow is None:
         return mainwindow.minesite
