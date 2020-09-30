@@ -7,13 +7,12 @@ verify_ssl = true
 ipykernel = "*"
 jupyter = "*"
 sqlacodegen = "*"
-xlwings = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
 bump2version = "*"
 pyupdater-s3-plugin = "*"
 
 [packages]
-pandas = "*"
+pandas = "==1.1.2" # lock to stop updates to io.formats.style.py
 pypika = "*"
 pyyaml = "*"
 sqlalchemy = "*"
@@ -27,8 +26,8 @@ azure-functions = "*"
 openpyxl = "*"
 "hurry.filesize" = "*"
 pyqt5 = "*"
-appscript = {version = "*",sys_platform = "== 'darwin'"}
-pywin32 = {version = "*",os_name = "== 'windows'"}
+appscript = {version = "*", sys_platform = "== 'darwin'"}
+pywin32 = "*"
 plotly = "*"
 seaborn = "*"
 matplotlib = "*"
@@ -39,7 +38,6 @@ jinja2 = "*"
 cairosvg = "==2.4.2"
 sentry-sdk = "*"
 pyinstaller = "*"
-pyupdater-s3-plugin = "*"
 pycparser = "==2.14"
 
 [requires]

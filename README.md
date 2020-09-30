@@ -165,7 +165,8 @@ There are several extra functions in the menubar, such as:
                 path = os.path.dirname(__file__) + "/templates/html.tpl"
                 with open(path) as fin:
                     data = fin.read()
-                    template = env.from_string(data)```
+                    template = env.from_string(data)
+                ```
         
         2. Weasyprint / Cairosvg
             * VERSION fails to load (fix `__init__.py` in both)
