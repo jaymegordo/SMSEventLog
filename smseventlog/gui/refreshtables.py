@@ -37,14 +37,19 @@ class RefreshTable(InputForm):
             add_refresh_button(name=title, func=parent.refresh_allopen)
 
         elif name == 'last week':
-            add_refresh_button(name=title, func=parent.refresh_lastweek)
+            add_refresh_button(name=title, func=lambda: parent.refresh_lastweek(base=False))
 
         elif name == 'last month':
-            add_refresh_button(name=title, func=parent.refresh_lastmonth)
+            add_refresh_button(name=title, func=lambda: parent.refresh_lastmonth(base=False))
                        
         elif name == 'minesite_config':
             title = 'MineSite'
             add_input(field=IPF(text=title, default=ms), items=f.config[title], checkbox=True)
+
+        # TODO remove eventually, temp for EmailList table
+        elif name == 'minesite_like':
+            title = 'MineSite'
+            add_input(field=IPF(text=title, default=ms, like=True), items=f.config[title], checkbox=True)
 
         elif name == 'minesite':
             table = T('UnitID')
@@ -110,17 +115,21 @@ class RefreshTable(InputForm):
             lst = f.clean_series(df.Subject)
             add_input(field=IPF(text='Subject', table=T('FCSummary')), items=lst, checkbox=True, cb_enabled=False)
         
-        elif name == 'domain':
+        elif name == 'usergroup':
             u = self.mainwindow.u
-            enabled = False if not u.is_cummins else True
+
+            if self.parent.title in ('Event Log', 'Work Orders'):
+                enabled = False if not u.is_cummins else True
+                table = T('UserSettings')
+            else:
+                enabled = True
+                table = None
 
             field = IPF(
-                    text='Limit Domain',
-                    default=db.domain_map_inv.get(u.domain, ''),
-                    col_db='Domain',
-                    table=T('UserSettings'))
-
-            field.value_map = db.domain_map # map 'Cummins' to 'CED'
+                    text='User Group',
+                    default=db.domain_map_inv.get(u.domain, 'SMS'),
+                    col_db='UserGroup',
+                    table=table)
 
             add_input(
                 field=field,
@@ -128,6 +137,7 @@ class RefreshTable(InputForm):
                 checkbox=True,
                 cb_enabled=enabled,
                 tooltip='Limit results to only those created by users in your domain.\n(Ensure users have been correctly initialized.)')
+
 
     def add_refresh_button(self, name, func):
         layout = self.vLayout
@@ -163,12 +173,12 @@ class EventLogBase(RefreshTable):
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_feature(name='domain')
+        self.add_feature(name='usergroup')
 
 class WorkOrders(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_feature(name='domain')
+        self.add_feature(name='usergroup')
 
 class ComponentCO(EventLogBase):
     def __init__(self, parent=None):
@@ -240,7 +250,7 @@ class EmailList(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        features = ['minesite_config']
+        features = ['minesite_like', 'usergroup']
         self.add_features(features=features)
 
 class Availability(RefreshTable):
