@@ -107,13 +107,24 @@ class CellDelegate(QStyledItemDelegate):
 
 
 class ComboDelegate(CellDelegate):
-    def __init__(self, parent, items):
+    def __init__(self, parent, items=None, dependant_col=None, allow_blank=True):
         super().__init__(parent)
         # parent is TableView
-
-        items_lower = [item.lower() for item in items]
+        model = parent.model()
         _cell_widget_states = {}
+
         f.set_self(vars())
+        
+        self.set_items(items=items)
+
+    def set_items(self, items):
+        self.items = items
+        if items is None: return
+
+        if self.allow_blank:
+            self.items.append('')
+
+        self.items_lower = [item.lower() for item in self.items]
 
     def initStyleOption(self, option, index):
         option.displayAlignment = Qt.AlignCenter
@@ -121,6 +132,13 @@ class ComboDelegate(CellDelegate):
 
     def createEditor(self, parent, option, index):
         self.index = index
+        
+        # get items based on dependant col
+        if not self.dependant_col is None:
+            index_category = index.siblingAtColumn(self.model.get_col_idx('Issue Category'))
+            category = index_category.data()
+            self.set_items(items=db.get_sub_issue(issue=category))
+
         editor = ComboBoxTable(parent=parent, delegate=self, items=self.items)
         editor.setMinimumWidth(editor.minimumSizeHint().width())
 
@@ -140,7 +158,6 @@ class ComboDelegate(CellDelegate):
 
     def setEditorData(self, editor, index):
         val = index.data(Qt.DisplayRole)
-        # print(val, type(val))
         try:
             if val in self.items:
                 num = self.items.index(val)
@@ -151,7 +168,7 @@ class ComboDelegate(CellDelegate):
             f.send_error()
 
     def setModelData(self, editor, model, index):
-        # convert any matching string to good value even if case mismatched
+        """Convert any matching string to good value even if case mismatched"""
         val = editor.val
         val_lower = val.lower()
 
