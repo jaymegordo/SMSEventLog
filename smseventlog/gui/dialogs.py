@@ -18,7 +18,7 @@ class InputField():
     @property
     def val(self):
         val = self.box.val
-
+        
         # make any value 'like'
         if self.like:
             val = f'*{val}*'
@@ -37,6 +37,7 @@ class InputForm(QDialog):
     def __init__(self, parent=None, window_title=''):
         super().__init__(parent=parent)
         mainwindow = gbl.get_mainwindow()
+        mw = mainwindow
         settings = gbl.get_settings()
         name = self.__class__.__name__
         _names_to_avoid = ('minesite_qcombobox') # always want to use 'current' minesite
@@ -157,13 +158,7 @@ class InputForm(QDialog):
         for field in self.fields:
             if field.box.isEnabled():
                 print(f'adding input | field={field.col_db}, table={field.table}')
-
-                # use value_map to convert values before query
-                val = field.val
-                if hasattr(field, 'value_map'):
-                    val = field.value_map.get(val, None)
-
-                fltr.add(field=field.col_db, val=val, table=field.table, opr=field.opr)
+                fltr.add(field=field.col_db, val=field.val, table=field.table, opr=field.opr)
 
     def toggle(self, state):
         # toggle input field enabled/disabled based on checkbox
@@ -302,6 +297,7 @@ class AddEmail(AddRow):
         IPF = InputField
         self.add_input(field=IPF(text='MineSite', default=gbl.get_minesite()), items=f.config['MineSite'])
         self.add_input(field=IPF(text='Email'))
+        self.add_input(field=IPF(text='User Group', default=self.mw.u.usergroup), items=db.domain_map.keys())
     
     def accept(self):
         # TODO build a more generic message for adding new rows
@@ -313,7 +309,7 @@ class AddEvent(AddRow):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Add Event')
         FCNumber = None
-        IPF = InputField
+        IPF, add = InputField, self.add_input
 
         layout = self.vLayout
         df = db.get_df_unit()
@@ -325,9 +321,9 @@ class AddEvent(AddRow):
         cb_fc = ff.CheckBox('Link FC')
         cb_fc.stateChanged.connect(self.create_fc)
 
-        self.add_input(field=IPF(text='MineSite', default=minesite), items=f.config['MineSite'])
-        self.add_input(field=IPF(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
-        self.add_input(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
+        add(field=IPF(text='MineSite', default=minesite), items=f.config['MineSite'])
+        add(field=IPF(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
+        add(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
 
         # Add btn to check smr 
         btn = self.create_button('get')
@@ -338,8 +334,8 @@ class AddEvent(AddRow):
         self.formLayout.addRow('', cb_tsi)
         self.formLayout.addRow('', cb_fc)
 
-        self.add_input(field=IPF(text='Title', dtype='textbox'))
-        self.add_input(field=IPF(text='Failure Cause', dtype='textbox'))
+        add(field=IPF(text='Title', dtype='textbox'))
+        add(field=IPF(text='Failure Cause', dtype='textbox'))
 
         if self.parent.u.is_cummins:
             wnty_default = 'WNTY'
@@ -348,16 +344,16 @@ class AddEvent(AddRow):
             list_name = 'WarrantyType'
             wnty_default = 'Yes'
 
-        self.add_input(
+        add(
             field=IPF(
                 text='Warranty Status',
                 col_db='WarrantyYN',
                 default=wnty_default),
             items=f.config['Lists'][list_name])
 
-        self.add_input(field=IPF(text='Work Order', col_db='WorkOrder'))
-        self.add_input(field=IPF(text='WO Customer', col_db='SuncorWO'))
-        self.add_input(field=IPF(text='PO Customer', col_db='SuncorPO'))
+        add(field=IPF(text='Work Order', col_db='WorkOrder'))
+        add(field=IPF(text='WO Customer', col_db='SuncorWO'))
+        add(field=IPF(text='PO Customer', col_db='SuncorPO'))
 
         self.add_component_fields()
 
@@ -646,7 +642,7 @@ class InputUserName(InputForm):
         layout = self.vLayout
         layout.insertWidget(0, QLabel('Welcome to the SMS Event Log! \
             \nPlease enter your first/last name and work email to begin:\n'))
-
+       
         self.add_input(field=InputField(text='First'))
         self.add_input(field=InputField(text='Last'))
         self.add_input(field=InputField(text='Email'))
@@ -669,7 +665,6 @@ class PasswordPrompt(InputForm):
         self.add_input(field=InputField(text=id_type.title()))
         self.add_input(field=InputField(text='Password'))
 
-    
 class TSIUserName(PasswordPrompt):
     def __init__(self):
         prompt = 'To use the automated TSI system,\

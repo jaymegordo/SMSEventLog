@@ -5,3 +5,6 @@ GO
 
 Alter Table OilSamplesImport
 ADD PRIMARY KEY (labTrackingNo);
+
+Alter Table EmailList
+Add CONSTRAINT PK_UserGroup_MineSite_Email PRIMARY KEY (UserGroup,MineSite,Email);

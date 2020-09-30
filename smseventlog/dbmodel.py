@@ -118,6 +118,7 @@ class EmailList(Base):
 
     Email = Column(Unicode(255), primary_key=True, nullable=False)
     MineSite = Column(Unicode(255), primary_key=True, nullable=False)
+    UserGroup = Column(Unicode(50), primary_key=True, nullable=False)
     Passover = Column(Unicode(255))
     WORequest = Column(Unicode(255))
     FCCancelled = Column(Unicode(255))
@@ -549,6 +550,8 @@ class UserSettings(Base):
     FilePath = Column(Unicode(255))
     Email = Column(String(255, 'SQL_Latin1_General_CP1_CI_AS'))
     Domain = Column(String(255, 'SQL_Latin1_General_CP1_CI_AS'))
+    UserGroup = Column(String(50, 'SQL_Latin1_General_CP1_CI_AS'))
+    MineSite = Column(String(100, 'SQL_Latin1_General_CP1_CI_AS'))
 
 
 class User(Base):

@@ -286,6 +286,7 @@ Headers:
         GE Warranty: GE_Remaining
 
     Email List:
+        UserGroup: UserGroup
         MineSite: MineSite
         Email: Email
         Passover: Passover

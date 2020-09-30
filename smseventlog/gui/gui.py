@@ -161,7 +161,11 @@ class MainWindow(QMainWindow):
         #     self._install_update(updater=self.updater, ask_user=False)
     
     def get_setting(self, key):
-        return self.settings.value(key, defaultValue=None)
+        val = self.settings.value(key, defaultValue=None)
+        if isinstance(val, str) and val.strip() == '':
+            return None
+        
+        return val
     
     def get_username(self):
         s = self.settings
@@ -183,6 +187,10 @@ class MainWindow(QMainWindow):
         s.setValue('username', dlg.username)
         s.setValue('email', dlg.email)
         self.username = dlg.username
+
+        if hasattr(self, 'u'):
+            self.u.username = dlg.username
+            self.u.email = dlg.email
 
     def set_tsi_username(self):
         CredentialManager('tsi').prompt_credentials()
@@ -300,9 +308,9 @@ class MainWindow(QMainWindow):
             shortcut=QKeySequence('Ctrl+Shift+R'))
         
         act_refresh_lastweek = QAction('Refresh Last Week', self, 
-            triggered=lambda: t().refresh_lastweek(default=True))
+            triggered=lambda: t().refresh_lastweek(base=True))
         act_refresh_lastmonth = QAction('Refresh Last Month', self, 
-            triggered=lambda: t().refresh_lastmonth(default=True))
+            triggered=lambda: t().refresh_lastmonth(base=True))
 
         act_viewfolder = QAction('View Folder', self,
             triggered=lambda: t().view_folder(),
