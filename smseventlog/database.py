@@ -310,10 +310,14 @@ class DB(object):
         
         return df
 
-    def get_email_list(self, name, minesite):
-        # Get list of emails from db for specified name eg 'WO Request'
+    def get_email_list(self, name, minesite, usergroup=None):
+        """Get list of emails from db for specified name eg 'WO Request'"""
+        if usergroup is None: usergroup = 'SMS'
         df = self.get_df_emaillist()
-        return list(df[(df.MineSite==minesite) & (df[name].str.lower()=='x')].Email)
+        return list(df[
+            (df.MineSite==minesite) &
+            (df.UserGroup==usergroup) &
+            (df[name].str.lower()=='x')].Email)
 
     def get_df_issues(self, force=False):
         name = 'issues'
