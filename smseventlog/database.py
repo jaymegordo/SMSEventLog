@@ -114,7 +114,8 @@ class DB(object):
         df_fc = None
         df_component = None
         dfs = {}
-
+        domain_map = dict(Cummins='CED', Komatsu='KOMATSU', Suncor='NETWORK')
+        domain_map_inv = f.inverse(m=domain_map)
         f.set_self(vars())
     
     def reset(self, warn=True):
