@@ -1248,7 +1248,7 @@ class UserSettings(QueryBase):
         select_tablename='UserSettings'
         super().__init__(parent=parent, select_tablename=select_tablename, **kw)
         a = T(select_tablename)
-        cols = [a.UserName, a.Email, a.LastLogin, a.Ver, a.Domain]
+        cols = [a.UserName, a.Email, a.LastLogin, a.Ver, a.Domain, a.UserGroup]
         q = Query.from_(a)
         f.set_self(vars())
 
