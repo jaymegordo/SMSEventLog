@@ -310,16 +310,11 @@ class AddEvent(AddRow):
         super().__init__(parent=parent, window_title='Add Event')
         FCNumber = None
         IPF, add = InputField, self.add_input
+        is_cummins = self.parent.u.is_cummins
 
         layout = self.vLayout
         df = db.get_df_unit()
         minesite = gbl.get_minesite()
-
-        # Checkboxes
-        cb_eventfolder = ff.CheckBox('Create Event Folder', checked=True)
-        cb_tsi = ff.CheckBox('Create TSI')
-        cb_fc = ff.CheckBox('Link FC')
-        cb_fc.stateChanged.connect(self.create_fc)
 
         add(field=IPF(text='MineSite', default=minesite), items=f.config['MineSite'])
         add(field=IPF(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
@@ -330,14 +325,22 @@ class AddEvent(AddRow):
         btn.clicked.connect(self.get_smr)
         self.add_input(field=IPF(text='SMR', dtype='int'), btn=btn)
 
-        self.formLayout.addRow('', cb_eventfolder)
-        self.formLayout.addRow('', cb_tsi)
-        self.formLayout.addRow('', cb_fc)
+        if not is_cummins:
+            # Checkboxes
+            cb_eventfolder = ff.CheckBox('Create Event Folder', checked=True)
+            cb_tsi = ff.CheckBox('Create TSI')
+            cb_fc = ff.CheckBox('Link FC')
+            cb_fc.stateChanged.connect(self.create_fc)
+
+            self.formLayout.addRow('', cb_eventfolder)
+            self.formLayout.addRow('', cb_tsi)
+            self.formLayout.addRow('', cb_fc)
 
         add(field=IPF(text='Title', dtype='textbox'))
         add(field=IPF(text='Failure Cause', dtype='textbox'))
 
-        if self.parent.u.is_cummins:
+        # Warranty Status
+        if is_cummins:
             wnty_default = 'WNTY'
             list_name = 'WarrantyTypeCummins'
         else:
@@ -512,15 +515,15 @@ class AddEvent(AddRow):
         # Make sure title is good
         self.fTitle.val = f.nice_title(self.fTitle.val)
 
-        if self.parent.u.is_cummins:
+        if self.is_cummins:
             row.IssueCategory = 'Engine'
-
-        # create TSI row (row 1 only)
-        if self.cb_tsi.isChecked():
-            row.StatusTSI = 'Open'
-            
-            if not self.mainwindow is None:
-                row.TSIAuthor = self.mainwindow.get_username()
+        else:
+            # create TSI row (row 1 only)
+            if self.cb_tsi.isChecked():
+                row.StatusTSI = 'Open'
+                
+                if not self.mainwindow is None:
+                    row.TSIAuthor = self.mainwindow.get_username()
 
         self.set_row_attrs(row=row, exclude=['Component CO 2', 'Component SMR 2'])
 
@@ -552,13 +555,14 @@ class AddEvent(AddRow):
         self.accept_()
         self.parent.view.resizeRowsToContents()
 
-        if self.cb_fc.isChecked():
-            self.link_fc()
-        
-        if self.cb_eventfolder.isChecked():
-            from .. import eventfolders as efl
-            ef = efl.EventFolder.from_model(e=row)
-            ef.create_folder(ask_show=True)
+        if not self.is_cummins:
+            if self.cb_fc.isChecked():
+                self.link_fc()
+            
+            if self.cb_eventfolder.isChecked():
+                from .. import eventfolders as efl
+                ef = efl.EventFolder.from_model(e=row)
+                ef.create_folder(ask_show=True)
 
 class AddUnit(AddRow):
     def __init__(self, parent=None):
