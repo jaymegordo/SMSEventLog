@@ -130,7 +130,7 @@ class EventFolder(UnitFolder):
 
     def get_folder_title(self, unit, dateadded, workorder, title):
         title = f.nice_title(title=title)
-        workorder = f.remove_slashes(w=workorder)
+        workorder = f.remove_bad_chars(w=workorder)
         return f'{unit} - {dateadded:%Y-%m-%d} - {workorder} - {title}'
 
     def check(self, p_prev : Path = None, check_pics=True):

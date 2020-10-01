@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, datafolder, frozen
 
 if sys.platform.startswith('win'):
-    drive = Path('P:')
+    drive = Path('P:\\')
     platform = 'win'
 else:
     drive = Path('/Volumes/Public')
@@ -204,15 +204,15 @@ def getattr_chained(obj, methods):
     except:
         return None
 
-def remove_slashes(w : str):
-    """Remove any slash / \ in string"""
-    return re.sub('[\\\/.]', '', w)
+def remove_bad_chars(w : str):
+    """Remove any bad chars " : < > | . \ / * ? in string to make safe for filepaths"""
+    return re.sub('[":<>|.\\\/\*\?]', '', w)
 
 def nice_title(title: str) -> str:
     """Remove slashes, capitalize first letter, avoid acronyms"""
     if title.strip() == '': return title
     excep = 'the a on in of an is'.split(' ')
-    title = remove_slashes(w=title).strip()
+    title = remove_bad_chars(w=title).strip()
 
     return ' '.join(
         f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w for w in title.split())  
