@@ -23,11 +23,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(gbl.title)
         self.setMinimumSize(QSize(1000, 400))
         self.minesite_changed.connect(self.update_minesite_label)
-        self.status_label = QLabel() # permanent label for status bar so it isnt changed by statusTips
+        self.status_label = QLabel(self) # permanent label for status bar so it isnt changed by statusTips
+        self.status_label.setToolTip('Global MineSite > Set with [Ctrl + Shift + M]')
         self.statusBar().addPermanentWidget(self.status_label)
 
         # Settings
-        s = QSettings('sms', 'smseventlog')
+        s = QSettings('sms', 'smseventlog', self)
         self.resize(s.value('window size', defaultValue=QSize(1200, 1000)))
         self.move(s.value('window position', defaultValue=QPoint(50, 50)))
         self.minesite = s.value('minesite', defaultValue='FortHills')
@@ -36,14 +37,11 @@ class MainWindow(QMainWindow):
         self.create_actions()
         self.create_menu()
 
-        tabs = TabWidget(self)
-        self.setCentralWidget(tabs)
-        # tabs.activate_tab(title=s.value('active table', 'Event Log'))
+        self.tabs = TabWidget(self)
+        self.setCentralWidget(self.tabs)
         self.update_minesite_label()
 
-        self.tabs = tabs
-
-        self.threadpool = QThreadPool()
+        self.threadpool = QThreadPool(self)
     
     @property
     def minesite(self):
@@ -66,7 +64,7 @@ class MainWindow(QMainWindow):
         if not msg is None:
             prev_status = self.statusBar().currentMessage()
             self.statusBar().showMessage(msg)
-            self.app.processEvents()
+            # self.app.processEvents()
     
     def revert_status(self):
         # revert statusbar to previous status
@@ -79,8 +77,9 @@ class MainWindow(QMainWindow):
 
         self.u = users.User(username=self.username, mainwindow=self).login()
 
+        last_tab_name = self.settings.value('active table', 'Event Log')
         self.tabs.init_tabs()
-        self.tabs.activate_tab(title=self.settings.value('active table', 'Event Log'))
+        self.tabs.activate_tab(title=last_tab_name)
 
         # initialize updater
         self.updater = Updater(mw=self)
@@ -385,12 +384,14 @@ class MainWindow(QMainWindow):
 
 class TabWidget(QTabWidget):
     def __init__(self, parent):
-        super().__init__(parent=parent)
+        super().__init__(parent)
         self.tabindex = dd(int)
        
         self.prev_index = self.currentIndex()
         self.current_index = self.prev_index
         self.mainwindow = parent
+        self.m_table = f.config['TableName']['Class'] # get list of table classes from config
+        self.m_table_inv = f.inverse(self.m_table)
         
         self.is_init = False
 
@@ -398,7 +399,6 @@ class TabWidget(QTabWidget):
 
     def init_tabs(self):
         """Add all tabs to widget"""
-        m = f.config['TableName']['Class'] # get list of table classes from config
         lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'ComponentSMR', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
 
         # Hide specific tabs per usergroup/domain
@@ -408,11 +408,29 @@ class TabWidget(QTabWidget):
         hide = m_hide.get(self.mainwindow.u.domain, [])
         lst = [item for item in lst if not item in hide]
 
-        for i, title in enumerate(lst):
-            self.addTab(getattr(tbls, title)(parent=self), m[title])
-            self.tabindex[m[title]] = i
+        for i, name in enumerate(lst):
+            self.init_tab(name=name, i=i)
         
         self.is_init = True
+    
+    def init_tab(self, name=None, title=None, i=0):
+        """Init tab """
+
+        # init with either 'EventLog' or 'Event Log'
+        if title is None:
+            title = self.m_table.get(name, None)
+        elif name is None:
+            name = self.m_table_inv.get(title, None)
+
+        if name is None or title is None:
+            log.warning('Missing name or title, can\'t init tab.')
+            return
+
+        if title in self.tabindex: return # tab already init
+
+        table_widget = getattr(tbls, name)(parent=self)
+        self.insertTab(i, table_widget, title)
+        self.tabindex[title] = i
 
     def get_index(self, title : str) -> int:
         """Return index number of table widget by title"""
