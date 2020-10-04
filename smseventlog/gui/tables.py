@@ -9,6 +9,7 @@ from .. import queries as qr
 from .. import styles as st
 from . import _global as gbl
 from . import dialogs as dlgs
+from . import refreshtables as rtbls
 from .__init__ import *
 from .datamodel import TableModel
 from .delegates import (CellDelegate, ComboDelegate, DateDelegate,
@@ -26,7 +27,7 @@ class TableView(QTableView):
     cellClicked = pyqtSignal(int, int)
 
     def __init__(self, parent=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(parent, *args, **kwargs)
 
         if not parent is None:
             self.mainwindow = parent.mainwindow
@@ -65,7 +66,6 @@ class TableView(QTableView):
         self.setItemDelegate(CellDelegate(parent=self))
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
-        # self.setSelectionBehavior(QTableView.SelectRows)
         self.setWordWrap(True)
         self.setSortingEnabled(True)
 
@@ -205,6 +205,20 @@ class TableView(QTableView):
         return
 
     def get_style(self, df=None, outlook=False, exclude_cols=None):
+        """Get styler with color from current TableView's dataframe
+
+        Parameters
+        ----------
+        df : DataFrame, optional\n
+        outlook : bool, optional
+            Different styles used if outlook, by default False\n
+        exclude_cols : list, optional\n
+
+        Returns
+        -------
+        pd.Styler
+            [description]
+        """        
         model = self.model()
         if df is None:
             df = model.df.copy() \
@@ -578,6 +592,7 @@ class TableWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
         name = self.__class__.__name__
         self.name = name
         if not parent is None:
@@ -592,9 +607,9 @@ class TableWidget(QWidget):
         vLayout = QVBoxLayout(self)
         btnbox = QHBoxLayout()
         btnbox.setAlignment(Qt.AlignLeft)
+        vLayout.addLayout(btnbox)
 
         # get default refresh dialog from refreshtables by name
-        from . import refreshtables as rtbls
         refresh_dialog = getattr(rtbls, name, rtbls.RefreshTable)
         self.query = getattr(qr, name, qr.QueryBase)(parent=self, theme='dark')
         dbtable = self.query.update_table
@@ -602,8 +617,6 @@ class TableWidget(QWidget):
 
         # try getting inner-classed tableview, if not use default
         view = getattr(self, 'View', TableView)(parent=self)
-
-        vLayout.addLayout(btnbox)
         vLayout.addWidget(view)
 
         f.set_self(vars())
@@ -750,21 +763,19 @@ class TableWidget(QWidget):
 
         msg_ = 'Include table in email body?'
         style_body = ''
-        if prompts:
-            include_style = dlgs.msgbox(msg=msg_, yesno=True)
-        
-        if not df is None or include_style:
+
+        if not prompts or (prompts and dlgs.msgbox(msg=msg_, yesno=True)):
             style_body = style.hide_index().render()
 
         body = f'{body}<br><br>{style_body}' # add in table to body msg
 
-        # show new email
+        # create new email
         msg = em.Message(subject=subject, body=body, to_recip=email_list, show_=False)
         
         if prompts:
             msg_ = 'Would you like to attach an excel file of the data?'
             if dlgs.msgbox(msg=msg_, yesno=True):
-                p = self.save_excel(style=style, name=self.name)
+                p = self.save_df(style=style, name=self.name, ext='xlsx')
                 msg.add_attachment(p)
                 p.unlink()
 
@@ -806,7 +817,7 @@ class TableWidget(QWidget):
         self.export_df(ext='csv')
 
     def export_df(self, ext='xlsx'):
-        # export current table as excel/csv file, prompt user for location
+        """Export current table as excel/csv file, prompt user for location"""
         from .. import folders as fl
 
         p = dlgs.save_file(name=self.title, ext=ext)
@@ -1215,7 +1226,11 @@ class WorkOrders(EventLogBase):
         if e is None: return # no row selected in table
 
         title = f'{title} - {e.Unit} - {e.Title}'
-        lst = db.get_email_list(name='WO Request', minesite=self.minesite, usergroup=self.u.usergroup)
+
+        m = {item:item for item in ['PRP', 'RAMP', 'Service', 'Parts']}
+        name = m.get(e.WarrantyYN, 'WO Request')
+        
+        lst = db.get_email_list(name=name, minesite=self.minesite, usergroup=self.u.usergroup)
 
         self.email_row(title=title, body_text=body_text, exclude_cols=exclude_cols, email_list=lst)
 
