@@ -4,7 +4,7 @@
 # run from terminal with: zsh build.sh {version} > eg zsh build.sh 3.0.4
 
 upload=$1
-version="3.2.3"
+version="3.2.4"
 echo "version: $version, upload: $upload"
 
 # scripts in build_scripts for organization, but run commands from project root
