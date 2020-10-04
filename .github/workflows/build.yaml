@@ -20,4 +20,4 @@ jobs:
                 SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
               with:
                 environment: production
-                version: "3.2.2"
+                version: "3.2.3"
