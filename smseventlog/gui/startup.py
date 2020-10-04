@@ -29,7 +29,7 @@ def launch():
     s = QSettings('sms', 'smseventlog', app)
 
     pixmap = QPixmap(str(f.datafolder / 'images/sms_icon.png'))
-    splash = QSplashScreen(pixmap)
+    splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
     splash.showMessage(f'SMS Event Log\nVersion {VERSION}', color=Qt.white)
 
     # move splash screen, this is pretty janky
