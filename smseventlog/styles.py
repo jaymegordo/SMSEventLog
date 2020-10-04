@@ -126,7 +126,7 @@ def default_style(df, outlook=False):
     # Dataframe general column alignment/number formatting
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
     df[cols] = df[cols].replace('\n', '<br>', regex=True)
-    df.reset_index(inplace=True)
+    df.reset_index(inplace=True, drop=True)
 
     font_family = 'Tahoma, Geneva, sans-serif;' if not outlook else 'Calibri'
 
