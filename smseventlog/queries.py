@@ -1050,7 +1050,7 @@ class Availability(AvailRawData):
     def set_minesite(self):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
     
-    def set_default_filter(self):
+    def set_default_filter(self, **kw):
         self.set_minesite()
         self.set_lastweek()
 
@@ -1248,8 +1248,10 @@ class UserSettings(QueryBase):
         select_tablename='UserSettings'
         super().__init__(parent=parent, select_tablename=select_tablename, **kw)
         a = T(select_tablename)
-        cols = [a.UserName, a.Email, a.LastLogin, a.Ver, a.Domain, a.UserGroup]
-        q = Query.from_(a)
+        cols = [a.UserName, a.Email, a.LastLogin, a.Ver, a.Domain, a.UserGroup, a.MineSite]
+        q = Query.from_(a) \
+            .orderby(a.LastLogin, order=Order.desc)
+
         f.set_self(vars())
 
 def table_with_args(table, args):

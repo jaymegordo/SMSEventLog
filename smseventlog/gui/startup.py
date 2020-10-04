@@ -9,7 +9,6 @@ try:
     # try setting app ID for windows only
     from PyQt5.QtWinExtras import QtWin # noqa
     app_id = f'com.sms.smseventlog' # .{VERSION}' > dont include version, windows thinks its a different app
-    print(app_id)
     QtWin.setCurrentProcessExplicitAppUserModelID(app_id)    
 except ImportError:
     pass
@@ -27,7 +26,7 @@ def launch():
     decorate_modules()
     app = get_qt_app()
 
-    s = QSettings('sms', 'smseventlog')
+    s = QSettings('sms', 'smseventlog', app)
 
     pixmap = QPixmap(str(f.datafolder / 'images/sms_icon.png'))
     splash = QSplashScreen(pixmap)
@@ -46,12 +45,14 @@ def launch():
     app.processEvents()
 
     w = gui.MainWindow()
-
+    w.setUpdatesEnabled(False)
     w.show()
+    w.setUpdatesEnabled(True)
     app.processEvents()
+
     w.after_init()
     splash.finish(w)
-    
+
     return app.exec_()
 
 def get_qt_app():

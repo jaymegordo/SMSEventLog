@@ -317,6 +317,7 @@ class DB(object):
         """Get list of emails from db for specified name eg 'WO Request'"""
         if usergroup is None: usergroup = 'SMS'
         df = self.get_df_emaillist()
+        
         return list(df[
             (df.MineSite==minesite) &
             (df.UserGroup==usergroup) &

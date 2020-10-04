@@ -24,7 +24,7 @@ class TableModel(QAbstractTableModel):
     qtIndexRole = 69
 
     def __init__(self, parent, df=None):
-        super().__init__()
+        super().__init__(parent)
         # table model must be created from TableWidget()/TableView() parent
         
         _df = pd.DataFrame()
