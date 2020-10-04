@@ -57,7 +57,7 @@ def alternating_rows_outlook(style, outlook=True):
     if outlook:
         style = style.apply(
             lambda df: pd.DataFrame(data='background-color: #E4E4E4;', index=df.index, columns=df.columns), 
-            subset=pd.IndexSlice[::2, :],
+            subset=pd.IndexSlice[1::2, :],
             axis=None)
 
     return style
@@ -126,6 +126,7 @@ def default_style(df, outlook=False):
     # Dataframe general column alignment/number formatting
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
     df[cols] = df[cols].replace('\n', '<br>', regex=True)
+    df.reset_index(inplace=True)
 
     font_family = 'Tahoma, Geneva, sans-serif;' if not outlook else 'Calibri'
 
@@ -148,7 +149,8 @@ def default_style(df, outlook=False):
     s.extend(set_column_style(mask=~numeric_mask, props=('text-align', 'left')))
     s.extend(set_column_style(mask=date_mask, props=('text-align', 'center')))
 
-    table_attrs = f'style="border-collapse: collapse;"'
+    border = ' border: 1px solid #000000;' if outlook else ''
+    table_attrs = f'style="border-collapse: collapse;{border}"'
 
     style = df.style \
         .format(defaut_number_format, subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
