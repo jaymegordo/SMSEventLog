@@ -244,7 +244,9 @@ class DB(object):
 
         if df is None or refresh:
             try:
-                sql = query.get_sql()
+                sql = query.get_sql(**kw)
+                if sql is None: return
+                
                 if prnt: print(sql)
 
                 df = pd \

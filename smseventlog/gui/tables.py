@@ -204,7 +204,7 @@ class TableView(QTableView):
 
         return
 
-    def get_style(self, df=None, outlook=False, exclude_cols=None):
+    def get_style(self, df=None, outlook=False, exclude_cols : list = None):
         """Get styler with color from current TableView's dataframe
 
         Parameters
@@ -217,7 +217,6 @@ class TableView(QTableView):
         Returns
         -------
         pd.Styler
-            [description]
         """        
         model = self.model()
         if df is None:
@@ -602,7 +601,7 @@ class TableWidget(QWidget):
 
         self.title = f.config['TableName']['Class'][name]
 
-        self.context_actions = dd(list, refresh=['refresh', 'refresh_allopen'], details=['detailsview'])
+        self.context_actions = dd(list, refresh=['refresh', 'refresh_allopen', 'reload_lastquery'], details=['detailsview'])
 
         vLayout = QVBoxLayout(self)
         btnbox = QHBoxLayout()
@@ -744,7 +743,7 @@ class TableWidget(QWidget):
         
         df = self.query.get_df(usergroup=usergroup, **kw)
 
-        if not len(df) == 0:
+        if not df is None and not len(df) == 0:
             self.view.display_data(df=df)
         else:
             dlgs.msg_simple(msg='No rows returned in query!', icon='warning')
@@ -1933,7 +1932,7 @@ class Availability(TableWidget):
         Worker(func=rep.create_pdf, mw=self.mainwindow, p_base=p_base) \
             .add_signals(signals=('result', dict(func=self.handle_report_result))) \
             .start()
-        self.update_statusbar('Creating Availability report in worker thread.')
+        self.update_statusbar('Creating Availability report...')
     
     def handle_report_result(self, rep=None):
         if rep is None: return

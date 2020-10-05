@@ -26,6 +26,7 @@ The log is structured around several main tables, each of which can be used to i
 |----------------------|------------------|
 | Show Refresh Menu    | Ctrl + R         |
 | Refresh All Open     | Ctrl + Shift + R |
+| Reload Previous Query| Ctrl + Shift + L |
 | View Folder          | Ctrl + Shift + V |
 | Create New Event     | Ctrl + Shift + N |
 | Change MineSite      | Ctrl + Shift + M |
