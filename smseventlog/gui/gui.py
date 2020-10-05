@@ -53,18 +53,18 @@ class MainWindow(QMainWindow):
         self.minesite_changed.emit(val)
     
     def update_minesite_label(self, *args):
-        # status_label is special label to always show current minesite (bottom right)
+        """Status_label is special label to always show current minesite (bottom right)"""
         self.status_label.setText(f'Minesite: {self.minesite}')
     
     def warn_not_implemented(self):
         self.update_statusbar('WARNING: This feature not yet implemented.')
     
     def update_statusbar(self, msg=None, *args):
-        # statusbar shows temporary messages that disappear on any context event
+        """Statusbar shows temporary messages that disappear on any context event"""
         if not msg is None:
             prev_status = self.statusBar().currentMessage()
             self.statusBar().showMessage(msg)
-            # self.app.processEvents()
+            self.app.processEvents()
     
     def revert_status(self):
         # revert statusbar to previous status
@@ -220,11 +220,17 @@ class MainWindow(QMainWindow):
 
         file_ = bar.addMenu('File')
         file_.addAction(self.act_new_item)
+        file_.addSeparator()
         file_.addAction(self.act_refresh)
         file_.addAction(self.act_refresh_allopen)
+        file_.addAction(self.act_reload_lastquery)
+        file_.addSeparator()
         file_.addAction(self.act_prev_tab)
         file_.addAction(self.act_change_minesite)
         file_.addAction(self.act_viewfolder)
+        file_.addSeparator()
+        menu_reports = file_.addMenu('Reports')
+        menu_reports.addAction(self.act_fleet_monthly_report)
 
         edit_ = bar.addMenu('Edit')
         edit_.addAction('Edit item')
@@ -268,6 +274,8 @@ class MainWindow(QMainWindow):
         act_show_about = QAction('About', self, triggered=dlgs.about)
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
         act_check_update = QAction('Check for Update', self, triggered=self.check_update)
+
+        act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=self.create_fleet_monthly_report)
         
         # Reset credentials
         act_username = QAction('Reset Username', self, triggered=self.set_username)
@@ -302,10 +310,12 @@ class MainWindow(QMainWindow):
         act_reset_db = QAction('Reset Database Connection', self, triggered=db.reset)
         act_reset_db_tables = QAction('Reset Database Tables', self, triggered=db.clear_saved_tables)
 
+        act_reload_lastquery = QAction('Reload Last Query', self, 
+            triggered=lambda: t().refresh(last_query=True),
+            shortcut=QKeySequence('Ctrl+Shift+L'))
         act_refresh_allopen = QAction('Refresh All Open', self, 
             triggered=lambda: t().refresh_allopen(default=True),
             shortcut=QKeySequence('Ctrl+Shift+R'))
-        
         act_refresh_lastweek = QAction('Refresh Last Week', self, 
             triggered=lambda: t().refresh_lastweek(base=True))
         act_refresh_lastmonth = QAction('Refresh Last Month', self, 
@@ -379,7 +389,32 @@ class MainWindow(QMainWindow):
         if row is None: return
 
         row.update(vals=dict(StatusTSI='Open', TSIAuthor=self.username))
-        self.update_statusbar(msg=f'TSI opened for: {e.Unit} - {e.Title}')  
+        self.update_statusbar(msg=f'TSI opened for: {e.Unit} - {e.Title}')
+    
+    def create_fleet_monthly_report(self, d : dt = None):
+        """Create Fleet Monthly Report in worker thread (FH only).\n
+        TODO may need to make menu to select period
+        Parameters
+        ----------
+        d : dt, optional
+            Date lower, by default None
+        """
+        from ..reports import FleetMonthlyReport
+        rep = FleetMonthlyReport()
+        Worker(func=rep.create_pdf, mw=self) \
+            .add_signals(signals=('result', dict(func=self.handle_fleet_report_result))) \
+            .start()
+
+        self.update_statusbar('Creating Fleet Monthly Report...')
+    
+    def handle_fleet_report_result(self, rep=None):
+        if rep is None: return
+        fl.open_folder(rep.p_rep)
+
+        msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            rep.email()
+
 
 
 class TabWidget(QTabWidget):
