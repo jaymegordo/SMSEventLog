@@ -105,6 +105,7 @@ class QueryBase(object):
     def __init__(self, parent=None, minesite=None, da=None, theme='light', select_tablename=None):
         formats, default_dtypes, stylemap_cols = {}, {}, {}
         background_gradients = []
+        last_sql = None
         _minesite_default = 'FortHills'
         # color_good = 240 if theme == 'light' else 120
         cmap = diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
@@ -152,7 +153,24 @@ class QueryBase(object):
     def minesite(self, val):
         self._minesite = val
 
-    def get_sql(self):
+    def get_sql(self, last_query=False, **kw) -> str:
+        """Return sql from query object.\n
+        Parameters
+        ----------
+        last_query : bool, optional
+            Refresh using last saved sql query, by default False\n
+        Returns
+        -------
+        str
+            SQL string, consumed in database.get_df
+        """        
+        if last_query:
+            if not self.last_sql is None:
+                return self.last_sql
+            else:
+                self.parent.update_statusbar('No previous query saved yet.')
+                return
+
         sql, da = self.sql, self.da
 
         if sql is None:
@@ -174,6 +192,8 @@ class QueryBase(object):
             sql = q.select(*self.cols) \
                 .where(self.fltr.expand_criterion()) \
                 .get_sql().replace("'d'", '"d"') # TODO: fix for this was answered
+            
+            self.last_sql = sql
 
         return sql
        
