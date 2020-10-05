@@ -1,8 +1,6 @@
-from . import dbmodel as dbm
-from . import exchange as exh
-from . import functions as f
+from .. import dbmodel as dbm
+from ..exchange import combine_email_data
 from .__init__ import *
-from .database import db
 
 
 def import_single(p):
@@ -12,13 +10,13 @@ def import_single(p):
 
 def import_downtime_email():
     maxdate = db.max_date_db(table='Downtime', field='ShiftDate') + delta(days=2)
-    df = exh.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Downtime')
+    df = combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Downtime')
     df = process_df_downtime(df=df)
     db.import_df(df=df, imptable='DowntimeImport', impfunc='ImportDowntimeTable')
 
 def import_dt_exclusions_email():
     maxdate = db.max_date_db(table='DowntimeExclusions', field='Date') + delta(days=2)
-    df = exh.combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Availability', header=0)  
+    df = combine_email_data(folder='Downtime', maxdate=maxdate, subject='Equipment Availability', header=0)  
     df = process_df_exclusions(df=df)
     import_dt_exclusions(df=df)
 
@@ -115,10 +113,10 @@ def ahs_pa_monthly():
 
 def dt_exclusions_ma_example(d_rng=None):
     # create all units with MA hrs below hrs in period
-    from . import folders as fl
+    from ..data import utils as utl
     units = []
-    units.extend(fl.all_units(rng=(300,322)))
-    units.extend(fl.all_units(rng=(331,348)))
+    units.extend(utl.all_units(rng=(300,322)))
+    units.extend(utl.all_units(rng=(323,348)))
 
     if d_rng is None:
         d_rng = (dt(2020,8,7), dt(2020,8,23))

@@ -53,17 +53,19 @@ from smseventlog import (
     exchange as exh,
     errors as er,
     queries as qr,
-    factorycampaign as fc,
     folders as fl,
     eventfolders as efl,
     email as em,
-    availability as av,
-    units as un,
     reports as rp,
     styles as st,
     charts as ch,
-    oilsamples as oil,
     web)
+
+from smseventlog.data import (
+    availability as av,
+    oilsamples as oil,
+    units as un,
+    factorycampaign as fc)
 
 from smseventlog.gui import (
     startup,

@@ -45,7 +45,7 @@ class CredentialManager(object):
         else:
             # load from config.yaml
             prefix = False
-            p_static_creds = f.datafolder / 'apikeys/credentials.yaml'
+            p_static_creds = f.resources / 'apikeys/credentials.yaml'
             with open(p_static_creds) as file:
                 static_creds_full = yaml.full_load(file)
                 static_creds = static_creds_full.get(name, None)

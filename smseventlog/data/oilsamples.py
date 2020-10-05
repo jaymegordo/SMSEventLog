@@ -3,10 +3,8 @@ from timeit import default_timer as timer
 
 import requests
 
-from . import functions as f
-from . import queries as qr
+from ..queries import OilReportSpindle, OilSamples
 from .__init__ import *
-from .database import db
 
 # NOTE eventually drop records > 1yr old from db
 
@@ -31,7 +29,7 @@ class OilSamples():
         print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
     
     def load_samples_db(self, d_lower=None, component=None, recent=False, minesite=None, model=None):
-        query = qr.OilSamples(recent=recent, component=component, minesite=minesite, model=model)
+        query = OilSamples(recent=recent, component=component, minesite=minesite, model=model)
 
         return query.get_df()
     
@@ -181,7 +179,7 @@ def example():
     return oils
 
 def spindle_report():
-    query = qr.OilReportSpindle()
+    query = OilReportSpindle()
     query.add_fltr_args([
         dict(vals=dict(component='spindle'), table=query.a),
         dict(vals=dict(minesite='FortHills'), table=query.b),

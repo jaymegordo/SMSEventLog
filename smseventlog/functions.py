@@ -19,7 +19,7 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
-global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, datafolder, frozen
+global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, resources, frozen
 
 if sys.platform.startswith('win'):
     drive = Path('P:\\')
@@ -43,11 +43,11 @@ if SYS_FROZEN:
         gtk_path = projectfolder / 'GTK3-Runtime Win64/bin'
         os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(gtk_path)])
 
-datafolder = topfolder / 'data' # data folder location is shifted out of smseventlog for frozen build
+resources = topfolder / '_resources' # data folder location is shifted out of smseventlog for frozen build
 
 def set_config():
     # config is yaml file with config details, dictionary conversions etc
-    p = Path(datafolder / 'config.yaml')
+    p = Path(resources / 'config.yaml')
     with open(p, encoding='utf8') as file:
         m = yaml.full_load(file)
     
@@ -433,12 +433,12 @@ def decode(key, string):
 
 def check_db():
     # Check if db.yaml exists, if not > decrypt db_secret and create it
-    p = datafolder / 'db.yaml'
+    p = resources / 'db.yaml'
     if p.exists():
         return True
     else:
         from .gui import dialogs as dlgs
-        p2 = datafolder / 'db_secret.txt'
+        p2 = resources / 'db_secret.txt'
 
         # Prompt user for pw
         msg = 'Database credentials encrypted, please enter password.\n(Contact {} if you do not have password).\n\nPassword:'.format(config['Email'])
@@ -464,7 +464,7 @@ def check_db():
 
 def encode_db(key):
     m = get_db_creds()
-    p = datafolder / 'db_secret.txt'
+    p = resources / 'db_secret.txt'
     with open(p, 'wb') as file:
         file.write(encode(key=key, string=json.dumps(m)))
     return True
@@ -474,7 +474,7 @@ def discord(msg, channel='orders'):
     import discord
     from discord import Webhook, RequestsWebhookAdapter, File
 
-    p = Path(datafolder) / 'apikeys/discord.csv'
+    p = Path(resources) / 'apikeys/discord.csv'
     r = pd.read_csv(p, index_col='channel').loc[channel]
     if channel == 'err': msg += '@here'
 

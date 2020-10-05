@@ -1,11 +1,13 @@
-# command line script to import fault, haul, or fix dls folders
+"""Command line script to import fault, haul, or fix dls folders"""
 
-import sys
-from pathlib import Path
 import argparse
-from datetime import datetime as dt, timedelta as delta
+import sys
+from datetime import datetime as dt
+from datetime import timedelta as delta
+from pathlib import Path
 
-import smseventlog.folders as fl
+import smseventlog.data.dls
+import smseventlog.data.utils as utl
 
 CLI=argparse.ArgumentParser()
 CLI.add_argument(
@@ -55,9 +57,9 @@ if __name__ == '__main__':
 
     if all_units:
         print(f'fix dls all units, startdate: {d}')
-        fl.fix_dls_all_units(d_lower=d)
+        dls.fix_dls_all_units(d_lower=d)
     else:
         print(f'ftype: {ftype}, units: {units}, startdate: {d}')
-        fl.process_files(ftype=ftype, units=units, d_lower=d)
+        utl.process_files(ftype=ftype, units=units, d_lower=d)
 
     print('** finished processfiles **')

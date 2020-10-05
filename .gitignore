@@ -11,11 +11,11 @@ src
 target
 *.egg-info
 
-smseventlog/data/reports/saved
-smseventlog/data/reports/images
-smseventlog/data/db.yaml
-smseventlog/data/email.yaml
-smseventlog/data/excel
+smseventlog/_resources/reports/saved
+smseventlog/_resources/reports/images
+smseventlog/_resources/db.yaml
+smseventlog/_resources/email.yaml
+smseventlog/_resources/excel
 
 .DS_Store
 Pipfile.lock
@@ -26,12 +26,12 @@ __pycache__
 *$py.class
 
 *.xlsm
-smseventlog/data/apikeys
+smseventlog/_resources/apikeys
 SMS.zip
-smseventlog/data/csv/avail_email.csv
+smseventlog/_resources/csv/avail_email.csv
 avail.html
 html_out.html
-smseventlog/data/csv/fleet_monthly_report_email.csv
+smseventlog/_resources/csv/fleet_monthly_report_email.csv
 run.spec
 _info/utils/generate-iconset.py
 pyu.log

@@ -2,11 +2,9 @@ from timeit import default_timer as timer
 
 from bs4 import BeautifulSoup
 
-from . import functions as f
-from . import styles as st
+from .. import styles as st
+from ..gui import dialogs as dlgs
 from .__init__ import *
-from .database import db
-from .gui import dialogs as dlgs
 
 # NOTE could make FCImport object to store results better
 

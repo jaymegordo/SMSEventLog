@@ -1,7 +1,4 @@
-from . import exchange as exh
-from . import functions as f
 from .__init__ import *
-from .database import db
 
 global m, cols, m_config
 m = dict(imptable='UnitSMRImport', impfunc='ImportUnitSMR')
@@ -17,8 +14,9 @@ m_config = dict(
 log = logging.getLogger(__name__)
 
 def import_unit_hrs_email(minesite):
+    from ..exchange import combine_email_data
     maxdate = db.max_date_db(table='UnitSMR', field='DateSMR', minesite=minesite) + delta(days=1)
-    df = exh.combine_email_data(folder='SMR', maxdate=maxdate, **m_config.get(minesite, {}))
+    df = combine_email_data(folder='SMR', maxdate=maxdate, **m_config.get(minesite, {}))
 
     # get eg: process_df_forthills()
     process_func = getattr(sys.modules[__name__], f'process_df_{minesite.lower()}')
@@ -122,7 +120,7 @@ def df_unit_hrs_monthly(month):
     return df
 
 def update_comp_smr():
-    from .gui import dialogs as dlgs
+    from ..gui import dialogs as dlgs
     try:
         cursor = db.cursor
         res = cursor.execute('updateUnitComponentSMR').fetchall()[0]

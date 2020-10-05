@@ -8,8 +8,9 @@ import azure.functions as func
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-from __app__.smseventlog import (
-    functions as f,
+from __app__.smseventlog import ( # noqa
+    functions as f)
+from __app__.smseventlog.data import ( # noqa
     availability as av,
     units as un)
 

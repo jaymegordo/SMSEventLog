@@ -31,7 +31,7 @@ def push_update_ui(vertype='patch'):
     print(msg)
 
 def v_txt():
-    p = Path(f.datafolder) / 'excel'
+    p = Path(f.resources) / 'excel'
     return sorted(p.glob('*.txt'))[0]
 
 def v_check():
@@ -62,7 +62,7 @@ def check_update_ui():
             wb_old.save(path=str(p_old))
 
             # open new wb
-            p = f.datafolder / f'excel/{title}'
+            p = f.resources / f'excel/{title}'
             wb = xw.books.open(p)
 
             # delete old wb

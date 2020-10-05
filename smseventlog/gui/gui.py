@@ -1,17 +1,17 @@
+from ..credentials import CredentialManager
+from ..data.units import update_comp_smr
 from . import _global as gbl
 from . import dialogs as dlgs
+from . import multithread as mlt
 from . import tables as tbls
 from .__init__ import *
 from .multithread import Worker
-from . import multithread as mlt
 from .update import Updater
-from ..credentials import CredentialManager
 
 log = logging.getLogger(__name__)
 
 # FEATURES NEEDED
 # TODO Keyboard shortcuts > ctrl + down, right
-# TODO green 'flash' for user confirmation value updated in db
 # TODO save previous query and run when tab first selected
 
 class MainWindow(QMainWindow):
@@ -231,6 +231,7 @@ class MainWindow(QMainWindow):
         file_.addSeparator()
         menu_reports = file_.addMenu('Reports')
         menu_reports.addAction(self.act_fleet_monthly_report)
+        menu_reports.addAction(self.act_plm_report)
 
         edit_ = bar.addMenu('Edit')
         edit_.addAction('Edit item')
@@ -275,7 +276,9 @@ class MainWindow(QMainWindow):
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
         act_check_update = QAction('Check for Update', self, triggered=self.check_update)
 
+        # Reports
         act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=self.create_fleet_monthly_report)
+        act_plm_report = QAction('PLM Report', self, triggered=self.create_plm_report)
         
         # Reset credentials
         act_username = QAction('Reset Username', self, triggered=self.set_username)
@@ -304,9 +307,7 @@ class MainWindow(QMainWindow):
         act_open_tsi = QAction('Open TSI', self, triggered=self.open_tsi)
         act_delete_event = QAction('Delete Row', self, triggered=lambda: t().remove_row())
 
-        from .. import units as un
-        from ..database import db
-        act_update_comp_smr = QAction('Update Component SMR', self, triggered=un.update_comp_smr)
+        act_update_comp_smr = QAction('Update Component SMR', self, triggered=update_comp_smr)
         act_reset_db = QAction('Reset Database Connection', self, triggered=db.reset)
         act_reset_db_tables = QAction('Reset Database Tables', self, triggered=db.clear_saved_tables)
 
@@ -415,7 +416,42 @@ class MainWindow(QMainWindow):
         if dlgs.msgbox(msg=msg, yesno=True):
             rep.email()
 
+    def create_plm_report(self):
+        """Trigger plm report from current unit selected in table"""
+        t = self.active_table_widget()
+        e = t.e
+        if e is None: return
 
+        from .. import eventfolders as efl
+        from ..reports import PLMUnitReport
+
+        rep = PLMUnitReport(unit=e.Unit, d_upper=e.DateAdded)
+
+        ef = efl.EventFolder.from_model(e)
+        p = ef._p_event
+
+        # If cant get event folder, ask to create at desktop
+        if not ef.check(check_pics=False):
+            p = Path.home() / 'Desktop'
+            msg = f'Can\'t get event folder, create report at desktop?'
+            if not dlgs.msgbox(msg=msg, yesno=True):
+                return
+
+        Worker(func=rep.create_pdf, mw=self, p_base=p) \
+            .add_signals(signals=('result', dict(func=self.handle_plm_result))) \
+            .start()
+
+        self.update_statusbar(f'Creating PLM report...')
+    
+    def handle_plm_result(self, rep=None):
+        if rep is None or not rep.p_rep.exists():
+            self.update_statusbar('Failed to create PLM report.')
+            return
+
+        self.update_statusbar('PLM report created.')
+        msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Open now?'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            fl.open_folder(rep.p_rep)
 
 class TabWidget(QTabWidget):
     def __init__(self, parent):

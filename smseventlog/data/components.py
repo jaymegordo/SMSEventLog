@@ -1,7 +1,6 @@
 from .__init__ import *
 from . import queries as qr
 from . import eventfolders as efl
-from .database import db
 
 class ComponentCOConditions(qr.ComponentCOBase):
     def __init__(self, d_lower=None, components=None, minesite='FortHills', **kw):

@@ -24,7 +24,7 @@ from smseventlog import (
     VERSION)
 
 datas = [
-    ('smseventlog/data', 'data')]
+    ('smseventlog/_resources', '_resources')]
 
 # NOTE could also figure out how to write hooks for some of these instead of *gasp* modifying source files
 package_imports = [
@@ -92,7 +92,7 @@ if upx:
         p = Path(mod.__file__).parent
         upx_exclude.extend([p.name for p in fl.find_files_ext(p, py_ext)])
 
-icon = str(f.datafolder / f'images/{icon_name}')
+icon = str(f.resources / f'images/{icon_name}')
 
 if run_pyupdater or True:
     print('**** PYUPDATER ****')

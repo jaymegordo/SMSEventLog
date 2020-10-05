@@ -5,8 +5,9 @@ import azure.functions as func
 import sys
 from pathlib import Path
 
-from __app__.smseventlog import (
-    functions as f,
+from __app__.smseventlog import ( # noqa
+    functions as f)
+from __app__.smseventlog.data import ( # noqa
     availability as av)
 
 log = logging.getLogger(__name__)

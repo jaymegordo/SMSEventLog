@@ -3,10 +3,11 @@ import re
 from .. import email as em
 from .. import errors as er
 from .. import eventfolders as efl
-from .. import factorycampaign as fc
 from .. import functions as f
 from .. import queries as qr
 from .. import styles as st
+from ..data import factorycampaign as fc
+from ..data.internal import dls
 from . import _global as gbl
 from . import dialogs as dlgs
 from . import refreshtables as rtbls
@@ -1459,7 +1460,7 @@ class TSI(EventLogBase):
         if e is None: return
         unit = e.Unit
 
-        p_dls = fl.zip_recent_dls_unit(unit=unit, _zip=False)
+        p_dls = dls.zip_recent_dls_unit(unit=unit, _zip=False)
         if not p_dls: return
 
         def _handle_zip_result(p_zip):
@@ -1775,7 +1776,7 @@ class Availability(TableWidget):
                 'Suncor': '{:,.2f}'})
 
             # TODO move this to an after_init, first time tab selected
-            p = f.datafolder / 'csv/avail_resp.csv'
+            p = f.resources / 'csv/avail_resp.csv'
             df = pd.read_csv(p)
             self.set_combo_delegate(col='Category Assigned', items=f.clean_series(s=df['Category Assigned']))
 
@@ -1828,7 +1829,7 @@ class Availability(TableWidget):
 
     def get_email_list(self, email_type='Daily'):
         # get email list from csv
-        p = f.datafolder / 'csv/avail_email.csv'
+        p = f.resources / 'csv/avail_email.csv'
         df2 = pd.read_csv(p)
         
         return list(df2[df2[email_type]==1].Email)

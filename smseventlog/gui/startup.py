@@ -28,7 +28,7 @@ def launch():
 
     s = QSettings('sms', 'smseventlog', app)
 
-    pixmap = QPixmap(str(f.datafolder / 'images/sms_icon.png'))
+    pixmap = QPixmap(str(f.resources / 'images/sms_icon.png'))
     splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
     splash.showMessage(f'SMS Event Log\nVersion {VERSION}', color=Qt.white)
 
@@ -68,7 +68,7 @@ def get_qt_app():
 
         app = QApplication([sys.executable])
         
-        app.setWindowIcon(QIcon(str(f.datafolder / 'images/sms_icon.png')))
+        app.setWindowIcon(QIcon(str(f.resources / 'images/sms_icon.png')))
         app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
         app.setStyle('Fusion')
 

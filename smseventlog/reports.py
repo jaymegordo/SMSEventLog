@@ -9,12 +9,12 @@ from . import email as em
 from . import functions as f
 from . import queries as qr
 from . import styles as st
-from . import units as un
 from .__init__ import *
+from .data import units as un
 from .database import db
 
 global p_reports
-p_reports = f.datafolder / 'reports'
+p_reports = f.resources / 'reports'
 
 # TODO auto email w/ email lists
 
@@ -280,7 +280,7 @@ class FleetMonthlyReport(Report):
         body = f'{f.greeting()}{html_out}'
         subject = self.title
 
-        p = f.datafolder / 'csv/fleet_monthly_report_email.csv'
+        p = f.resources / 'csv/fleet_monthly_report_email.csv'
         email_list = list(pd.read_csv(p).Email)
         msg = em.Message(subject=subject, body=body, to_recip=email_list, show_=False)
 
@@ -461,6 +461,27 @@ class FailureReport(Report):
 
         return pd.DataFrame(data=data, columns=['field1', 'val1', 'field2', 'val2'])
 
+class PLMUnitReport(Report):
+    def __init__(self, unit : str, d_upper : dt, d_lower : dt = None, **kw):
+        """Create PLM report for single unit
+
+        Parameters
+        ----------
+        unit : str\n
+        d_lower : dt\n
+        """
+        if d_lower is None:
+            d_lower = d_upper + delta(days=-180)
+        
+        d_rng = (d_lower, d_upper)
+
+        super().__init__(d_rng=d_rng)
+        title = f'PLM Report - {unit} - {d_upper:%Y-%m-%d}'
+
+        f.set_self(vars())
+
+        self.load_sections('PLMUnit')
+
 # REPORT SECTIONS
 class Section():
     # sections only add subsections
@@ -489,7 +510,7 @@ class OilSamples(Section):
 class FrameCracks(Section):
     def __init__(self, report):
         super().__init__(title='Frame Cracks', report=report)
-        from . import framecracks as frm
+        from .data import framecracks as frm
 
         m = dict(df=frm.load_processed_excel())
         
@@ -636,6 +657,20 @@ class Components(Section):
             .add_df(
                 query=qr.ComponentCOReport(da=dict(d_rng=self.d_rng, minesite=self.minesite)),
                 caption='Major component changeout history. Life achieved is the variance between benchmark SMR and SMR at changeout.')
+
+class PLMUnit(Section):
+    def __init__(self, report):
+        super().__init__(title='PLM Analysis', report=report)
+        d_rng = report.d_rng
+        unit = report.unit
+
+        query = qr.PLMUnit(
+            unit=unit, d_lower=d_rng[0], d_upper=d_rng[1])
+
+        sec = SubSection('PLM', self) \
+            .add_df(
+                query=query,
+                caption=f'PLM Summary for unit {unit}')
 
 class FCs(Section):
     def __init__(self, report):

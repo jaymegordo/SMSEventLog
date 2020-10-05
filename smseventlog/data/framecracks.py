@@ -1,9 +1,5 @@
-import re
-
-from . import functions as f
-from . import queries as qr
+from ..queries import FrameCracks
 from .__init__ import *
-from .database import db
 
 """
     1. Load frame cracks from sap (load_framecracks.vbs) + save to /onedrive/desktop/import/frame cracks/frame cracks.xlsx
@@ -46,7 +42,7 @@ def load_df_sun():
 
 def load_df_old():
     # load processed + combined history
-    p = f.datafolder / 'csv/FH Frame Cracks History.xlsx'
+    p = f.resources / 'csv/FH Frame Cracks History.xlsx'
     df = pd \
         .read_excel(p) \
         .pipe(format_int, cols=('Order', 'Notification', 'SMR'))
@@ -70,7 +66,7 @@ def pre_process_framecracks(d_lower=None):
     df_old = load_df_old()
 
     # load new data, merge
-    query = qr.FrameCracks(da=dict(d_lower=d_lower))
+    query = FrameCracks(da=dict(d_lower=d_lower))
     df_sms = query.get_df()
     df_sun = load_df_sun()
     df_smr = load_df_smr(d_lower=d_lower)

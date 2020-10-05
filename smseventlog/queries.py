@@ -1079,7 +1079,7 @@ class Availability(AvailRawData):
         self.fltr.add(ct=self.ct_allopen)
  
     def process_df(self, df):
-        p = f.datafolder / 'csv'
+        p = f.resources / 'csv'
         df_assigned = pd.read_csv(p / 'avail_assigned.csv')
         df_resp = pd.read_csv(p / 'avail_resp.csv')
 
@@ -1257,7 +1257,7 @@ class OilReportSpindle(OilSamplesRecent):
                 subquery=True)
 
     def process_df(self, df):
-        from . import oilsamples as oil
+        from .data import oilsamples as oil
 
         return super().process_df(df=df) \
             .pipe(oil.flatten_test_results, keep_cols=['visc40', 'visc100']) \
@@ -1273,6 +1273,55 @@ class UserSettings(QueryBase):
             .orderby(a.LastLogin, order=Order.desc)
 
         f.set_self(vars())
+
+class PLMUnit(QueryBase):
+    def __init__(self, unit, d_upper, d_lower=None):
+        """Select PLM report data for single unit.
+
+        Parameters
+        ----------
+        unit : str\n
+        d_upper : dt\n
+        d_lower : dt
+            If None, default to d_upper - 6 months
+        """        
+        super().__init__()
+
+        if d_lower is None:
+            d_lower = d_upper + delta(days=-180)
+
+        args = dict(
+            unit=unit,
+            d_lower=d_lower,
+            d_upper=d_upper)
+        
+        sql_tbl = table_with_args(table='PLMReportUnit', args=args)
+        sql = f'SELECT * FROM {sql_tbl}'
+        print(sql)
+        
+        f.set_self(vars())
+    
+    def process_df(self, df):
+        """Pivot single row of PLM summary into df for report."""
+        if df is None or not 0 in df.index:
+            raise AttributeError('Can\'t pivot dataframe!')
+            
+        self.df_orig = df.copy()
+        m = df.loc[0].to_dict()
+        
+        cols = ['110 - 120%', '>120%']
+        data = {
+            'Total loads': (m['Total_110'], m['Total_120']),
+            'Dumped within 1km': (m['Dumped_1KM_110'], m['Dumped_1KM_120']),
+            '<110% at shovel': (m['Lower_110_Shovel'], ),
+            'No GE code': (None, m['No_GE_Code']),
+            'Loads accepted': (m['Accepted_110'], m['Accepted_120']),
+            '% of loads accepted': (m['Overload_pct_110'], m['Overload_pct_120'])}
+
+        return pd.DataFrame.from_dict(data, orient='index', columns=cols) \
+            .reset_index() \
+            .rename(columns=dict(index='Load Range'))
+
 
 def table_with_args(table, args):
     def fmt(arg):

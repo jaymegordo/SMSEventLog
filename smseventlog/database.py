@@ -31,7 +31,7 @@ def wrap_connection_funcs():
 
 def get_db_creds():
     # if not check_db(): return
-    p = f.datafolder / 'db.yaml'
+    p = f.resources / 'db.yaml'
     with open(p) as file:
         m = yaml.full_load(file)
     
@@ -330,7 +330,7 @@ class DB(object):
         df = self.get_df_saved(name)
 
         if df is None or force:
-            df = pd.read_csv(f.datafolder / 'csv/issue_categories.csv')
+            df = pd.read_csv(f.resources / 'csv/issue_categories.csv')
             self.save_df(df, name)
         
         return df

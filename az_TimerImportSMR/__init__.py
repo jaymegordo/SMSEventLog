@@ -7,8 +7,9 @@ from pathlib import Path
 
 from __app__.smseventlog import ( # noqa
     functions as f,
-    units as un,
     errors as er)
+from __app__.smseventlog.data import ( # noqa
+    units as un)
 
 
 def main(mytimer: func.TimerRequest) -> None:
