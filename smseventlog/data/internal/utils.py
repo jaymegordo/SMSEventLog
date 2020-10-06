@@ -1,20 +1,26 @@
 from .__init__ import *
 from . import dls
+from . import plm
+from . import faults
+
+log = logging.getLogger(__name__)
 
 """Helper funcs to import external data, used by all other modules in /data/internal"""
 
 def get_config():
     return {
         'fault': dict(
-            exclude=['dsc'],
+            exclude=['dsc', 'dnevent', 'sfevent'],
             duplicate_cols=['unit', 'code', 'time_from'],
             imptable='FaultImport',
-            impfunc='ImportFaults'),
+            impfunc='ImportFaults',
+            read_func=faults.read_fault),
         'haul': dict(
-            exclude=['dsc', 'chk', 'CHK', 'Pictures'],
+            exclude=['dsc', 'chk', 'pictures', 'dnevent', 'sfevent'],
             duplicate_cols=['unit', 'datetime'],
             imptable='PLMImport',
-            impfunc='ImportPLM'),
+            impfunc='ImportPLM',
+            read_func=plm.read_haul),
         'dsc': dict(
             exclude=[]),
         'tr3': dict(
@@ -22,10 +28,11 @@ def get_config():
 
 def combine_csv(lst_csv, ftype, d_lower=None):
     # combine list of csvs into single and drop duplicates, based on duplicate cols
-    func = getattr(sys.modules[__name__], f'read_{ftype}')
+    # func = getattr(sys.modules[__name__], f'read_{ftype}')
+    func = get_config()[ftype].get('read_func')
 
     # multiprocess reading/parsing single csvs
-    dfs = Parallel(n_jobs=-1, verbose=11)(delayed(func)(csv) for csv in lst_csv)
+    dfs = Parallel(n_jobs=-1, verbose=11, prefer='threads')(delayed(func)(csv) for csv in lst_csv)
 
     df = pd.concat([df for df in dfs], sort=False) \
         .drop_duplicates(subset=get_config()[ftype]['duplicate_cols'])
@@ -35,7 +42,6 @@ def combine_csv(lst_csv, ftype, d_lower=None):
         df = df[df.datetime >= d_lower]
 
     return df
-
 
 def to_seconds(t):
     x = time.strptime(t, '%H:%M:%S')
@@ -65,8 +71,8 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
     lst = []
 
     # haul files only need to check date created
-    date_func_name = 'date_created' #if ftype == 'haul' else 'date_modified'
-    date_func = getattr(sys.modules[__name__], date_func_name)
+    # date_func_name = 'date_created' #if ftype == 'haul' else 'date_modified'
+    # date_func = getattr(sys.modules[__name__], date_func_name)
 
     if depth == 0 and ftype == 'tr3':
         # this is sketch, but need to find files in top level dir too
@@ -81,7 +87,7 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
                     lst.extend([f for f in p.glob(f'*.tr3') if fl.date_created(f) > d_lower])
 
                 # exclude vhms folders (8 digits) from haul file search
-                if (not (any(s in p.name for s in exclude)
+                if (not (any(s in p.name.lower() for s in exclude)
                         or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
                     and fl.date_modified(p) > d_lower):
                     
@@ -113,6 +119,7 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
     config = get_config()[ftype]
 
     for unit in units:
+        if not fl.drive_exists(): return
         p_unit = efl.UnitFolder(unit=unit).p_unit
         lst_search = [x for x in p_unit.iterdir() if x.is_dir() and x.name.lower() in search_folders] # start at downloads
 
@@ -137,7 +144,7 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
             df = combine_csv(lst_csv=lst, ftype=ftype, d_lower=d_lower)
             # print(f'rows in df: {len(df)}')
             if import_:
-                rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True)
+                rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, notification=False)
                 return rowsadded
             else:
                 return df
