@@ -65,6 +65,13 @@
                 {% endif %}
 
                 <h3 id="{{ sub_sec.title }}" {{ pb_val }}>{{ sub_sec_num }} {{ sub_sec.title }}</h3>
+                
+                <!-- Add paragraph text before section -->
+                {% if sub_sec.paragraph %}
+                <p>
+                    {{ sub_sec.paragraph }}
+                </p>
+                {% endif %}
 
                 {% for elem in sub_sec.elements %} <!-- loop df/chart elements -->
                     <div>
