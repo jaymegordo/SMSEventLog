@@ -83,6 +83,10 @@ class Report(object):
         else:
             m['df'] = func(**da)
 
+    def load_section_data(self):
+        for sec in self.sections.values():
+            sec.load_subsection_data()
+
     def print_dfs(self):
         for i, k in enumerate(self.dfs):
             m = self.dfs[k]
@@ -181,6 +185,8 @@ class Report(object):
         if self.charts and not self.render_charts(): return # orca not installed, charts not rendered
         if hasattr(self, 'set_exec_summary'):
             self.set_exec_summary()
+
+        self.load_section_data()
 
         template = self.env.get_template(self.html_template)
 
@@ -496,6 +502,15 @@ class Section():
     def add_subsections(self, sections):
         for name in sections:
             subsec = getattr(sys.modules[__name__], name)(section=self)
+    
+    def load_subsection_data(self):
+        """Load extra data (eg paragraph data) for each subsection"""
+        for name, sub_sec in self.sub_sections.items():
+            if not sub_sec.paragraph_func is None:
+                print(f'loading paragraph data: {name}')
+                m = sub_sec.paragraph_func
+
+                sub_sec.paragraph = m['func'](**m['kw'])
 
 class OilSamples(Section):
     def __init__(self, report):
@@ -670,7 +685,30 @@ class PLMUnit(Section):
         sec = SubSection('PLM', self) \
             .add_df(
                 query=query,
-                caption=f'PLM Summary for unit {unit}')
+                caption=f'PLM Summary for unit {unit}') \
+            .add_paragraph(
+                func=self.set_paragraph,
+                kw=dict(query=query))
+    
+    def set_paragraph(self, query, **kw):
+        """Set paragraph data from query
+        - NOTE query needs to already be loaded, must call after load_dfs
+        """
+
+        if not hasattr(query, 'df_orig'):
+            raise AttributeError('Query df not loaded yet!')
+
+        m = query.df_orig.loc[0].to_dict()
+
+        header = {
+            'Unit': m['Unit'],
+            'MinDate': f"{m['MinDate']:%Y-%m-%d}",
+            'MaxDate': f"{m['MaxDate']:%Y-%m-%d}",
+            'Total Loads': f"{m['TotalLoads']:,.0f}",
+            'Accepted Loads': f"{m['Total_ExcludeFlags']:,.0f}"
+        }
+
+        return f.two_col_list(header)
 
 class FCs(Section):
     def __init__(self, report):
@@ -715,6 +753,8 @@ class SubSection():
         section.sub_sections[title] = self # add self to parent's section
         report = section.report
         elements = []
+        paragraph = None
+        paragraph_func = None
         force_pb = False
         f.set_self(vars())
 
@@ -722,7 +762,15 @@ class SubSection():
         if name is None:
             name = self.title
 
-        self.report.dfs[name] = dict(name=name, func=func, query=query, da=da, df=None, df_html=None, display=display, has_chart=has_chart)
+        self.report.dfs[name] = dict(
+            name=name,
+            func=func,
+            query=query,
+            da=da,
+            df=None,
+            df_html=None,
+            display=display,
+            has_chart=has_chart)
 
         self.report.style_funcs.update({name: style_func})
 
@@ -742,6 +790,12 @@ class SubSection():
         if not linked:
             self.elements.append(dict(name=name, type='chart', caption=caption))
         
+        return self
+    
+    def add_paragraph(self, func, kw=None):
+        if kw is None: kw = {}
+
+        self.paragraph_func = dict(func=func, kw=kw)
         return self
 
 
