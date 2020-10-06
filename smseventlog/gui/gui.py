@@ -422,16 +422,50 @@ class MainWindow(QMainWindow):
         e = t.e
         if e is None: return
 
+        from ..data.internal import plm
+
+        unit, dateadded = e.Unit, e.DateAdded
+
+        # check max date in db
+        query = qr.PLMUnit(unit=unit, d_upper=dateadded)
+        maxdate = query.max_date()
+        if maxdate is None: maxdate = dt.now() + delta(days=-731)
+
+        if maxdate < dateadded:
+            # worker will call back and make report when finished
+            Worker(func=plm.update_plm_single_unit, mw=self, unit=unit) \
+                .add_signals(
+                    signals=('result', dict(
+                        func=self.handle_import_result,
+                        kw=dict(unit=unit, dateadded=dateadded, e=e)))) \
+                .start()
+            msg = f'Max date in db: {maxdate:%Y-%m-%d}. Importing haul cylce files from network drive...'
+            self.update_statusbar(msg=msg)
+
+        else:
+            # just make report now
+            self.make_plm_report(unit=unit, dateadded=dateadded, e=e)
+    
+    def handle_import_result(self, m_results=None, unit=None, dateadded=None, e=None, **kw):
+        if m_results is None: return
+
+        rowsadded = m_results['rowsadded']
+        self.update_statusbar(f'PLM records added to database: {rowsadded}')
+
+        self.make_plm_report(unit=unit, dateadded=dateadded, e=e)
+
+    def make_plm_report(self, unit, dateadded, e=None):
+        """Actually make the report pdf"""
         from .. import eventfolders as efl
         from ..reports import PLMUnitReport
+        rep = PLMUnitReport(unit=unit, d_upper=dateadded)
 
-        rep = PLMUnitReport(unit=e.Unit, d_upper=e.DateAdded)
-
-        ef = efl.EventFolder.from_model(e)
-        p = ef._p_event
+        if not e is None:
+            ef = efl.EventFolder.from_model(e)
+            p = ef._p_event
 
         # If cant get event folder, ask to create at desktop
-        if not ef.check(check_pics=False):
+        if ef is None or not ef.check(check_pics=False):
             p = Path.home() / 'Desktop'
             msg = f'Can\'t get event folder, create report at desktop?'
             if not dlgs.msgbox(msg=msg, yesno=True):
@@ -445,7 +479,7 @@ class MainWindow(QMainWindow):
     
     def handle_plm_result(self, rep=None):
         if rep is None or not rep.p_rep.exists():
-            self.update_statusbar('Failed to create PLM report.')
+            self.update_statusbar('Failed to create PLM report!')
             return
 
         self.update_statusbar('PLM report created.')
