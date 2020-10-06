@@ -1297,7 +1297,6 @@ class PLMUnit(QueryBase):
         
         sql_tbl = table_with_args(table='PLMReportUnit', args=args)
         sql = f'SELECT * FROM {sql_tbl}'
-        print(sql)
         
         f.set_self(vars())
     
@@ -1321,6 +1320,45 @@ class PLMUnit(QueryBase):
         return pd.DataFrame.from_dict(data, orient='index', columns=cols) \
             .reset_index() \
             .rename(columns=dict(index='Load Range'))
+    
+    def max_date(self):
+        a = T('viewPLM')
+        q = a.select(fn.Max(a.DateTime)) \
+            .where(a.Unit==self.unit)
+
+        return db.max_date_db(q=q)
+    
+    def highlight_accepted_loads(self, style):
+        df = style.data
+        subset = pd.IndexSlice[df.index[-1], df.columns[1:]]
+        return style.apply(st.highlight_accepted_loads, subset=subset, axis=None)
+
+    def format_custom(self, x, type_='int'):
+        if not pd.isnull(x):
+            if x > 1: # int
+                return f'{x:,.0f}'
+            else: # pct
+                return f'{x:,.2%}'
+        else:
+            return ''
+    
+    def update_style(self, style, **kw):
+        df = style.data
+        s = []
+        s.append(dict(
+            selector=f'th, td',
+            props=[
+                ('font-size', '12px')]))
+
+        cols = df.columns[1:]
+
+        style = style \
+            .pipe(self.highlight_accepted_loads) \
+            .pipe(st.add_table_style, s=s) \
+            .format(self.format_custom, subset=pd.IndexSlice[:, cols])
+        
+        # print(style.table_styles)
+        return style
 
 
 def table_with_args(table, args):
