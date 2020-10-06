@@ -134,8 +134,36 @@ def copy_dict_attrs(m : dict, target: object):
     for k, v in m.items():
         setattr(target, k.lower(), v)
 
-def pretty_dict(m):
-    return str(m).replace('{', '').replace('}', '').replace(', ', '\n').replace("'", '')
+def two_col_list(m) -> str:
+    """Create two col css list from dict, used in reports
+
+    Parameters
+    ----------
+    m : dict
+        Dict to convert\n
+    """
+    body = ''
+    for name, val in m.items():
+        body = f'{body}<li><span>{name}:</span><span>{val}</span></li>'
+    
+    return f'<ul class="two_col_list_narrow">{body}</ul>'
+
+
+def pretty_dict(m : dict, html=False) -> str:
+    """Return dict converted to newlines
+    Paramaters
+    ----
+    m : dict\n
+    html: bool
+        Use <br> instead of html
+    Returns
+    -------
+    str\n
+        'Key 1: value 1\n
+        'Key 2: value 2"
+    """
+    newline_char = '\n' if not html else '<br>'
+    return str(m).replace('{', '').replace('}', '').replace(', ', newline_char).replace("'", '')
 
 def first_n(m, n):
     # return first n items of dict
