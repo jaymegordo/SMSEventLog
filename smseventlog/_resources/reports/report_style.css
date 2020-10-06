@@ -39,6 +39,14 @@
     padding-bottom: 10px;
     text-indent: 10px;
 }
+.two_col_list_narrow{
+    width:200px;
+    font-weight: normal;
+    padding-top: 5px;
+    padding-bottom: 10px;
+    padding-left: 0;
+    list-style-type: none;
+}
 ul span + span { float:right;}
 
 /* Table of Contents lists */
