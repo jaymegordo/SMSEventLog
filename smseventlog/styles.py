@@ -294,7 +294,17 @@ def highlight_totals_row(style, exclude_cols=()):
     bg = f.config['color']['thead']
     df = style.data
     
-    return style.apply(lambda x: [format_cell(bg, 'white') if not x.index[i] in exclude_cols else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1) 
+    return style.apply(lambda x: [format_cell(bg, 'white') if not x.index[i] in exclude_cols else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1)
+
+def highlight_accepted_loads(df):
+    m = f.config['color']
+    bg, t = m['bg'], m['text']
+
+    m = df < 0.1 # highlight less than 10% good
+
+    data = np.where(m, format_cell(bg['goodgreen'], t['goodgreen']), format_cell(bg['bad'], t['bad']))
+
+    return pd.DataFrame(data=data, index=df.index, columns=df.columns)
 
 def bold_columns(df):
     return pd.DataFrame(data='font-weight: bold;', index=df.index, columns=df.columns)
