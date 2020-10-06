@@ -106,8 +106,10 @@ def read_fc(p):
     # Drop and reorder,  Don't import: CompletionSMR, claimnumber, ServiceLetterDate
     cols = ['FCNumber','Model', 'Serial', 'Unit', 'StartDate', 'EndDate', 'DateCompleteKA', 'Subject', 'Classification', 'Branch', 'Status']
 
+    dtypes = dict(Model='object', Serial='object', Unit='object')
+
     dfu = db.get_df_unit()
-    return pd.read_csv(p, header=5, dtype=dict(Model='object')) \
+    return pd.read_csv(p, header=5, dtype=dtypes) \
         .rename(columns=f.config['Headers']['FCImport']) \
         .pipe(f.parse_datecols) \
         .merge(right=dfu[['Model', 'Serial', 'Unit']], how='left') \
