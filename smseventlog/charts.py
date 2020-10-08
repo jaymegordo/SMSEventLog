@@ -261,6 +261,95 @@ def chart_frame_cracks(df, smr_bin=False, **kw):
     
     return fig
 
+def chart_comp_co(df, **kw):
+    fig = go.Figure()
+    df = df.copy()
+    i = -1
+    # colors = px.colors.sequential.deep
+    colors = px.colors.qualitative.Prism
+    # colors = px.colors.cyclical.Edge
+
+    # convert period to datetime for sorting/aligning as date, but use quarter text as labels
+    x = 'Quarter'
+    s = df[x].copy().astype(str)
+    s = s.str[:4] + '-' + s.str[4:]
+    df[x] = df[x].dt.to_timestamp()
+    xaxis = dict(
+        ticktext=s,
+        tickvals=df[x])
+    
+    for item in sorted(df.Component.unique()):
+        i += 1
+        df2 = df[df.Component==item]
+        fig.add_trace(go.Bar(
+            name=item,
+            x=df2[x],
+            y=df2.Count,
+            marker_color=colors[i],
+            text=df2.Count,
+            textposition='auto',
+            textfont_size=8,
+            textangle=0))
+
+    update_fig(fig, title=f'Component Changeout History - FH 980E')
+
+    fig.update_layout(
+        height=400,
+        width=800,
+        template='plotly',
+        legend_orientation='v',
+        barmode='stack',
+        xaxis_tickangle=-90,
+        xaxis=xaxis,
+        yaxis=dict(
+            title='Number of Changeouts'))
+    
+    return fig
+
+def chart_comp_failure_rates(df, **kw):
+    fig = go.Figure()
+    df = df.copy()
+
+    mask = df.Failed == True
+    df_failed = df[mask]
+    df_not = df[~mask]
+
+    fig.add_trace(
+        go.Bar(
+            name='Not Failed',
+            text=df_not.Count,
+            textposition='auto',
+            marker_color=color()['navyblue'],
+            x=df_not['Component'],
+            y=df_not['Percent'])
+    )
+    fig.add_trace(
+        go.Bar(
+            name='Failed',
+            text=df_failed.Count,
+            textposition='auto',
+            marker_color=color()['maroon'],
+            x=df_failed['Component'],
+            y=df_failed['Percent'])
+    )
+
+    update_fig(fig, title=f'Component Failure Rates - FH 980E')
+
+    fig.update_layout(
+        height=400,
+        width=800,
+        template='plotly',
+        legend_orientation='v',
+        barmode='group',
+        xaxis_tickangle=-45,
+        yaxis=dict(
+            title='Percent of Component Group',
+            fixedrange=True,
+            range=[0,1],
+            tickformat=',.0%'))
+
+    return fig
+
 def chart_engine_dt(df):
     title = 'Engine Downtime'
     bar = go.Bar(
