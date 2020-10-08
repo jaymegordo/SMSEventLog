@@ -109,7 +109,7 @@ class QueryBase(object):
         _minesite_default = 'FortHills'
         # color_good = 240 if theme == 'light' else 120
         cmap = diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
-        sql, df = None, pd.DataFrame()
+        sql, df, df_loaded = None, pd.DataFrame(), False
         m = f.config['TableName']
         color = f.config['color']
         name = self.__class__.__name__
@@ -227,8 +227,32 @@ class QueryBase(object):
         for da in args:
             fltr.add(**da)
     
-    def get_df(self, **kw):
+    @property
+    def df(self):
+        if not self.df_loaded:
+            self.get_df()
+        return self._df
+
+    @df.setter
+    def df(self, data):
+        self._df = data
+
+    def get_df(self, force: bool=False, **kw) -> pd.DataFrame:
+        """Execute query and return dataframe
+        - Load dataframe if not already loaded
+
+        Parameters
+        ---
+        force : bool
+        
+        Returns
+        ---
+        pd.DataFrame
+        """
+        if not self.df_loaded or force:
         self.df = db.get_df(query=self, **kw)
+            self.df_loaded = True
+
         return self.df
 
     def get_stylemap(self, df, col=None):
