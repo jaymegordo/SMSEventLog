@@ -59,26 +59,27 @@ def zip_folder(p, delete=False, calculate_size=False, p_new=None):
     p_dst = p if p_new is None else p_new
 
     try:
-        if p.exists():
-            p_zip = shutil.make_archive(
-                base_name=str(p_dst),
-                base_dir=str(p.name),
-                root_dir=str(p.parent),
-                format='zip')
+        if not p.exists(): return
 
-            # print file size compression savings
-            if calculate_size:
-                size_pre = sum(f.stat().st_size for f in p.glob('**/*') if f.is_file())
-                size_post = sum(f.stat().st_size for f in p_dst.parent.glob('*.zip'))
-                size_pct = size_post / size_pre
-                print(f'Reduced size to: {size_pct:.1%}\nPre: {size(size_pre)}\nPost: {size(size_post)}')
-            
-            if delete:
-                shutil.rmtree(p)
+        p_zip = shutil.make_archive(
+            base_name=str(p_dst),
+            base_dir=str(p.name),
+            root_dir=str(p.parent),
+            format='zip')
+
+        # print file size compression savings
+        if calculate_size:
+            size_pre = sum(f.stat().st_size for f in p.glob('**/*') if f.is_file())
+            size_post = sum(f.stat().st_size for f in p_dst.parent.glob('*.zip'))
+            size_pct = size_post / size_pre
+            print(f'Reduced size to: {size_pct:.1%}\nPre: {size(size_pre)}\nPost: {size(size_post)}')
+        
+        if delete:
+            shutil.rmtree(p)
+    
+        return Path(p_zip)
     except:
         print(f'Error zipping folder: {p}')
-    
-    return Path(p_zip)
 
 def remove_files(lst):
     for p in lst:
@@ -100,10 +101,10 @@ def find_files_partial(p, partial_text):
 
 # OTHER
 def drive_exists():
-    from .gui import dialogs as dlgs
     if f.drive.exists():
         return True
     else:
+        from .gui import dialogs as dlgs
         msg = 'Cannot connect to network drive. \
             \n\nCheck: \n\t1. VPN is connected\n\t2. Drive is activated \
             \n\n(To activate drive, open any folder on the drive).'
