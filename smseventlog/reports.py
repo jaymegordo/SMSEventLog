@@ -47,7 +47,14 @@ class Report(object):
         
         f.set_self(vars())
 
-    def add_items(self, items):
+    def add_items(self, items : list):
+        """Add report items eg Title Page, Executive Summary
+
+        Parameters
+        ----------
+        items : list (or str),
+            Items to add
+        """        
         if not isinstance(items, list): items = [items]
         for item in items:
             self.include_items.update({item: True})
@@ -501,10 +508,47 @@ class PLMUnitReport(Report):
 
         self.load_sections('PLMUnit')
 
+class ComponentReport(Report):
+    def __init__(self, d_rng, minesite, **da) -> None:
+        super().__init__(d_rng=d_rng, minesite=minesite, **da)
+        self.title = 'Component Changeout History - FH 980E'
+
+        query = qr.ComponentCOReport(
+            major=True,
+            sort_component=True,
+            da=dict(d_rng=d_rng, minesite=minesite))
+
+        query.fltr.add(vals=dict(Model='980E*'), table=T('UnitID'))
+
+        self.load_sections([
+            dict(name='ComponentHistoryCharts', query=query),
+            dict(name='Components', title='Data', query=query)])
+
+        self.add_items(['title_page', 'exec_summary', 'table_contents'])
+    
+    @classmethod
+    def example(cls):
+        d_rng=(dt(2016,1,1), dt(2020,12,31))
+        return cls(d_rng=d_rng, minesite='FortHills')
+
+    def create_pdf(self):
+        """Write raw data to csv after save"""
+        super().create_pdf()
+        p = self.p_rep.parent / 'FH Component Changeout History.csv'
+        df = self.get_df('Component Changeout History')
+        df.to_csv(p, index=False)
+
+        return self
+
+    def set_exec_summary(self):
+        gq = self.get_query
+        ex = self.exec_summary       
+        ex['Components'] = gq('Component Changeout History').exec_summary()
+
 # REPORT SECTIONS
 class Section():
     # sections only add subsections
-    def __init__(self, title, report):
+    def __init__(self, title, report, **kw):
         
         report.sections[title] = self # add self to parent report
         sub_sections = {}
@@ -526,7 +570,7 @@ class Section():
                 sub_sec.paragraph = m['func'](**m['kw'])
 
 class OilSamples(Section):
-    def __init__(self, report):
+    def __init__(self, report, **kw):
         super().__init__(title='Oil Samples', report=report)
 
         sec = SubSection('Spindles', self) \
@@ -536,7 +580,7 @@ class OilSamples(Section):
                 caption='Most recent spindle oil samples.')
 
 class FrameCracks(Section):
-    def __init__(self, report):
+    def __init__(self, report, **kw):
         super().__init__(title='Frame Cracks', report=report)
         from .data import framecracks as frm
 
@@ -571,7 +615,7 @@ class FrameCracks(Section):
             .force_pb = True
 
 class UnitSMR(Section):
-    def __init__(self, report):
+    def __init__(self, report, **kw):
         super().__init__(title='SMR Hours', report=report)
 
         d = report.d_rng[0]
@@ -583,7 +627,7 @@ class UnitSMR(Section):
                 caption='SMR hours operated during the report period.') # TODO change month, make query
 
 class AvailBase(Section):
-    def __init__(self, report):
+    def __init__(self, report, **kw):
         super().__init__(title='Availability', report=report)
 
         n = 10
@@ -669,7 +713,7 @@ class AvailBase(Section):
         ex['Availability'] = m
 
 class AvailStandalone(AvailBase):
-    def __init__(self, report):
+    def __init__(self, report, **kw):
         super().__init__(report)
 
         sec = SubSection('Raw Data', self) \
@@ -678,16 +722,57 @@ class AvailStandalone(AvailBase):
                 caption='Raw downtime data for report period.')
 
 class Components(Section):
-    def __init__(self, report):
-        super().__init__(title='Components', report=report)
+    def __init__(self, report, title='Components', query=None, **kw):
+        """Table of component changeout records"""
+        super().__init__(title=title, report=report)
+        sec_name = 'Component Changeout History'
 
-        sec = SubSection('Component Changeout History', self) \
+        if query is None:
+            query = qr.ComponentCOReport(da=dict(d_rng=self.d_rng, minesite=self.minesite))
+
+        sec = SubSection(sec_name, self) \
             .add_df(
-                query=qr.ComponentCOReport(da=dict(d_rng=self.d_rng, minesite=self.minesite)),
+                query=query,
                 caption='Major component changeout history. Life achieved is the variance between benchmark SMR and SMR at changeout.')
+        
+        f.set_self(vars())
+        
+class ComponentHistoryCharts(Section):
+    def __init__(self, report, query, **kw):
+        """Charts showing breakdown of component changeouts by type, quarterly and by """
+        super().__init__(title='Summary', report=report)
+
+        sec = SubSection('Mean Life', self) \
+            .add_df(
+                func=query.df_mean_life,
+                style_func=query.update_style_mean_life,
+                caption='Mean SMR at component changeout.<br><br>Notes:<br>\
+                    - Bench_Pct_All is the mean SMR of all changeouts compared to the group\'s benchmark SMR.<br>\
+                    - This table only includes "Failure/Warranty" and "High Hour Changeout" values.')
+
+        sec = SubSection('Component Changeouts (Quarterly)', self) \
+            .add_df(
+                func=query.df_component_quarter,
+                has_chart=True,
+                display=False) \
+            .add_chart(
+                func=ch.chart_comp_co,
+                cap_align='left',
+                caption='Component changeout type grouped per quarter.')
+        sec.force_pb = True
+            
+        sec = SubSection('Component Failure Rates', self) \
+            .add_df(
+                func=query.df_failures,
+                has_chart=True,
+                display=False) \
+            .add_chart(
+                func=ch.chart_comp_failure_rates,
+                cap_align='left',
+                caption='Component failure rates by category.<br>Failed = [Failed, Warranty]<br>Not Failed = [Convenience, High Hour Changeout, Damage/Abuse, Pro Rata Buy-in, Other]')
 
 class PLMUnit(Section):
-    def __init__(self, report):
+    def __init__(self, report, **kw):
         super().__init__(title='PLM Analysis', report=report)
         d_rng = report.d_rng
         unit = report.unit
@@ -724,7 +809,7 @@ class PLMUnit(Section):
         return f.two_col_list(header)
 
 class FCs(Section):
-    def __init__(self, report):
+    def __init__(self, report, **kw):
         super().__init__(title='Factory Campaigns', report=report)
         d_rng, minesite = self.d_rng, self.minesite
 
@@ -739,7 +824,6 @@ class FCs(Section):
 
         sec = SubSection('New FCs', self) \
             .add_df(
-                name='New FCs',
                 query=qr.NewFCs(d_rng=d_rng, minesite=minesite),
                 caption='All new FCs released during the report period.')
         
@@ -792,7 +876,7 @@ class SubSection():
         
         return self
     
-    def add_chart(self, func, name=None, linked=False, title=None, caption=None, da={}):
+    def add_chart(self, func, name=None, linked=False, title=None, caption=None, da={}, cap_align='center'):
         if name is None:
             name = self.title
         
@@ -801,7 +885,8 @@ class SubSection():
 
         # don't add to its own section if linked to display beside a df
         if not linked:
-            self.elements.append(dict(name=name, type='chart', caption=caption))
+            cap_class = f'figcaption_{cap_align}' # align chart caption left or center
+            self.elements.append(dict(name=name, type='chart', caption=caption, cap_class=cap_class))
         
         return self
     
@@ -811,10 +896,7 @@ class SubSection():
         self.paragraph_func = dict(func=func, kw=kw)
         return self
 
-
-
-
-        
+       
 
 # TSI
     # number of TSIs submitted per month?
