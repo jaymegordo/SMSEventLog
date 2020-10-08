@@ -6,8 +6,9 @@ from datetime import datetime as dt
 from datetime import timedelta as delta
 from pathlib import Path
 
-import smseventlog.data.dls
-import smseventlog.data.utils as utl
+import smseventlog.data.internal.dls as dls
+import smseventlog.data.internal.plm as plm
+import smseventlog.data.internal.utils as utl
 
 CLI=argparse.ArgumentParser()
 CLI.add_argument(
@@ -56,8 +57,11 @@ if __name__ == '__main__':
         d = dt.now() + delta(days=-31)
 
     if all_units:
-        print(f'fix dls all units, startdate: {d}')
-        dls.fix_dls_all_units(d_lower=d)
+        if ftype == 'dsc':
+            print(f'fix dls all units, startdate: {d}')
+            dls.fix_dls_all_units(d_lower=d)
+        elif ftype == 'plm':
+            plm.update_plm_all_units()
     else:
         print(f'ftype: {ftype}, units: {units}, startdate: {d}')
         utl.process_files(ftype=ftype, units=units, d_lower=d)
