@@ -250,7 +250,7 @@ class QueryBase(object):
         pd.DataFrame
         """
         if not self.df_loaded or force:
-        self.df = db.get_df(query=self, **kw)
+            self.df = db.get_df(query=self, **kw)
             self.df_loaded = True
 
         return self.df
@@ -408,7 +408,7 @@ class ComponentSMR(QueryBase):
         return style.pipe(self.background_gradient)
 
 class ComponentCOReport(ComponentCOBase):
-    def __init__(self, da, **kw):
+    def __init__(self, da, major=False, sort_component=False, **kw):
         super().__init__(da=da, **kw)
 
         self.view_cols.update(
@@ -419,11 +419,21 @@ class ComponentCOReport(ComponentCOBase):
 
         cols = [b.Model, a.Unit, c.Component, c.Modifier, a.DateAdded, a.ComponentSMR, c.BenchSMR, life_remaining, a.SunCOReason]
 
+        if major:
+            q = self.q.where(c.Major==1)
+
+        self.formats.update({
+            'Bench_Pct_All': '{:.2%}'})
+
         f.set_self(vars())
     
     def process_df(self, df):
         # df[cols] = df[cols].fillna(pd.NA)
         df.pipe(f.convert_dtypes, cols=['Comp SMR', 'Life Achieved', 'Bench SMR'], col_type='Int64')
+
+        if self.sort_component:
+            df = df.sort_values(['Component', 'CO Date'])
+
         return df
 
     def set_default_args(self, d_rng, minesite):
@@ -435,19 +445,93 @@ class ComponentCOReport(ComponentCOBase):
         df = style.data
         subset = pd.IndexSlice[df['Life Achieved'].notnull(), 'Life Achieved']
         return style.background_gradient(
-            cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=-1000, vmax=1000)
+            cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=-4000, vmax=4000) \
+            .pipe(st.add_table_attributes, s='class="pagebreak_table"')
+
+
+    @property
+    def mask_planned(self):
+        return self.df['Removal Reason'] == 'High Hour Changeout'
+
+    @property
+    def mask_failed(self):
+        return self.df['Removal Reason'].isin(['Failure', 'Warranty'])
 
     def exec_summary(self):
         m = {}
         df = self.df
         s = df['Removal Reason']
-        mask = s == 'High Hour Changeout' # TODO may need to change this criteria
 
-        m['Changeouts'] = {
-            'Planned': s[mask].count(),
-            'Unplanned': s[~mask].count()
-        }
+        m['Planned/Unplanned'] = {
+            'Planned': s[self.mask_planned].count(),
+            'Unplanned': s[~self.mask_planned].count(),
+            'Total': s.count()}
+
+        m['Failures'] = {
+            'Failed': s[self.mask_failed].count(),
+            'Convenience/High Hour/Damage/Other': s[~self.mask_failed].count(),
+            'Total': s.count()}
+
         return m
+    
+    def df_component_quarter(self):
+        """Group component CO records by Quarter/Component for charting"""
+        df = self.df.copy()
+        df['Quarter'] = df['CO Date'].dt.to_period('Q')
+
+        return df.groupby(['Quarter', 'Component']) \
+            .size() \
+            .reset_index(name='Count')
+    
+    def df_failures(self):
+        """Group failures into failed/not failed, with pct of each group total
+        - Used for chart_comp_failure_rates"""
+        df = self.df.copy()
+        df['Failed'] = self.mask_failed
+        df2 = df.groupby(['Component', 'Failed']) \
+            .size() \
+            .reset_index(name='Count')
+        
+        # get percent of failed/not failed per component group
+        df2['Percent'] = df2.groupby(['Component']).apply(lambda g: g / g.sum())['Count']
+
+        return df2
+    
+    def df_mean_life(self):
+        """Group by component, show mean life total, failed, not failed"""
+        df = self.df.copy()
+        
+        # change 'warranty' to 'failure
+        x = 'Removal Reason'
+        df[x] = df[x].replace(dict(Warranty='Failure'))
+        
+        df = df[df[x].isin(['Failure', 'High Hour Changeout'])]
+
+        df2 = df.groupby('Component').agg({'Bench SMR': 'mean', 'Comp SMR': 'mean'})
+
+        df3 = df \
+            .groupby(['Component', 'Removal Reason'])['Comp SMR'] \
+            .mean() \
+            .reset_index(drop=False) \
+            .pivot(index='Component', columns='Removal Reason', values='Comp SMR')
+
+        return df2.merge(right=df3, how='left', on='Component') \
+            .rename(columns={
+                'Comp SMR': 'Mean_All',
+                'Failure': 'Mean_Failure',
+                'High Hour Changeout': 'Mean_HighHour'}) \
+            .astype(float).round(0).astype('Int64') \
+            .reset_index(drop=False) \
+            .assign(Bench_Pct_All=lambda x: x['Mean_All'] / x['Bench SMR'])
+    
+    def update_style_mean_life(self, style, **kw):
+        df = style.data
+        # subset = pd.IndexSlice[df['Life Achieved'].notnull(), 'Life Achieved']
+        subset = ['Bench_Pct_All']
+        return style.background_gradient(
+            cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=0.5, vmax=1.5) \
+            .format(self.formats)
+
 
 class TSI(EventLogBase):
     def __init__(self, **kw):
@@ -488,7 +572,8 @@ class UnitInfo(QueryBase):
         cols = [a.MineSite, a.Customer, a.Model, a.Serial, a.EngineSerial, a.Unit, b.CurrentSMR, b.DateSMR, a.DeliveryDate, remaining, ge_remaining]
 
         q = Query.from_(a) \
-            .left_join(b).on_field('Unit')
+            .left_join(b).on_field('Unit') \
+            .orderby(a.MineSite, a.Model, a.Unit)
         
         f.set_self(vars())
 
@@ -1267,7 +1352,7 @@ class OilSamplesRecent(OilSamples):
             .drop(columns=['rn'])
 
 class OilReportSpindle(OilSamplesRecent):
-    def __init__(self, da=None, minesite='FortHills'):
+    def __init__(self, da=None, minesite='FortHills', **kw):
         super().__init__(da=da, **kw)
 
     def set_default_filter(self):
@@ -1320,7 +1405,7 @@ class PLMUnit(QueryBase):
             d_upper=d_upper)
         
         sql_tbl = table_with_args(table='PLMReportUnit', args=args)
-        sql = f'SELECT * FROM {sql_tbl}'
+        self.sql = f'SELECT * FROM {sql_tbl}'
         
         f.set_self(vars())
     
