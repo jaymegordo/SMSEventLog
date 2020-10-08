@@ -15,11 +15,11 @@ def left_justified(df, header=False):
     return df.to_string(formatters=formatters, index=False, header=header)
 
 def format_dtype(df, formats):
-    # match formats to df.dtypes
-    # format can be either string or func
-    # formats = {'int64': '{:,}'}
-    # df.dtypes = {'Unit': dtype('O'),
-                # datetime.dt(2020, 3, 1): dtype('int64'),
+    """Match formats to df.dtypes
+    - format can be either string or func
+    - formats = {'int64': '{:,}'}
+    - df.dtypes = {'Unit': dtype('O'),
+                datetime.dt(2020, 3, 1): dtype('int64'),"""
     m = {}
     for key, fmt in formats.items():
         m.update({col: fmt for col, val in df.dtypes.to_dict().items() if val==key})
@@ -53,11 +53,13 @@ def alternating_rows(style):
     return style.pipe(add_table_style, s)
 
 def alternating_rows_outlook(style, outlook=True):
-    # highlight all cells background color grey
+    """Highlight odd rows background color grey
+    - row slice is list of index labels"""
+
     if outlook:
         style = style.apply(
             lambda df: pd.DataFrame(data='background-color: #E4E4E4;', index=df.index, columns=df.columns), 
-            subset=pd.IndexSlice[1::2, :],
+            subset=pd.IndexSlice[style.data.iloc[1::2].index, :],
             axis=None)
 
     return style
@@ -126,7 +128,6 @@ def default_style(df, outlook=False):
     # Dataframe general column alignment/number formatting
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
     df[cols] = df[cols].replace('\n', '<br>', regex=True)
-    df.reset_index(inplace=True, drop=True)
 
     font_family = 'Tahoma, Geneva, sans-serif;' if not outlook else 'Calibri'
 
