@@ -504,14 +504,19 @@ class TabWidget(QTabWidget):
 
     def init_tabs(self):
         """Add all tabs to widget"""
+        u = self.mainwindow.u
         lst = ['EventLog', 'WorkOrders', 'TSI', 'ComponentCO', 'ComponentSMR', 'UnitInfo', 'FCSummary', 'FCDetails', 'EmailList', 'Availability']
 
         # Hide specific tabs per usergroup/domain
         m_hide = dict(
             CED=['FCSummary', 'FCDetails', 'Availability'])
-        
-        hide = m_hide.get(self.mainwindow.u.domain, [])
+               
+        hide = m_hide.get(u.domain, [])
         lst = [item for item in lst if not item in hide]
+
+        lst_admin = ['UserSettings']
+        if u.admin:
+            lst.extend(lst_admin)
 
         for i, name in enumerate(lst):
             self.init_tab(name=name, i=i)

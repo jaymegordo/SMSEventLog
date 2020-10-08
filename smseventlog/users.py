@@ -13,6 +13,7 @@ class User():
         domain = os.getenv('userdomain', None)
         usergroup = db.domain_map_inv.get(domain, 'SMS')
         new_user = False
+        admin = True if username in ('Jayme Gordon',) else False
 
         if not mainwindow is None:
             s = mainwindow.settings
