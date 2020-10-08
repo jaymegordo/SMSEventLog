@@ -1034,32 +1034,55 @@ class QFileDialogPreview(QFileDialog):
 
 
 def msgbox(msg='', yesno=False, statusmsg=None):
-    # TODO fix this
-    if True or SYS_FROZEN or not yesno:
-        # show dialog no matter what
+    """Show messagebox, with optional yes/no prompt\n
+    If app isn't running, prompt through python instead of dialog
+
+    Parameters
+    ----------
+    msg : str, optional\n
+    yesno : bool, optional\n
+    statusmsg : [type], optional\n
+        Show more detailed smaller message
+    """
+
+    if app_running() and yesno:
         app = check_app()
         dlg = MsgBox_Advanced(msg=msg, window_title=gbl.title, yesno=yesno, statusmsg=statusmsg)
         return dlg.exec_()
     elif yesno:
         # if yesno and NOT frozen, prompt user through terminal
         return f._input(msg)
+    else:
+        print(msg)
 
-def msg_simple(msg='', icon='', infotext=None):
-    app = check_app()
-    dlg = QMessageBox()
-    dlg.setText(msg)
-    dlg.setWindowTitle(gbl.title)
+def msg_simple(msg: str = '', icon: str = '', infotext=None):
+    """Show message to user with dialog if app running, else print
 
-    icon = icon.lower()
-    
-    if icon == 'critical':
-        dlg.setIcon(QMessageBox.Critical)
-    elif icon == 'warning':
-        dlg.setIcon(QMessageBox.Warning)
+    Parameters
+    ----------
+    msg : str, optional\n
+    icon : str, optional
+        Show icon eg 'warning', 'critical', default None\n
+    infotext : [type], optional\n
+        Detailed text to show, by default None
+    """
+    if app_running():
+        dlg = QMessageBox()
+        dlg.setText(msg)
+        dlg.setWindowTitle(gbl.title)
 
-    if infotext: dlg.setInformativeText(infotext)
+        icon = icon.lower()
+        
+        if icon == 'critical':
+            dlg.setIcon(QMessageBox.Critical)
+        elif icon == 'warning':
+            dlg.setIcon(QMessageBox.Warning)
 
-    return dlg.exec_()
+        if infotext: dlg.setInformativeText(infotext)
+
+        return dlg.exec_()
+    else:
+        print(msg)
 
 def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
     app = check_app()
@@ -1193,10 +1216,13 @@ def show_item(name, parent=None, *args, **kw):
     return dlg, dlg.exec_()
 
 def check_app():
-    # just need to make sure app is set before showing dialogs
+    """Just need to make sure app is set before showing dialogs"""
     from . import startup
     app = startup.get_qt_app()
     return app
+
+def app_running():
+    return not QApplication.instance() is None
 
 def unit_exists(unit):
     """Check if unit exists, outside of DB class, raise error message if False"""
