@@ -32,11 +32,14 @@ def update_plm_all_units():
     units = utl.all_units()
 
     # multiprocess
-    result = Parallel(n_jobs=-1, verbose=11)(delayed(update_plm_single_unit)(unit, False) for unit in units)
+    result = Parallel(n_jobs=-1, verbose=11)(delayed(update_plm_single_unit)(unit=unit, import_=False) for unit in units)
 
     config = utl.get_config()['haul']
 
-    df = pd.concat(m['df'] for m in result)
+    # could have duplicates from file in wrong unit path, drop again to be safe
+    df = pd.concat(m['df'] for m in result) \
+        .drop_duplicates(subset=config['duplicate_cols'])
+    
     rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, chunksize=10000)
 
     new_result = []
@@ -60,9 +63,17 @@ def update_plm_single_unit(unit, import_=True, maxdate=None):
         maxdate = db.max_date_db(q=q)
         if maxdate is None: maxdate = dt.now() + delta(days=-731)
    
-    rowsadded = utl.process_files(ftype='haul', units=unit, d_lower=maxdate, import_=import_)
+    result = utl.process_files(ftype='haul', units=unit, d_lower=maxdate, import_=import_)
 
-    m = dict(unit=unit, maxdate=maxdate, rowsadded=rowsadded)
+    # kinda sketch... bad design here
+    if import_:
+        rowsadded = result
+        df = None
+    else:
+        rowsadded = None
+        df = result
+
+    m = dict(unit=unit, maxdate=maxdate, rowsadded=rowsadded, df=df)
     return m
 
 def get_minesite_from_path(p : Path) -> str:
@@ -75,8 +86,10 @@ def read_haul(p):
     """Wrap import_haul for errors"""
     try:
         return import_haul(p)
-    except:
-        log.warning(f'Failed plm import: {p}')
+    except Exception as e:
+        msg = f'Failed plm import, {e.args[0]}: {p}'
+        log.warning(msg)
+        utl.write_import_fail(msg)
         return pd.DataFrame(columns=good_cols)
 
 def import_haul(p):
@@ -85,16 +98,23 @@ def import_haul(p):
     # header, try unit, then try getting unit with serial
     df_head = pd.read_csv(p, nrows=6, header=None)
     unit = df_head[0][1].split(':')[1].strip().upper().replace('O','0').replace('F-','F').replace('F0','F')
+
     if unit == '':
         minesite = get_minesite_from_path(p)
         if minesite is None:
             raise Exception('Couldn\'t get minesite from unit path.')
 
         serial = df_head[0][0].split(':')[1].strip().upper()
-        unit = db.get_unit(serial=serial, minesite=minesite)
 
-    return pd.read_csv(p, header=8, usecols=m_cols, parse_dates=[['Date', 'Time']]) \
-        [:-2] \
+        if serial.strip() == '':
+            raise Exception('Couldn\'t read serial from haul file.')
+
+        unit = db.get_unit(serial=serial, minesite=minesite)
+        # if unit == 'F1401':
+        #     print(unit, serial)
+
+    return pd.read_csv(p, engine='c', header=8, usecols=m_cols, parse_dates=[['Date', 'Time']]) \
+        .iloc[:-2] \
         .dropna(subset=['Date_Time']) \
         .rename(columns=m_cols) \
         .assign(
