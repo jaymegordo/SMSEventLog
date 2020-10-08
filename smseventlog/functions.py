@@ -249,14 +249,19 @@ def str_to_bool(val):
     return bool(strtobool(val))
 
 def convert_date(val):
+    """Convert string date or datetime,  or date obj, to datetime object"""
     try:
         if isinstance(val, date):
             return dt.combine(val, dt.min.time())
         elif isinstance(val, str):
-            return dt.strptime(val, '%Y-%m-%d')
+            try:
+                return dt.strptime(val, '%Y-%m-%d')
+            except:
+                return dt.strptime(val, '%Y-%m-%d %H:%M:%S')
         else:
-            return val
+            return val # already a date
     except:
+        log.warning(f'Couldn\'t convert val to date: {val}')
         return val
 
 def _input(msg):
