@@ -1,7 +1,5 @@
+from . import dls, faults, plm
 from .__init__ import *
-from . import dls
-from . import plm
-from . import faults
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +51,7 @@ def get_unitpaths(minesite='FortHills', model_base='980E'):
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
 def all_units(rng=None):
+    # TODO make this all minesites
     if rng is None:
         rng = (300, 348)
     return [f'F{n}' for n in range(*rng)]
@@ -167,7 +166,8 @@ def get_list_files(ftype, p_search, d_lower=dt(2020,1,1), maxdepth=4):
     
     return lst
 
-def write_import_fail(p):
-    failpath = Path().home() / 'OneDrive/Desktop/importfail.txt'
+def write_import_fail(msg):
+    if not sys.platform == 'darwin': return
+    failpath = Path().home() / 'Desktop/importfail.txt'
     with open(failpath, 'a') as f:
-        f.write(f'{p}\n')
+        f.write(f'{msg}\n')
