@@ -100,7 +100,7 @@ class MainWindow(QMainWindow):
         self.update_timer.start(msec)
 
     def check_update(self):
-        # check for update and download in a worker thread
+        """Check for update and download in a worker thread"""
 
         if not SYS_FROZEN:
             self.update_statusbar('App not frozen, not checking for updates.')

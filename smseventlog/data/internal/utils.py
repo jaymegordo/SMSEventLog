@@ -51,7 +51,14 @@ def get_unitpaths(minesite='FortHills', model_base='980E'):
     return [x for x in p.iterdir() if x.is_dir() and 'F3' in x.name]
 
 def all_units(rng=None):
-    # TODO make this all minesites
+    """Return list of FH ONLY unit names 
+    - TODO make this all minesites
+    
+    Returns
+    ---
+        list
+        - eg ['F301', 'F302'...]
+    """
     if rng is None:
         rng = (300, 348)
     return [f'F{n}' for n in range(*rng)]

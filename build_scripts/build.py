@@ -60,11 +60,11 @@ PyInstaller.__main__.run(args)
 print(s_args)
 
 # move exe, zip package for distribution to users
-if f.is_win() and a.zip:
-    p_share = f.projectfolder / 'dist'
-    name_exe = 'SMS Event Log.exe'
-    fl.copy_file(p_src=p_dist / f'{name}/{name_exe}', p_dst=p_share / name_exe, overwrite=True)
-    print('Done - exe created and copied.')
+# if f.is_win() and a.zip:
+#     p_share = f.projectfolder / 'dist'
+#     name_exe = 'SMS Event Log.exe'
+#     fl.copy_file(p_src=p_dist / f'{name}/{name_exe}', p_dst=p_share / name_exe, overwrite=True)
+#     print('Done - exe created and copied.')
 
-    p_zip = fl.zip_folder(p=p_dist / name, p_new=p_share / name)
-    print(f'folder zipped: {p_zip}')
+#     p_zip = fl.zip_folder(p=p_dist / name, p_new=p_share / name)
+#     print(f'folder zipped: {p_zip}')

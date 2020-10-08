@@ -10,6 +10,7 @@ sqlacodegen = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
 bump2version = "*"
 pyupdater-s3-plugin = "*"
+black = "*"
 
 [packages]
 pandas = "==1.1.2" # lock to stop updates to io.formats.style.py
@@ -42,3 +43,6 @@ pycparser = "==2.14"
 
 [requires]
 python_version = "3.8"
+
+[pipenv]
+allow_prereleases = true
