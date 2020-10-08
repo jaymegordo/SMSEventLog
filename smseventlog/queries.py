@@ -240,6 +240,7 @@ class QueryBase(object):
     def get_df(self, force: bool=False, **kw) -> pd.DataFrame:
         """Execute query and return dataframe
         - Load dataframe if not already loaded
+        - Can pass **kw through here > database.get_df > set_default_filter(**kw)
 
         Parameters
         ---
@@ -531,7 +532,6 @@ class ComponentCOReport(ComponentCOBase):
         return style.background_gradient(
             cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=0.5, vmax=1.5) \
             .format(self.formats)
-
 
 class TSI(EventLogBase):
     def __init__(self, **kw):
@@ -854,12 +854,15 @@ class FCHistoryRolling(FCBase):
 
 class EmailList(QueryBase):
     def __init__(self, **kw):
+        """Full table for app display/editing, NOT single list for emailing"""
         super().__init__(**kw)
         a = self.select_table
-        self.cols = [a.UserGroup, a.MineSite, a.Email, a.Passover, a.WORequest, a.FCCancelled, a.PicsDLS, a.PRP, a.FCSummary, a.TSI, a.RAMP, a.Service, a.Parts]
+        cols = [a.UserGroup, a.MineSite, a.Email, a.Passover, a.WORequest, a.FCCancelled, a.PicsDLS, a.PRP, a.FCSummary, a.TSI, a.RAMP, a.Service, a.Parts]
 
-        self.q = Query.from_(a) \
+        q = Query.from_(a) \
             .orderby(a.UserGroup, a.MineSite, a.Email)
+        
+        f.set_self(vars())
 
     def set_default_filter(self, usergroup=None, **kw):
         self.fltr.add(vals=dict(MineSite=f'{self.minesite}*')) # TODO remove 'like' eventually
@@ -869,8 +872,46 @@ class EmailList(QueryBase):
     
     def process_df(self, df):
         # TODO remove this replace, temp till _cwc can be removed
+        if not 'MineSite' in df.columns:
+            return df # EmailListShort doesnt use this col
+
         df.MineSite = df.MineSite.replace(dict(_CWC='', _AHS=''), regex=True)
         return df
+
+class EmailListShort(EmailList):
+    def __init__(self, name: str, minesite: str, usergroup: str=None, **kw):
+        """Just the list we actually want to email
+
+        Parameters
+        ---
+        name : str,
+            column name to filter for 'x'\n
+        minesite : str\n
+        usergroup : str, default None\n
+
+        Examples
+        ---
+        >>> email_list = EmailListShort(col_name='Passover', minesite='FortHills', usergroup='SMS').emails
+        >>> ['johnny@smsequip.com', 'timmy@cummins.com']
+        """
+        super().__init__(**kw)
+        a = self.a
+        cols = [a.Email]
+
+        q = Query.from_(a)
+
+        f.set_self(vars())
+    
+    def set_default_filter(self, **kw):
+        self.fltr.add(vals={self.name: 'x'})
+        super().set_default_filter(usergroup=self.usergroup, **kw)
+    
+    @property
+    def emails(self) -> list:
+        """Return the actual list of emails"""
+        self.set_default_filter() # calling manually instead of passing default=True to be more explicit here
+        df = self.get_df()
+        return list(df.Email)
 
 class AvailBase(QueryBase):
     def __init__(self, da=None, **kw):
@@ -1374,9 +1415,8 @@ class OilReportSpindle(OilSamplesRecent):
 
 class UserSettings(QueryBase):
     def __init__(self, parent=None, **kw):
-        select_tablename='UserSettings'
-        super().__init__(parent=parent, select_tablename=select_tablename, **kw)
-        a = T(select_tablename)
+        super().__init__(parent=parent, **kw)
+        a = self.select_table
         cols = [a.UserName, a.Email, a.LastLogin, a.Ver, a.Domain, a.UserGroup, a.MineSite]
         q = Query.from_(a) \
             .orderby(a.LastLogin, order=Order.desc)
