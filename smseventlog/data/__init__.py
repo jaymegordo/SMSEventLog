@@ -1,5 +1,5 @@
 import re
 
-from .. import functions as f
-from ..__init__ import *
-from ..database import db
+from smseventlog import functions as f
+from smseventlog.__init__ import *
+from smseventlog.database import db
