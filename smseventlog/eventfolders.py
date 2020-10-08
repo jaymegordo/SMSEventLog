@@ -37,7 +37,8 @@ class UnitFolder(object):
         """Return specific equippath from data/config.yaml if exists for self.minesite, else default
         >>> 'Fort McMurray/service/2. Customer Equipment Files/1. Suncor'
         """
-        s = f.config['EquipPaths'].get(self.minesite, None)
+        minesite = self.minesite.replace('-', '') # handle Shovels-63N
+        s = f.config['EquipPaths'].get(minesite, None)
         if not s is None:
             return s
         else: 
