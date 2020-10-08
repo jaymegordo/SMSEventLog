@@ -32,7 +32,8 @@ class TableModel(QAbstractTableModel):
         _df_pre_dyn_filter = None
         _resort = lambda : None # Null resort functon
         _cols = []
-        table_widget = parent.parent #sketch
+        view = parent
+        table_widget = view.parent #sketch
         formats = parent.formats
         highlight_funcs = parent.highlight_funcs
         # _stylemap = {}
@@ -49,6 +50,20 @@ class TableModel(QAbstractTableModel):
         if not df is None:
             self.set_df(df=df)
 
+    @classmethod
+    def example(cls, name='EventLog'):
+        from . import startup
+        from . import tables as tbls
+        app = startup.get_qt_app()
+        table_widget = getattr(tbls, name, tbls.EventLog)()
+        query = table_widget.query
+        df = query.get_df(default=True)
+        view = table_widget.view
+        model = view.model()
+        model.set_df(df)
+
+        return model
+    
     def set_queue(self):
         # queue to hold updates before flushing to db in bulk
         self.queue = dd(dict)
@@ -597,16 +612,3 @@ class TableModel(QAbstractTableModel):
             irow = None # uid doesn't exist
 
         return irow
-
-def example(name='EventLog'):
-    from . import startup
-    from . import tables as tbls
-    app = startup.get_qt_app()
-    table_widget = getattr(tbls, name, tbls.EventLog)()
-    query = table_widget.query
-    df = query.get_df(default=True)
-    view = table_widget.view
-    model = view.model()
-    model.set_df(df)
-
-    return model
