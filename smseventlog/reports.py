@@ -58,10 +58,23 @@ class Report(object):
                 if item['name'] == name:
                     return item
 
-    def load_sections(self, secs):
+    def load_sections(self, secs : list):
+        """Instantiate all sections passed in using getattr on this module.
+
+        Parameters
+        ----------
+        secs : list or single items
+        - str
+        - dict
+        """
         if not isinstance(secs, list): secs = [secs]
-        for sec_name in secs:
-            getattr(sys.modules[__name__], sec_name)(report=self)
+
+        for sec in secs:
+            # allow passing args with dict
+            if not isinstance(sec, dict):
+                sec = dict(name=sec)
+
+            getattr(sys.modules[__name__], sec['name'])(report=self, **sec)
 
     def load_all_dfs(self, saved=False):
         # call each df's function with its args and assign to df
