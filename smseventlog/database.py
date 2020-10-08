@@ -230,8 +230,26 @@ class DB(object):
     def save_df(self, df, name):
         self.dfs[name] = df
 
-    def get_df(self, query, refresh=True, default=False, base=False, prnt=False, **kw):
-        # get df by name and save for later reuse
+    def get_df(self, query, refresh=True, default=False, base=False, prnt=False, **kw) -> pd.DataFrame:
+        """Load df from database, must call with query object.
+
+        Parameters
+        ----------
+        query : QueryBase\n
+        refresh : bool, optional
+        
+        - Not used, by default True\n
+        default : bool, optional
+        - Pass **kw through to query.set_default_filter if default=True, by default False\n
+        base : bool, optional
+            [description], by default False\n
+        prnt : bool, optional
+            Print query sql, by default False\n
+
+        Returns
+        -------
+        pd.DataFrame
+        """        
         dfs = self.dfs
         title = query.title
         df = dfs.get(title, None)
@@ -285,7 +303,7 @@ class DB(object):
         self.set_df_unit()
         return unit in self.df_unit.Unit
     
-    def get_modelbase(self, model):      
+    def get_modelbase(self, model):
         df = self.get_df_equiptype()
         return df.loc[model].ModelBase
     
@@ -316,7 +334,8 @@ class DB(object):
         return df
 
     def get_email_list(self, name, minesite, usergroup=None):
-        """Get list of emails from db for specified name eg 'WO Request'"""
+        """Get list of emails from db for specified name eg 'WO Request'
+        - NOTE not used, just use EmailListShort to refresh on every call"""
         if usergroup is None: usergroup = 'SMS'
         df = self.get_df_emaillist()
         
