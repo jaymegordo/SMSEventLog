@@ -586,7 +586,8 @@ class TableView(QTableView):
                 self.select_by_int(irow=max_row, icol=cur_col) # jump bottom
             else:
                 self.select_by_int(irow=0, icol=cur_col) # jump top
-    
+
+
 class TableWidget(QWidget):
     # controls TableView & buttons/actions within tab
 
@@ -1155,7 +1156,7 @@ class EventLog(EventLogBase):
         subject = f'{company} Passover {minesite} - {shift}'
         body = f'{f.greeting()}Please see updates from {shift}:<br>'
 
-        email_list = db.get_email_list(name='Passover', minesite=minesite, usergroup=self.u.usergroup)
+        email_list = qr.EmailListShort(name='Passover', minesite=minesite, usergroup=self.u.usergroup).emails
 
         self.email_table(subject=subject, body=body, email_list=email_list, df=df, prompts=False)
     
@@ -1230,7 +1231,7 @@ class WorkOrders(EventLogBase):
         m = {item:item for item in ['PRP', 'RAMP', 'Service', 'Parts']}
         name = m.get(e.WarrantyYN, 'WO Request')
         
-        lst = db.get_email_list(name=name, minesite=self.minesite, usergroup=self.u.usergroup)
+        lst = qr.EmailListShort(name=name, minesite=self.minesite, usergroup=self.u.usergroup).emails
 
         self.email_row(title=title, body_text=body_text, exclude_cols=exclude_cols, email_list=lst)
 
@@ -1496,7 +1497,7 @@ class TSI(EventLogBase):
         self.email_row(
             title=f'Failure Summary - {failure_title}',
             exclude_cols=['UID', 'Status', 'Details', 'Author', 'Pics'],
-            email_list=db.get_email_list(name='TSI', minesite=minesite, usergroup=self.u.usergroup),
+            email_list=qr.EmailListShort(name='TSI', minesite=minesite, usergroup=self.u.usergroup).emails,
             body_text='The following TSI(s) have been submitted:',
             lst_attach=lst_attach)
 
@@ -1979,6 +1980,9 @@ class Availability(TableWidget):
         msg.add_attachment(p_rep)
         msg.show()
 
+class UserSettings(TableWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
 
 # FILTER MENU
 class FilterMenu(QMenu):
