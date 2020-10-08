@@ -185,7 +185,10 @@ def get_dbtable_keys(dbtable):
 
 def print_model(model, include_none=False):
     m = f.model_dict(model, include_none=include_none)
-    display(m)
+    try:
+        display(m)
+    except:
+        pass
 
 def df_from_row(model):
     # convert single row model from db to df with cols as index (used to display all data single row)

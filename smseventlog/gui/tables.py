@@ -758,8 +758,24 @@ class TableWidget(QWidget):
         dbtable = self.dbtable if header is None or not header in m else getattr(dbm, m[header])
         return dbtable
 
-    def email_table(self, subject='', body='', email_list=None, df=None, prompts=True):
-        # TODO make this an input dialog so settings can be remembered
+    def email_table(self, subject: str='', body: str='', email_list=None, df=None, prompts=True):
+        """Email any table in outlook.
+
+        Parameters
+        ----------
+        subject : str, optional
+            Email subject, by default ''\n
+        body : str, optional
+            Body text, will have html table inserted, by default ''\n
+        email_list : list, optional
+            List of email addresses, by default None\n
+        df : pd.DataFrame, optional
+            [description], by default None\n
+        prompts : bool, optional
+            [description], by default True
+        - TODO make this an input dialog so settings can be remembered
+        """        
+        
         style = self.view.get_style(df=df, outlook=True) # this will have all colors in current GUI table
 
         msg_ = 'Include table in email body?'
@@ -1138,6 +1154,8 @@ class EventLog(EventLogBase):
                 .pipe(st.set_column_widths, vals=dict(Status=80, Description=400, Title=100), outlook=outlook)
 
     def email_passover(self):
+        """Email current passover rows as table in outlook.
+        """        
         df = self.view.model().df
 
         cols = ['Status', 'Unit', 'Title', 'Description', 'Date Added']

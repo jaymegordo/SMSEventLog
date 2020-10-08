@@ -593,7 +593,7 @@ class AddUnit(AddRow):
             
         super().accept()
         # self.set_row_attrs(row=self.row)
-        dbt.print_model(self.row)
+        # dbt.print_model(self.row)
         self.update_statusbar(f'New unit added to database: {model}, {unit}')
 
 class CreateModelbase(AddRow):
