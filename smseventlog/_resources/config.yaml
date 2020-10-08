@@ -129,6 +129,7 @@ TableName:
         EmailList: Email List
         Availability: Availability
         OilSamples: Oil Samples
+        UserSettings: Users
     Select:
         EventLogBase: EventLog
         FCBase: viewFactoryCampaign
@@ -137,11 +138,13 @@ TableName:
         EmailList: EmailList
         AvailTopDowns: Downtime
         AvailBase: Downtime
+        UserSettings: UserSettings
         OilSamples: viewOilSamples
     Update:
         FCSummary: FCSummary
         FCDetails: FactoryCampaign
         NewFCs: FCSummary # dont actually need this, remove somehow
+        UserSettings: UserSettings
         OilSamples: OilSamples
 
 # Table header conversion
@@ -312,6 +315,16 @@ Headers:
         DownReason: Reason
         Comment: Comment
         Assigned: Assigned
+    
+    Users:
+        UserName: UserName
+        Email: Email
+        LastLogin: LastLogin
+        Version: Ver
+        Domain: Domain
+        UserGroup: UserGroup
+        MineSite: MineSite
+
     
     OilSamples:
         Silicon (Si): Si
