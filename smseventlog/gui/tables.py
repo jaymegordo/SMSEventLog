@@ -700,8 +700,11 @@ class TableWidget(QWidget):
         dlg.exec_()
 
     def show_details(self):
-        # get model of selected row
-        model = self.view.row_from_activerow().create_model_from_db()
+        """Show details view dialog"""
+        row = self.view.row_from_activerow()
+        if row is None: return
+        
+        model = row.create_model_from_db()
         df = dbt.df_from_row(model=model)
 
         # load to details view
@@ -912,6 +915,7 @@ class EventLogBase(TableWidget):
                 'complete': 'goodgreen',
                 'work in progress': 'lightorange',
                 'waiting customer': 'lightorange',
+                'cancelled': 'lightorange',
                 'monitor': 'lightyellow',
                 'planned': 'lightyellow',
                 'waiting parts (up)': 'lightyellow',
@@ -1587,7 +1591,9 @@ class FCBase(TableWidget):
         return p
     
     def view_fc_folder(self):
-        fl.open_folder(p=self.get_fc_folder())
+        p = self.get_fc_folder()
+        if p is None: return
+        fl.open_folder(p=p)
     
     def view_folder(self):
         self.view_fc_folder()
@@ -1643,7 +1649,9 @@ class FCSummary(FCBase):
 
     def email_new_fc(self):
         # get df of current row
-        df = self.view.df_from_activerow().iloc[:, :10]
+        df = self.view.df_from_activerow()
+        if df is None: return
+        df = df.iloc[:, :10]
 
         formats = {'int64': '{:,}', 'datetime64[ns]': st.format_date}
         style = st.default_style(df=df, outlook=True) \
