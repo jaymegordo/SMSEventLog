@@ -299,6 +299,11 @@ def multiIndex_pivot(df, index=None, columns=None, values=None):
     
     return output_df
 
+def flatten_multiindex(df):
+    """Flatten multi index columns and join with '_' unless second level is blank '' """
+    df.columns = df.columns.map(lambda x: '_'.join(x) if not x[1] == '' else x[0])
+    return df
+
 def sort_df_by_list(df, lst, lst_col, sort_cols=[]):
     # sort specific column by list, with option to include other columns first
     sorterIndex = dict(zip(lst, range(len(lst))))
@@ -570,3 +575,4 @@ def create_logger(func=None):
     # add handler to logger object
     logger.addHandler(fh)
     return logger
+
