@@ -48,13 +48,13 @@ def get_db_creds():
             m['driver'] = f'{{{driver}}}'
             break
     
-    # raise error to user
     if not m['driver'] is None:
-        print(m['driver'])
+        log.info(f"driver: {m['driver']}")
         return m
     else:
+        # raise error to user
         from .gui.dialogs import msg_simple
-        msg_simple(icon='critical', msg="No database drivers available, please download 'ODBC Driver 17 for SQL Server' (or newer) from:\n\nhttps://www.microsoft.com/en-us/download/details.aspx?id=56567\n\n(msodbcsql.msi - 4.5mb file is 64bit driver installer)")
+        msg_simple(icon='critical', msg="No database drivers available, please download 'ODBC Driver 17 for SQL Server' (or newer) from:\n\nhttps://www.microsoft.com/en-us/download/details.aspx?id=56567\n\n(NOTE: msodbcsql.msi - 4.5mb file is 64bit driver installer)")
 
         return None
 
