@@ -6,6 +6,8 @@ from .database import db
 
 # TODO drop hours/filepath/Version from UserSettings table
 
+log = logging.getLogger(__name__)
+
 class User():
     def __init__(self, username, mainwindow=None):
         row, _e = None, None
@@ -66,16 +68,19 @@ class User():
     
     def login(self):
         # create user row in UserSettings if doesn't exist
-        e = self.e
-        self.update_vals(e=e)
+        try:
+            e = self.e
+            self.update_vals(e=e)
 
-        # no user in db
-        if self.new_user:
-            db.session.add(e)
+            # no user in db
+            if self.new_user:
+                db.session.add(e)
 
-        db.session.commit()
-
-        return self
+            db.session.commit()
+        except:
+            log.error(f'User: {self.username} failed to login!')
+        finally:
+            return self
 
 
         
