@@ -374,3 +374,42 @@ def chart_engine_dt(df):
         )
         
     return fig
+
+def chart_plm_monthly(df, title=None, **kw):
+    """Chart of PLM records by month, total accepted vs >110, >120
+    - Useful to quickly show any periods which may have missing data"""
+    fig = go.Figure()
+    df = df.copy()
+    bg = color()
+
+    m = dict(
+        Accepted_100=bg['navyblue'],
+        Accepted_110=bg['orange'],
+        Accepted_120=bg['maroon'])
+
+    for col in m:
+        fig.add_trace(
+            go.Bar(
+                name=col,
+                x=df.index,
+                y=df[col].fillna(0),
+                marker_color=m.get(col)))
+    
+    update_fig(fig, title=f'PLM Haul Records (Monthly)')
+
+    xaxis = dict(
+        ticktext=df.index.to_period().astype(str),
+        tickvals=df.index)
+    
+    fig.update_layout(
+        height=400,
+        width=600,
+        template='plotly',
+        legend_orientation='v',
+        barmode='stack',
+        xaxis_tickangle=-90,
+        xaxis=xaxis,
+        yaxis=dict(
+            title='Payload Records'))
+
+    return fig
