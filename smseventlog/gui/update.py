@@ -23,14 +23,17 @@ class ClientConfig(object):
 
 class Updater(object):
     def __init__(self, mw=None, test_version=None):
-        client = Client(ClientConfig(), progress_hooks=[self.print_status_info])
+        try:
+            client = Client(ClientConfig(), progress_hooks=[self.print_status_info])
 
-        warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
+            warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
 
-        _version = VERSION if test_version is None else test_version
-        update_available = False
-        app_update = None
-        status = 'initialized'
+            _version = VERSION if test_version is None else test_version
+            update_available = False
+            app_update = None
+            status = 'initialized'
+        except:
+            log.error('Failed to initialize updater!')
 
         f.set_self(vars())
 
