@@ -138,7 +138,6 @@ class RefreshTable(InputForm):
                 cb_enabled=enabled,
                 tooltip='Limit results to only those created by users in your domain.\n(Ensure users have been correctly initialized.)')
 
-
     def add_refresh_button(self, name, func):
         layout = self.vLayout
         btn = QPushButton(name, self)

@@ -264,7 +264,7 @@ class SuncorConnect(Web):
 
     def login(self):
         if self.token is None:
-            if ask_token or not self.set_token(): return # cant login if token not set, dont ask twice
+            if self.ask_token or not self.set_token(): return # cant login if token not set, dont ask twice
 
         driver = self.driver
 
