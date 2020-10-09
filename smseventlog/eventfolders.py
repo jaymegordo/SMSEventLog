@@ -2,6 +2,8 @@ from . import folders as fl
 from . import functions as f
 from .__init__ import *
 from .database import db
+from .dbmodel import EventLog
+from .dbtransaction import Row
 
 log = logging.getLogger(__name__)
 
@@ -101,6 +103,14 @@ class EventFolder(UnitFolder):
             efl.pictures = e.Pictures
             
         return efl
+    
+    @classmethod
+    def example(cls, uid=108085410910):
+        from . import dbtransaction as dbt
+        from .gui import startup
+        app = startup.get_qt_app()
+        e = dbt.example(uid=uid)
+        return cls.from_model(e=e)
     
     @property
     def p_event(self) -> Path:
@@ -205,7 +215,7 @@ class EventFolder(UnitFolder):
             # just set str8 to db with uid
             if self.uid is None: return
 
-            row = dbt.Row(keys=dict(UID=self.uid), dbtable=dbm.EventLog)
+            row = Row(keys=dict(UID=self.uid), dbtable=EventLog)
             row.update(vals=dict(Pictures=num_pics))
             print(f'num pics updated in db: {num_pics}')
 
@@ -244,11 +254,4 @@ class EventFolder(UnitFolder):
         if not hasattr(self, '_condition_reports') or self._condition_reports is None:
             self._condition_reports = fl.find_files_partial(p=self._p_event, partial_text='cond')
 
-        return self._condition_reports 
-
-def example(uid=108085410910):
-    from . import dbtransaction as dbt
-    from .gui import startup
-    app = startup.get_qt_app()
-    e = dbt.example(uid=uid)
-    return EventFolder.from_model(e=e)
+        return self._condition_reports
