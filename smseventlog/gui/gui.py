@@ -101,18 +101,20 @@ class MainWindow(QMainWindow):
 
     def check_update(self):
         """Check for update and download in a worker thread"""
+        try:
+            if not SYS_FROZEN:
+                self.update_statusbar('App not frozen, not checking for updates.')
+                return
 
-        if not SYS_FROZEN:
-            self.update_statusbar('App not frozen, not checking for updates.')
-            return
-
-        if self.updater.update_available:
-            # update has been previously checked and downloaded but user declined to install initially
-            self._install_update(updater=self.updater)
-        else:
-            Worker(func=self.updater.check_update, mw=self) \
-                .add_signals(signals=('result', dict(func=self._install_update))) \
-                .start()
+            if self.updater.update_available:
+                # update has been previously checked and downloaded but user declined to install initially
+                self._install_update(updater=self.updater)
+            else:
+                Worker(func=self.updater.check_update, mw=self) \
+                    .add_signals(signals=('result', dict(func=self._install_update))) \
+                    .start()
+        except:
+            log.error('Failed to check for update!')
     
     def _install_update(self, updater=None, ask_user=True):
         if updater is None: return
