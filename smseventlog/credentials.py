@@ -66,7 +66,8 @@ class CredentialManager(object):
         if self.gui and any(m.get(x) is None for x in ('id', 'password')):
             # no creds found in QSettings
             m = self.prompt_credentials()
-            if m == False: return None # user exited dialog
+            if m == False:
+                return (None, None) # user exited dialog
 
         # always return in order defined eg id, password, token
         return tuple(m.get(key, None) for key in keys)
