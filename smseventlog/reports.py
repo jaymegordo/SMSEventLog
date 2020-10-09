@@ -497,7 +497,7 @@ class PLMUnitReport(Report):
         d_lower : dt\n
         """
         if d_lower is None:
-            d_lower = d_upper + delta(days=-180)
+            d_lower = qr.first_last_month(d_upper + delta(days=-180))[0]
         
         d_rng = (d_lower, d_upper)
 
@@ -544,6 +544,7 @@ class ComponentReport(Report):
         gq = self.get_query
         ex = self.exec_summary       
         ex['Components'] = gq('Component Changeout History').exec_summary()
+
 
 # REPORT SECTIONS
 class Section():
@@ -780,23 +781,34 @@ class PLMUnit(Section):
         query = qr.PLMUnit(
             unit=unit, d_lower=d_rng[0], d_upper=d_rng[1])
 
-        sec = SubSection('PLM', self) \
+        sec = SubSection('Summary', self) \
             .add_df(
-                query=query,
+                func=query.df_summary_report,
+                style_func=query.update_style,
                 caption=f'PLM Summary for unit {unit}') \
             .add_paragraph(
                 func=self.set_paragraph,
                 kw=dict(query=query))
+        
+        sec = SubSection('Payload History', self) \
+            .add_df(
+                func=query.df_monthly,
+                has_chart=True,
+                display=False) \
+            .add_chart(
+                func=ch.chart_plm_monthly,
+                cap_align='left',
+                caption='PLM haul records per month.<br>*Note - final month may not represent complete month.')
     
     def set_paragraph(self, query, **kw):
         """Set paragraph data from query
         - NOTE query needs to already be loaded, must call after load_dfs
         """
 
-        if not hasattr(query, 'df_orig'):
-            raise AttributeError('Query df not loaded yet!')
+        # if not hasattr(query, 'df_orig'):
+        #     raise AttributeError('Query df not loaded yet!')
 
-        m = query.df_orig.loc[0].to_dict()
+        m = query.df_summary.iloc[0].to_dict()
 
         header = {
             'Unit': m['Unit'],
