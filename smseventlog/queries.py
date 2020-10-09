@@ -630,11 +630,11 @@ class FCSummary(FCBase):
         cols = [d.MineSite, a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
         f.set_self(vars())
 
+    @errlog('Can\'t pivot fc summary dataframe', err=True)
     def process_df(self, df):
         """Pivot raw df for fc summary table"""
         self.df_orig = df.copy()
 
-        try:
             df_shape = df.shape # saving to var for err troubleshooting
             if len(df) == 0: return df
             # create summary (calc complete %s)
@@ -650,8 +650,12 @@ class FCSummary(FCBase):
                 .reset_index()
 
             # can't pivot properly if Hours column (int) is NULL > just set to 0
-            # NOTE also can't pivot if ALL values in any column are null > eg ExpiryDate with only 1 FC refreshed
             df.loc[df.Hrs.isnull(), 'Hrs'] = 0
+
+        # If ALL values in column are null (Eg ReleaseDate) need to fill with dummy var to pivot
+        for col in ['Release Date', 'Expiry Date']:
+            if df[col].isnull().all():
+                df[col] = dt(1900,1,1).date()
 
             index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
 
@@ -667,9 +671,6 @@ class FCSummary(FCBase):
             df = df.loc[:, cols]
 
             df.pipe(self.sort_by_fctype)
-
-        except:
-            f.send_error(msg='Can\'t pivot fc summary dataframe', logger=log)
 
         return df      
 
