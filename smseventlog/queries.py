@@ -237,20 +237,16 @@ class QueryBase(object):
     def df(self, data):
         self._df = data
 
-    def get_df(self, force: bool=False, **kw) -> pd.DataFrame:
+    def get_df(self, **kw) -> pd.DataFrame:
         """Execute query and return dataframe
         - Load dataframe if not already loaded
         - Can pass **kw through here > database.get_df > set_default_filter(**kw)
 
-        Parameters
-        ---
-        force : bool
-        
         Returns
         ---
         pd.DataFrame
         """
-        if not self.df_loaded or force:
+        if not (self.use_cached_df and not self.df_loaded):
             self.df = db.get_df(query=self, **kw)
             self.df_loaded = True
 
