@@ -114,3 +114,36 @@ def display_error(func_name=None, err=None):
     err = f.format_traceback() if err is None else err
     dlg.setDetailedText(err)
     dlg.exec_()
+
+def errlog(msg='', err=False, warn=False):
+    """Wrapper to try/except func and log error and return None
+
+    Parameters
+    ----------
+    msg : str, optional
+        Message to add to log, by default ''\n
+    err : bool, optional
+        log.error message, by default False\n
+    warn : bool, optional
+        log.warn message, by default False
+    """
+    def decorator(func):
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except:
+                log = logging.getLogger(inspect.getmodule(func).__name__)
+                err_msg = f'Failed: {func.__name__} | {msg}'
+
+                if warn:
+                    log.warning(err_msg)
+                elif err:
+                    log.error(err_msg, exc_info=True)
+
+                return None
+        
+        return wrapper
+    
+    return decorator
