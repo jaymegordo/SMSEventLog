@@ -10,6 +10,7 @@ from . import functions as f
 from . import styles as st
 from .__init__ import *
 from .database import db
+from .errors import errlog
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +110,11 @@ class QueryBase(object):
         _minesite_default = 'FortHills'
         # color_good = 240 if theme == 'light' else 120
         cmap = diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
-        sql, df, df_loaded = None, pd.DataFrame(), False
+        sql = None
+        df = pd.DataFrame()
+        df_loaded = False
+        use_cached_df = False
+
         m = f.config['TableName']
         color = f.config['color']
         name = self.__class__.__name__
@@ -241,7 +246,7 @@ class QueryBase(object):
         """Execute query and return dataframe
         - Load dataframe if not already loaded
         - Can pass **kw through here > database.get_df > set_default_filter(**kw)
-
+        
         Returns
         ---
         pd.DataFrame
@@ -407,6 +412,7 @@ class ComponentSMR(QueryBase):
 class ComponentCOReport(ComponentCOBase):
     def __init__(self, da, major=False, sort_component=False, **kw):
         super().__init__(da=da, **kw)
+        use_cached_df = True
 
         self.view_cols.update(
             BenchSMR='Bench SMR')
@@ -629,48 +635,48 @@ class FCSummary(FCBase):
         
         cols = [d.MineSite, a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
         f.set_self(vars())
-
+   
     @errlog('Can\'t pivot fc summary dataframe', err=True)
     def process_df(self, df):
         """Pivot raw df for fc summary table"""
         self.df_orig = df.copy()
 
-            df_shape = df.shape # saving to var for err troubleshooting
-            if len(df) == 0: return df
-            # create summary (calc complete %s)
-            df2 = pd.DataFrame()
-            gb = df.groupby('FC Number')
+        df_shape = df.shape # saving to var for err troubleshooting
+        if len(df) == 0: return df
+        # create summary (calc complete %s)
+        df2 = pd.DataFrame()
+        gb = df.groupby('FC Number')
 
-            df2['Total'] = gb['Complete'].count()
-            df2['Complete'] = gb.apply(lambda x: x[x['Complete']=='Y']['Complete'].count())
-            df2['Total Complete'] = df2.Complete.astype(str) + ' / ' +  df2.Total.astype(str)
-            df2['% Complete'] = df2.Complete / df2.Total
-            df2 = df2.drop(columns=['Total', 'Complete']) \
-                .rename_axis('FC Number') \
-                .reset_index()
+        df2['Total'] = gb['Complete'].count()
+        df2['Complete'] = gb.apply(lambda x: x[x['Complete']=='Y']['Complete'].count())
+        df2['Total Complete'] = df2.Complete.astype(str) + ' / ' +  df2.Total.astype(str)
+        df2['% Complete'] = df2.Complete / df2.Total
+        df2 = df2.drop(columns=['Total', 'Complete']) \
+            .rename_axis('FC Number') \
+            .reset_index()
 
-            # can't pivot properly if Hours column (int) is NULL > just set to 0
-            df.loc[df.Hrs.isnull(), 'Hrs'] = 0
-
+        # can't pivot properly if Hours column (int) is NULL > just set to 0
+        df.loc[df.Hrs.isnull(), 'Hrs'] = 0
+        
         # If ALL values in column are null (Eg ReleaseDate) need to fill with dummy var to pivot
         for col in ['Release Date', 'Expiry Date']:
             if df[col].isnull().all():
                 df[col] = dt(1900,1,1).date()
 
-            index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
+        index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
 
-            df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete') \
-                .reset_index() \
-                .merge(right=df2, how='left', on='FC Number') # merge summary
+        df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete') \
+            .reset_index() \
+            .merge(right=df2, how='left', on='FC Number') # merge summary
 
-            # reorder cols after merge
-            cols = list(df)
-            endcol = 10
-            cols.insert(endcol + 1, cols.pop(cols.index('Total Complete')))
-            cols.insert(endcol + 2, cols.pop(cols.index('% Complete')))
-            df = df.loc[:, cols]
+        # reorder cols after merge
+        cols = list(df)
+        endcol = 10
+        cols.insert(endcol + 1, cols.pop(cols.index('Total Complete')))
+        cols.insert(endcol + 2, cols.pop(cols.index('% Complete')))
+        df = df.loc[:, cols]
 
-            df.pipe(self.sort_by_fctype)
+        df.pipe(self.sort_by_fctype)
 
         return df      
 
