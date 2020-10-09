@@ -56,10 +56,14 @@ def alternating_rows_outlook(style, outlook=True):
     """Highlight odd rows background color grey
     - row slice is list of index labels"""
 
+    # NOTE both of these work!! just need to pass the SLICE of INDEX as first arg, not df itself
+    # subset = pd.IndexSlice[style.data.iloc[1::2].index, :]
+    subset = pd.IndexSlice[style.data.index[1::2], :]
+
     if outlook:
         style = style.apply(
             lambda df: pd.DataFrame(data='background-color: #E4E4E4;', index=df.index, columns=df.columns), 
-            subset=pd.IndexSlice[style.data.iloc[1::2].index, :],
+            subset=subset,
             axis=None)
 
     return style
