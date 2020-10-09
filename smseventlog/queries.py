@@ -1484,15 +1484,11 @@ class PLMUnit(QueryBase):
         df = style.data
         subset = pd.IndexSlice[df.index[-1], df.columns[1:]]
         return style.apply(st.highlight_accepted_loads, subset=subset, axis=None)
-
-    def format_custom(self, x, type_='int'):
-        if not pd.isnull(x):
-            if x > 1: # int
-                return f'{x:,.0f}'
-            else: # pct
-                return f'{x:,.2%}'
-        else:
-            return ''
+   
+    def format_custom(self, style, subset, type_='int'):       
+        """Format first rows of summary table as int, last row as pct"""
+        m = dict(int='{:,.0f}', pct='{:,.2%}')
+        return style.format(m[type_], subset=subset, na_rep='')
     
     def update_style(self, style, **kw):
         df = style.data
@@ -1504,13 +1500,11 @@ class PLMUnit(QueryBase):
 
         cols = df.columns[1:]
 
-        style = style \
+        return style \
             .pipe(self.highlight_accepted_loads) \
             .pipe(st.add_table_style, s=s) \
-            .format(self.format_custom, subset=pd.IndexSlice[:, cols])
-        
-        # print(style.table_styles)
-        return style
+            .pipe(self.format_custom, subset=pd.IndexSlice[df.index[:-1], cols], type_='int') \
+            .pipe(self.format_custom, subset=pd.IndexSlice[df.index[-1], cols], type_='pct')
 
 
 def table_with_args(table, args):
