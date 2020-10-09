@@ -233,7 +233,9 @@ class MainWindow(QMainWindow):
         file_.addSeparator()
         menu_reports = file_.addMenu('Reports')
         menu_reports.addAction(self.act_fleet_monthly_report)
+        menu_reports.addSeparator()
         menu_reports.addAction(self.act_plm_report)
+        menu_reports.addAction(self.act_import_plm_manual)
 
         edit_ = bar.addMenu('Edit')
         edit_.addAction('Edit item')
@@ -281,6 +283,7 @@ class MainWindow(QMainWindow):
         # Reports
         act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=self.create_fleet_monthly_report)
         act_plm_report = QAction('PLM Report', self, triggered=self.create_plm_report)
+        act_import_plm_manual = QAction('Import PLM Records', self, triggered=self.import_plm_manual)
         
         # Reset credentials
         act_username = QAction('Reset Username', self, triggered=self.set_username)
@@ -418,6 +421,33 @@ class MainWindow(QMainWindow):
         if dlgs.msgbox(msg=msg, yesno=True):
             rep.email()
 
+    def import_plm_manual(self):
+        """Allow user to manually select haulcycle files to upload"""
+        t = self.active_table_widget()
+        e = t.e
+        if not e is None:
+            from .. import eventfolders as efl
+            unit, dateadded = e.Unit, e.DateAdded
+            uf = efl.UnitFolder(unit=unit)
+            p = uf.p_unit
+        else:
+            # No unit selected, try to get minesite equip path
+            p = f.config['EquipPaths'].get(self.minesite.replace('-', ''), None)
+        
+        if p is None:
+            p = Path.home() / 'Desktop'
+
+        lst_csv = dlgs.get_filepaths(p_start=p)
+        if lst_csv is None:
+            return # user didn't select anything
+        
+        from ..data.internal import plm
+        Worker(func=plm.import_plm_csv, mw=self, lst_csv=lst_csv) \
+            .add_signals(('result', dict(func=self.handle_import_result_manual))) \
+            .start()
+        
+        self.update_statusbar('Importing haul cylce files from network drive...')
+    
     def create_plm_report(self):
         """Trigger plm report from current unit selected in table"""
         t = self.active_table_widget()
@@ -448,6 +478,14 @@ class MainWindow(QMainWindow):
             # just make report now
             self.make_plm_report(unit=unit, dateadded=dateadded, e=e)
     
+    def handle_import_result_manual(self, rowsadded=None):
+        if not rowsadded is None:
+            msg = f'PLM records added to database: {rowsadded}'
+        else:
+            msg = 'Failed to import PLM records.'
+
+        self.update_statusbar(msg)
+    
     def handle_import_result(self, m_results=None, unit=None, dateadded=None, e=None, **kw):
         if m_results is None: return
 
@@ -465,6 +503,8 @@ class MainWindow(QMainWindow):
         if not e is None:
             ef = efl.EventFolder.from_model(e)
             p = ef._p_event
+        else:
+            ef = None
 
         # If cant get event folder, ask to create at desktop
         if ef is None or not ef.check(check_pics=False):
