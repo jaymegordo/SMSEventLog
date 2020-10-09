@@ -51,6 +51,26 @@ def update_plm_all_units():
 
     return new_result
 
+def import_plm_csv(lst_csv: list):
+    """Convenience func to import list of haul cycle csvs to db
+    
+    Parameters
+    ---
+    lst_csv : list,
+        List of csvs to combine and import
+    
+    Returns
+    ---
+        number of rows successfully added to db.
+    """
+    ftype = 'haul'
+    config = utl.get_config()[ftype]
+
+    df = utl.combine_csv(lst_csv=lst_csv, ftype=ftype)
+    rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, notification=False)
+
+    return rowsadded
+
 def update_plm_single_unit(unit, import_=True, maxdate=None):
     # get max date db
     print(f'starting unit: {unit}')
