@@ -1436,29 +1436,107 @@ class PLMUnit(QueryBase):
         d_upper : dt\n
         d_lower : dt
             If None, default to d_upper - 6 months
-        """        
-        super().__init__()
+        """   
+        super().__init__(select_tablename='viewPLM')
+        a = self.select_table
+        cols = [a.star]
 
         if d_lower is None:
-            d_lower = d_upper + delta(days=-180)
+            # always start at first day of month
+            d_lower = first_last_month(d_upper + delta(days=-180))[0]
+        
+        d_rng = (d_lower, d_upper)
 
-        args = dict(
-            unit=unit,
-            d_lower=d_lower,
-            d_upper=d_upper)
-        
-        sql_tbl = table_with_args(table='PLMReportUnit', args=args)
-        self.sql = f'SELECT * FROM {sql_tbl}'
-        
+        q = Query.from_(a) \
+            .orderby(a.datetime)
+
         f.set_self(vars())
+        self.set_default_args() # NOTE not sure if need this or if report always does it
+
+    def set_default_args(self, **kw):
+        self.add_fltr_args([
+            dict(vals=dict(unit=self.unit)),
+            dict(vals=dict(datetime=self.d_rng), term='between')])
     
-    def process_df(self, df):
+    @property
+    def df_calc(self):
+        """Calculate columns before aggregating"""
+        df = self.df.copy()
+
+        def where(cond):
+            """Quicker way to assign val for summing"""
+            return np.where(cond, 1, 0)
+
+        return df.assign(
+                TotalLoads=1,
+                Total_110=lambda x: where(
+                    (x.GrossPayload_pct > 1.1) &
+                    (x.GrossPayload_pct <= 1.2) &
+                    (x.ExcludeFlags == 0)),
+                Total_120=lambda x: where(
+                    (x.GrossPayload_pct > 1.2) &
+                    (x.ExcludeFlags == 0))) \
+            .assign(
+                Dumped_1KM_110=lambda x: where(
+                    (x.Total_110 == 1) &
+                    (x.L_HaulDistance <= 1)),
+                Lower_110_Shovel=lambda x: where(
+                    (x.Total_110 == 1) &
+                    (x.L_HaulDistance > 1) &
+                    (x.QuickShovelEst_pct <= 1.1)),
+                Dumped_1KM_120=lambda x: where(
+                    (x.Total_120 == 1) &
+                    (x.L_HaulDistance < 1)),
+                No_GE_Code=lambda x: where(
+                    (x.Total_120 == 1) &
+                    (x.L_HaulDistance > 1) &
+                    (x.QuickShovelEst_pct <= 1.1) &
+                    (x.QuickPayload_pct <= 1.2)))
+
+    def add_totals(self, df):
+        """Pipe assigning totals so can be done monthly or with final summary"""
+        return df.assign(
+                Total_ExcludeFlags=lambda x: x.TotalLoads - x.ExcludeFlags,
+                Accepted_110=lambda x: x.Total_110 - x.Dumped_1KM_110 - x.Lower_110_Shovel,
+                Accepted_120=lambda x: x.Total_120 - x.Dumped_1KM_120 - x.No_GE_Code) \
+            .assign(
+                Accepted_100=lambda x: x.Total_ExcludeFlags - x.Accepted_120 - x.Accepted_110,
+                Overload_pct_110=lambda x: x.Accepted_110 / x.Total_ExcludeFlags,
+                Overload_pct_120=lambda x: x.Accepted_120 / x.Total_ExcludeFlags)
+    
+    def df_monthly(self):
+        """Bin data into months for charting, will include missing data = good"""
+
+        # set DateIndex range to lower and upper of data (wouldn't show if data was missing)
+        d_rng = self.d_rng
+        idx = pd.date_range(d_rng[0], d_rng[1], freq='M')
+
+        return self.df_calc \
+            .groupby(pd.Grouper(key='DateTime', freq='M')) \
+            .sum() \
+            .pipe(self.add_totals) \
+            .merge(pd.DataFrame(index=idx), how='right', left_index=True, right_index=True)
+
+    @property
+    def df_summary(self):
+        """Create single summary row from all haulcycle records"""
+        # need to grouby first to merge the summed values
+        gb = self.df_calc.groupby('Unit')
+
+        return gb \
+            .agg(
+                MinDate=('DateTime', 'min'),
+                MaxDate=('DateTime', 'max')) \
+            .merge(right=gb.sum().loc[:, 'ExcludeFlags':], on='Unit', how='left') \
+            .pipe(self.add_totals) \
+            .reset_index(drop=False)
+
+    def df_summary_report(self):
         """Pivot single row of PLM summary into df for report."""
-        if df is None or not 0 in df.index:
-            raise AttributeError('Can\'t pivot dataframe!')
+        # if df is None or not 0 in df.index:
+        #     raise AttributeError('Can\'t pivot dataframe!')
             
-        self.df_orig = df.copy()
-        m = df.loc[0].to_dict()
+        m = self.df_summary.iloc[0].to_dict()
         
         cols = ['110 - 120%', '>120%']
         data = {
@@ -1472,7 +1550,7 @@ class PLMUnit(QueryBase):
         return pd.DataFrame.from_dict(data, orient='index', columns=cols) \
             .reset_index() \
             .rename(columns=dict(index='Load Range'))
-    
+   
     def max_date(self):
         a = T('viewPLM')
         q = a.select(fn.Max(a.DateTime)) \
@@ -1486,7 +1564,7 @@ class PLMUnit(QueryBase):
         return style.apply(st.highlight_accepted_loads, subset=subset, axis=None)
    
     def format_custom(self, style, subset, type_='int'):       
-        """Format first rows of summary table as int, last row as pct"""
+        """Format first rows of summary table as int, last row as percent"""
         m = dict(int='{:,.0f}', pct='{:,.2%}')
         return style.format(m[type_], subset=subset, na_rep='')
     
