@@ -20,8 +20,9 @@ else:
 sys.path.append(project_path) # so we can import from smseventlog
 from smseventlog import (
     functions as f,
-    folders as fl,
     VERSION)
+from smseventlog.utils import (
+    fileops as fl)
 
 datas = [
     ('smseventlog/_resources', '_resources')]
@@ -42,8 +43,15 @@ for package, subdir, files in package_imports:
     proot = os.path.dirname(importlib.import_module(package).__file__)
     datas.extend((os.path.join(proot, subdir, f), f'{package}/{subdir}') for f in files)
 
-hiddenimports = ['scipy.special.cython_special']
-hidden_modules = ['plotly.validators.bar', 'plotly.validators.scatter', 'plotly.validators.layout']
+hiddenimports = ['scipy.special.cython_special', 'kaleido']
+
+# needed for rendering plotly charts
+hidden_modules = [
+    'plotly.validators.bar',
+    'plotly.validators.scatter',
+    'plotly.validators.layout',
+    'plotly.validators.barpolar']
+    
 for item in hidden_modules:
     hiddenimports.extend(collect_submodules(item))
 
@@ -94,7 +102,8 @@ if upx:
 
 icon = str(f.resources / f'images/{icon_name}')
 
-if run_pyupdater or True:
+run_pyupdater = False
+if run_pyupdater:
     print('**** PYUPDATER ****')
     name = name_pyu # running from pyupdater
     dist_folder_name = name

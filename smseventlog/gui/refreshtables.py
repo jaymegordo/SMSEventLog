@@ -62,9 +62,10 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title), items=lst, checkbox=True, cb_enabled=False)
             
         elif name == 'model':
+            table = T('UnitID')
             df = db.get_df_unit()
             lst = f.clean_series(s=df[df.MineSite==ms].Model)
-            add_input(field=IPF(text=title), items=lst, checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text=title, table=table), items=lst, checkbox=True, cb_enabled=False)
             
         elif name == 'type':
             table=T('FCSummary')

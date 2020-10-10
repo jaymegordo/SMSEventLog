@@ -16,20 +16,19 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction,
                              QListWidgetItem, QMainWindow, QMenu, QMessageBox,
                              QPushButton, QRadioButton, QScrollArea,
                              QSizePolicy, QSlider, QSpacerItem, QSpinBox,
-                             QStyle, QStyledItemDelegate, QStyleOptionComboBox,
-                             QStyleOptionFocusRect, QStyleOptionViewItem,
-                             QTableView, QTableWidget, QTableWidgetItem,
-                             QTabWidget, QTextEdit, QVBoxLayout, QWidget,
-                             QWidgetAction, QSplashScreen)
+                             QSplashScreen, QStyle, QStyledItemDelegate,
+                             QStyleOptionComboBox, QStyleOptionFocusRect,
+                             QStyleOptionViewItem, QTableView, QTableWidget,
+                             QTableWidgetItem, QTabWidget, QTextEdit,
+                             QVBoxLayout, QWidget, QWidgetAction)
 from sentry_sdk import configure_scope
-
-from smseventlog import dbmodel as dbm
 from smseventlog import dbtransaction as dbt
 from smseventlog import errors as er
-from smseventlog import folders as fl
 from smseventlog import functions as f
 from smseventlog import queries as qr
 from smseventlog import users
 from smseventlog.__init__ import *
 from smseventlog.database import db
 from smseventlog.errors import e, wrap_all_class_funcs
+from smseventlog.utils import dbmodel as dbm
+from smseventlog.utils import fileops as fl

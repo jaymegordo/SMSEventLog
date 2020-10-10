@@ -9,6 +9,7 @@ from sqlalchemy.pool.base import Pool
 
 from . import functions as f
 from .__init__ import *
+from .utils.secrets import SecretsManager
 
 global db
 log = logging.getLogger(__name__)
@@ -30,10 +31,7 @@ def wrap_connection_funcs():
         wrap_single_class_func(cls=cls, func_name=func_name, err_func=e)
 
 def get_db_creds():
-    # if not check_db(): return
-    p = f.resources / 'db.yaml'
-    with open(p) as file:
-        m = yaml.full_load(file)
+    m = SecretsManager('db.yaml').load
     
     m['driver'] = None
     avail_drivers = pyodbc.drivers()

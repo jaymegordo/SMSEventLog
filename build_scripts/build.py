@@ -38,8 +38,9 @@ else:
 sys.path.append(project_path) # so we can import from smseventlog
 
 from smseventlog import (
-    folders as fl,
     functions as f)
+from smseventlog.utils import (
+    fileops as fl)
 
 spec_file = str(f.projectfolder / 'smseventlog.spec')
 p_build = f.buildfolder / f'build/{name}'

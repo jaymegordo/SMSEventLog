@@ -89,7 +89,7 @@
                                 
                                 <div class="right">
                                     <figure>
-                                        <img src="{{ charts[elem.name].path }}" />
+                                        <img src="{{ charts[elem.name].str_p_html }}" />
                                         <figcaption>Figure {{ sub_sec_num }}-{{ num_charts.value }} - {{ elem.caption }}</figcaption>
                                     </figure>
                                 </div>
@@ -102,7 +102,7 @@
                     {% elif elem.type == 'chart' %}
                         {% set num_charts.value = num_charts.value + 1 %}
                         <figure>
-                            <img src="{{ charts[elem.name].path }}" />
+                            <img src="{{ charts[elem.name].str_p_html }}" />
                             <figcaption class="{{ elem.cap_class }}">Figure {{ sub_sec_num }}-{{ num_charts.value }} - {{ elem.caption }}</figcaption>
                         </figure>
                     {% endif %}

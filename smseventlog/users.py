@@ -1,8 +1,8 @@
-from .__init__ import *
-from . import functions as f
 from . import dbtransaction as dbt
-from .dbmodel import UserSettings
+from . import functions as f
+from .__init__ import *
 from .database import db
+from .utils.dbmodel import UserSettings
 
 # TODO drop hours/filepath/Version from UserSettings table
 

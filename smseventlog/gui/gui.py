@@ -1,4 +1,4 @@
-from ..credentials import CredentialManager
+from ..utils.credentials import CredentialManager
 from ..data.units import update_comp_smr
 from . import _global as gbl
 from . import dialogs as dlgs
@@ -205,7 +205,7 @@ class MainWindow(QMainWindow):
         self._driver = driver
             
     def open_sap(self):
-        from ..web import SuncorConnect
+        from ..utils.web import SuncorConnect
         self.sc = SuncorConnect(ask_token=True, mw=self, _driver=self.driver)
         Worker(func=self.sc.open_sap, mw=self) \
             .add_signals(signals=('result', dict(func=self.handle_sap_result))) \
@@ -446,7 +446,7 @@ class MainWindow(QMainWindow):
             .add_signals(('result', dict(func=self.handle_import_result_manual))) \
             .start()
         
-        self.update_statusbar('Importing haul cylce files from network drive...')
+        self.update_statusbar('Importing haul cylce files from network drive (this may take a few minutes)...')
     
     def create_plm_report(self):
         """Trigger plm report from current unit selected in table"""
@@ -471,7 +471,7 @@ class MainWindow(QMainWindow):
                         func=self.handle_import_result,
                         kw=dict(unit=unit, dateadded=dateadded, e=e)))) \
                 .start()
-            msg = f'Max date in db: {maxdate:%Y-%m-%d}. Importing haul cylce files from network drive...'
+            msg = f'Max date in db: {maxdate:%Y-%m-%d}. Importing haul cylce files from network drive (this may take a few minutes)...'
             self.update_statusbar(msg=msg)
 
         else:
@@ -498,7 +498,7 @@ class MainWindow(QMainWindow):
         """Actually make the report pdf"""
         from .. import eventfolders as efl
         from ..reports import PLMUnitReport
-        rep = PLMUnitReport(unit=unit, d_upper=dateadded)
+        rep = PLMUnitReport(unit=unit, d_upper=dateadded, mw=self)
 
         if not e is None:
             ef = efl.EventFolder.from_model(e)
@@ -512,12 +512,12 @@ class MainWindow(QMainWindow):
             msg = f'Can\'t get event folder, create report at desktop?'
             if not dlgs.msgbox(msg=msg, yesno=True):
                 return
-
+        
         Worker(func=rep.create_pdf, mw=self, p_base=p) \
             .add_signals(signals=('result', dict(func=self.handle_plm_result))) \
             .start()
 
-        self.update_statusbar(f'Creating PLM report...')
+        self.update_statusbar('Creating PLM report...')
     
     def handle_plm_result(self, rep=None):
         if rep is None or not rep.p_rep.exists():

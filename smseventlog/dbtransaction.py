@@ -5,6 +5,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from . import functions as f
 from .__init__ import *
 from .database import db, e
+from .utils import dbmodel as dbm
 
 log = logging.getLogger(__name__)
 
@@ -220,7 +221,6 @@ def join_query(tables, keys, join_field):
     return m
 
 def example(uid=None):
-    from . import dbmodel as dbm
     if uid is None:
         uid = 12602260565
 

@@ -5,21 +5,23 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 from . import charts as ch
-from . import email as em
 from . import functions as f
 from . import queries as qr
 from . import styles as st
 from .__init__ import *
 from .data import units as un
 from .database import db
+from .utils import email as em
+from .utils.download import Kaleido
 
 global p_reports
 p_reports = f.resources / 'reports'
+log = logging.getLogger(__name__)
 
 # TODO auto email w/ email lists
 
 class Report(object):
-    def __init__(self, d=None, d_rng=None, minesite=None, **da):
+    def __init__(self, d=None, d_rng=None, minesite=None, mw=None, **kw):
         # dict of {df_name: {func: func_definition, da: **da, df=None}}
         dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
         signatures = []
@@ -154,38 +156,43 @@ class Report(object):
                 style = self.style_df(name=m['name'])
                 m['df_html'] = style.hide_index().render()
     
+    def check_kaleido(self):
+        if SYS_FROZEN or True:
+            if not Kaleido(mw=self.mw).check():
+                return False # stop creating report
+        
+        return True # kaleido exists, continue creating report
+    
     def render_charts(self):
-        # render all charts from dfs, save as svg image
-        if SYS_FROZEN:
-            # have to specify absolute path to orca for exporting plotly charts as images
-            import plotly.io.orca as orca
-            if not f.is_win():
-                p_orca = Path('/Applications/orca.app/Contents/MacOS/orca')
-            else:
-                p_orca = Path.home() / 'AppData/Local/Programs/orca/orca.exe'
+        """Render all charts from dfs, save as svg image"""
+        if not self.check_kaleido(): return # kaleido not installed
 
-            # NOTE user has to install orca manually, check and give instructions
-            if not p_orca.exists():
-                from .gui.dialogs import msg_simple
-                orca_download = 'https://github.com/plotly/orca/releases'
-                msg = f'Could not find Orca executable at:\n\n{p_orca}\n\n\
-                    Orca is required to render charts in the pdf. \
-                    Please download the latest release from:\n{orca_download}'
-                msg_simple(msg=msg, icon='warning')
-                return False
-                
-            orca.config.executable = str(p_orca)
-            orca.config._constants['plotlyjs']  = str(f.topfolder / 'plotly/package_data/plotly.min.js')
+        p_img = f.temp / 'images'
+        if not p_img.exists():
+            p_img.mkdir(parents=True)
 
         for m in self.charts.values():
             df = self.dfs[m['name']]['df']
             fig = m['func'](df=df, title=m['title'], **m['da'])
 
-            p = p_reports / 'images/{}.svg'.format(m['name'])
-            m['path'] = str(p)
-            fig.write_image(m['path'])
+            p = p_img / f'{m["name"]}.svg'
+            m['path'] = p # save so can delete later
+
+            # need this to load images to html template in windows for some reason
+            m['str_p_html'] = f'file:///{p.as_posix()}' if f.is_win() else str(p)
+
+            fig.write_image(str(p), engine='kaleido')
         
         return True
+    
+    def remove_chart_files(self):
+        """Delete images saved for charts after render."""
+        for m in self.charts.values():
+            p = m['path']
+            try:
+                p.unlink()
+            except:
+                log.warning(f'Couldn\'t delete image at path: {p}')
 
     def get_all_dfs(self):
         # TODO: could probably use a filter here
@@ -202,7 +209,10 @@ class Report(object):
             self.load_all_dfs()
 
         self.render_dfs()
-        if self.charts and not self.render_charts(): return # orca not installed, charts not rendered
+
+        if self.charts:
+            if not self.render_charts(): return # charts failed to render
+            
         if hasattr(self, 'set_exec_summary'):
             self.set_exec_summary()
 
@@ -245,6 +255,7 @@ class Report(object):
 
         HTML(string=html_out, base_url=str(p_reports)).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
 
+        self.remove_chart_files()
         self.p_rep = p
         return self
     
@@ -501,7 +512,7 @@ class PLMUnitReport(Report):
         
         d_rng = (d_lower, d_upper)
 
-        super().__init__(d_rng=d_rng)
+        super().__init__(d_rng=d_rng, **kw)
         title = f'PLM Report - {unit} - {d_upper:%Y-%m-%d}'
 
         f.set_self(vars())
@@ -565,9 +576,7 @@ class Section():
         """Load extra data (eg paragraph data) for each subsection"""
         for name, sub_sec in self.sub_sections.items():
             if not sub_sec.paragraph_func is None:
-                print(f'loading paragraph data: {name}')
                 m = sub_sec.paragraph_func
-
                 sub_sec.paragraph = m['func'](**m['kw'])
 
 class OilSamples(Section):
@@ -908,7 +917,8 @@ class SubSection():
         self.paragraph_func = dict(func=func, kw=kw)
         return self
 
-       
+
+
 
 # TSI
     # number of TSIs submitted per month?

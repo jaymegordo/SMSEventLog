@@ -1138,8 +1138,8 @@ def get_filepath_from_dialog(p_start):
         return Path(s)
     return None
 
-def get_filepaths(p_start):
-    # select multiple files from directory
+def get_filepaths(p_start : Path):
+    """Select multiple files from directory"""
     app = check_app()
 
     lst = QFileDialog.getOpenFileNames(

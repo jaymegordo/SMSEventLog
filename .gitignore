@@ -13,9 +13,8 @@ target
 
 smseventlog/_resources/reports/saved
 smseventlog/_resources/reports/images
-smseventlog/_resources/db.yaml
-smseventlog/_resources/email.yaml
 smseventlog/_resources/excel
+smseventlog/_unencrypted
 
 .DS_Store
 Pipfile.lock
@@ -26,7 +25,7 @@ __pycache__
 *$py.class
 
 *.xlsm
-smseventlog/_resources/apikeys
+smseventlog/_resources/secret
 SMS.zip
 smseventlog/_resources/csv/avail_email.csv
 avail.html

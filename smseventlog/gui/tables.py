@@ -1,10 +1,7 @@
 import re
 
-from .. import email as em
-from .. import errors as er
+from ..utils import email as em
 from .. import eventfolders as efl
-from .. import functions as f
-from .. import queries as qr
 from .. import styles as st
 from ..data import factorycampaign as fc
 from ..data.internal import dls
@@ -838,7 +835,6 @@ class TableWidget(QWidget):
 
     def export_df(self, ext='xlsx'):
         """Export current table as excel/csv file, prompt user for location"""
-        from .. import folders as fl
 
         p = dlgs.save_file(name=self.title, ext=ext)
         if p is None: return
@@ -1019,8 +1015,7 @@ class EventLogBase(TableWidget):
         if dlgs.msgbox(msg=msg, yesno=True):
 
             # Check if Event is linked to FC, ask to unlink
-            from ..dbmodel import FactoryCampaign
-            e_fc = dbt.select_row_by_secondary(dbtable=FactoryCampaign, col='UID', val=e.UID)
+            e_fc = dbt.select_row_by_secondary(dbtable=dbm.FactoryCampaign, col='UID', val=e.UID)
             if not e_fc is None:
                 msg = f'This event is linked to FC {e_fc.FCNumber}, would you like to unlink the FC?'
                 if dlgs.msgbox(msg=msg, yesno=True):
@@ -1043,7 +1038,7 @@ class EventLogBase(TableWidget):
         e = self.e_db
         if e is None: return
 
-        from ..exchange import ExchangeAccount
+        from ..utils.exchange import ExchangeAccount
         if not hasattr(self, 'exchange_account') or self.exchange_account is None:
             # need to make sure logged in and good before passing control to worker
             self.exchange_account = ExchangeAccount(gui=True)
@@ -1366,7 +1361,7 @@ class TSI(EventLogBase):
     def open_tsi_homepage(self):
         """Just login and show the homepage so user can go from there, check TSIs etc"""
         if not self.check_cummins(): return
-        from .. import web
+        from ..utils import web
         tsi = web.TSIWebPage(table_widget=self, _driver=self.driver)
         if not tsi.is_init: return
         tsi.tsi_home()
@@ -1374,7 +1369,7 @@ class TSI(EventLogBase):
     
     def fill_tsi_webpage(self):
         if not self.check_cummins(): return
-        from ..web import TSIWebPage
+        from ..utils.web import TSIWebPage
         e2 = self.e
         if e2 is None: return
         view, e = self.view, self.e_db
@@ -1400,7 +1395,7 @@ class TSI(EventLogBase):
 
         msg, docs = 'Select documents to attach?', None
         if dlgs.msgbox(msg=msg, yesno=True):
-            from ..tsi import attach_docs
+            from ..utils.tsi import attach_docs
             ef = efl.EventFolder.from_model(e=e)
             ef.check()
             docs = attach_docs(ef=ef)
@@ -1938,7 +1933,6 @@ class Availability(TableWidget):
     
     def create_report(self):
         # show menu to select period
-        from ..folders import drive_exists
         from ..reports import AvailabilityReport
         from .refreshtables import AvailReport
 
@@ -1948,7 +1942,7 @@ class Availability(TableWidget):
 
         p_base = self.get_report_base(dlg.period_type)
 
-        if not drive_exists():
+        if not fl.drive_exists():
             msg = 'Not connected to drive, create report at desktop?'
             if not dlgs.msgbox(msg=msg, yesno=True):
                 return

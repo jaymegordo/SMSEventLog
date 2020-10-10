@@ -50,22 +50,25 @@ sys.path.append(project_path) # so we can import from smseventlog
 from smseventlog import (
     functions as f,
     dbtransaction as dbt,
-    exchange as exh,
     errors as er,
     queries as qr,
-    folders as fl,
     eventfolders as efl,
-    email as em,
     reports as rp,
     styles as st,
-    charts as ch,
-    web)
+    charts as ch)
 
 from smseventlog.data import (
     availability as av,
     oilsamples as oil,
     units as un,
     factorycampaign as fc)
+
+from smseventlog.utils import (
+    fileops as fl,
+    exchange as exh,
+    email as em,
+    download as dl,
+    web)
 
 from smseventlog.gui import (
     startup,
@@ -76,7 +79,7 @@ from smseventlog.gui import (
     datamodel as dm,
     formfields as ff)
 
-from smseventlog.dbmodel import *
+from smseventlog.utils.dbmodel import *
 from smseventlog.database import db
 
 print('**import finished')

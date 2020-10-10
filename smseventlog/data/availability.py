@@ -1,5 +1,5 @@
-from .. import dbmodel as dbm
-from ..exchange import combine_email_data
+from ..utils import dbmodel as dbm
+from ..utils.exchange import combine_email_data
 from .__init__ import *
 
 

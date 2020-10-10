@@ -19,31 +19,45 @@ except ModuleNotFoundError:
 
 log = logging.getLogger(__name__)
 
-global drive, config, config_platform, platform, topfolder, projectfolder, buildfolder, resources, frozen
+global drive, config, config_platform, platform, topfolder, projectfolder, applocal, temp, desktop, buildfolder, resources, secret, frozen
 
 if sys.platform.startswith('win'):
     drive = Path('P:\\')
     platform = 'win'
+    applocal = Path.home() / 'AppData/Local/SMS Equipment Inc/SMS Event Log'
 else:
     drive = Path('/Volumes/Public')
     platform = 'mac'
-    
+    applocal = Path.home() / 'Library/Application Support/SMS Event Log'
+
+temp = applocal / 'temp'    
+p_ext = applocal / 'extensions'
 topfolder = Path(__file__).parent # smseventlog
 projectfolder = topfolder.parent # SMS
 buildfolder = Path.home() / 'Documents/smseventlog'
+desktop = Path.home() / 'Desktop'
+
+def add_to_path(p):
+    os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(p)])
 
 if SYS_FROZEN:
     topfolder = projectfolder
-    # NOTE for now, if users need to run reports with images eg Availability, get them to manually dl orca
-    # orca_path = projectfolder / 'orca' # for using orca to save plotly images when frozen
-    # os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(orca_path)]) # not needed, path passed to plotly manually in render_charts
 
     if platform == 'win':
         # add manual gtk path to PATH for weasyprint/cairo if windows
         gtk_path = projectfolder / 'GTK3-Runtime Win64/bin'
-        os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(gtk_path)])
+        add_to_path(gtk_path)
+
+# Add these to path so plotly can find Kaleido executable
+if platform == 'win':
+    kaleido_path = p_ext / 'kaleido/executable/bin'
+else:
+    kaleido_path = p_ext / 'kaleido'
+
+add_to_path(kaleido_path)
 
 resources = topfolder / '_resources' # data folder location is shifted out of smseventlog for frozen build
+secret = resources / 'secret'
 
 def set_config():
     # config is yaml file with config details, dictionary conversions etc
@@ -471,6 +485,7 @@ def decode(key, string):
 
 def check_db():
     # Check if db.yaml exists, if not > decrypt db_secret and create it
+    # NOTE not used anymore, just using stored keyfile
     p = resources / 'db.yaml'
     if p.exists():
         return True
@@ -500,20 +515,14 @@ def check_db():
 
             return True
 
-def encode_db(key):
-    m = get_db_creds()
-    p = resources / 'db_secret.txt'
-    with open(p, 'wb') as file:
-        file.write(encode(key=key, string=json.dumps(m)))
-    return True
-
 def discord(msg, channel='orders'):
     import requests
     import discord
     from discord import Webhook, RequestsWebhookAdapter, File
+    from .utils.secrets import SecretsManager
 
-    p = Path(resources) / 'apikeys/discord.csv'
-    r = pd.read_csv(p, index_col='channel').loc[channel]
+    df = SecretsManager('discord.csv').load.set_index('channel')
+    r = df.loc[channel]
     if channel == 'err': msg += '@here'
 
     # Create webhook
@@ -564,7 +573,7 @@ def send_error(msg='', prnt=False, func=None, display=False, logger=None, err=No
         logger.error(msg, exc_info=True)
 
 def create_logger(func=None):
-    # not used yet
+    # NOTE not used yet
     logger = logging.getLogger("example_logger")
     logger.setLevel(logging.INFO)
     
@@ -575,4 +584,3 @@ def create_logger(func=None):
     # add handler to logger object
     logger.addHandler(fh)
     return logger
-

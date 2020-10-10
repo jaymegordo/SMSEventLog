@@ -1,9 +1,9 @@
-from . import folders as fl
 from . import functions as f
 from .__init__ import *
 from .database import db
-from .dbmodel import EventLog
 from .dbtransaction import Row
+from .utils import fileops as fl
+from .utils.dbmodel import EventLog
 
 log = logging.getLogger(__name__)
 

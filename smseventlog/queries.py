@@ -5,12 +5,12 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 from seaborn import diverging_palette
 
-from . import dbmodel as dbm
 from . import functions as f
 from . import styles as st
 from .__init__ import *
 from .database import db
 from .errors import errlog
+from .utils import dbmodel as dbm
 
 log = logging.getLogger(__name__)
 

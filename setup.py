@@ -52,7 +52,7 @@ requires = [
 
 package_data = {'smseventlog': [
     'data/images/*',
-    'data/apikeys/*',
+    'data/secret/*',
     'data/config.yaml',
     'data/email.yaml',
     'data/db_secret.txt']}
