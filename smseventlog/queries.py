@@ -894,7 +894,7 @@ class EmailListShort(EmailList):
 
         Examples
         ---
-        >>> email_list = EmailListShort(col_name='Passover', minesite='FortHills', usergroup='SMS').emails
+        >>> email_list = EmailListShort(name='Passover', minesite='FortHills', usergroup='SMS').emails
         >>> ['johnny@smsequip.com', 'timmy@cummins.com']
         """
         super().__init__(**kw)
@@ -903,7 +903,7 @@ class EmailListShort(EmailList):
 
         q = Query.from_(a)
 
-        f.set_self(vars())
+        f.set_self(vars(), exclude='name')
     
     def set_default_filter(self, **kw):
         self.fltr.add(vals={self.name: 'x'})
@@ -914,7 +914,11 @@ class EmailListShort(EmailList):
         """Return the actual list of emails"""
         self.set_default_filter() # calling manually instead of passing default=True to be more explicit here
         df = self.get_df()
-        return list(df.Email)
+        try:
+            return list(df.Email)
+        except:
+            log.warning('Couldn\'t get email list from database.')
+            return []
 
 class AvailBase(QueryBase):
     def __init__(self, da=None, **kw):
