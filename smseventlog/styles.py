@@ -314,6 +314,14 @@ def highlight_accepted_loads(df):
 def bold_columns(df):
     return pd.DataFrame(data='font-weight: bold;', index=df.index, columns=df.columns)
 
+def set_borders(style):
+    s = [dict(
+        selector=f'th, td',
+        props=[
+            ('border', '1px solid black'),
+            ('padding', '3px, 5px')])]
+    return style.pipe(add_table_style, s=s)
+
 def write_html(html, name=None):
     if name is None:
         name = 'temp'
