@@ -43,14 +43,37 @@ for package, subdir, files in package_imports:
     proot = os.path.dirname(importlib.import_module(package).__file__)
     datas.extend((os.path.join(proot, subdir, f), f'{package}/{subdir}') for f in files)
 
-hiddenimports = ['scipy.special.cython_special', 'kaleido']
+hiddenimports = ['scipy.special.cython_special', 'kaleido', 'plotly.validators']
 
 # needed for rendering plotly charts
+# this makes ~6000 hidden imports.. pretty not ideal
 hidden_modules = [
     'plotly.validators.bar',
     'plotly.validators.scatter',
     'plotly.validators.layout',
-    'plotly.validators.barpolar']
+    'plotly.validators.barpolar',
+    'plotly.validators.carpet',
+    'plotly.validators.choropleth',
+    'plotly.validators.contourcarpet',
+    'plotly.validators.contour',
+    'plotly.validators.heatmapgl',
+    'plotly.validators.heatmap.colorbar',
+    'plotly.validators.histogram2dcontour',
+    'plotly.validators.histogram2d',
+    'plotly.validators.histogram',
+    'plotly.validators.mesh3d',
+    'plotly.validators.parcoords',
+    'plotly.validators.pie',
+    'plotly.validators.scatter3d',
+    'plotly.validators.scattercarpet',
+    'plotly.validators.scattergeo',
+    'plotly.validators.scattergl',
+    'plotly.validators.scattermapbox',
+    'plotly.validators.scatterpolargl',
+    'plotly.validators.scatterpolar',
+    'plotly.validators.scatterternary',
+    'plotly.validators.surface',
+    'plotly.validators.table']
     
 for item in hidden_modules:
     hiddenimports.extend(collect_submodules(item))
@@ -75,11 +98,9 @@ elif f.is_win():
     binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
 
     # gtk used for weasyprint/cairo to render images in pdfs. costs ~20mb to zip
+    # NOTE maybe try to download this separately to avoid including in bundle
     datas.append(('C:/Program Files/GTK3-Runtime Win64', 'GTK3-Runtime Win64'))
     binaries.append(('C:/Program Files/GTK3-Runtime Win64/bin', 'GTK3-Runtime Win64/bin'))
-
-    # orca > 40mb file.. just make user download manually if needed
-    # binaries.append(('C:/Users/Jayme/AppData/Local/Programs/orca/orca.exe', 'orca'))
 
     hookspath = [Path.home() / '.virtualenvs/SMS-27IjYSAU/Lib/site-packages/pyupdater/hooks']
     dist_folder_name = 'smseventlog_win'
@@ -102,7 +123,7 @@ if upx:
 
 icon = str(f.resources / f'images/{icon_name}')
 
-run_pyupdater = False
+run_pyupdater = True
 if run_pyupdater:
     print('**** PYUPDATER ****')
     name = name_pyu # running from pyupdater
