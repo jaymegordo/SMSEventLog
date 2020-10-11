@@ -80,7 +80,12 @@ def e(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except (exc.StatementError, exc.InvalidRequestError) as e:
+        except (exc.IntegrityError, exc.ProgrammingError, exc.StatementError, pyodbc.ProgrammingError) as e:
+            log.warning(f'***** Not handling error: {type(e)}')
+            # raise e
+            return None # re raising the error causes sqlalchemy to catch it and raise more errors
+
+        except exc.InvalidRequestError as e:
             # rollback invalid transaction
             log.warning(f'Rollback and retry operation: {type(e)}')
             session = db.session # this is pretty sketch
@@ -91,9 +96,6 @@ def e(func):
             log.warning(f'Handling {type(e)}')
             db.reset()
             return func(*args, **kwargs)
-        
-        except exc.IntegrityError:
-            raise
 
         except Exception as e:
             log.warning(f'Handling other errors: {type(e)}')
