@@ -157,7 +157,7 @@ class Report(object):
                 m['df_html'] = style.hide_index().render()
     
     def check_kaleido(self):
-        if SYS_FROZEN or True:
+        if SYS_FROZEN:
             if not Kaleido(mw=self.mw).check():
                 return False # stop creating report
         
@@ -166,6 +166,14 @@ class Report(object):
     def render_charts(self):
         """Render all charts from dfs, save as svg image"""
         if not self.check_kaleido(): return # kaleido not installed
+
+        # manually set executable_path for kaleido before trying to render charts
+        if SYS_FROZEN:
+            import kaleido.scopes.base as kaleido_base
+            if f.is_win():
+                kaleido_base.executable_path = f.kaleido_path
+            elif f.is_mac():
+                kaleido_base.BaseScope.executable_path = f.kaleido_path
 
         p_img = f.temp / 'images'
         if not p_img.exists():
