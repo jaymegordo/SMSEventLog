@@ -48,13 +48,12 @@ if SYS_FROZEN:
         gtk_path = projectfolder / 'GTK3-Runtime Win64/bin'
         add_to_path(gtk_path)
 
-# Add these to path so plotly can find Kaleido executable
-if platform == 'win':
-    kaleido_path = p_ext / 'kaleido/executable/bin'
-else:
-    kaleido_path = p_ext / 'kaleido'
+    # Add this to path so plotly can find Kaleido executable
+    # win is actually path to kaleido.cmd
+    kaleido_path = p_ext / 'kaleido/kaleido'
 
-add_to_path(kaleido_path)
+    add_to_path(kaleido_path)
+    kaleido_path = str(kaleido_path)
 
 resources = topfolder / '_resources' # data folder location is shifted out of smseventlog for frozen build
 secret = resources / 'secret'
