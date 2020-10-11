@@ -108,6 +108,13 @@ class TableView(QTableView):
 
     def display_data(self, df):
         self.rows_initialized = False 
+
+        if df.shape[0] > 500:
+            msg = f'Warning: the data you requested has a large number of rows: {df.shape[0]}\n\n\
+                Would you like to continue loading data to the table?'
+            if not dlgs.msgbox(msg=msg, yesno=True):
+                return
+
         self.model().set_df(df=df, center_cols=self.get_center_cols(df=df))
             
         self.hide_columns()
