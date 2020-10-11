@@ -5,7 +5,7 @@ set version="3.2.5"
 
 echo version=%version%, upload=%upload%
 
-pipenv run pyupdater build --app-version=%version% smseventlog.spec
+pipenv run pyupdater build --log-level=WARN --app-version=%version% smseventlog.spec
 pipenv run pyupdater pkg --process --sign
 
 if %upload%==true (

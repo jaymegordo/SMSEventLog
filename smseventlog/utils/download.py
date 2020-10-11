@@ -13,7 +13,6 @@ class Downloader(object):
     def __init__(self, mw=None, **kw):
 
         gui = True if not mw is None else False
-        print(not mw is None)
         p_ext = f.applocal / 'extensions'
         if not p_ext.exists():
             p_ext.mkdir(parents=True)
@@ -57,7 +56,6 @@ class Downloader(object):
         if not self.mw is None:
             self.mw.update_statusbar(msg)
         else:
-            print(f'self.mw is None: {self.mw}')
             print(msg)
     
     def set_status(self, msg):

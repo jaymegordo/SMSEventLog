@@ -9,7 +9,7 @@ echo "version: $version, upload: $upload"
 
 # scripts in build_scripts for organization, but run commands from project root
 cd .
-pyupdater build --app-version=$version smseventlog.spec
+pyupdater build --log-level=WARN --app-version=$version smseventlog.spec
 pyupdater pkg --process --sign
 
 if [ $upload = true ]; then
