@@ -107,7 +107,7 @@ class TableView(QTableView):
         return self.row_from_activerow()
 
     def display_data(self, df):
-        self.rows_initialized = False 
+        self.rows_initialized = False
 
         if df.shape[0] > 500:
             msg = f'Warning: the data you requested has a large number of rows: {df.shape[0]}\n\n\
@@ -754,10 +754,11 @@ class TableWidget(QWidget):
 
         if not df is None and not len(df) == 0:
             self.view.display_data(df=df)
+            self.update_statusbar(f'Rows loaded: {df.shape[0]}')
         else:
             dlgs.msg_simple(msg='No rows returned in query!', icon='warning')
         
-        self.mainwindow.revert_status()
+            self.mainwindow.revert_status()
 
     def get_dbtable(self, header=None):
         # return dbtable (definition) for specific header
@@ -814,7 +815,8 @@ class TableWidget(QWidget):
 
         formats = {'int64': '{:,}', 'datetime64[ns]': st.format_date}
         style = st.default_style(df=df, outlook=True) \
-            .pipe(st.apply_formats, formats=formats)
+            .pipe(st.apply_formats, formats=formats) \
+            .pipe(st.set_borders)
 
         body = f'{f.greeting()}{body_text}<br><br>{style.hide_index().render()}'
 
@@ -1244,9 +1246,9 @@ class WorkOrders(EventLogBase):
         def set_component(self, val_new, **kw):
             if val_new == True:
                 self.parent.show_component()
-   
+     
     def email_wo(self, title, body_text, exclude_cols):
-        # email a WorkOrder (Open|Close) for the currently selected row
+        """Email a WorkOrder (Open|Close) for the currently selected row"""
         e = self.e
         if e is None: return # no row selected in table
 
@@ -1260,14 +1262,19 @@ class WorkOrders(EventLogBase):
         self.email_row(title=title, body_text=body_text, exclude_cols=exclude_cols, email_list=lst)
 
     def email_wo_request(self):
-        # email a WorkOrder request for the currently selected row
+        """Email a WorkOrder request for the currently selected row"""
+        e = self.e
+        if e is None: return
+
+        wrnty_type = 'warranty' if e.WarrantyYN.lower() == 'yes' else e.WarrantyYN
+
         self.email_wo(
             title='Open WO Request',
-            body_text='Please open a warranty work order for:',
+            body_text=f'Please open a {wrnty_type} work order for:',
             exclude_cols=['UID', 'Status', 'Work Order', 'Seg', 'Date Complete', 'Pics'])
 
     def email_wo_close(self):
-        # Send email to close event
+        """Send email to close event"""
         # set status to closed, will trigger 'close event'
         index = self.view.create_index_activerow(col_name='Status')
         self.view.model().setData(index=index, val='Closed')
