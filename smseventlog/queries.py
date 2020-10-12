@@ -882,7 +882,7 @@ class EmailList(QueryBase):
         return df
 
 class EmailListShort(EmailList):
-    def __init__(self, name: str, minesite: str, usergroup: str=None, **kw):
+    def __init__(self, col_name: str, minesite: str, usergroup: str=None, **kw):
         """Just the list we actually want to email
 
         Parameters
@@ -894,7 +894,7 @@ class EmailListShort(EmailList):
 
         Examples
         ---
-        >>> email_list = EmailListShort(name='Passover', minesite='FortHills', usergroup='SMS').emails
+        >>> email_list = EmailListShort(col_name='Passover', minesite='FortHills', usergroup='SMS').emails
         >>> ['johnny@smsequip.com', 'timmy@cummins.com']
         """
         super().__init__(**kw)
@@ -903,17 +903,17 @@ class EmailListShort(EmailList):
 
         q = Query.from_(a)
 
-        f.set_self(vars(), exclude='name')
+        f.set_self(vars())
     
     def set_default_filter(self, **kw):
-        self.fltr.add(vals={self.name: 'x'})
+        self.fltr.add(vals={self.col_name: 'x'})
         super().set_default_filter(usergroup=self.usergroup, **kw)
     
     @property
     def emails(self) -> list:
         """Return the actual list of emails"""
         self.set_default_filter() # calling manually instead of passing default=True to be more explicit here
-        df = self.get_df()
+        df = self.get_df(prnt=True)
         try:
             return list(df.Email)
         except:
