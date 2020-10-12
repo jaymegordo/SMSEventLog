@@ -1,3 +1,4 @@
+from sys import exc_info
 from ..utils.credentials import CredentialManager
 from ..data.units import update_comp_smr
 from . import _global as gbl
@@ -23,9 +24,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(gbl.title)
         self.setMinimumSize(QSize(1000, 400))
         self.minesite_changed.connect(self.update_minesite_label)
-        self.status_label = QLabel(self) # permanent label for status bar so it isnt changed by statusTips
-        self.status_label.setToolTip('Global MineSite > Set with [Ctrl + Shift + M]')
-        self.statusBar().addPermanentWidget(self.status_label)
+        self.minesite_label = QLabel(self) # permanent label for status bar so it isnt changed by statusTips
+        self.minesite_label.setToolTip('Global MineSite > Set with [Ctrl + Shift + M]')
+        self.rows_label = QLabel(self)
+        self.statusBar().addPermanentWidget(self.rows_label)
+        self.statusBar().addPermanentWidget(self.minesite_label)
 
         # Settings
         s = QSettings('sms', 'smseventlog', self)
@@ -53,8 +56,24 @@ class MainWindow(QMainWindow):
         self.minesite_changed.emit(val)
     
     def update_minesite_label(self, *args):
-        """Status_label is special label to always show current minesite (bottom right)"""
-        self.status_label.setText(f'Minesite: {self.minesite}')
+        """minesite_label is special label to always show current minesite (bottom right)"""
+        self.minesite_label.setText(f'Minesite: {self.minesite}')
+    
+    def update_rows_label(self, *args):
+        view = self.active_table()
+        if view is None:
+            return # not init yet
+
+        model = view.model()
+        visible_rows = model.visible_rows
+        total_rows = model.total_rows
+
+        if total_rows == visible_rows:
+            num_rows = visible_rows
+        else:
+            num_rows = f'{visible_rows}/{total_rows}'
+
+        self.rows_label.setText(f'Rows: {num_rows}')
     
     def warn_not_implemented(self):
         self.update_statusbar('WARNING: This feature not yet implemented.')
@@ -114,7 +133,7 @@ class MainWindow(QMainWindow):
                     .add_signals(signals=('result', dict(func=self._install_update))) \
                     .start()
         except:
-            log.error('Failed to check for update!')
+            log.error('Failed to check for update!', exc_info=True)
     
     def _install_update(self, updater=None, ask_user=True):
         if updater is None: return
@@ -143,7 +162,9 @@ class MainWindow(QMainWindow):
         return self.tabs.currentWidget()
        
     def active_table(self):
-        return self.active_table_widget().view
+        table_widget = self.active_table_widget()
+        if not table_widget is None:
+            return table_widget.view
     
     def show_changeminesite(self):
         dlg = dlgs.ChangeMinesite(parent=self)
@@ -238,7 +259,7 @@ class MainWindow(QMainWindow):
         menu_reports.addAction(self.act_import_plm_manual)
 
         edit_ = bar.addMenu('Edit')
-        edit_.addAction('Edit item')
+        edit_.addAction(self.act_find)
         
         table_ = bar.addMenu('Table')
         table_.addAction(self.act_email_table)
@@ -355,6 +376,10 @@ class MainWindow(QMainWindow):
         act_update_smr = QAction('Update SMR', self,
             triggered=lambda: t().update_smr())
         act_update_smr.setToolTip('Update selected event with SMR from database.')
+
+        act_find = QAction('Find', self,
+            triggered=lambda: tv().show_search(),
+            shortcut=QKeySequence('Ctrl+F'))
 
         f.set_self(vars())
 
@@ -543,6 +568,7 @@ class TabWidget(QTabWidget):
         self.is_init = False
 
         self.currentChanged.connect(self.save_activetab)
+        self.currentChanged.connect(self.mainwindow.update_rows_label)
 
     def init_tabs(self):
         """Add all tabs to widget"""
