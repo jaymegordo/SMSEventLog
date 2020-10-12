@@ -10,6 +10,7 @@ from sqlalchemy.pool.base import Pool
 from . import functions as f
 from .__init__ import *
 from .utils.secrets import SecretsManager
+from . import errors as er
 
 global db
 log = logging.getLogger(__name__)
@@ -61,18 +62,19 @@ def str_conn():
     db_string = ';'.join('{}={}'.format(k, v) for k, v in m.items())
     params = parse.quote_plus(db_string)
     return f'mssql+pyodbc:///?odbc_connect={params}'
-    
+
+@er.errlog('Failed to create engine!', err=True)
 def _create_engine():
-    # sqlalchemy.engine.base.Engine
+    """Create sqla engine object
+    - sqlalchemy.engine.base.Engine
+    - Used in DB class and outside, eg pd.read_sql
+    - any errors reading db_creds results in None engine"""
+
     # connect_args = {'autocommit': True}
     # , isolation_level="AUTOCOMMIT"
-    try:
-        wrap_connection_funcs()
-        engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
-        return engine
-    except:
-        # any errors reading db_creds results in None engine
-        return None
+    wrap_connection_funcs()
+    engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
+    return engine
 
 def e(func):
     # NOTE not sure if any of these work yet
@@ -107,6 +109,7 @@ def e(func):
 class DB(object):
     def __init__(self):
         __name__ = 'SMS Event Log Database'
+        print(f'Initializing database')
         self.reset(False)
         
         # TODO: should put these into a better table store
@@ -120,7 +123,9 @@ class DB(object):
     
     def reset(self, warn=True):
         # set engine objects to none to force reset, not ideal
-        if warn: log.warning('Resetting database')
+        if warn:
+            log.warning('Resetting database.')
+
         self._engine, self._session, self._cursor = None, None, None
     
     def clear_saved_tables(self):
@@ -134,28 +139,25 @@ class DB(object):
         if self._engine is None:
             self._engine = _create_engine()
         
+        if self._engine is None:
+            raise er.SMSDatabaseError('Can\'t connect to database.')
+
         return self._engine
 
     @property
     def cursor(self):
-        def get_cursor():
+        """Raw cursor used for db operations other than refreshing main tables"""
+        def _get_cursor():
             return self.engine.raw_connection().cursor()
 
         try:
-            self._cursor = get_cursor()
+            try:
+                self._cursor = _get_cursor()
+            except (pyodbc.ProgrammingError, pyodbc.OperationalError) as e:
+                self.reset() # retry onece to clear everything then try again
+                self._cursor = _get_cursor()
         except:
-            f.send_error()
-            e = sys.exc_info()[0]
-            if e.__class__ == pyodbc.ProgrammingError:
-                print(e)
-                self.__init__()
-                self._cursor = get_cursor()
-            elif e.__class__ == pyodbc.OperationalError:
-                print(e)
-                self.__init__()
-                self._cursor = get_cursor()
-            else:
-                log.error(e, exc_info=True)
+            raise er.SMSDatabaseError('Couldn\'t create cursor.')
         
         return self._cursor
 
@@ -166,8 +168,7 @@ class DB(object):
                 # create session, this is for the ORM part of sqlalchemy
                 self._session = sessionmaker(bind=self.engine)()
             except:
-                msg = 'Couldnt create session'
-                f.send_error(msg=msg, logger=log)
+                raise er.SMSDatabaseError('Couldn\'t create session.')
 
         return self._session
 
@@ -263,7 +264,9 @@ class DB(object):
         if df is None or refresh:
             try:
                 sql = query.get_sql(**kw)
-                if sql is None: return
+                if sql is None:
+                    log.warning('No sql to get dataframe.')
+                    return
                 
                 if prnt: print(sql)
 
@@ -280,9 +283,9 @@ class DB(object):
                     df = query.process_df(df=df)
 
                 dfs[title] = df
-            except:
+            except Exception as e:
                 msg = f'Couldn\'t get dataframe: {query.name}'
-                f.send_error(msg=msg, logger=log)
+                er.log_error(msg=msg, exc=e, log=log, display=True)
                 df = pd.DataFrame()
 
             query.set_fltr() # reset filter after every refresh call
@@ -449,7 +452,7 @@ class DB(object):
             rowsadded = cursor.execute(impfunc).rowcount
             cursor.commit()
         except:
-            f.send_error()
+            er.log_error(msg='Failed to import dataframe', log=log)
 
         msg = f'{imptable}: {rowsadded}'
         if prnt: print(msg)
@@ -465,7 +468,7 @@ class DB(object):
             cursor = self.cursor
             return cursor.execute(q.get_sql()).fetchval()
         except:
-            f.send_error()
+            er.log_error(log=log)
         finally:
             cursor.close()
     
@@ -484,5 +487,4 @@ class DB(object):
         
         return f.convert_date(val)
 
-print(f'{__name__}: loading db')
 db = DB()
