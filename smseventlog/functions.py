@@ -2,14 +2,12 @@ import base64
 import functools
 import json
 import re
-import traceback
 from distutils.util import strtobool
 
-import pandas as pd
 import six
-import sqlalchemy as sa
 import yaml
 
+from . import errors as er
 from .__init__ import *
 
 try:
@@ -130,14 +128,6 @@ def convert_header(title, header, inverse_=False):
     except:
         return header
 
-def model_dict(model, include_none=False):
-    # create dict from table model
-    m = {a.key:getattr(model, a.key) for a in sa.inspect(model).mapper.column_attrs}
-    if not include_none:
-        m = {k:v for k,v in m.items() if v is not None}
-    
-    return m
-
 def copy_model_attrs(model, target):
     m = model_dict(model=model, include_none=True)
     copy_dict_attrs(m=m, target=target)
@@ -161,7 +151,6 @@ def two_col_list(m) -> str:
     
     return f'<ul class="two_col_list_narrow">{body}</ul>'
 
-
 def pretty_dict(m : dict, html=False) -> str:
     """Return dict converted to newlines
     Paramaters
@@ -178,17 +167,18 @@ def pretty_dict(m : dict, html=False) -> str:
     newline_char = '\n' if not html else '<br>'
     return str(m).replace('{', '').replace('}', '').replace(', ', newline_char).replace("'", '')
 
-def first_n(m, n):
-    # return first n items of dict
-
+def first_n(m: dict, n: int):
+    """Return first n items of dict"""
     return {k:m[k] for k in list(m.keys())[:n]}
 
 def set_self(m, prnt=False, exclude=()):
-    # convenience func to assign an object's func's local vars to self
+    """Convenience func to assign an object's func's local vars to self"""
     if not isinstance(exclude, tuple): exclude = (exclude, )
     exclude += ('__class__', 'self') # always exclude class/self
     obj = m.get('self', None) # self must always be in vars dict
-    if obj is None: return
+
+    if obj is None:
+        return
 
     for k, v in m.items():
         if prnt:
@@ -515,9 +505,10 @@ def check_db():
             return True
 
 def discord(msg, channel='orders'):
-    import requests
     import discord
-    from discord import Webhook, RequestsWebhookAdapter, File
+    import requests
+    from discord import File, RequestsWebhookAdapter, Webhook
+
     from .utils.secrets import SecretsManager
 
     df = SecretsManager('discord.csv').load.set_index('channel')
@@ -533,53 +524,3 @@ def discord(msg, channel='orders'):
     
     for msg in out:
         webhook.send(msg)
-
-def format_traceback():
-    msg = traceback.format_exc() \
-        .replace('Traceback (most recent call last):\n', '')
-    
-    if '*split' in msg:
-        msg = ''.join(msg.split('*split')[1:]) # split here to remove the @e wrapper warning
-    
-    check_text = 'During handling of the above exception, another exception occurred:\n'
-    if check_text in msg:
-        msg = ''.join(msg.split(check_text)[1:])
-    
-    return msg
-
-def send_error(msg='', prnt=False, func=None, display=False, logger=None, err=None, **kw):
-    # send error to discord, print, or log error
-
-    # err is alwas just a formatted traceback
-    if err is None:
-        err = format_traceback()
-
-    if not msg == '':
-        err = f'{msg}:\n{err}'.replace(':\nNoneType: None', '')
-    
-    if prnt or not 'linux' in sys.platform:
-        if not SYS_FROZEN:
-            print(f'*------------------*\n{err}')
-    else:
-        discord(msg=err, channel='err')
-
-    if display:
-        from . import errors as er
-        func_name = func.__name__ if not func is None else 'unknown function'   
-        er.display_error(func_name=func_name, err=err)
-    
-    if not logger is None:
-        logger.error(msg, exc_info=True)
-
-def create_logger(func=None):
-    # NOTE not used yet
-    logger = logging.getLogger("example_logger")
-    logger.setLevel(logging.INFO)
-    
-    fh = logging.FileHandler("/path/to/test.log")
-    fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    formatter = logging.Formatter(fmt)
-    fh.setFormatter(formatter)
-    # add handler to logger object
-    logger.addHandler(fh)
-    return logger
