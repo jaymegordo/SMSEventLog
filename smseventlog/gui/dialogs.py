@@ -33,30 +33,37 @@ class InputField():
         if not self.box is None and not self.default is None:
             self.val = self.default
 
-class InputForm(QDialog):
+class BaseDialog(QDialog):
     def __init__(self, parent=None, window_title=''):
         super().__init__(parent=parent)
+        self.setWindowTitle(window_title)
         mainwindow = gbl.get_mainwindow()
-        mw = mainwindow
         settings = gbl.get_settings()
+        mw = mainwindow
+        vLayout = QVBoxLayout(self)
+
+        f.set_self(vars())
+
+    def show(self):
+        self.setFixedSize(self.sizeHint())
+        return super().show()
+
+class InputForm(BaseDialog):
+    def __init__(self, parent=None, window_title=''):
+        super().__init__(parent=parent, window_title=window_title)
         name = self.__class__.__name__
         _names_to_avoid = ('minesite_qcombobox') # always want to use 'current' minesite
-        self.setWindowTitle(window_title)
-        vLayout = QVBoxLayout(self)
         formLayout = QFormLayout()
         formLayout.setLabelAlignment(Qt.AlignLeft)
         formLayout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        vLayout.addLayout(formLayout)
+        self.vLayout.addLayout(formLayout)
         fields = []
         items = None
         enforce_all = False
 
-        add_okay_cancel(dlg=self, layout=vLayout)
+        add_okay_cancel(dlg=self, layout=self.vLayout)
         f.set_self(vars())
         
-    def show(self):
-        self.setFixedSize(self.sizeHint())
-
     def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None, tooltip=None):
         # Add input field to form
         text, dtype = field.text, field.dtype
