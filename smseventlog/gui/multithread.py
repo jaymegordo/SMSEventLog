@@ -1,10 +1,12 @@
 import sys
+from sys import exc_info
 import traceback
 import logging
 
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 
 from .. import functions as f
+from .. import errors as er
 
 log = logging.getLogger(__name__)
 
@@ -35,11 +37,11 @@ class Worker(QRunnable):
             # self.signals.error.emit((exctype, value, traceback.format_exc()))
             
             # need to use logger internal to thread to properly capture stack trace
-            msg = f'Multithread Error - {self.func.__name__}' #\n{f.format_traceback()}'
+            msg = f'Multithread Error - {self.func.__name__}' #\n{er.format_traceback()}'
             log.error(msg, exc_info=True)
 
             # also emit for gui to display
-            self.signals.error.emit('Multithread Error', f.format_traceback(), self.func)
+            self.signals.error.emit('Multithread Error', er.format_traceback(), self.func)
         else:
             self.signals.result.emit(result)  # Return the result of the processing
         finally:
@@ -56,7 +58,7 @@ class Worker(QRunnable):
                 getattr(self.signals, sig).connect(
                     lambda x: m.get('func', None)(x, *m.get('args', ()), **m.get('kw', {})))
             except:
-                self.signals.error.emit(f'Failed to connect signal: {sig, m}', f.format_traceback())
+                self.signals.error.emit(f'Failed to connect signal: {sig}, {m}', er.format_traceback())
 
         return self
 
@@ -65,15 +67,15 @@ class Worker(QRunnable):
         if not mw is None and hasattr(mw, 'threadpool'):
             mw.threadpool.start(self)
         else:
-            log.error('Multithread Worker has no mainwindow or threadpool to start.')
+            log.error('Multithread Worker has no mainwindow or threadpool to start.', exc_info=True)
     
-def send_error(msg, err=None, func=None):
-    # wrapper to send **kw args to f.send_error from a signal in different thread
-    # This error handling is so messy I'm sorry future me or someone else..
-    if err is None:
-        err = traceback.format_exc()
+def send_error(msg, tb_msg=None, func=None):
+    """wrapper to send **kw args to er.log_error from a signal in different thread
+    This error handling is so messy I'm sorry future me or someone else.."""
+    if tb_msg is None:
+        tb_msg = traceback.format_exc()
     
     if not func is None:
         msg = f'{msg} - {func.__name__}'
     
-    f.send_error(msg=msg, err=err, logger=None, display=True, func=func)
+    er.log_error(msg=msg, tb_msg=tb_msg, log=None, display=True, func=func)
