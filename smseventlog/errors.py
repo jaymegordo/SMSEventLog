@@ -2,20 +2,22 @@ import functools
 import inspect
 import logging
 import sys
+import traceback
 import types
 
 import sentry_sdk
+from sentry_sdk import capture_exception, push_scope
+from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.integrations.tornado import TornadoIntegration
-from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
 try:
     from PyQt5.QtWidgets import QMessageBox
 except ModuleNotFoundError:
     pass
 
-from . import functions as f
 from .__init__ import SYS_FROZEN, VERSION
+
 
 def init_sentry():
     sentry_sdk.init(
@@ -93,30 +95,137 @@ def e(func):
                 return func(*args, **kwargs)
             except TypeError:
                 return func(args[0]) # for signals passed with self, + other args that aren't needed *split
-        except:
+        except Exception as e:
             func_name = func.__name__
             log = logging.getLogger(inspect.getmodule(func).__name__) # get logger from func's module
-            log.error(func_name, exc_info=True) # exc_info=True > sentry always captures stack trace
 
-            print(f'func: {func_name}, args: {args}, kwargs: {kwargs}')
-            f.send_error() # just print stack trace to terminal
-            display_error(func_name=func_name)
+            print(f'\n\nfunc: {func_name}, args: {args}, kwargs: {kwargs}')
+            log_error(func=func, exc=e, log=log, display=True, prnt=True)
 
     return wrapper
 
-def display_error(func_name=None, err=None):
-    # show error message to user
-    from .gui.dialogs import BiggerBox
-    msg = f'Couldn\'t run function:\n\n{func_name}\n'
-    dlg = BiggerBox(icon=QMessageBox.Critical, text=msg) 
-    dlg.setWindowTitle('Error')
+def get_func_name():
+    """Return function name from most recent traceback"""
+    # sys.exc_info:
+    # (<class 'ZeroDivisionError'>, ZeroDivisionError('division by zero'), <traceback object at 0x7f84b92c1100>)
+    try:
+        tb = sys.exc_info()[-1] # most recent exception
+        stk = traceback.extract_tb(tb, 1)
+        return stk[0][2] # func name
+    except:
+        return 'Unknown Function'
 
-    err = f.format_traceback() if err is None else err
-    dlg.setDetailedText(err)
+def format_traceback():
+    """Get current error and format traceback as text"""
+    msg = traceback.format_exc() \
+        .replace('Traceback (most recent call last):\n', '')
+       
+    check_text = 'During handling of the above exception, another exception occurred:\n'
+    if check_text in msg:
+        msg = ''.join(msg.split(check_text)[1:])
+    
+    return msg
+
+def build_message(msg=None, tb_msg=None):
+    if tb_msg is None:
+        tb_msg = format_traceback()
+
+    if not msg is None:
+        msg = f'{msg}:\n'
+
+    return f'{msg}{tb_msg}'
+
+def print_error(msg=''):
+    if not SYS_FROZEN:
+        msg = build_message(msg) # add traceback
+        print(f'\n\n*------------------*\n{msg}')
+
+def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None, prnt=False, func=None, tb_msg: str=None, func_name=None, **kw):
+    """Main func to manually log errors
+
+    Parameters
+    ----------
+    msg : str, optional
+        Simple message to add to start of traceback, by default None\n
+    exc : Exception, optional
+        Exception object used to check exc time to add extra info to display msg, by default None\n
+    display : bool, optional\n
+    log : logging.Logger, optional
+        Logger, passed from calling module, by default None\n
+    prnt : bool, optional
+        Msg will be printed if not running in frozen app, by default False\n
+    func: optional
+        Function object\n
+    tb_msg : str
+        Already formatted traceback string, may have been passed in from different thread, so cant build here
+    """ 
+    if prnt or not 'linux' in sys.platform:
+        print_error(msg) # always print if not SYS_FROZEN
+
+    if func_name is None:
+        func_name = func.__name__ if not func is None else None
+    
+    if exc is None:
+        exc = sys.exc_info()[1]
+
+    if display:
+        display_error(exc=exc, func_name=func_name)
+
+    if not log is None:
+        log.error(msg, exc_info=True)
+        # if SYS_FROZEN or True:
+        #     # traceback isn't manually captured by sentry when frozen yet.
+            
+        #     with push_scope() as scope:
+        #         scope.set_tag('traceback', traceback.format_exc())
+        #         # scope.level = 'warning'
+        #         # will be tagged with my-tag="my value"
+        #         print(f'Capturing exception: {type(exc)}')
+        #         capture_exception(exc) # sys.exc_info()[1]
+
+
+def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, log=None):
+    """Display error message to user in gui dialog
+
+    Parameters
+    ----------
+    func_name : str, optional
+        Name of function to display in message header, by default None\n
+    err : str, optional
+        formatted traceback message, by default None\n
+    exception : Exception, optional
+        Used to check exception type and add extra info, by default None\n
+    """    
+    if func_name is None:
+        func_name = get_func_name() # fallback to try getting from traceback
+
+    msg = f'Couldn\'t run function: {func_name}\n\nThis error has been logged.\n'
+
+    if isinstance(exc, SMSDatabaseError) or (not log is None and 'database' in log.name):
+        msg = f'{msg}\nIf this is a database or network related error, check your network connection, then try doing Database > Reset Database Connection.'
+
+    tb_msg = format_traceback() if tb_msg is None else tb_msg
+
+    from .gui.dialogs import ErrMsg
+    dlg = ErrMsg(text=msg, detailed_text=tb_msg) 
     dlg.exec_()
 
+def create_logger(func=None):
+    # NOTE not used yet
+    logger = logging.getLogger("example_logger")
+    logger.setLevel(logging.INFO)
+    
+    fh = logging.FileHandler("/path/to/test.log")
+    fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    formatter = logging.Formatter(fmt)
+    fh.setFormatter(formatter)
+    # add handler to logger object
+    logger.addHandler(fh)
+    return logger
+
 def errlog(msg='', err=False, warn=False):
-    """Wrapper to try/except func and log error and return None
+    """Wrapper to try/except func, log error, don't show to user, and return None
+    - NOTE this suppresses the error!
 
     Parameters
     ----------
@@ -147,3 +256,13 @@ def errlog(msg='', err=False, warn=False):
         return wrapper
     
     return decorator
+
+# Custom error classes
+class Error(Exception):
+    """Base class for other exceptions"""
+    pass
+
+class SMSDatabaseError(Error):
+    """Raised when something goes wrong with the database connection"""
+    def __init__(self, message='General database error'):
+        super().__init__(message)
