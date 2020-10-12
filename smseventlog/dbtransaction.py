@@ -3,6 +3,7 @@ from sqlalchemy import and_, literal
 from sqlalchemy.orm.exc import NoResultFound
 
 from . import functions as f
+from . import errors as er
 from .__init__ import *
 from .database import db, e
 from .utils import dbmodel as dbm
@@ -147,8 +148,8 @@ class Row():
             return True # transaction succeeded
         except:
             operation = 'update' if not delete else 'delete'
-            msg = f'Couldn\'t {operation} value: {vals}'
-            f.send_error(msg=msg, display=True, logger=log)
+            msg = f'Couldn\'t {operation} row.'
+            er.log_error(msg=msg, display=True, log=log)
     
     def create_model_from_db(self):
         # query sqalchemy orm session using model eg dbo.EventLog, and keys eg {UID=123456789}
@@ -185,15 +186,23 @@ def get_dbtable_keys(dbtable):
     return dbtable.__table__.primary_key.columns.keys()
 
 def print_model(model, include_none=False):
-    m = f.model_dict(model, include_none=include_none)
+    m = model_dict(model, include_none=include_none)
     try:
         display(m)
     except:
         pass
 
+def model_dict(model, include_none=False):
+    # create dict from table model
+    m = {a.key:getattr(model, a.key) for a in sa.inspect(model).mapper.column_attrs}
+    if not include_none:
+        m = {k:v for k,v in m.items() if v is not None}
+    
+    return m
+
 def df_from_row(model):
     # convert single row model from db to df with cols as index (used to display all data single row)
-    m = f.model_dict(model, include_none=True)
+    m = model_dict(model, include_none=True)
     df = pd.DataFrame.from_dict(m, orient='index', columns=['Value']) \
     
     df.index.rename('Fields', inplace=True)
@@ -216,7 +225,7 @@ def join_query(tables, keys, join_field):
 
     m = {}
     for item in res:
-        m.update(f.model_dict(item, include_none=True))
+        m.update(model_dict(item, include_none=True))
 
     return m
 
