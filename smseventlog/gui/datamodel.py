@@ -136,6 +136,23 @@ class TableModel(QAbstractTableModel):
 
         self.set_stylemap(df=df)
 
+    def search(self, search_text: str) -> list:
+        """Filter self.m_display dict to values which match search text"""
+
+        if search_text.strip() == '':
+            return []
+            
+        hidden_cols = self.view.mcols['hide']
+        expr = re.compile(search_text, re.IGNORECASE)
+
+        # get dict of {col_name: (index_name, ...)}
+        m_out = {k: tuple(k2 for k2, v in m2.items() if expr.match(str(v))) for k, m2 in self.m_display.items()}
+
+        # convert dict to list of (row_name, col_name)
+        lst_out = [(v2, k) for k, v in m_out.items() for v2 in v]
+
+        return lst_out
+
     def set_stylemap(self, df=None, col=None):
         """Get colors from applying a stylemap func to df, merge to static dfs"""
         if df is None: df = self.df
