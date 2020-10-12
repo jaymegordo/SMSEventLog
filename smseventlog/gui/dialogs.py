@@ -736,29 +736,39 @@ class ComponentCO(InputForm):
         super().accept()
 
 class BiggerBox(QMessageBox):
-    # Qmessagebox that resizes x% bigger than the default
-    def __init__(self, resize_pct=1.5, *args, **kwargs):            
+    """Qmessagebox that resizes detailed text QTextEdit"""
+    def __init__(self, detailed_text=None, *args, **kwargs):            
         super().__init__(*args, **kwargs)
         self.setSizeGripEnabled(True)
         self.initial_resize = False
-        self.resize_pct = resize_pct
+
+        if not detailed_text is None:
+            self.setDetailedText(detailed_text)
+
+        f.set_self(vars())
 
     def resizeEvent(self, event):
         result = super().resizeEvent(event)
-        if self.initial_resize: return result
-
-        # for label in self.findChildren(QLabel):
-        #     size_hint = label.sizeHint()
-        #     label.setFixedSize(QSize(size_hint.width() * self.resize_pct, size_hint.height()))
+        if self.initial_resize:
+            return result # only need to resize first time msg is loaded
 
         details_box = self.findChild(QTextEdit)
         if not details_box is None:
-            size_hint = details_box.sizeHint()
-            new_size = QSize(600, 800)
+
+            # adjust length of details box by number of lines
+            num_lines = len(self.detailed_text.split('\n'))
+            font_size = f.config_platform['font size']
+            height = num_lines * (font_size + 7)
+            new_size = QSize(600, min(height, 600))
             details_box.setFixedSize(new_size)
 
         self.initial_resize = True
         return result
+
+class ErrMsg(BiggerBox):
+    def __init__(self, detailed_text=None, *args, **kw):
+        super().__init__(detailed_text=detailed_text, icon=QMessageBox.Critical, *args, **kw)
+        self.setWindowTitle('Error')
 
 class MsgBox_Advanced(QDialog):
     def __init__(self, msg='', window_title='', yesno=False, statusmsg=None, parent=None):
@@ -792,46 +802,6 @@ class MsgBox_Advanced(QDialog):
         hLayout.addWidget(statusbar)
         hLayout.addWidget(btn, alignment=Qt.AlignRight)
         layout.addLayout(hLayout)
-
-class ErrMsg(QMessageBox):
-    def __init__(self, msg='', details='', parent=None):
-        super().__init__(parent=parent)
-        self.setWindowTitle('Error')
-        scroll = QScrollArea(self)
-        scroll.setWidgetResizable(True)
-        scroll.setFixedSize(400, 400)
-        self.content = QWidget()
-        # self.content.setFixedSize(QSize(400, 400))
-        scroll.setWidget(self.content)
-        lay = QVBoxLayout(self.content)
-
-        lay.addWidget(QLabel(details, self))
-        self.layout().addWidget(scroll, 0, 0, 1, self.layout().columnCount())
-        # self.layout().addWidget(QLabel(msg, self), 0, 0, 1, 1)
-      
-        # self.layout().addWidget(scroll)
-
-class ErrMsg2(QDialog):
-    def __init__(self, msg='', details='', parent=None):
-        super().__init__(parent=parent)
-
-        self.setWindowTitle('Error')
-        vLayout = QVBoxLayout(self)
-
-        label = QLabel(msg, self)
-        vLayout.addWidget(label)
-
-        scroll = QScrollArea(self)
-        scroll.setWidgetResizable(True)
-        scroll.setFixedSize(QSize(400, 400))
-        label = QLabel(details, self)
-        scroll.setWidget(label)
-        vLayout.addWidget(scroll)
-
-        btn = QPushButton('Okay', self)
-        btn.setMaximumWidth(100)
-        btn.clicked.connect(self.close)
-        vLayout.addWidget(btn)
 
 class DetailsView(QDialog):
     def __init__(self, parent=None, df=None):
