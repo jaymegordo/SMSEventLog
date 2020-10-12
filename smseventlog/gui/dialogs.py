@@ -63,7 +63,7 @@ class InputForm(BaseDialog):
 
         add_okay_cancel(dlg=self, layout=self.vLayout)
         f.set_self(vars())
-        
+
     def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None, tooltip=None):
         # Add input field to form
         text, dtype = field.text, field.dtype
@@ -251,7 +251,7 @@ class AddRow(InputForm):
         if m is None:
             m = self.m
 
-        m.update(f.model_dict(model=row))
+        m.update(dbt.model_dict(model=row))
         m = f.convert_dict_db_view(title=self.title, m=m, output='view')
         
         if not self.table_model is None:
@@ -268,7 +268,7 @@ class AddRow(InputForm):
     
     def flush_queue(self):
         # bulk update all rows in self.queue to db
-        update_items = [f.model_dict(row) for row in self.queue] # list of dicts
+        update_items = [dbt.model_dict(row) for row in self.queue] # list of dicts
 
         txn = dbt.DBTransaction(table_model=self.table_model, dbtable=self.dbtable, title=self.title) \
             .add_items(update_items=update_items) \
@@ -1009,6 +1009,127 @@ class QFileDialogPreview(QFileDialog):
     def getFilesSelected(self):
         return self._filesSelected
 
+# class LineEdit(QLineEdit):
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+
+#     def keyPressEvent(self, event):
+#         key = event.key()
+#         mod = event.modifiers()
+
+#         if mod == Qt.MetaModifier:
+#             print(f'event: {event.key()}')
+#             if event.key() == Qt.Key_Left:
+#                 self.find_prev()
+#                 return True
+#             elif event.key() == Qt.Key_Right:
+#                 self.find_next()
+#                 return True
+
+#         super().keyPressEvent(event)
+
+class Search(BaseDialog):
+    index_changed = pyqtSignal(int)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent, window_title='Search')
+        # self.setFocusPolicy(Qt.StrongFocus)
+
+        self.index_changed.connect(self.select)
+        items = [] # list of match items
+        # parent should be view?
+        view = parent
+        model = view.model()
+        
+        label_matches = QLabel('Matches:')
+        search_box = QLineEdit()
+        self.meta_state = False
+        search_box.textChanged.connect(self.text_changed)
+        search_box.installEventFilter(self)
+        self.vLayout.addWidget(search_box)
+        self.vLayout.addWidget(label_matches)
+
+        # cancel, prev, next
+        # TODO add separator btwn buttons?
+        prev = QPushButton('Prev')
+        next_ = QPushButton('Next')
+        prev.clicked.connect(self.find_prev)
+        next_.clicked.connect(self.find_next)
+        prev.setToolTip('Ctrl + Left Arrow')
+        next_.setToolTip('Ctrl + Right Arrow')
+
+        btnbox = QDialogButtonBox(QDialogButtonBox.Cancel)
+        btnbox.addButton(prev, QDialogButtonBox.ActionRole)
+        btnbox.addButton(next_, QDialogButtonBox.ActionRole)
+        
+        btnbox.rejected.connect(self.reject)
+
+        self.vLayout.addWidget(btnbox, alignment=Qt.AlignBottom | Qt.AlignCenter)
+
+        f.set_self(vars())
+    
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress:
+            if event.modifiers() == Qt.MetaModifier and not self.meta_state:
+                self.meta_state = True
+                print('ctrl pressed')
+            
+            key = event.key()
+
+            if self.meta_state:
+                if key == Qt.Key_Right:
+                    self.find_next()
+                    return True
+                elif key == Qt.Key_Left:
+                    self.find_prev()
+                    return True
+       
+        if event.type() == QEvent.KeyRelease:
+            # print(event.type())
+            # print(event.modifiers() == Qt.MetaModifier)
+
+            if not event.modifiers() and self.meta_state:
+                self.meta_state = False
+                print('ctrl released')
+                return True
+
+        return super().eventFilter(obj, event)
+
+    def select(self, i: int):
+        """Call view to select, pass tuple of name index"""
+        self.current_index = i
+        if self.items:
+            self.view.select_by_nameindex(self.items[i])
+        else:
+            i = -1 # no matches, select 0/0
+            
+        self.label_matches.setText(f'Selected: {i + 1}/{self.num_items}')
+
+    def text_changed(self):
+        search_box = self.search_box
+        text = search_box.text()
+        
+        # get list of match items from model
+        self.items = self.model.search(text)
+        self.num_items = len(self.items)
+
+        self.index_changed.emit(0)
+
+    def find_next(self):
+        i = self.current_index
+        i += 1
+        if i > self.num_items - 1:
+            i = 0
+        
+        self.index_changed.emit(i)
+    
+    def find_prev(self):
+        i = self.current_index
+        i -= 1
+        if i < 0:
+            i = self.num_items - 1
+
+        self.index_changed.emit(i)
 
 def msgbox(msg='', yesno=False, statusmsg=None):
     """Show messagebox, with optional yes/no prompt\n
