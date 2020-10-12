@@ -111,6 +111,12 @@ class TableModel(QAbstractTableModel):
         self.layoutAboutToBeChanged.emit()
         self.modelAboutToBeReset.emit()
         self._df = dataFrame
+
+        # set so mainwindow can update current rows label
+        self.visible_rows = self._df.shape[0]
+        self.total_rows = self._df_orig.shape[0]
+        self.view.mainwindow.update_rows_label()
+        
         self.modelReset.emit()
         self.layoutChanged.emit()
 
