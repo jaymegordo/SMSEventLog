@@ -237,11 +237,13 @@ def getattr_chained(obj, methods):
 
 def remove_bad_chars(w : str):
     """Remove any bad chars " : < > | . \ / * ? in string to make safe for filepaths"""
-    return re.sub('[":<>|.\\\/\*\?]', '', w)
+    return re.sub('[":<>|.\\\/\*\?]', '', str(w))
 
 def nice_title(title: str) -> str:
     """Remove slashes, capitalize first letter, avoid acronyms"""
-    if title.strip() == '': return title
+    if title.strip() == '':
+        return title
+        
     excep = 'the a on in of an is'.split(' ')
     title = remove_bad_chars(w=title).strip()
 

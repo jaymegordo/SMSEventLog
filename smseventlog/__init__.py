@@ -11,6 +11,7 @@ from datetime import timedelta as delta
 from functools import partial
 from pathlib import Path
 from timeit import default_timer as timer
+import copy
 
 import pandas as pd
 import numpy as np
