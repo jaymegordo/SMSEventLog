@@ -1019,7 +1019,7 @@ class EventLogBase(TableWidget):
     
     def remove_row(self):
         # remove selected event from table and delete from db
-        view, e, row = self.view, self.e, self.row
+        view, e, row = self.view, copy.deepcopy(self.e), self.row
         if row is None: return
 
         m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
@@ -1043,6 +1043,15 @@ class EventLogBase(TableWidget):
             if row.update(delete=True):
                 view.remove_row(i=row.i)
                 self.update_statusbar(f'Event removed from database: {e.Unit} - {e.Title}')
+
+                # ask to delete event folder
+                if self.u.usergroup == 'SMS':
+                    ef = efl.EventFolder.from_model(e)
+                    if ef.exists:
+                        msg = f'Found event folder containing ({ef.num_files}) files/folders, would you like to delete? This cannot be undone.'
+                        if dlgs.msgbox(msg=msg, yesno=True):
+                            if ef.remove_folder():
+                                self.update_statusbar('Event folder successfully removed.')
             else:
                 self.update_statusbar('ERROR: Event not deleted from database.')
     
