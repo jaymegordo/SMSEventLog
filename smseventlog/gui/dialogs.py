@@ -1009,25 +1009,6 @@ class QFileDialogPreview(QFileDialog):
     def getFilesSelected(self):
         return self._filesSelected
 
-# class LineEdit(QLineEdit):
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-
-#     def keyPressEvent(self, event):
-#         key = event.key()
-#         mod = event.modifiers()
-
-#         if mod == Qt.MetaModifier:
-#             print(f'event: {event.key()}')
-#             if event.key() == Qt.Key_Left:
-#                 self.find_prev()
-#                 return True
-#             elif event.key() == Qt.Key_Right:
-#                 self.find_next()
-#                 return True
-
-#         super().keyPressEvent(event)
-
 class Search(BaseDialog):
     index_changed = pyqtSignal(int)
     
@@ -1040,6 +1021,7 @@ class Search(BaseDialog):
         # parent should be view?
         view = parent
         model = view.model()
+        model.highlight_rows = False # turn off row highlighting so we can see single selection
         
         label_matches = QLabel('Matches:')
         search_box = QLineEdit()
@@ -1050,47 +1032,47 @@ class Search(BaseDialog):
         self.vLayout.addWidget(label_matches)
 
         # cancel, prev, next
-        # TODO add separator btwn buttons?
         prev = QPushButton('Prev')
         next_ = QPushButton('Next')
         prev.clicked.connect(self.find_prev)
         next_.clicked.connect(self.find_next)
         prev.setToolTip('Ctrl + Left Arrow')
-        next_.setToolTip('Ctrl + Right Arrow')
+        next_.setToolTip('Ctrl + Right Arrow | Enter')
 
         btnbox = QDialogButtonBox(QDialogButtonBox.Cancel)
         btnbox.addButton(prev, QDialogButtonBox.ActionRole)
         btnbox.addButton(next_, QDialogButtonBox.ActionRole)
         
         btnbox.rejected.connect(self.reject)
+        self.rejected.connect(self.close) # need to trigger close event to reset selection
 
         self.vLayout.addWidget(btnbox, alignment=Qt.AlignBottom | Qt.AlignCenter)
 
         f.set_self(vars())
     
+    def closeEvent(self, event):
+        self.model.highlight_rows = True
+    
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress:
-            if event.modifiers() == Qt.MetaModifier and not self.meta_state:
-                self.meta_state = True
-                print('ctrl pressed')
-            
+            mod = event.modifiers()
             key = event.key()
 
-            if self.meta_state:
+            # print(keyevent_to_string(event))
+            if mod and (
+                mod == Qt.MetaModifier or
+                mod == (Qt.MetaModifier | Qt.KeypadModifier) or
+                mod == (Qt.AltModifier | Qt.KeypadModifier)):
+            
                 if key == Qt.Key_Right:
                     self.find_next()
                     return True
                 elif key == Qt.Key_Left:
                     self.find_prev()
                     return True
-       
-        if event.type() == QEvent.KeyRelease:
-            # print(event.type())
-            # print(event.modifiers() == Qt.MetaModifier)
 
-            if not event.modifiers() and self.meta_state:
-                self.meta_state = False
-                print('ctrl released')
+            elif key == Qt.Key_Enter or key == Qt.Key_Return:
+                self.find_next()
                 return True
 
         return super().eventFilter(obj, event)
@@ -1330,3 +1312,32 @@ def unit_exists(unit):
         return False
     else:
         return True
+
+
+# Used to check keymap vals passed through event filter
+# global keymap, modmap
+# keymap = {}
+# for key, value in vars(Qt).items():
+#     if isinstance(value, Qt.Key):
+#         keymap[value] = key.partition('_')[2]
+
+# modmap = {
+#     Qt.ControlModifier: keymap[Qt.Key_Control],
+#     Qt.AltModifier: keymap[Qt.Key_Alt],
+#     Qt.ShiftModifier: keymap[Qt.Key_Shift],
+#     Qt.MetaModifier: keymap[Qt.Key_Meta],
+#     Qt.GroupSwitchModifier: keymap[Qt.Key_AltGr],
+#     Qt.KeypadModifier: keymap[Qt.Key_NumLock]}
+
+# def keyevent_to_string(event):
+#     sequence = []
+#     for modifier, text in modmap.items():
+#         if event.modifiers() & modifier:
+#             sequence.append(text)
+
+#     key = keymap.get(event.key(), event.text())
+
+#     if key not in sequence:
+#         sequence.append(key)
+
+#     return '+'.join(sequence)
