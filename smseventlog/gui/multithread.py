@@ -1,5 +1,4 @@
 import sys
-from sys import exc_info
 import traceback
 import logging
 

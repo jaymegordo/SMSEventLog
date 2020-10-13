@@ -1,5 +1,6 @@
 from . import dbtransaction as dbt
 from . import functions as f
+from . import errors as er
 from .__init__ import *
 from .database import db
 from .utils.dbmodel import UserSettings
@@ -78,9 +79,6 @@ class User():
 
             db.session.commit()
         except:
-            log.error(f'User: {self.username} failed to login!')
+            er.log_error(msg='User failed to login.', log=log)
         finally:
             return self
-
-
-        

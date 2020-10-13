@@ -168,7 +168,7 @@ class ComboDelegate(CellDelegate):
             editor.lineEdit().selectAll()
 
         except:
-            f.send_error()
+            er.log_error(log=log)
 
     def setModelData(self, editor, model, index):
         """Convert any matching string to good value even if case mismatched"""

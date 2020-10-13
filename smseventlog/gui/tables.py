@@ -125,6 +125,11 @@ class TableView(QTableView):
         self.rows_initialized = True
         self.resizeRowsToContents()
 
+    def show_search(self):
+        """Show search dialog"""
+        dlg = dlgs.Search(self)
+        dlg.show()
+
     def double_click_enter(self, QModelIndex):
         print('double_click_enter')
         QModelIndex.model().change_color(Qt.red, True)
@@ -475,7 +480,7 @@ class TableView(QTableView):
         """Select table row by index"""
         sel = QItemSelection(index, index)
         self.setUpdatesEnabled(False)
-        self.selectionModel().select(sel, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
+        self.selectionModel().select(sel, QItemSelectionModel.ClearAndSelect) # | QItemSelectionModel.Rows)
         self.scrollTo(index)
         self.selectionModel().setCurrentIndex(index, QItemSelectionModel.Current) # make new index 'active'
         self.setUpdatesEnabled(True)
@@ -754,11 +759,11 @@ class TableWidget(QWidget):
 
         if not df is None and not len(df) == 0:
             self.view.display_data(df=df)
-            self.update_statusbar(f'Rows loaded: {df.shape[0]}')
+            # self.update_statusbar(f'Rows loaded: {df.shape[0]}')
         else:
             dlgs.msg_simple(msg='No rows returned in query!', icon='warning')
         
-            self.mainwindow.revert_status()
+        self.mainwindow.revert_status()
 
     def get_dbtable(self, header=None):
         # return dbtable (definition) for specific header
@@ -1182,7 +1187,7 @@ class EventLog(EventLogBase):
         subject = f'{company} Passover {minesite} - {shift}'
         body = f'{f.greeting()}Please see updates from {shift}:<br>'
 
-        email_list = qr.EmailListShort(name='Passover', minesite=minesite, usergroup=self.u.usergroup).emails
+        email_list = qr.EmailListShort(col_name='Passover', minesite=minesite, usergroup=self.u.usergroup).emails
 
         self.email_table(subject=subject, body=body, email_list=email_list, df=df, prompts=False)
     
@@ -1257,7 +1262,7 @@ class WorkOrders(EventLogBase):
         m = {item:item for item in ['PRP', 'RAMP', 'Service', 'Parts']}
         name = m.get(e.WarrantyYN, 'WO Request')
         
-        lst = qr.EmailListShort(name=name, minesite=self.minesite, usergroup=self.u.usergroup).emails
+        lst = qr.EmailListShort(col_name=name, minesite=self.minesite, usergroup=self.u.usergroup).emails
 
         self.email_row(title=title, body_text=body_text, exclude_cols=exclude_cols, email_list=lst)
 
@@ -1474,7 +1479,7 @@ class TSI(EventLogBase):
         if not dlg.exec_(): return
 
         # create header data from event dict + unit info
-        header_data = f.model_dict(e, include_none=True)
+        header_data = dbt.model_dict(e, include_none=True)
         header_data.update(db.get_df_unit().loc[e.Unit])
 
         # create report obj and save as pdf in event folder
@@ -1528,7 +1533,7 @@ class TSI(EventLogBase):
         self.email_row(
             title=f'Failure Summary - {failure_title}',
             exclude_cols=['UID', 'Status', 'Details', 'Author', 'Pics'],
-            email_list=qr.EmailListShort(name='TSI', minesite=minesite, usergroup=self.u.usergroup).emails,
+            email_list=qr.EmailListShort(col_name='TSI', minesite=minesite, usergroup=self.u.usergroup).emails,
             body_text='The following TSI(s) have been submitted:',
             lst_attach=lst_attach)
 

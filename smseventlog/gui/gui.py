@@ -1,4 +1,3 @@
-from sys import exc_info
 from ..utils.credentials import CredentialManager
 from ..data.units import update_comp_smr
 from . import _global as gbl
@@ -133,7 +132,7 @@ class MainWindow(QMainWindow):
                     .add_signals(signals=('result', dict(func=self._install_update))) \
                     .start()
         except:
-            log.error('Failed to check for update!', exc_info=True)
+            er.log_error(log=log, msg='Failed to check for update!')
     
     def _install_update(self, updater=None, ask_user=True):
         if updater is None: return

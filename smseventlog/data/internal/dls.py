@@ -3,6 +3,7 @@ from collections import OrderedDict
 from . import utils as utl
 from .__init__ import *
 
+log = logging.getLogger(__name__)
 
 def date_from_title(title) -> dt:
     """Parse date obj from date in folder title"""
@@ -81,7 +82,7 @@ def get_recent_dls_unit(unit : str) -> Path:
         lst_dls_sorted = sorted(filter(lambda p: date_from_title(p.name) is not None, lst_dls), key=lambda p: date_from_title(p.name), reverse=True)
         return lst_dls_sorted[0]
     except:
-        log.error('Couldn\'t find recent dls folder.')
+        er.log_error(log=log, msg='Couldn\'t find recent dls folder.')
         return None
 
 def zip_recent_dls_unit(unit :str, _zip=True) -> Path:

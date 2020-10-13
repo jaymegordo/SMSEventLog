@@ -5,7 +5,7 @@ from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QEvent, QFile,
                           QThreadPool, QTimer, QVariant, pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetrics, QIcon,
                          QIntValidator, QKeyEvent, QKeySequence, QPixmap,
-                         QTextCursor)
+                         QTextCursor, QGuiApplication)
 from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction,
                              QApplication, QCheckBox, QComboBox, QDateEdit,
                              QDateTimeEdit, QDesktopWidget, QDialog,

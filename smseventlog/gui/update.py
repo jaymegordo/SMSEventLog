@@ -6,6 +6,7 @@ from pyupdater.client import Client
 from hurry.filesize import size
 
 from .. import functions as f
+from .. import errors as er
 from ..__init__ import VERSION
 
 warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
@@ -33,7 +34,7 @@ class Updater(object):
             app_update = None
             status = 'initialized'
         except:
-            log.error('Failed to initialize updater!')
+            er.log_error(log=log, msg='Failed to initialize updater!')
 
         f.set_self(vars())
 

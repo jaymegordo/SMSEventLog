@@ -16,7 +16,7 @@ from __app__.smseventlog.data import ( # noqa
 
 def err():
     msg = 'Http function not triggered.'
-    log.error(msg)
+    log.error(msg, exc_info=True)
     return func.HttpResponse(msg, status_code=400)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:

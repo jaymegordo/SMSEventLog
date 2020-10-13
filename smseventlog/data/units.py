@@ -1,5 +1,7 @@
 from .__init__ import *
 
+log = logging.getLogger(__name__)
+
 global m, cols, m_config
 m = dict(imptable='UnitSMRImport', impfunc='ImportUnitSMR')
 cols = ['Unit', 'DateSMR', 'SMR']
@@ -14,7 +16,7 @@ m_config = dict(
 log = logging.getLogger(__name__)
 
 def import_unit_hrs_email(minesite):
-    from ..exchange import combine_email_data
+    from ..utils.exchange import combine_email_data
     maxdate = db.max_date_db(table='UnitSMR', field='DateSMR', minesite=minesite) + delta(days=1)
     df = combine_email_data(folder='SMR', maxdate=maxdate, **m_config.get(minesite, {}))
 
@@ -32,7 +34,7 @@ def import_unit_hrs_email_all():
         try:
             import_unit_hrs_email(minesite=minesite)
         except:
-            log.error(f'Failed to import SMR email for: {minesite}')
+            er.log_error(log=log, msg=f'Failed to import SMR email for: {minesite}')
 
 def process_df_forthills(df):
     if df is None: return None

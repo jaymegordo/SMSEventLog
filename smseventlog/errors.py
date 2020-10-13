@@ -156,7 +156,6 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
         Msg will be printed if not running in frozen app, by default False\n
     func: optional
         Function object\n
-    tb_msg : str
         Already formatted traceback string, may have been passed in from different thread, so cant build here
     """ 
     if prnt or not 'linux' in sys.platform:

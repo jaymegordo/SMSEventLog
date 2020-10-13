@@ -6,6 +6,8 @@ from .. import styles as st
 from ..gui import dialogs as dlgs
 from .__init__ import *
 
+log = logging.getLogger(__name__)
+
 # NOTE could make FCImport object to store results better
 
 def tblcount(tbl):
@@ -73,7 +75,7 @@ def import_fc(lst_csv, upload=True, df=None, worker_thread=False):
             
             cursor.commit()
         except:
-            f.send_error()
+            er.log_error(log=log)
             dlgs.msg_simple(msg='Couldn\'t import FCs!', icon='critical')
         finally:
             cursor.close()

@@ -1,4 +1,5 @@
 from .__init__ import *
+import re
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -38,6 +39,7 @@ class TableModel(QAbstractTableModel):
         highlight_funcs = parent.highlight_funcs
         # _stylemap = {}
         current_row = -1
+        self.highlight_rows = True
         selection_color = QColor(f.config['color']['bg']['yellowrow'])
         display_color = True
         self.set_queue()
@@ -115,7 +117,8 @@ class TableModel(QAbstractTableModel):
         # set so mainwindow can update current rows label
         self.visible_rows = self._df.shape[0]
         self.total_rows = self._df_orig.shape[0]
-        self.view.mainwindow.update_rows_label()
+        if not self.view.mainwindow is None:
+            self.view.mainwindow.update_rows_label()
         
         self.modelReset.emit()
         self.layoutChanged.emit()
@@ -135,7 +138,7 @@ class TableModel(QAbstractTableModel):
         self.m_color_text = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.ForegroundRole).to_dict()
 
         self.set_stylemap(df=df)
-
+    
     def search(self, search_text: str) -> list:
         """Filter self.m_display dict to values which match search text"""
 
@@ -281,7 +284,7 @@ class TableModel(QAbstractTableModel):
                     return None
             
             # highlight current selected row manually
-            if irow == self.current_row:
+            if irow == self.current_row and self.highlight_rows:
                 if role == Qt.BackgroundRole:
                     return self.selection_color
                 elif role == Qt.ForegroundRole:

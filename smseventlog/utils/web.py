@@ -464,7 +464,6 @@ class TSIWebPage(Web):
 
                 self.set_val(element, val, send_enter=send_enter)
             except:
-                # f.send_error()
                 log.warning(f'Couldn\'t set field value: {name}, {val}')
 
         return
