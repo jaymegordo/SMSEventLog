@@ -149,7 +149,7 @@ class TableModel(QAbstractTableModel):
         expr = re.compile(search_text, re.IGNORECASE)
 
         # get dict of {col_name: (index_name, ...)}
-        m_out = {k: tuple(k2 for k2, v in m2.items() if expr.match(str(v))) for k, m2 in self.m_display.items()}
+        m_out = {k: tuple(k2 for k2, v in m2.items() if expr.search(str(v))) for k, m2 in self.m_display.items()}
 
         # convert dict to list of (row_name, col_name), sort by row THEN col
         lst_out = [(v2, k) for k, v in m_out.items() for v2 in v]
