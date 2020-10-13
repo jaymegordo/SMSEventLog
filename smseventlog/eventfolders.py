@@ -1,3 +1,5 @@
+import shutil
+
 from . import functions as f
 from .__init__ import *
 from .database import db
@@ -143,6 +145,24 @@ class EventFolder(UnitFolder):
         title = f.nice_title(title=title)
         workorder = f.remove_bad_chars(w=workorder)
         return f'{unit} - {dateadded:%Y-%m-%d} - {workorder} - {title}'
+
+    @property
+    def exists(self):
+        """Simple check if folder exists"""
+        return self._p_event.exists()
+    
+    @property
+    def num_files(self):
+        """Return number of files in event folder and subdirs, good check before deleting"""
+        return len(list(self._p_event.glob('**/*'))) if self.exists else 0
+    
+    def remove_folder(self):
+        try:
+            p = self._p_event
+            shutil.rmtree(p)
+            return True
+        except:
+            return False
 
     def check(self, p_prev : Path = None, check_pics=True):
         """Check if self.p_event exists.
