@@ -83,7 +83,7 @@ class EventFolder(UnitFolder):
         year = dateadded.year
 
         wo_blank = 'WO' + ' ' * 14
-        if not workorder:
+        if not workorder or 'nan' in workorder.lower():
             workorder = wo_blank
 
         # confirm unit, date, title exist?
@@ -149,6 +149,7 @@ class EventFolder(UnitFolder):
     @property
     def exists(self):
         """Simple check if folder exists"""
+        print(self._p_event)
         return self._p_event.exists()
     
     @property
