@@ -901,8 +901,9 @@ class EventLogBase(TableWidget):
             func=self.show_addrow,
             btn=True,
             ctx='add',
-            tooltip='Add new event',
-            shortcut='Ctrl+Shift+N')
+            tooltip='Add new event') #,
+            # shortcut='Ctrl+Shift+N')
+            # TODO link these events
 
         self.context_actions['refresh'].extend(['refresh_allopen', 'refresh_lastweek', 'refresh_lastmonth'])
         self.context_actions['view'] = ['viewfolder']
