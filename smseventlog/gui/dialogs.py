@@ -1060,6 +1060,8 @@ class Search(BaseDialog):
 
             # print(keyevent_to_string(event))
             if mod and (
+                (f.is_win() and mod == Qt.ControlModifier) or
+                mod == Qt.AltModifier or
                 mod == Qt.MetaModifier or
                 mod == (Qt.MetaModifier | Qt.KeypadModifier) or
                 mod == (Qt.AltModifier | Qt.KeypadModifier)):
