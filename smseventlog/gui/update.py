@@ -8,6 +8,7 @@ from hurry.filesize import size
 from .. import functions as f
 from .. import errors as er
 from ..__init__ import VERSION
+from ..utils import fileops as fl
 
 warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
 log = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class ClientConfig(object):
     UPDATE_URLS = ['https://smseventlog.s3.amazonaws.com']
 
 class Updater(object):
-    def __init__(self, mw=None, test_version=None):
+    def __init__(self, mw=None, test_version=None, channel='stable'):
         try:
             client = Client(ClientConfig(), progress_hooks=[self.print_status_info])
 
@@ -52,9 +53,9 @@ class Updater(object):
 
     def get_app_update(self):
         client = self.client
-        client.refresh()
+        client.refresh() # download version info
 
-        app_update = client.update_check(client.app_name, self.version)
+        app_update = client.update_check(client.app_name, self.version, channel=self.channel)
         if not app_update is None:
             self.update_available = True
             self.app_update = app_update
@@ -67,6 +68,9 @@ class Updater(object):
 
         if self.update_available:
             self.update_statusbar(msg='Update available, download started.')
+
+            # download can fail to rename '...zip.part' to '...zip' if zombie locking process exists
+            fl.kill_sms_proc_locking(filename='zip')
 
             app_update.download() # background=True # don't need, already in a worker thread
             if app_update.is_downloaded():
