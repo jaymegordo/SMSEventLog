@@ -17,16 +17,17 @@ except ModuleNotFoundError:
 
 log = getlog(__name__)
 
-global drive, config, config_platform, platform, topfolder, projectfolder, applocal, temp, desktop, buildfolder, resources, secret, frozen
+global drive, config, config_platform, platform, topfolder, projectfolder, temp, desktop, buildfolder, resources, secret, frozen
 
 if sys.platform.startswith('win'):
     drive = Path('P:\\')
     platform = 'win'
-    applocal = Path.home() / 'AppData/Local/SMS Equipment Inc/SMS Event Log'
+    # NOTE applocal imported from smseventlog.__init__ now
+    # applocal = Path.home() / 'AppData/Local/SMS Equipment Inc/SMS Event Log'
 else:
     drive = Path('/Volumes/Public')
     platform = 'mac'
-    applocal = Path.home() / 'Library/Application Support/SMS Event Log'
+    # applocal = Path.home() / 'Library/Application Support/SMS Event Log'
 
 temp = applocal / 'temp'    
 p_ext = applocal / 'extensions'
