@@ -16,9 +16,56 @@ try:
 except ModuleNotFoundError:
     pass
 
-from .__init__ import SYS_FROZEN, VERSION
+from .__init__ import SYS_FROZEN, VERSION, getlog
 
+base_log = getlog(__name__)
 
+def get_logger_from_func(func):
+    """Get logger from func's module"""
+    try:
+        log = getlog(inspect.getmodule(func).__name__)
+    except:
+        # ^ no evidence of this ever failing
+        log = base_log
+        log.warning('Failed to get logger for func.')
+    
+    return log
+
+def errlog(msg='', err=True, warn=False):
+    """Wrapper to try/except func, log error, don't show to user, and return None
+    - NOTE this suppresses the error!
+
+    Parameters
+    ----------
+    msg : str, optional
+        Message to add to log, by default ''\n
+    err : bool, optional
+        log.error message, by default False\n
+    warn : bool, optional
+        log.warn message, by default False
+    """
+    def decorator(func):
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except:
+                log = get_logger_from_func(func)
+                err_msg = f'Failed: {func.__name__} | {msg}'
+
+                if warn:
+                    log.warning(err_msg)
+                elif err:
+                    log.error(err_msg, exc_info=True)
+
+                return None
+        
+        return wrapper
+    
+    return decorator
+
+@errlog('Failed to init Sentry')
 def init_sentry():
     sentry_sdk.init(
         dsn="https://66c22032a41b453eac4e0aac4fb03f82@o436320.ingest.sentry.io/5397255",
@@ -97,10 +144,10 @@ def e(func):
                 return func(args[0]) # for signals passed with self, + other args that aren't needed *split
         except Exception as e:
             func_name = func.__name__
-            log = logging.getLogger(inspect.getmodule(func).__name__) # get logger from func's module
+            log = get_logger_from_func(func) 
 
             print(f'\n\nfunc: {func_name}, args: {args}, kwargs: {kwargs}')
-            log_error(func=func, exc=e, log=log, display=True, prnt=True)
+            log_error(func=func, exc=e, log=log, display=True)
 
     return wrapper
 
@@ -159,7 +206,7 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
         Function object\n
         Already formatted traceback string, may have been passed in from different thread, so cant build here
     """ 
-    if prnt or not 'linux' in sys.platform:
+    if prnt: # or not 'linux' in sys.platform:
         print_error(msg) # always print if not SYS_FROZEN
 
     if func_name is None:
@@ -173,15 +220,6 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
 
     if not log is None:
         log.error(msg, exc_info=True)
-        # if SYS_FROZEN or True:
-        #     # traceback isn't manually captured by sentry when frozen yet.
-            
-        #     with push_scope() as scope:
-        #         scope.set_tag('traceback', traceback.format_exc())
-        #         # scope.level = 'warning'
-        #         # will be tagged with my-tag="my value"
-        #         print(f'Capturing exception: {type(exc)}')
-        #         capture_exception(exc) # sys.exc_info()[1]
 
 
 def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, log=None):
@@ -210,52 +248,6 @@ def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, lo
     dlg = ErrMsg(text=msg, detailed_text=tb_msg) 
     dlg.exec_()
 
-def create_logger(func=None):
-    # NOTE not used yet
-    logger = logging.getLogger("example_logger")
-    logger.setLevel(logging.INFO)
-    
-    fh = logging.FileHandler("/path/to/test.log")
-    fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    formatter = logging.Formatter(fmt)
-    fh.setFormatter(formatter)
-    # add handler to logger object
-    logger.addHandler(fh)
-    return logger
-
-def errlog(msg='', err=False, warn=False):
-    """Wrapper to try/except func, log error, don't show to user, and return None
-    - NOTE this suppresses the error!
-
-    Parameters
-    ----------
-    msg : str, optional
-        Message to add to log, by default ''\n
-    err : bool, optional
-        log.error message, by default False\n
-    warn : bool, optional
-        log.warn message, by default False
-    """
-    def decorator(func):
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except:
-                log = logging.getLogger(inspect.getmodule(func).__name__)
-                err_msg = f'Failed: {func.__name__} | {msg}'
-
-                if warn:
-                    log.warning(err_msg)
-                elif err:
-                    log.error(err_msg, exc_info=True)
-
-                return None
-        
-        return wrapper
-    
-    return decorator
 
 # Custom error classes
 class Error(Exception):
@@ -266,3 +258,13 @@ class SMSDatabaseError(Error):
     """Raised when something goes wrong with the database connection"""
     def __init__(self, message='General database error'):
         super().__init__(message)
+
+        # if SYS_FROZEN or True:
+        #     # error lines aren't manually captured by sentry when frozen yet.
+            
+        #     with push_scope() as scope:
+        #         scope.set_tag('traceback', traceback.format_exc())
+        #         # scope.level = 'warning'
+        #         # will be tagged with my-tag="my value"
+        #         print(f'Capturing exception: {type(exc)}')
+        #         capture_exception(exc) # sys.exc_info()[1]
