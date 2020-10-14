@@ -43,7 +43,20 @@ for package, subdir, files in package_imports:
     proot = os.path.dirname(importlib.import_module(package).__file__)
     datas.extend((os.path.join(proot, subdir, f), f'{package}/{subdir}') for f in files)
 
-hiddenimports = ['scipy.special.cython_special', 'kaleido', 'plotly.validators']
+hiddenimports = [
+    'scipy.special.cython_special',
+    'kaleido',
+    'plotly.validators',
+    'sentry_sdk.integrations.django',
+    'sentry_sdk.integrations.flask',
+    'sentry_sdk.integrations.bottle',
+    'sentry_sdk.integrations.falcon',
+    'sentry_sdk.integrations.sanic',
+    'sentry_sdk.integrations.celery',
+    'sentry_sdk.integrations.rq',
+    'sentry_sdk.integrations.aiohttp',
+    'sentry_sdk.integrations.tornado',
+    'sentry_sdk.integrations.sqlalchemy']
 
 # needed for rendering plotly charts
 # this makes ~6000 hidden imports.. pretty not ideal
@@ -79,9 +92,10 @@ for item in hidden_modules:
     hiddenimports.extend(collect_submodules(item))
 
 excludes = ['IPython']
+binaries = []
 
 if f.is_mac():
-    binaries = [('/usr/local/bin/chromedriver', 'selenium/webdriver')]
+    # binaries = [('/usr/local/bin/chromedriver', 'selenium/webdriver')]
     hookspath = [Path.home() / '.local/share/virtualenvs/SMS-4WPEHYhu/lib/python3.8/site-packages/pyupdater/hooks']
     dist_folder_name = 'smseventlog_mac'
     icon_name = 'sms_icon.icns'
@@ -95,7 +109,7 @@ if f.is_mac():
 elif f.is_win():
     # binaries = [('File we want to copy', 'folder we want to put it in')]
     # binaries are analyzed for dependencies, datas are not
-    binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
+    # binaries = [('C:/Windows/chromedriver.exe', 'selenium/webdriver')]
 
     # gtk used for weasyprint/cairo to render images in pdfs. costs ~20mb to zip
     # NOTE maybe try to download this separately to avoid including in bundle
@@ -123,7 +137,7 @@ if upx:
 
 icon = str(f.resources / f'images/{icon_name}')
 
-run_pyupdater = True
+run_pyupdater = False
 if run_pyupdater:
     print('**** PYUPDATER ****')
     name = name_pyu # running from pyupdater
