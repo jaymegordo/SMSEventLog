@@ -1,5 +1,6 @@
 import functools
 import logging
+from logging.handlers import RotatingFileHandler
 import operator as op
 import os
 import sys
@@ -32,17 +33,50 @@ except ModuleNotFoundError:
 __version__ = '3.2.7'
 VERSION = __version__
 
-# create logger
-# log = logging.getLogger(__name__)
-# log.setLevel(logging.INFO)
-
-fmt = logging.Formatter('%(levelname)s: %(name)s - %(lineno)d -  %(message)s')
-sh = logging.StreamHandler()
-sh.setLevel(logging.INFO)
-sh.setFormatter(fmt)
-# log.addHandler(sh)
-
+# Set environments
 AZURE_LOCAL = os.getenv('AZURE_FUNCTIONS_ENVIRONMENT', False) # dont think these are used
 AZURE_WEB = True if os.getenv('WEBSITE_SITE_NAME', None) else False
 
 SYS_FROZEN = getattr(sys, 'frozen', False)
+
+def getlog(name):
+    """Factory to create logger with 'smseventlog' removed from name"""
+    name = '.'.join(name.split('.')[1:])
+    
+    # cant set name to nothing or that calls the ROOT logger
+    if name == '': name = 'base'
+
+    log = logging.getLogger(name)
+    log.setLevel(logging.DEBUG)
+    log.addHandler(sh)
+    log.addHandler(fh)
+
+    return log
+
+if not AZURE_WEB:
+    # create logger
+    if sys.platform.startswith('win'):
+        app_path = 'AppData/Local'
+    else:
+        app_path = 'Library/Application Support'
+
+    p_log = Path.home() / f'{app_path}/SMS Event Log/logging'
+    if not p_log.exists():
+        p_log.mkdir(parents=True)
+
+    log_path = p_log / 'smseventlog.log'
+    fmt_stream = logging.Formatter('%(levelname)-7s %(lineno)-4d %(name)-20s %(message)s')
+    fmt_file = logging.Formatter(
+        '%(asctime)s  %(levelname)-7s %(lineno)-4d %(name)-20s %(message)s', datefmt='%m-%d %H:%M:%S')
+
+    # Console/stream handler
+    sh = logging.StreamHandler()
+    sh.setLevel(logging.INFO)
+    sh.setFormatter(fmt_stream)
+
+    # File handler for log file
+    fh = RotatingFileHandler(log_path, maxBytes=100000, backupCount=0)
+
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(fmt_file)
+
