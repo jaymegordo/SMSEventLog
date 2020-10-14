@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 class Downloader(object):
     """Class to download files from internet"""    
     def __init__(self, mw=None, **kw):
+        name = self.__class__.__name__
 
         gui = True if not mw is None else False
         p_ext = f.applocal / 'extensions'
@@ -18,6 +19,11 @@ class Downloader(object):
             p_ext.mkdir(parents=True)
         
         f.set_self(vars())
+
+    @property
+    def exists(self):
+        """Check if kaleido exe exists"""
+        return self.p_root.exists()
 
     @staticmethod
     @er.errlog('Failed to download file.', err=True)
@@ -62,13 +68,35 @@ class Downloader(object):
         self.status = msg
         log.info(msg)
 
+class Gtk(Downloader):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        url = 'https://chromedriver.storage.googleapis.com/86.0.4240.22/chromedriver_mac64.zip'
+        p_root = self.p_ext / 'chromedriver'
+
+        f.set_self(vars())
+    
+    def check(self):
+
+        return self.exists
+    
+    def download_and_unpack(self):
+        self.download_file(url=self.url, p_dst=self.p_root)
+    
+    def get_latest_url(self):
+        # need to check current version of chrome
+        chrome_ver = self.get_current_chrome_ver()
+
+        return
+
+
 class Kaleido(Downloader):
     """Downloader object to check for Kaleido executable and install if required"""
     def __init__(self, **kw):
         super().__init__(**kw)
         url_github = 'https://api.github.com/repos/plotly/Kaleido/releases/latest'
         p_dest = ''
-        p_kaleido = self.p_ext / 'kaleido'
+        p_root = self.p_ext / 'kaleido'
 
         f.set_self(vars())
     
@@ -77,7 +105,7 @@ class Kaleido(Downloader):
         if self.exists:
             return True # already exists, all good
         
-        msg = f'Kaleido not found at: {self.p_kaleido}.\n\n\
+        msg = f'Kaleido not found at: {self.p_root}.\n\n\
             The Kaleido extension is required to render charts to images in pdfs.\
             Would you like to download now? (report will not be created, try again after download).'
         
@@ -108,11 +136,6 @@ class Kaleido(Downloader):
         if not p is None and p.exists():
             fl.unzip(p, delete=True)
             return True
-    
-    @property
-    def exists(self):
-        """Check if kaleido exe exists"""
-        return self.p_kaleido.exists()
 
     def get_latest_url(self):
         """Check github api for latest release of kaleido and return download url
