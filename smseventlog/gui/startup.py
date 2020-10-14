@@ -3,7 +3,7 @@ from .. import errors as er
 from . import delegates, dialogs, gui, refreshtables, tables, update
 from .__init__ import *
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 try:
     # try setting app ID for windows only
@@ -20,7 +20,18 @@ def decorate_modules():
         er.decorate_all_classes(module=module)
 
 def launch():
+    log.info(f'\n\n\nSMS Event Log init | {dt.now():%Y-%m-%d %H:%M} | {VERSION}')
+
+    try:
+        return _launch()
+    except:
+        # only log main process errors to log file
+        log.exception('Error in main process.')
+
+def _launch():
+    # raise AttributeError('This is a fake error')
     from PyQt5.QtGui import QScreen # just used for default
+
     er.init_sentry()
     decorate_modules()
     app = get_qt_app()
