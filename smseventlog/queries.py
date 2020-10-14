@@ -906,7 +906,10 @@ class EmailListShort(EmailList):
         f.set_self(vars())
     
     def set_default_filter(self, **kw):
-        self.fltr.add(vals={self.col_name: 'x'})
+        # Convert view headers to db headers before query
+        col_name = f.convert_header(title=self.title, header=self.col_name)
+        self.fltr.add(vals={col_name: 'x'})
+        
         super().set_default_filter(usergroup=self.usergroup, **kw)
     
     @property
