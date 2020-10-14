@@ -13,7 +13,7 @@ from .utils.secrets import SecretsManager
 from . import errors as er
 
 global db
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 # DATABASE
 
 def wrap_single_class_func(cls, func_name, err_func):
@@ -164,8 +164,8 @@ class DB(object):
             except (pyodbc.ProgrammingError, pyodbc.OperationalError) as e:
                 self.reset() # retry onece to clear everything then try again
                 self._cursor = _get_cursor()
-        except:
-            raise er.SMSDatabaseError('Couldn\'t create cursor.')
+        except Exception as e:
+            raise er.SMSDatabaseError('Couldn\'t create cursor.') from e
         
         return self._cursor
 
@@ -175,8 +175,8 @@ class DB(object):
             try:
                 # create session, this is for the ORM part of sqlalchemy
                 self._session = sessionmaker(bind=self.engine)()
-            except:
-                raise er.SMSDatabaseError('Couldn\'t create session.')
+            except Exception as e:
+                raise er.SMSDatabaseError('Couldn\'t create session.') from e
 
         return self._session
 
