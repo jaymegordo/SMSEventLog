@@ -115,14 +115,15 @@ def get_func_name():
     except:
         return 'Unknown Function'
 
-def format_traceback():
+def format_traceback(split=False):
     """Get current error and format traceback as text"""
     msg = traceback.format_exc() \
         .replace('Traceback (most recent call last):\n', '')
-       
-    check_text = 'During handling of the above exception, another exception occurred:\n'
-    if check_text in msg:
-        msg = ''.join(msg.split(check_text)[1:])
+    
+    if split:
+        check_text = 'During handling of the above exception, another exception occurred:\n'
+        if check_text in msg:
+            msg = ''.join(msg.split(check_text)[1:])
     
     return msg
 
