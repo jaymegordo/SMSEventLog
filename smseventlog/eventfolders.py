@@ -31,7 +31,12 @@ class UnitFolder(object):
         modelpath = self.get_modelpath() # needs model and model_map
         unitpath = f'{unit} - {self.serial}'
 
-        p_unit = f.drive / f'{self.equippath}/{modelpath}/{unitpath}'
+        if not 'shovels' in self.minesite.lower():
+            p_unit = f.drive / f'{self.equippath}/{modelpath}/{unitpath}'
+        else:
+            # shovels doesn't want modelpath. Could make this a list of exclusions or something
+            p_unit = f.drive / f'{self.equippath}/{unitpath}'
+
         p_dls = p_unit / 'Downloads'
         
         f.set_self(vars())
@@ -149,7 +154,6 @@ class EventFolder(UnitFolder):
     @property
     def exists(self):
         """Simple check if folder exists"""
-        print(self._p_event)
         return self._p_event.exists()
     
     @property
