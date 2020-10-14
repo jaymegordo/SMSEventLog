@@ -16,7 +16,7 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 from .__init__ import *
 from .credentials import CredentialManager
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 level = logging.INFO
 log.setLevel(level)
 sh.setLevel(level)

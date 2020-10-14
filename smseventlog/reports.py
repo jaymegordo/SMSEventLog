@@ -16,7 +16,7 @@ from .utils.download import Kaleido
 
 global p_reports
 p_reports = f.resources / 'reports'
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # TODO auto email w/ email lists
 

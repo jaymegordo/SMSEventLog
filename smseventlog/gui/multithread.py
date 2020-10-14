@@ -6,8 +6,9 @@ from PyQt5.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 
 from .. import functions as f
 from .. import errors as er
+from smseventlog.__init__ import getlog
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # a multithread worker object - see:
 # https://www.learnpyqt.com/courses/concurrent-execution/multithreading-pyqt-applications-qthreadpool/

@@ -1,7 +1,7 @@
 from .__init__ import *
 import re
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 log.setLevel(logging.WARNING)
 # irow, icol = row/column integer locations eg 3, 5
 # row, col = row/column index names eg (if no actual index) 3, 'StartDate'

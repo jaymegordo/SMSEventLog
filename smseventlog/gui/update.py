@@ -7,11 +7,11 @@ from hurry.filesize import size
 
 from .. import functions as f
 from .. import errors as er
-from ..__init__ import VERSION
+from ..__init__ import VERSION, getlog
 from ..utils import fileops as fl
 
 warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # Use Pyupdater Client/AppUpdate classes to check, download, and install updates
 
@@ -70,7 +70,10 @@ class Updater(object):
             self.update_statusbar(msg='Update available, download started.')
 
             # download can fail to rename '...zip.part' to '...zip' if zombie locking process exists
-            fl.kill_sms_proc_locking(filename='zip')
+            try:
+                fl.kill_sms_proc_locking(filename='zip')
+            except:
+                er.log_error(msg='Failed to check/kill locking process', log=log)
 
             app_update.download() # background=True # don't need, already in a worker thread
             if app_update.is_downloaded():

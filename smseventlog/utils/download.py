@@ -6,7 +6,7 @@ from .__init__ import *
 from . import fileops as fl
 from ..gui.dialogs import msgbox
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 class Downloader(object):
     """Class to download files from internet"""    

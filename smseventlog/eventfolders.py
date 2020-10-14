@@ -7,7 +7,7 @@ from .dbtransaction import Row
 from .utils import fileops as fl
 from .utils.dbmodel import EventLog
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 class UnitFolder(object):
     def __init__(self, unit : str):

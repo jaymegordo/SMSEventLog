@@ -8,7 +8,7 @@ from .__init__ import *
 from .multithread import Worker
 from .update import Updater
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # FEATURES NEEDED
 # TODO Keyboard shortcuts > ctrl + down, right

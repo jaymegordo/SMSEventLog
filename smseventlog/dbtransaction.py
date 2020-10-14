@@ -8,7 +8,7 @@ from .__init__ import *
 from .database import db, e
 from .utils import dbmodel as dbm
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 class DBTransaction():
     def __init__(self, table_model=None, dbtable=None, title=None):

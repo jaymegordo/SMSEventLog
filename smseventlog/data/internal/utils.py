@@ -1,7 +1,7 @@
 from . import dls, faults, plm
 from .__init__ import *
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 """Helper funcs to import external data, used by all other modules in /data/internal"""
 

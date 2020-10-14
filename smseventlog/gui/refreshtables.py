@@ -2,7 +2,7 @@ from .__init__ import *
 from . import _global as gbl
 from .dialogs import InputForm, InputField, check_app
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # Dialogs to show and allow user to create filters before refreshing table data
 

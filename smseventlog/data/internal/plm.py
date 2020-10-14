@@ -1,7 +1,7 @@
 from .__init__ import *
 from . import utils as utl
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 global m_equip, m_cols, good_cols
 m_equip = f.inverse(f.config['EquipPaths'])

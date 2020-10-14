@@ -6,7 +6,7 @@ from . import _global as gbl
 from .__init__ import *
 from . import formfields as ff
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 # TODO reload ff.Combobox items on toggle - signal/slot somehow?
 
 class InputField():

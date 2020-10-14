@@ -3,7 +3,7 @@ from collections import OrderedDict
 from . import utils as utl
 from .__init__ import *
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 def date_from_title(title) -> dt:
     """Parse date obj from date in folder title"""

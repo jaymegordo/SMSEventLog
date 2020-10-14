@@ -7,7 +7,7 @@ from .utils.dbmodel import UserSettings
 
 # TODO drop hours/filepath/Version from UserSettings table
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 class User():
     def __init__(self, username, mainwindow=None):

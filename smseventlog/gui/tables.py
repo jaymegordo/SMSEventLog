@@ -14,7 +14,7 @@ from .delegates import (CellDelegate, ComboDelegate, DateDelegate,
                         DateTimeDelegate)
 from .multithread import Worker
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # TODO highlight header red when filter active
 # TODO add tsi status to WO page

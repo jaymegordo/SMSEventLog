@@ -9,7 +9,7 @@ from hurry.filesize import size
 
 from .__init__ import *
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 log.setLevel(logging.INFO)
 log.addHandler(sh)
 

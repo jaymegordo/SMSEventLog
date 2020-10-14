@@ -10,7 +10,7 @@ from .__init__ import *
 from .credentials import CredentialManager
 from . import fileops as fl
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 
 class ExchangeAccount():

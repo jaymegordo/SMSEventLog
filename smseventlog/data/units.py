@@ -1,6 +1,6 @@
 from .__init__ import *
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 global m, cols, m_config
 m = dict(imptable='UnitSMRImport', impfunc='ImportUnitSMR')
@@ -13,7 +13,7 @@ m_config = dict(
         subject='Mine Equipment Service Meter Report',
         header=0))
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 def import_unit_hrs_email(minesite):
     from ..utils.exchange import combine_email_data

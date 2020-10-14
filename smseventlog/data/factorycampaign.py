@@ -6,7 +6,7 @@ from .. import styles as st
 from ..gui import dialogs as dlgs
 from .__init__ import *
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # NOTE could make FCImport object to store results better
 

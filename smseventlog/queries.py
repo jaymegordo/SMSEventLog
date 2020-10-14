@@ -12,7 +12,7 @@ from .database import db
 from .errors import errlog
 from .utils import dbmodel as dbm
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 """
 - Queries control how data is queried/filtered from database.

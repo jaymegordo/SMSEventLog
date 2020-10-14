@@ -2,7 +2,7 @@ from .formfields import ComboBoxTable
 from .datamodel import TableModel
 from .__init__ import *
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 # TODO maybe move to formfields
 class TextEditor(QTextEdit):

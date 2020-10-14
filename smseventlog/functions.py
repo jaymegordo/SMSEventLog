@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 global drive, config, config_platform, platform, topfolder, projectfolder, applocal, temp, desktop, buildfolder, resources, secret, frozen
 

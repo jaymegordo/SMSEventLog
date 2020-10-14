@@ -3,7 +3,7 @@ import yaml
 from .__init__ import *
 from .secrets import SecretsManager
 
-log = logging.getLogger(__name__)
+log = getlog(__name__)
 
 class CredentialManager(object):
     # load and save credentials to QSettings
