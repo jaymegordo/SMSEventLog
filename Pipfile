@@ -28,7 +28,7 @@ openpyxl = "*"
 "hurry.filesize" = "*"
 pyqt5 = "*"
 appscript = {version = "*", sys_platform = "== 'darwin'"}
-pywin32 = "*"
+pywin32 = {version = "*", sys_platform = "== 'win32'"}
 plotly = "*"
 seaborn = "*"
 matplotlib = "*"
@@ -41,6 +41,7 @@ sentry-sdk = "*"
 pyinstaller = "*"
 pycparser = "==2.14"
 kaleido = "*"
+chromedriver-autoinstaller = {git = "https://github.com/jaymegordo/python-chromedriver-autoinstaller.git", ref = "master"}
 
 [requires]
 python_version = "3.8"

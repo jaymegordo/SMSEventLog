@@ -35,6 +35,7 @@ The log is structured around several main tables, each of which can be used to i
 | Jump to Previous Tab | Ctrl + Tab       |
 | New line in cell     | Shift + Enter    |
 | Fill cell value down | Ctrl + D         |
+| Search all cells     | Ctrl + F         |
 
 ### Refreshing Tables
 * Any text field can handle a \*wildcard\* search
@@ -103,6 +104,10 @@ There are several extra functions in the menubar, such as:
             * `pipenv graph` or
             * `pipenv run pip list`
         * Create requirements.txt: `pipenv lock -r > requirements.txt`
+        * Update single package: `pipenv update <packagename>`
+        * Install from custom forked repo: `pipenv install git+https://github.com/jaymegordo/python-chromedriver-autoinstaller.git@master#egg=chromedriver-autoinstaller`
+            * `#egg` comes from `name` defined in setup.py, will be name of install
+            * `-e` flag makes the package 'editable' and puts in into `src`
     * twine
         * `pip install twine`
         * Used to push build wheel to pypi
