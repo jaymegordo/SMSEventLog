@@ -1,6 +1,7 @@
 import functools
 import traceback
 
+import chromedriver_autoinstaller as cdi # checks and auto updates chromedriver version
 from selenium import webdriver
 from selenium.common.exceptions import (InvalidArgumentException,
                                         NoSuchElementException,
@@ -12,8 +13,8 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
 
-from .credentials import CredentialManager
 from .__init__ import *
+from .credentials import CredentialManager
 
 log = logging.getLogger(__name__)
 level = logging.INFO
@@ -125,8 +126,21 @@ class Web(object):
     def create_driver(self, browser='Chrome'):
 
         def _create_driver(options=None):
-            kw = dict(executable_path=f.topfolder / 'selenium/webdriver/chromedriver') if SYS_FROZEN else {}
-            return webdriver.Chrome(options=options, **kw)
+            # kw = dict(executable_path=f.topfolder / 'selenium/webdriver/chromedriver') if SYS_FROZEN else {}
+
+            # get path to chromedriver in eg extensions/chromedriver/86/chromedriver
+            ver = cdi.utils.get_chrome_version()
+            major_ver = cdi.utils.get_major_version(ver)
+            exename = cdi.utils.get_chromedriver_filename() # chromedriver.exe
+            p_exe = f.p_ext / f'chromedriver/{major_ver}/{exename}'
+
+            # install chromedriver if doesnt exists for current version of chrome
+            if not p_exe.exists():
+                log.info(f'installing chromedriver: {p_exe}')
+                cdi.install(p_install=f.p_ext / 'chromedriver')
+
+            # kw = dict(executable_path=p_exe) if SYS_FROZEN else {}
+            return webdriver.Chrome(options=options, executable_path=p_exe)
 
         if browser == 'Chrome':
             options = self.get_options()
