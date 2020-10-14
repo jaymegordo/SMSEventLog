@@ -56,11 +56,11 @@ def getlog(name):
 if not AZURE_WEB:
     # create logger
     if sys.platform.startswith('win'):
-        app_path = 'AppData/Local'
+        applocal = Path.home() / 'AppData/Local/SMS Equipment Inc/SMS Event Log'
     else:
-        app_path = 'Library/Application Support'
+        applocal = Path.home() / 'Library/Application Support/SMS Event Log'
 
-    p_log = Path.home() / f'{app_path}/SMS Event Log/logging'
+    p_log = applocal / 'logging'
     if not p_log.exists():
         p_log.mkdir(parents=True)
 
