@@ -20,10 +20,17 @@ from .__init__ import SYS_FROZEN, VERSION, getlog
 
 base_log = getlog(__name__)
 
+def get_func_name(func, *args, **kw):
+    try:
+        return inspect.getmodule(func).__name__
+    except:
+        base_log.warning(f'Failed to get func name: {func}')
+        return ''
+
 def get_logger_from_func(func):
     """Get logger from func's module"""
     try:
-        log = getlog(inspect.getmodule(func).__name__)
+        log = getlog(get_func_name(func))
     except:
         # ^ no evidence of this ever failing
         log = base_log
@@ -31,9 +38,9 @@ def get_logger_from_func(func):
     
     return log
 
-def errlog(msg='', err=True, warn=False):
+def errlog(msg=None, err=True, warn=False, display=False):
     """Wrapper to try/except func, log error, don't show to user, and return None
-    - NOTE this suppresses the error!
+    - NOTE this suppresses the error unless display=True
 
     Parameters
     ----------
@@ -58,6 +65,11 @@ def errlog(msg='', err=True, warn=False):
                     log.warning(err_msg)
                 elif err:
                     log.error(err_msg, exc_info=True)
+                
+                if display:
+                    tb_msg = format_traceback()
+                    func_name = get_func_name(func)
+                    display_error(msg=msg, func_name=func_name, tb_msg=tb_msg)
 
                 return None
         
@@ -151,7 +163,7 @@ def e(func):
 
     return wrapper
 
-def get_func_name():
+def get_last_func_name():
     """Return function name from most recent traceback"""
     # sys.exc_info:
     # (<class 'ZeroDivisionError'>, ZeroDivisionError('division by zero'), <traceback object at 0x7f84b92c1100>)
@@ -221,8 +233,7 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
     if not log is None:
         log.error(msg, exc_info=True)
 
-
-def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, log=None):
+def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, log=None, msg: str=None):
     """Display error message to user in gui dialog
 
     Parameters
@@ -233,11 +244,16 @@ def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, lo
         formatted traceback message, by default None\n
     exception : Exception, optional
         Used to check exception type and add extra info, by default None\n
+    msg : str, optional
+        Custom message to pass in, if None use default
     """    
     if func_name is None:
-        func_name = get_func_name() # fallback to try getting from traceback
+        func_name = get_last_func_name() # fallback to try getting from traceback
 
-    msg = f'Couldn\'t run function: {func_name}\n\nThis error has been logged.\n'
+    if msg is None:
+        msg = f'Couldn\'t run function: {func_name}'
+    
+    msg = f'{msg}\n\nThis error has been logged.\n'
 
     if isinstance(exc, SMSDatabaseError) or (not log is None and 'database' in log.name):
         msg = f'{msg}\nIf this is a database or network related error, check your network connection, then try doing Database > Reset Database Connection.'
