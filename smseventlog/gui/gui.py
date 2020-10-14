@@ -117,22 +117,20 @@ class MainWindow(QMainWindow):
         self.update_timer.timeout.connect(self.check_update)
         self.update_timer.start(msec)
 
+    @er.errlog('Failed to check for update!', display=True)
     def check_update(self):
         """Check for update and download in a worker thread"""
-        try:
-            if not SYS_FROZEN:
-                self.update_statusbar('App not frozen, not checking for updates.')
-                return
+        if not SYS_FROZEN:
+            self.update_statusbar('App not frozen, not checking for updates.')
+            return
 
-            if self.updater.update_available:
-                # update has been previously checked and downloaded but user declined to install initially
-                self._install_update(updater=self.updater)
-            else:
-                Worker(func=self.updater.check_update, mw=self) \
-                    .add_signals(signals=('result', dict(func=self._install_update))) \
-                    .start()
-        except:
-            er.log_error(log=log, msg='Failed to check for update!')
+        if self.updater.update_available:
+            # update has been previously checked and downloaded but user declined to install initially
+            self._install_update(updater=self.updater)
+        else:
+            Worker(func=self.updater.check_update, mw=self) \
+                .add_signals(signals=('result', dict(func=self._install_update))) \
+                .start()
     
     def _install_update(self, updater=None, ask_user=True):
         if updater is None: return
@@ -286,6 +284,7 @@ class MainWindow(QMainWindow):
         help_ = bar.addMenu('Help')
         help_.addAction(self.act_show_about) # this actually goes to main 'home' menu
         help_.addAction(self.act_check_update)
+        help_.addAction(self.act_email_err_logs)
         help_.addSeparator()
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_creds)
@@ -299,6 +298,7 @@ class MainWindow(QMainWindow):
         act_show_about = QAction('About', self, triggered=dlgs.about)
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
         act_check_update = QAction('Check for Update', self, triggered=self.check_update)
+        act_email_err_logs = QAction('Email Error Logs', self, triggered=self.email_err_logs)
 
         # Reports
         act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=self.create_fleet_monthly_report)
@@ -552,6 +552,30 @@ class MainWindow(QMainWindow):
         msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Open now?'
         if dlgs.msgbox(msg=msg, yesno=True):
             fl.open_folder(rep.p_rep)
+
+    def email_err_logs(self):
+        """Collect and email error logs to simplify for user"""
+        docs = []
+        def _collect_logs(p):
+            return [p for p in p.glob('*log*')] if p.exists() else []
+                
+        # collect sms logs
+        p_sms = f.applocal / 'logging'
+        docs.extend(_collect_logs(p_sms))
+
+        # collect pyupdater logs
+        i = 1 if f.is_win() else 0
+        p_pyu = f.applocal.parents[1] / 'Digital Sapphire/PyUpdater/logs'
+        docs.extend(_collect_logs(p_pyu))
+
+        from ..utils import email as em
+
+        subject = f'Error Logs - {self.username}'
+        body = 'Thanks Jayme,<br><br>I know you\'re trying your best. The Event Log is amazing and we appreciate all your hard work!'
+        msg = em.Message(subject=subject, body=body, to_recip=['jgordon@smsequip.com'], show_=False)
+        msg.add_attachments(docs)
+        msg.show()
+
 
 class TabWidget(QTabWidget):
     def __init__(self, parent):
