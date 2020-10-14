@@ -19,17 +19,10 @@ def decorate_modules():
     for module in modules:
         er.decorate_all_classes(module=module)
 
+@er.errlog('Error in main process.')
 def launch():
-    log.info(f'\n\n\nSMS Event Log init | {dt.now():%Y-%m-%d %H:%M} | {VERSION}')
+    log.info(f'\n\n\n{dt.now():%Y-%m-%d %H:%M} | init | {VERSION}')
 
-    try:
-        return _launch()
-    except:
-        # only log main process errors to log file
-        log.exception('Error in main process.')
-
-def _launch():
-    # raise AttributeError('This is a fake error')
     from PyQt5.QtGui import QScreen # just used for default
 
     er.init_sentry()
