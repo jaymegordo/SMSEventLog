@@ -85,13 +85,13 @@ def e(func):
         except (exc.IntegrityError, exc.ProgrammingError, exc.StatementError, pyodbc.ProgrammingError) as e:
             log.warning(f'***** Not handling error: {type(e)}')
             # raise e
+            db.rollback()
             return None # re raising the error causes sqlalchemy to catch it and raise more errors
 
         except exc.InvalidRequestError as e:
             # rollback invalid transaction
             log.warning(f'Rollback and retry operation: {type(e)}')
-            session = db.session # this is pretty sketch
-            session.rollback() # NOTE doesn't seem to actually work, gets called 10 times
+            db.rollback()
             return func(*args, **kwargs)
             
         except (exc.OperationalError, exc.DBAPIError, exc.ResourceClosedError) as e:
@@ -120,6 +120,14 @@ class DB(object):
         domain_map = dict(SMS='KOMATSU', Cummins='CED', Suncor='NETWORK')
         domain_map_inv = f.inverse(m=domain_map)
         f.set_self(vars())
+    
+    def rollback(self):
+        """Wrapper for session rollback"""
+        try:
+            self.session.rollback()
+        except Exception as e:
+            # not sure if this would be critical or can just be ignored yet
+            log.warning(f'Failed to rollback session.: {type(e)}')
     
     def reset(self, warn=True):
         # set engine objects to none to force reset, not ideal
@@ -308,7 +316,11 @@ class DB(object):
     
     def get_modelbase(self, model):
         df = self.get_df_equiptype()
-        return df.loc[model].ModelBase
+        try:
+            return df.loc[model].ModelBase
+        except KeyError:
+            # model not in database
+            return None
     
     def get_df_equiptype(self):
         if not hasattr(self, 'df_equiptype') or self.df_equiptype is None:
