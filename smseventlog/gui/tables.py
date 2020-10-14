@@ -1203,7 +1203,7 @@ class EventLog(EventLogBase):
     
     def remove_old_dates(self, s):
         # split description on newlines, remove old dates if too long, color dates red
-        if s is None: return None
+        if not isinstance(s, str): return s
         if s.strip() == '': return s
 
         lst = s.splitlines()
@@ -2032,6 +2032,12 @@ class Availability(TableWidget):
 class UserSettings(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+
+            self.mcols['datetime'] = ('LastLogin',)
 
 # FILTER MENU
 class FilterMenu(QMenu):
