@@ -13,7 +13,6 @@ from ..utils import fileops as fl
 warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
 log = getlog(__name__)
 
-# Use Pyupdater Client/AppUpdate classes to check, download, and install updates
 
 class ClientConfig(object):
     PUBLIC_KEY = 'Rbk396oV6YSKhJtYTZHGdu/z7P/Gom11LdqI/w3AlyQ'
@@ -24,18 +23,18 @@ class ClientConfig(object):
     UPDATE_URLS = ['https://smseventlog.s3.amazonaws.com']
 
 class Updater(object):
+    """Wrap Pyupdater Client/AppUpdate classes to check, download, and install updates"""
+
+    @er.errlog('Failed to initialize updater!')
     def __init__(self, mw=None, test_version=None, channel='stable'):
-        try:
-            client = Client(ClientConfig(), progress_hooks=[self.print_status_info])
+        client = Client(ClientConfig(), progress_hooks=[self.print_status_info])
 
-            warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
+        warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
 
-            _version = VERSION if test_version is None else test_version
-            update_available = False
-            app_update = None
-            status = 'initialized'
-        except:
-            er.log_error(log=log, msg='Failed to initialize updater!')
+        _version = VERSION if test_version is None else test_version
+        update_available = False
+        app_update = None
+        status = 'initialized'
 
         f.set_self(vars())
 
