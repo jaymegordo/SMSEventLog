@@ -9,6 +9,14 @@ from . import formfields as ff
 log = getlog(__name__)
 # TODO reload ff.Combobox items on toggle - signal/slot somehow?
 
+def add_items_to_filter(field, fltr):
+    """Add field items to query filter
+    - Can be called from dialog, or table's persistent filter"""
+    if field.box.isEnabled():
+        print(f'adding input | field={field.col_db}, table={field.table}')
+        fltr.add(field=field.col_db, val=field.val, table=field.table, opr=field.opr)
+
+
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, enforce=False, like=False):
         if col_db is None: col_db = text.replace(' ', '')
@@ -159,13 +167,11 @@ class InputForm(BaseDialog):
         
         return m
     
-    def add_items_to_filter(self):
+    def _add_items_to_filter(self):
         # loop params, add all to parent filter
         fltr = self.parent.query.fltr
         for field in self.fields:
-            if field.box.isEnabled():
-                print(f'adding input | field={field.col_db}, table={field.table}')
-                fltr.add(field=field.col_db, val=field.val, table=field.table, opr=field.opr)
+            add_items_to_filter(field=field, fltr=fltr)
 
     def toggle(self, state):
         # toggle input field enabled/disabled based on checkbox
