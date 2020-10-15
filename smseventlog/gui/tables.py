@@ -1,12 +1,13 @@
 import re
 
-from ..utils import email as em
 from .. import eventfolders as efl
 from .. import styles as st
 from ..data import factorycampaign as fc
 from ..data.internal import dls
+from ..utils import email as em
 from . import _global as gbl
 from . import dialogs as dlgs
+from . import formfields as ff
 from . import refreshtables as rtbls
 from .__init__ import *
 from .datamodel import TableModel
@@ -605,6 +606,8 @@ class TableWidget(QWidget):
 
         name = self.__class__.__name__
         self.name = name
+        self.persistent_filters = [] # el/wo usergroup filters
+
         if not parent is None:
             self.mainwindow = parent.mainwindow
         else:
@@ -748,14 +751,12 @@ class TableWidget(QWidget):
         # RefreshTable dialog will have modified query's fltr, load data to table view
         self.update_statusbar('Refreshing table, please wait...')
         self.mainwindow.app.processEvents()
-
-        # NOTE should put this in a global settings dialog, eg 'Filter by UserGroup = True/False"
-        if self.u.is_cummins:
-            usergroup = self.u.usergroup
-        else:
-            usergroup = None
+       
+        # Add persistent filter items to query
+        for field in self.persistent_filters:
+            dlgs.add_items_to_filter(field=field, fltr=self.query.fltr)
         
-        df = self.query.get_df(usergroup=usergroup, **kw)
+        df = self.query.get_df(**kw)
 
         if not df is None and not len(df) == 0:
             self.view.display_data(df=df)
@@ -892,6 +893,31 @@ class TableWidget(QWidget):
             msg = 'Sorry, this feature not enabled for cummins.'
 
         self.update_statusbar(msg=msg)
+
+    def save_persistent_filter_settings(self):
+        if not self.persistent_filters: return
+        s = self.mainwindow.settings
+
+        for field in self.persistent_filters:
+            items = [field.box, field.cb]
+            for obj in items:
+                val = obj.val
+
+                if not val is None:
+                    s.setValue(f'{self.name}_{obj.objectName()}', val)
+    
+    def restore_persistent_filter_settings(self):
+        if not self.persistent_filters: return
+        s = self.mainwindow.settings
+
+        for field in self.persistent_filters:
+            items = [field.box, field.cb]
+            for obj in items:
+                name, val = obj.objectName(), None
+
+                val = s.value(f'{self.name}_{name}')
+                if not val is None:
+                    obj.val = val
 
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
@@ -1143,6 +1169,48 @@ class EventLogBase(TableWidget):
             self.update_statusbar(
                 f'Couldn\'t find matching row in [{other_title}] table. Make sure row exists in table.')
 
+    def add_usergroup_filter(self):
+        """Add QCombobox and checkbox to right side of btnbox bar"""
+        def _toggle(state):
+            # toggle input field enabled/disabled based on checkbox
+            # TODO needs more DRY
+            source = self.sender()
+            box = source.box
+
+            if state == Qt.Checked:
+                box.setEnabled(True)
+                box.select_all()
+            else:
+                box.setEnabled(False)
+        
+        items = db.domain_map.keys()
+        text = 'User Group'
+        box = ff.ComboBox(items=items, enabled=False, name=text)
+        cb = ff.CheckBox(name=text)
+        cb.box = box
+        cb.stateChanged.connect(_toggle)
+        label = QLabel('User Group:')
+
+        boxLayout = QHBoxLayout()
+        boxLayout.setAlignment(Qt.AlignRight)
+        boxLayout.addWidget(label)
+        boxLayout.addWidget(cb)
+        boxLayout.addWidget(box)
+        self.btnbox.addStretch(1)
+        self.btnbox.addLayout(boxLayout)
+
+        # create inputfield for later filtering
+        field = dlgs.InputField(
+                text=text,
+                default=db.domain_map_inv.get(self.u.domain, 'SMS'),
+                table=T('UserSettings'))
+        
+        # set so can call later in save/restore settings
+        field.box = box
+        field.cb = cb
+        self.persistent_filters.append(field)
+        self.restore_persistent_filter_settings()
+    
 class EventLog(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -1161,6 +1229,8 @@ class EventLog(EventLogBase):
         self.add_action(name='Email Passover', func=self.email_passover, btn=True, ctx='passover', tooltip='Create new email with all rows marked "x" for passover.')
 
         self.context_actions['smr'] = [] # clear from menu
+
+        self.add_usergroup_filter()
 
     class View(EventLogBase.View):
         def __init__(self, parent):
@@ -1237,6 +1307,8 @@ class WorkOrders(EventLogBase):
             tooltip='Create new WO Request email in outlook.')
         self.add_action(name='Email WO Close', func=self.email_wo_close, btn=True, ctx='wo',
             tooltip='Create new WO Close email in outlook.')
+
+        self.add_usergroup_filter()
 
 
     class View(EventLogBase.View):
