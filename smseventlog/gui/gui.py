@@ -167,6 +167,7 @@ class MainWindow(QMainWindow):
         dlg = dlgs.ChangeMinesite(parent=self)
         return dlg.exec_()
         
+    @er.errlog('Close event failed.')
     def closeEvent(self, event):
         s = self.settings
         s.setValue('window size', self.size())
@@ -174,6 +175,8 @@ class MainWindow(QMainWindow):
         s.setValue('screen', self.screen().geometry().center())
         s.setValue('minesite', self.minesite)
         s.setValue('active table', self.active_table_widget().title)
+
+        self.active_table_widget().save_persistent_filter_settings()
 
         # update on closeEvent if update available... maybe not yet
         # if self.updater.update_available:
