@@ -69,10 +69,11 @@ class Downloader(object):
         log.info(msg)
 
 class Gtk(Downloader):
+    """NOTE not finished!!"""
     def __init__(self, **kw):
         super().__init__(**kw)
-        url = 'https://chromedriver.storage.googleapis.com/86.0.4240.22/chromedriver_mac64.zip'
-        p_root = self.p_ext / 'chromedriver'
+        url_github = 'https://api.github.com/repos/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/latest'
+        p_root = self.p_ext / 'gtk'
 
         f.set_self(vars())
     
@@ -84,10 +85,29 @@ class Gtk(Downloader):
         self.download_file(url=self.url, p_dst=self.p_root)
     
     def get_latest_url(self):
-        # need to check current version of chrome
-        chrome_ver = self.get_current_chrome_ver()
+        """Check github api for latest release of kaleido and return download url
+        (Kaleido needed to render Plotly charts)"""
+        m_platform = dict(
+            mac=dict(
+                ver_find='mac',
+                fallback='https://github.com/plotly/Kaleido/releases/download/v0.0.3.post1/kaleido_mac.zip'),
+            win=dict(
+                ver_find='win_x64',
+                fallback='https://github.com/plotly/Kaleido/releases/download/v0.0.3.post1/kaleido_win_x64.zip'))
+        info = m_platform.get(f.platform)
 
-        return
+        try:
+            result = requests.get(self.url_github)
+            m = json.loads(result.content)       
+
+            # returns ~10 assets, filter to the one we want
+            key = 'browser_download_url'
+            lst = list(filter(lambda x: info['ver_find'] in x[key] and 'zip' in x[key], m['assets']))
+            return lst[0][key]
+        except:
+            # fallback
+            log.warning('Couldn\'t download latest release from Kaleido.')
+            return info['fallback']
 
 
 class Kaleido(Downloader):
