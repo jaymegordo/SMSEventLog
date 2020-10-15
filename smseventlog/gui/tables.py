@@ -2005,14 +2005,20 @@ class Availability(TableWidget):
         dlgs.msg_simple(msg='Records updated.')
        
     def assign_suncor(self):
-        # func ctrl+shift+Z to auto assign suncor
-        # TODO loop selected rows and bulk update
+        """Auto assign all vals in selected range to suncor
+        - Ctrl+Shift+Z"""
+
         view = self.view
         model = view.model()
+        model.lock_queue()
 
-        index = view.create_index_activerow(col_name='Suncor')
-        duration = model.df.iloc[index.row(), model.get_col_idx('Total')]
-        model.setData(index=index, val=duration, queue=True)
+        for sel_idx in view.selectedIndexes():
+            index = sel_idx.siblingAtColumn(model.get_col_idx('Suncor'))
+
+            duration = model.df.iloc[index.row(), model.get_col_idx('Total')]
+            model.setData(index=index, val=duration, queue=True)
+        
+        model.flush_queue(unlock=True)
     
     def filter_unit_eventlog(self):
         # filter eventlog to currently selected unit and jump to table
