@@ -895,6 +895,8 @@ class TableWidget(QWidget):
         self.update_statusbar(msg=msg)
 
     def save_persistent_filter_settings(self):
+        """Save UserGroup filter settings 
+        - NOTE this will need to be restructured if we add more filters"""
         if not self.persistent_filters: return
         s = self.mainwindow.settings
 
@@ -904,9 +906,10 @@ class TableWidget(QWidget):
                 val = obj.val
 
                 if not val is None:
-                    s.setValue(f'{self.name}_{obj.objectName()}', val)
+                    s.setValue(f'tbl_{self.name}_{obj.objectName()}', val)
     
     def restore_persistent_filter_settings(self):
+        """Restore UserGroup filter settings"""
         if not self.persistent_filters: return
         s = self.mainwindow.settings
 
@@ -915,7 +918,7 @@ class TableWidget(QWidget):
             for obj in items:
                 name, val = obj.objectName(), None
 
-                val = s.value(f'{self.name}_{name}')
+                val = s.value(f'tbl_{self.name}_{name}')
                 if not val is None:
                     obj.val = val
 
@@ -1182,6 +1185,8 @@ class EventLogBase(TableWidget):
                 box.select_all()
             else:
                 box.setEnabled(False)
+            
+            self.save_persistent_filter_settings()
         
         items = db.domain_map.keys()
         text = 'User Group'
@@ -1190,6 +1195,7 @@ class EventLogBase(TableWidget):
         cb.box = box
         cb.stateChanged.connect(_toggle)
         label = QLabel('User Group:')
+        label.setToolTip('This is a global filter to limit all records returned to only users in selected User Group.')
 
         boxLayout = QHBoxLayout()
         boxLayout.setAlignment(Qt.AlignRight)

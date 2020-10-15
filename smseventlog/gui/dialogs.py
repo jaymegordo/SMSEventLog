@@ -208,7 +208,7 @@ class InputForm(BaseDialog):
                 val = obj.val
 
                 if not val is None:
-                    self.settings.setValue(f'{self.name}_{obj.objectName()}', val)
+                    self.settings.setValue(f'dlg_{self.name}_{obj.objectName()}', val)
 
     def _restore_settings(self):
         """Set saved value back to ui control"""
@@ -219,7 +219,7 @@ class InputForm(BaseDialog):
                 not name in self._names_to_avoid and
                 not len(name) == 0):
                 
-                val = self.settings.value(f'{self.name}_{name}')
+                val = self.settings.value(f'dlg_{self.name}_{name}')
                 if not val is None:
                     obj.val = val
 
