@@ -510,14 +510,37 @@ class TableView(QTableView):
         self.update_statusbar(f'Cell data copied - {msg}')
 
     def fill_down(self):
+        """Fill values from previous cell, or copy first value to all items in selection"""
         index = self.create_index_activerow()
         if index.row() == 0: return # cant fill down at first row
 
         model = self.model()
-        index_copy = index.siblingAtRow(index.row() - 1)
+        indexes = self.selectedIndexes() # list of selected index items
 
-        val = index_copy.data(role=model.RawDataRole)
-        model.setData(index=index, val=val)
+        if len(indexes) == 1:
+            # single item selected, copy from above
+            index_copy = index.siblingAtRow(index.row() - 1)
+
+            val = index_copy.data(role=model.RawDataRole)
+            model.setData(index=index, val=val)
+        else:
+            # more than one cell selected
+            # bin indexes into columns
+            m_cols = dd(list)
+            for idx in indexes:
+                m_cols[idx.column()].append(idx)
+            
+            model.lock_queue()
+            
+            for col_list in m_cols.values():
+                # get value from first index in selection
+                val = col_list[0].data(role=model.RawDataRole)
+
+                for update_idx in col_list[1:]:
+                    # update everything other than the first
+                    model.setData(index=update_idx, val=val, queue=True)
+            
+            model.flush_queue(unlock=True)
 
     def _icon(self, icon_name):
         # Convinence function to get standard icons from Qt
@@ -706,7 +729,7 @@ class TableWidget(QWidget):
         dlg = dlgs.ComponentCO(parent=self)
         dlg.exec_()
             
-    def show_refresh(self):
+    def show_refresh(self, *args, **kw):
         dlg = self.refresh_dialog(parent=self)
         dlg._restore_settings()
         dlg.exec_()
@@ -1634,8 +1657,7 @@ class UnitInfo(TableWidget):
             'Warranty Remaining': 40,
             'GE Warranty': 40})
         view.formats.update({
-            'Current SMR': '{:,.0f}',
-            'Engine Serial': '{:.0f}'})
+            'Current SMR': '{:,.0f}'})
 
         self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add')
     
@@ -1928,7 +1950,7 @@ class Availability(TableWidget):
                 .apply(st.highlight_alternating, subset=['Unit'], theme=theme, color='navyblue')
 
         def update_duration(self, index, **kw):
-            # Set SMS/Suncor duration if other changes
+            """Set SMS/Suncor duration if other changes"""
             model = index.model()
             col_name = model.headerData(i=index.column())
 
@@ -1943,7 +1965,7 @@ class Availability(TableWidget):
             update_index = index.siblingAtColumn(update_col)
             update_val = duration - val
             model.setData(index=update_index, val=update_val, triggers=False, queue=True)
-            model.flush_queue()
+            model.flush_queue() # this wont be triggered if queue locked > good
         
         def highlight_ahs_duplicates(self, df, val, row, col, role, **kw):
             # if row startdate is between prior row's star/end date, highlight red
