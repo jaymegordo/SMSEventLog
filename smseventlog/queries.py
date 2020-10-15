@@ -298,7 +298,7 @@ class EventLogBase(QueryBase):
     
     def set_base_filter(self, **kw):
         self.set_minesite()
-        self.set_usergroup(**kw)  
+        self.set_usergroup(**kw)
 
     def set_default_filter(self, **kw):
         self.set_base_filter(**kw)

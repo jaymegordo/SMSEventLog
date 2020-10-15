@@ -18,7 +18,7 @@ obj_vals = {
 
 class FormFields(object):
     # simplify getting/setting all form field values
-    def __init__(self, *args, **kw):
+    def __init__(self, name=None, *args, **kw):
         super().__init__(*args, **kw)
 
         # loop base classes till find a match in obj_vals
@@ -30,6 +30,9 @@ class FormFields(object):
 
         getter, setter = type_[0], type_[1] # currentText, setCurrentText
         f.set_self(vars())
+
+        if not name is None:
+            self.set_name(name=name)
 
     @property
     def val(self):

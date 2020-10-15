@@ -144,12 +144,12 @@ class RefreshTable(InputForm):
         btn = QPushButton(name, self)
         btn.setMaximumWidth(60)
         layout.insertWidget(0, btn)
-        btn.clicked.connect(self.add_items_to_filter)
+        btn.clicked.connect(self._add_items_to_filter)
         btn.clicked.connect(super().accept)
         btn.clicked.connect(func)
     
     def accept(self):
-        self.add_items_to_filter()
+        self._add_items_to_filter()
         self.parent.refresh()
         return super().accept()
     
