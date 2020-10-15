@@ -176,8 +176,6 @@ class MainWindow(QMainWindow):
         s.setValue('minesite', self.minesite)
         s.setValue('active table', self.active_table_widget().title)
 
-        self.active_table_widget().save_persistent_filter_settings()
-
         # update on closeEvent if update available... maybe not yet
         # if self.updater.update_available:
         #     self._install_update(updater=self.updater, ask_user=False)
