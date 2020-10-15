@@ -1265,15 +1265,15 @@ class EventLog(EventLogBase):
         df.Description = df.Description.apply(self.remove_old_dates)
         
         minesite = self.minesite
-        company = 'SMS' if not 'cwc' in minesite.lower() else 'Cummins'
+        usergroup = self.u.usergroup
         d = dt.now().date().strftime('%Y-%m-%d')
         shift = 'DS' if 8 <= dt.now().hour <= 20 else 'NS'
         shift = f'{d} ({shift})'
 
-        subject = f'{company} Passover {minesite} - {shift}'
+        subject = f'{usergroup} Passover {minesite} - {shift}'
         body = f'{f.greeting()}Please see updates from {shift}:<br>'
 
-        email_list = qr.EmailListShort(col_name='Passover', minesite=minesite, usergroup=self.u.usergroup).emails
+        email_list = qr.EmailListShort(col_name='Passover', minesite=minesite, usergroup=usergroup).emails
 
         self.email_table(subject=subject, body=body, email_list=email_list, df=df, prompts=False)
     
