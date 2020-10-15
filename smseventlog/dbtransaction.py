@@ -12,8 +12,8 @@ log = getlog(__name__)
 
 class DBTransaction():
     def __init__(self, table_model=None, dbtable=None, title=None):
-        # bulk update values from table_model to database
-        # need dbtable, df or list of dicts containing appropriate pks and vals to update
+        """Bulk update values from table_model to database
+        - need dbtable, df or list of dicts containing appropriate pks and vals to update"""
         
         update_items = []
 
@@ -31,7 +31,7 @@ class DBTransaction():
         f.set_self(vars())
 
     def add_df(self, df, update_cols=None):
-
+        """Add full or sliced df to update queue"""
         if not update_cols is None:
             if not isinstance(update_cols, list): update_cols = [update_cols]
             self.all_cols.extend(update_cols)
@@ -51,8 +51,8 @@ class DBTransaction():
         return self
 
     def add_row(self, irow):
-        # add single row by index number from table
-        # NOTE probably need to work with values passed in manually, maybe won't use this, df is pretty gr8
+        """Add single row by index number from table
+        - NOTE probably need to work with values passed in manually, maybe won't use this, df is pretty gr8"""
         df = self.df
 
         # convert all col_ixs to db_field names and attach values to update
@@ -72,6 +72,10 @@ class DBTransaction():
         s.commit()
         print(f'bulk {operation_type}: {len(self.update_items)}')
 
+        return self
+    
+    def print_items(self):
+        print(self.update_items)
         return self
 
 class Row():
