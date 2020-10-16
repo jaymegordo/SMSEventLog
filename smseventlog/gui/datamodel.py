@@ -43,6 +43,7 @@ class TableModel(QAbstractTableModel):
         selection_color = QColor(f.config['color']['bg']['yellowrow'])
         display_color = True
         self.set_queue()
+        _queue_locked = False
         self.alignments = {}
 
         color_enabled = False
@@ -66,10 +67,6 @@ class TableModel(QAbstractTableModel):
 
         return model
     
-    def set_queue(self):
-        # queue to hold updates before flushing to db in bulk
-        self.queue = dd(dict)
-
     def set_df(self, df, center_cols=None):
         # Set or change pd DataFrame to show
         _df_orig = df.copy()
@@ -81,6 +78,7 @@ class TableModel(QAbstractTableModel):
 
         mcols['center'] = self.get_col_idxs(center_cols)
         mcols['disabled'] = self.get_col_idxs(parent.mcols['disabled'])
+        mcols['fill_enabled'] = self.get_col_idxs(parent.mcols['fill_enabled'])
         mcols['datetime'] = self.get_col_idxs(parent.mcols['datetime'])
 
         # date cols have to exclude datetime cols
@@ -342,8 +340,8 @@ class TableModel(QAbstractTableModel):
             try:
                 val = m_conv[dtype](val)
             except:
+                # set numeric cols to None if given blank string
                 if isinstance(val, str) and val.strip() == '':
-                    # set numeric cols to None if given blank string
                     val = None
                 else:
                     msg = f'Error: incorrect data type "{type(val)}" for "{val}"'
@@ -380,13 +378,15 @@ class TableModel(QAbstractTableModel):
             if col in self.parent.mcols['dynamic']:
                 self.set_stylemap(col=col)
 
-            # either add items to the queue, or update single val
-            if queue:
-                self.add_queue(vals={col: val}, irow=irow)
-            elif update_db:
-                self.update_db(index=index, val=val)               
+            # never try to update read-only column in db
+            if not icol in self.mcols['disabled']:
+                # either add items to the queue, or update single val
+                if queue:
+                    self.add_queue(vals={col: val}, irow=irow)
+                elif update_db:
+                    self.update_db(index=index, val=val)               
 
-            self.dataChanged.emit(index, index)
+                self.dataChanged.emit(index, index)
 
         # trigger column update funcs, stop other funcs from updating in a loop
         if triggers:
@@ -486,6 +486,7 @@ class TableModel(QAbstractTableModel):
         return self._cols[icol]
 
     def get_col_idx(self, col):
+        """Return int index from col name"""
         try:
             return self._cols.index(col) # cant use df.columns, they may be changed
         except:
@@ -512,11 +513,21 @@ class TableModel(QAbstractTableModel):
         row = dbt.Row(table_model=self, dbtable=dbtable, i=index.row())
         row.update_single(header=header, val=val, check_exists=check_exists)
     
-    def add_queue(self, vals, irow=None):
-        # vals is dict of view_col: val
-        # add either single val or entire row
-        # TODO just using default dbtable for now
-        # could have multiple dbtables per row... have to check headers for each? bulk update once per table??
+    def set_queue(self):
+        """Reset queue to hold updates before flushing to db in bulk"""
+        self.queue = dd(dict)
+
+    def add_queue(self, vals: dict, irow: int=None):
+        """Add values to update queue, single value or entire row
+
+        Parameters
+        ---
+        vals : dict
+            {view_col: val}\n
+        irow : int, default None
+            Add entire row to queue
+        - NOTE just using default dbtable for now
+        - Could have multiple dbtables per row... have to check headers for each? bulk update once per table??"""
 
         # if keys aren't in update_vals, need to use irow to get from current df row
         check_key_vals = self.df.iloc[irow].to_dict() if not irow is None else vals
@@ -524,13 +535,24 @@ class TableModel(QAbstractTableModel):
         key_tuple, key_dict = dbt.get_dbtable_key_vals(dbtable=self.dbtable_default, vals=check_key_vals)
         self.queue[key_tuple].update(**key_dict, **vals) # update all vals - existing key, or create new key
     
-    def flush_queue(self):
-        # bulk uptate all items in queue, could be single row or vals from multiple rows
-        # TODO trigger the update with signal?
+    def lock_queue(self):
+        """Lock queue to prevent any triggers from flushing queue"""
+        self._queue_locked = True
+    
+    def flush_queue(self, unlock=False):
+        """Bulk uptate all items in queue
+        - Allow locking to prevent other col triggers from flushing before ready
+        - Could be single row or vals from multiple rows"""
+        if unlock:
+            self._queue_locked = False
+
+        if self._queue_locked:
+            return
         
         txn = dbt.DBTransaction(table_model=self) \
             .add_items(update_items=list(self.queue.values())) \
-            .update_all()
+            .update_all() \
+            # .print_items()
     
         self.set_queue()
 
