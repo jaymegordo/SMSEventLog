@@ -79,6 +79,7 @@ class User():
 
             db.session.commit()
         except:
+            db.rollback()
             er.log_error(msg='User failed to login.', log=log)
         finally:
             return self

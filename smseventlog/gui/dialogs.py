@@ -223,9 +223,9 @@ class InputForm(BaseDialog):
                 if not val is None:
                     obj.val = val
 
-    def update_statusbar(self, msg):
+    def update_statusbar(self, msg, *args, **kw):
         if not self.mainwindow is None:
-            self.mainwindow.update_statusbar(msg=msg)
+            self.mainwindow.update_statusbar(msg=msg, *args, **kw)
 
 class AddRow(InputForm):
     def __init__(self, parent=None, window_title='Add Item'):
@@ -607,7 +607,7 @@ class AddUnit(AddRow):
         super().accept()
         # self.set_row_attrs(row=self.row)
         # dbt.print_model(self.row)
-        self.update_statusbar(f'New unit added to database: {model}, {unit}')
+        self.update_statusbar(f'New unit added to database: {model}, {unit}', success=True)
 
 class CreateModelbase(AddRow):
     def __init__(self, model, parent=None):
@@ -881,7 +881,7 @@ class FailureReport(QDialog):
         if p_start is None:
             p_start = Path.home() / 'Desktop'
         elif not p_start.exists():
-            self.update_statusbar(f'Couldn\'t find event images path: {p_start}')
+            self.update_statusbar(f'Couldn\'t find event images path: {p_start}', warn=True)
         
         dlg = QFileDialogPreview(directory=str(p_start), options=QFileDialog.DontUseNativeDialog, standalone=False)
         vLayout.addWidget(dlg)
@@ -896,9 +896,9 @@ class FailureReport(QDialog):
 
         # TODO OilSamples, Faults, PLM?
     
-    def update_statusbar(self, msg):
+    def update_statusbar(self, msg, *args, **kw):
         if not self.parent is None:
-            self.parent.mainwindow.update_statusbar(msg=msg)
+            self.parent.mainwindow.update_statusbar(msg=msg, *args, **kw)
     
     def add_textbox(self, names):
         def _add_textbox(name):

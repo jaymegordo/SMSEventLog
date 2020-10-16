@@ -56,8 +56,8 @@ class Downloader(object):
 
         return p   
 
-    def update_statusbar(self, msg):
-        self.set_status(msg=msg)
+    def update_statusbar(self, msg, *args, **kw):
+        self.set_status(msg=msg, *args, **kw)
 
         if not self.mw is None:
             self.mw.update_statusbar(msg)
@@ -146,7 +146,7 @@ class Kaleido(Downloader):
         if not result is None:
             self.update_statusbar('Successfully downloaded and unpacked Kaleido')
         else:
-            self.update_statusbar('Failed to downlaod Kaleido!')
+            self.update_statusbar('Warning: Failed to downlaod Kaleido!')
 
     def download_and_unpack(self):
         url = self.get_latest_url()

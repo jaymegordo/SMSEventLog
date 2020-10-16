@@ -3,9 +3,9 @@ from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QEvent, QFile,
                           QItemSelection, QItemSelectionModel, QModelIndex,
                           QObject, QPoint, QSettings, QSize, Qt, QTextStream,
                           QThreadPool, QTimer, QVariant, pyqtSignal, pyqtSlot)
-from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetrics, QIcon,
-                         QIntValidator, QKeyEvent, QKeySequence, QPixmap,
-                         QTextCursor, QGuiApplication)
+from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetrics, QGuiApplication,
+                         QIcon, QIntValidator, QKeyEvent, QKeySequence,
+                         QPalette, QPixmap, QTextCursor)
 from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction,
                              QApplication, QCheckBox, QComboBox, QDateEdit,
                              QDateTimeEdit, QDesktopWidget, QDialog,

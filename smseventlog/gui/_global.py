@@ -36,7 +36,7 @@ def get_settings():
     else:
         return QSettings('sms', 'smseventlog')
 
-def update_statusbar(msg):
+def update_statusbar(msg, *args, **kw):
     mw = get_mainwindow()
     if not mw is None:
-        mw.update_statusbar(msg)
+        mw.update_statusbar(msg, *args, **kw)

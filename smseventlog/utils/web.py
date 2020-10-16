@@ -92,9 +92,9 @@ class Web(object):
         
         return wrapper
 
-    def update_statusbar(self, msg):
+    def update_statusbar(self, msg, *args, **kw):
         if not self.mw is None:
-            self.mw.update_statusbar(msg)
+            self.mw.update_statusbar(msg, *args, **kw)
         else:
             log.warning(f'self.mainwindow is none, msg: {msg}')
 
@@ -202,7 +202,7 @@ class Web(object):
             # user closed the window
             self.suppress_errors = True
             self._driver.quit()
-            self.update_statusbar('User closed browser window, stopping execution.')
+            self.update_statusbar('User closed browser window, stopping execution.', warn=True)
         except Exception as e:
             # add extra info to selenium's error message
             msg = f'\n\nFailed waiting for web element: {cond.locator}'
@@ -572,7 +572,7 @@ class TSIWebPage(Web):
         element = self.wait(30, EC.element_to_be_clickable((By.ID, 'SendForApproval')))
         element.click()
 
-        self.update_statusbar(f'TSI Submitted: {self.tsi_number}')
+        self.update_statusbar(f'TSI Submitted: {self.tsi_number}', success=True)
 
 def attach_to_session(executor_url, session_id):
     original_execute = WebDriver.execute

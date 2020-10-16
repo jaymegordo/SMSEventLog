@@ -929,6 +929,9 @@ class AvailBase(QueryBase):
         a, b = pk.Tables('Downtime', 'UnitID')
         q = Query.from_(a) \
             .inner_join(b).on_field('Unit')
+
+        self.default_dtypes.update(
+            **f.dtypes_dict('float64', ['Total', 'SMS', 'Suncor']))
         
         f.set_self(vars())
 

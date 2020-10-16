@@ -137,7 +137,7 @@ if upx:
 
 icon = str(f.resources / f'images/{icon_name}')
 
-run_pyupdater = False
+run_pyupdater = True
 if run_pyupdater:
     print('**** PYUPDATER ****')
     name = name_pyu # running from pyupdater

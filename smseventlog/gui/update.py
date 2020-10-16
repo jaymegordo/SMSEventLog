@@ -38,11 +38,11 @@ class Updater(object):
 
         f.set_self(vars())
 
-    def update_statusbar(self, msg):
+    def update_statusbar(self, msg, *args, **kw):
         self.set_status(msg=msg)
 
         if not self.mw is None:
-            self.mw.update_statusbar(msg)
+            self.mw.update_statusbar(msg, *args, **kw)
         else:
             print(msg)
     
@@ -97,7 +97,7 @@ class Updater(object):
         self.update_statusbar(msg='Download finished.')
     
     def print_failed(self, *args, **kw):
-        self.update_statusbar(msg=f'Update failed at: {self.status}')
+        self.update_statusbar(msg=f'Update failed at: {self.status}', warn=True)
     
     def print_status_info(self, info):
         total = info.get('total')

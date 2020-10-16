@@ -312,7 +312,7 @@ Headers:
         SMS: SMS
         Suncor: Suncor
         Category Assigned: CategoryAssigned
-        DownReason: Reason
+        DownReason: DownReason
         Comment: Comment
         Assigned: Assigned
     

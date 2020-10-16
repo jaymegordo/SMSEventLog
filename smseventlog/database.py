@@ -16,6 +16,19 @@ global db
 log = getlog(__name__)
 # DATABASE
 
+# import time
+
+# retry_flag = True
+# retry_count = 0
+# while retry_flag and retry_count < 5:
+#   try:
+#     cursor.execute(query, [args['type'], args['id']])
+#     retry_flag = False
+#   except:
+#     print "Retry after 1 sec"
+#     retry_count = retry_count + 1
+#     time.sleep(1)
+
 def wrap_single_class_func(cls, func_name, err_func):
     func = getattr(cls, func_name)
     setattr(cls, func_name, err_func(func))
