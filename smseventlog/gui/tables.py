@@ -519,6 +519,15 @@ class TableView(QTableView):
 
         if len(indexes) == 1:
             # single item selected, copy from above
+
+            # warn user read-only column
+            icol = index.column()
+            if not icol in model.mcols['fill_enabled']:
+                col = model.headerData(icol)
+                msg = f'Warning: values in non fill-enabled column [{col}] not updated.'
+                self.update_statusbar(msg)
+                return
+
             index_copy = index.siblingAtRow(index.row() - 1)
 
             val = index_copy.data(role=model.RawDataRole)
@@ -529,18 +538,38 @@ class TableView(QTableView):
             m_cols = dd(list)
             for idx in indexes:
                 m_cols[idx.column()].append(idx)
+
+            # warn user before overwriting too many values
+            if len(indexes) > 6:
+                num_cols = len(m_cols.keys())
+                num_vals = len(indexes) - num_cols
+                
+                msg = f'WARNING: You are about to overwrite [{num_vals}] values in [{num_cols}] column(s). Are you SURE you would like to proceed?'
+                if not dlgs.msgbox(msg=msg, yesno=True):
+                    return
             
+            # model has disabled cols as ints, view as header strings
+            m_disabled = {icol: model.headerData(icol) for icol in m_cols if not icol in model.mcols['fill_enabled']}
+
+            # remove any locked cols from update and warn statusbar msg
+            m_cols = {icol: lst for icol, lst in m_cols.items() if not icol in m_disabled}
+
+            if m_disabled:
+                msg = f'Warning: Values in non fill-enabled column(s) [{", ".join(m_disabled.values())}] not updated.'
+                self.update_statusbar(msg)
+
+            # Do the update            
             model.lock_queue()
-            
             for col_list in m_cols.values():
                 # get value from first index in selection
                 val = col_list[0].data(role=model.RawDataRole)
 
+                # update everything other than the first
                 for update_idx in col_list[1:]:
-                    # update everything other than the first
                     model.setData(index=update_idx, val=val, queue=True)
             
             model.flush_queue(unlock=True)
+
 
     def _icon(self, icon_name):
         # Convinence function to get standard icons from Qt
@@ -579,9 +608,9 @@ class TableView(QTableView):
         if i is None: i = self.active_row_index()
         self.model().removeRows(i=i)
 
-    def update_statusbar(self, msg):
+    def update_statusbar(self, msg, *args, **kw):
         if not self.mainwindow is None:
-            self.mainwindow.update_statusbar(msg=msg)
+            self.mainwindow.update_statusbar(msg=msg, *args, **kw)
 
     def filter_column(self, col_name, val):
         # toggle specific filter on column
@@ -783,7 +812,6 @@ class TableWidget(QWidget):
 
         if not df is None and not len(df) == 0:
             self.view.display_data(df=df)
-            # self.update_statusbar(f'Rows loaded: {df.shape[0]}')
         else:
             dlgs.msg_simple(msg='No rows returned in query!', icon='warning')
         
@@ -891,16 +919,16 @@ class TableWidget(QWidget):
             if dlgs.msgbox(msg=msg, yesno=True):
                 fl.open_folder(p=p, check_drive=False)
         else:
-            msg = f'ERROR: File not created: {p_try}'
+            msg = f'Error: File not created: {p_try}'
             self.update_statusbar(msg)
 
     def remove_row(self):
         """Default, just remove from table view (doesn't do anything really)"""
         self.view.remove_row()
 
-    def update_statusbar(self, msg):
+    def update_statusbar(self, msg, *args, **kw):
         if not self.mainwindow is None:
-            self.mainwindow.update_statusbar(msg=msg)
+            self.mainwindow.update_statusbar(msg=msg, *args, **kw)
 
     def check_cummins(self):
         if not self.u.is_cummins:
@@ -971,6 +999,7 @@ class EventLogBase(TableWidget):
             self.mcols['hide'] = ('UID',)
             self.mcols['longtext'] = ('Description', 'Failure Cause', 'Comments', 'Details', 'Notes')
             self.mcols['disabled'] = ('Model', 'Serial')
+            self.mcols['fill_enabled'] = ('Passover', 'Status', 'Removal Reason')
             self.highlight_vals.update({
                 'closed': 'goodgreen',
                 'open': 'bad',
@@ -1057,7 +1086,7 @@ class EventLogBase(TableWidget):
         try:
             minesite = db.get_unit_val(e.Unit, 'MineSite')
         except KeyError:
-            self.update_statusbar(f'Could not get minesite for unit: "{e.Unit}". Does it exist in the database?')
+            self.update_statusbar(f'Warning: Could not get minesite for unit: "{e.Unit}". Does it exist in the database?')
             return
 
         # Fix ugly titles if needed
@@ -1090,7 +1119,7 @@ class EventLogBase(TableWidget):
                     e_fc.DateCompleteSMS = None
                     db.session.commit()
                 else:
-                    self.update_statusbar('WARNING: Can\'t delete event with linked FC.')
+                    self.update_statusbar('Warning: Can\'t delete event with linked FC.')
                     return
 
             if row.update(delete=True):
@@ -1106,7 +1135,7 @@ class EventLogBase(TableWidget):
                             if ef.remove_folder():
                                 self.update_statusbar('Event folder successfully removed.')
             else:
-                self.update_statusbar('ERROR: Event not deleted from database.')
+                self.update_statusbar('Error: Event not deleted from database.')
     
     def get_wo_from_email(self):
         # find WO for selected row in email inbox, write back to table
@@ -1138,6 +1167,7 @@ class EventLogBase(TableWidget):
             # NOTE not DRY, could put this into a func
             view = self.view
             msg = f'WO number found in outlook: {wo}'
+            self.update_statusbar(msg=msg, success=True)
             irow = view.get_irow_uid(uid=uid)
 
             if not irow is None:
@@ -1148,8 +1178,7 @@ class EventLogBase(TableWidget):
                     .update(vals=dict(WorkOrder=wo))
         else:
             msg = f'No WO found in outlook for selected event.'
-
-        self.update_statusbar(msg=msg)
+            self.update_statusbar(msg=msg, warn=True)
 
     def update_smr(self):
         row, e = self.row, self.e_db
@@ -1567,7 +1596,7 @@ class TSI(EventLogBase):
                 dbt.Row(dbtable=self.get_dbtable(), keys=dict(UID=uid)) \
                     .update(vals=dict(TSINumber=tsi_number))
 
-        self.update_statusbar(f'New TSI created. TSI Number: {tsi_number}, Files Uploaded: {num_files}')
+        self.update_statusbar(f'New TSI created. TSI Number: {tsi_number}, Files Uploaded: {num_files}', success=True)
 
     def create_failure_report(self):
         if not self.check_cummins(): return
@@ -1638,7 +1667,7 @@ class TSI(EventLogBase):
             if dlgs.msgbox(msg=msg, yesno=True):
                 lst_attach = dlgs.get_filepaths(p_start=ef._p_event)
             else:
-                self.update_statusbar(f'Couldn\'t find report to attach: {p}')
+                self.update_statusbar(f'Couldn\'t find report to attach: {p}', warn=True)
                 lst_attach = None
 
         self.email_row(
@@ -1743,6 +1772,7 @@ class FCSummary(FCBase):
             super().__init__(parent=parent)
 
             self.mcols['hide'] = ('MineSite',)
+            self.mcols['fill_enabled'] = ('Action Reqd')
             self.col_widths.update({
                 'Subject': 250,
                 'Comments': 600,
@@ -1813,7 +1843,7 @@ class FCSummary(FCBase):
         self.view.remove_row()
 
         msg = f'FC: "{e.FCNumber}" closed for MineSite: "{e.MineSite}"'
-        self.update_statusbar(msg=msg)
+        self.update_statusbar(msg=msg, success=True)
 
 class FCDetails(FCBase):
     def __init__(self, parent=None):
@@ -1830,6 +1860,7 @@ class FCDetails(FCBase):
             self.highlight_funcs['Pics'] = self.highlight_pics
             self.highlight_funcs['Complete'] = self.highlight_by_val
             self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject', 'Pics')
+            self.mcols['fill_enabled'] = ('Date Complete')
             self.mcols['hide'] = ('UID',)
             self.col_widths.update({
                 'Complete': 60,
@@ -1881,7 +1912,7 @@ class EmailList(TableWidget):
                 view.remove_row(i=row.i)
                 self.update_statusbar(f'Email removed from database:\n\n{m_pretty}')
             else:
-                self.update_statusbar('ERROR: Email not deleted from database.')
+                self.update_statusbar('Error: Email not deleted from database.')
     
     def delete_email(self):
         # TODO delete email
@@ -1913,6 +1944,7 @@ class Availability(TableWidget):
             super().__init__(parent=parent)
 
             self.mcols['disabled'] = ('Unit', 'ShiftDate', 'StartDate', 'EndDate')
+            self.mcols['fill_enabled'] = ('Total', 'SMS', 'Suncor',  'Category Assigned', 'DownReason', 'Comments')
             self.mcols['datetime'] = ('StartDate', 'EndDate')
             self.mcols['dynamic'] = ('Total', 'SMS', 'Suncor')
             self.mcols['sort_filter'] = ('Unit',)
@@ -2098,6 +2130,7 @@ class Availability(TableWidget):
         fl.open_folder(rep.p_rep)
 
         msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
+        self.update_statusbar(msg, success=True)
         if dlgs.msgbox(msg=msg, yesno=True):
             self.email_report(period_type=dlg.period_type, p_rep=rep.p_rep, name=dlg.name)
             
