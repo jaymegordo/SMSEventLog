@@ -55,6 +55,9 @@ class RefreshTable(InputForm):
             table = T('UnitID')
             lst = db.get_list_minesite()
             add_input(field=IPF(text='MineSite', default=ms, table=table), items=lst, checkbox=True)
+
+        elif name == 'work order':
+            add_input(field=IPF(text=title), checkbox=True, cb_enabled=False)
             
         elif name == 'unit':
             df = db.get_df_unit()
@@ -166,7 +169,7 @@ class EventLogBase(RefreshTable):
         super().__init__(parent=parent)
         self.col_db_startdate, self.col_db_enddate = 'DateAdded', 'DateCompleted'
 
-        features = ['last month', 'last week', 'all open', 'minesite', 'unit', 'model', 'title', 'start date', 'end date']
+        features = ['last month', 'last week', 'all open', 'minesite', 'unit', 'model', 'title', 'work order', 'start date', 'end date']
         self.add_features(features=features)
         self.insert_linesep(i=3, layout_type='vbox')
 
