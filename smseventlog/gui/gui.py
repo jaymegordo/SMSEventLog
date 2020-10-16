@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
         self.update_minesite_label()
 
         self.threadpool = QThreadPool(self)
+        log.debug('Mainwindow init finished.')
     
     @property
     def minesite(self):
@@ -75,13 +76,35 @@ class MainWindow(QMainWindow):
         self.rows_label.setText(f'Rows: {num_rows}')
     
     def warn_not_implemented(self):
-        self.update_statusbar('WARNING: This feature not yet implemented.')
+        self.update_statusbar('Warning: This feature not yet implemented.')
     
-    def update_statusbar(self, msg=None, *args):
+    def update_statusbar(self, msg=None, warn=False, success=False, *args):
         """Statusbar shows temporary messages that disappear on any context event"""
         if not msg is None:
-            prev_status = self.statusBar().currentMessage()
-            self.statusBar().showMessage(msg)
+
+            # allow warn or success status to be passed with msg as dict
+            if isinstance(msg, dict):
+                msg = msg.get('msg', None)
+                warn = msg.get('warn', False)
+                warn = msg.get('success', False)
+
+            bar = self.statusBar()
+            prev_status = bar.currentMessage()
+            bar.showMessage(msg)
+
+            msg_lower = msg.lower()
+            if warn or 'warn' in msg_lower or 'error' in msg_lower:
+                color = '#ff5454' # '#fa7070'
+            elif success or 'success' in msg_lower:
+                color = '#70ff94'
+            else:
+                color = 'white'
+
+            palette = bar.palette()
+            color = QColor(color)
+            palette.setColor(QPalette.Foreground, color)
+            bar.setPalette(palette)
+
             self.app.processEvents()
     
     def revert_status(self):
@@ -106,6 +129,7 @@ class MainWindow(QMainWindow):
 
         self.check_update()
         self.start_update_timer()
+        log.debug('Finished after_init')
     
     def start_update_timer(self, mins=180):
         # check for updates every 3 hrs
@@ -420,7 +444,7 @@ class MainWindow(QMainWindow):
         if row is None: return
 
         row.update(vals=dict(StatusTSI='Open', TSIAuthor=self.username))
-        self.update_statusbar(msg=f'TSI opened for: {e.Unit} - {e.Title}')
+        self.update_statusbar(msg=f'TSI opened for: {e.Unit} - {e.Title}', success=True)
     
     def create_fleet_monthly_report(self, d : dt = None):
         """Create Fleet Monthly Report in worker thread (FH only).\n
@@ -505,9 +529,9 @@ class MainWindow(QMainWindow):
     
     def handle_import_result_manual(self, rowsadded=None):
         if not rowsadded is None:
-            msg = f'PLM records added to database: {rowsadded}'
+            msg = dict(msg=f'PLM records added to database: {rowsadded}', success=True)
         else:
-            msg = 'Failed to import PLM records.'
+            msg = 'Warning: Failed to import PLM records.'
 
         self.update_statusbar(msg)
     
