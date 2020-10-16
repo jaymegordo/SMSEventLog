@@ -48,6 +48,7 @@ def recurse_dsc(p_search : Path, d_lower=dt(2020,1,1), depth=0, maxdepth=5) -> l
     
     return lst
 
+@er.errlog(msg='Couldn\'t find recent dls folder.', err=False)
 def get_recent_dls_unit(unit : str) -> Path:
     """Get most recent dls folder for single unit
 
@@ -64,26 +65,25 @@ def get_recent_dls_unit(unit : str) -> Path:
 
     p_unit = efl.UnitFolder(unit=unit).p_unit
     p_dls = p_unit / 'Downloads'
+    if not p_dls.exists():
+        log.warning(f'Download folder doesn\'t exist: {p_dls}')
+        return
 
     # get all downloads/year folders
     lst_year = [p for p in p_dls.iterdir() if p.is_dir() and is_year(p.name)]
 
     if not lst_year:
-        msg_simple(msg='No download folders found.', icon='warning')
+        log.warning('No download year folders found.')
         return
 
     # sort year folders by name, newest first, select first
     lst_year_sorted = sorted(lst_year, key=lambda p: p.name, reverse=True) # sort by year
     p_year = lst_year_sorted[0]
 
-    try:
-        # sort all dls folders on date from folder title
-        lst_dls = [p for p in p_year.iterdir() if p.is_dir()]
-        lst_dls_sorted = sorted(filter(lambda p: date_from_title(p.name) is not None, lst_dls), key=lambda p: date_from_title(p.name), reverse=True)
-        return lst_dls_sorted[0]
-    except:
-        er.log_error(log=log, msg='Couldn\'t find recent dls folder.')
-        return None
+    # sort all dls folders on date from folder title
+    lst_dls = [p for p in p_year.iterdir() if p.is_dir()]
+    lst_dls_sorted = sorted(filter(lambda p: date_from_title(p.name) is not None, lst_dls), key=lambda p: date_from_title(p.name), reverse=True)
+    return lst_dls_sorted[0]
 
 def zip_recent_dls_unit(unit :str, _zip=True) -> Path:
     """Func for gui to find (optional zip) most recent dls folder by parsing date in folder title"""
@@ -96,7 +96,7 @@ def zip_recent_dls_unit(unit :str, _zip=True) -> Path:
         if not msgbox(msg=msg, yesno=True): return
     else:
         msg = f'Couldn\'t find recent DLS folder, check folder structure for issues.'
-        msg_simple(msg=msg, icon='critical')
+        msg_simple(msg=msg, icon='warning')
         return
 
     if _zip:
