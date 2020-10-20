@@ -499,35 +499,49 @@ class MainWindow(QMainWindow):
     
     def create_plm_report(self):
         """Trigger plm report from current unit selected in table"""
-        t = self.active_table_widget()
-        e = t.e
-        if e is None: return
-
         from ..data.internal import plm
 
-        unit, dateadded = e.Unit, e.DateAdded
+        view = self.active_table()
+        e = view.get_e(warn=False)
+        if not e is None:
+            # don't set dialog w unit and date, just default
+            unit, d_upper = e.Unit, e.DateAdded
+        else:
+            unit, d_upper = None, None
+        
+        # Report dialog will always set final unit etc
+        dlg = dlgs.PLMReport(unit=unit, d_upper=d_upper)
+        ok = dlg.exec_()
+        if not ok:
+            return # user exited
+
+        m = dlg.get_items(lower=True) # unit, d_upper, d_lower
+        m['e'] = e
+        # NOTE could make a func 'rename_dict_keys'
+        m['d_upper'], m['d_lower'] = m['date upper'], m['date lower']
 
         # check max date in db
-        query = qr.PLMUnit(unit=unit, d_upper=dateadded)
+        query = qr.PLMUnit(**m)
         maxdate = query.max_date()
         if maxdate is None: maxdate = dt.now() + delta(days=-731)
 
-        if maxdate < dateadded:
+        if maxdate < m['d_upper']:
             # worker will call back and make report when finished
             Worker(func=plm.update_plm_single_unit, mw=self, unit=unit) \
                 .add_signals(
                     signals=('result', dict(
                         func=self.handle_import_result,
-                        kw=dict(unit=unit, dateadded=dateadded, e=e)))) \
+                        kw=m))) \
                 .start()
-            msg = f'Max date in db: {maxdate:%Y-%m-%d}. Importing haul cylce files from network drive (this may take a few minutes)...'
+
+            msg = f'Max date in db: {maxdate:%Y-%m-%d}. Importing haul cylce files from network drive, this may take a few minutes...'
             self.update_statusbar(msg=msg)
 
         else:
             # just make report now
-            self.make_plm_report(unit=unit, dateadded=dateadded, e=e)
+            self.make_plm_report(**m)
     
-    def handle_import_result_manual(self, rowsadded=None):
+    def handle_import_result_manual(self, rowsadded=None, **kw):
         if not rowsadded is None:
             msg = dict(msg=f'PLM records added to database: {rowsadded}', success=True)
         else:
@@ -535,19 +549,19 @@ class MainWindow(QMainWindow):
 
         self.update_statusbar(msg)
     
-    def handle_import_result(self, m_results=None, unit=None, dateadded=None, e=None, **kw):
+    def handle_import_result(self, m_results=None, **kw):
         if m_results is None: return
 
         rowsadded = m_results['rowsadded']
-        self.update_statusbar(f'PLM records added to database: {rowsadded}')
+        self.update_statusbar(f'PLM records added to database: {rowsadded}', success=True)
 
-        self.make_plm_report(unit=unit, dateadded=dateadded, e=e)
+        self.make_plm_report(**kw)
 
-    def make_plm_report(self, unit, dateadded, e=None):
+    def make_plm_report(self, e=None, **kw):
         """Actually make the report pdf"""
         from .. import eventfolders as efl
         from ..reports import PLMUnitReport
-        rep = PLMUnitReport(unit=unit, d_upper=dateadded, mw=self)
+        rep = PLMUnitReport(mw=self, **kw)
 
         if not e is None:
             ef = efl.EventFolder.from_model(e)
@@ -563,17 +577,19 @@ class MainWindow(QMainWindow):
                 return
         
         Worker(func=rep.create_pdf, mw=self, p_base=p) \
-            .add_signals(signals=('result', dict(func=self.handle_plm_result))) \
+            .add_signals(signals=('result', dict(func=self.handle_plm_result, kw=kw))) \
             .start()
 
-        self.update_statusbar('Creating PLM report...')
+        self.update_statusbar(f'Creating PLM report for unit {kw["unit"]}...')
     
-    def handle_plm_result(self, rep=None):
+    def handle_plm_result(self, rep=None, unit=None, **kw):
         if rep is None or not rep.p_rep.exists():
-            self.update_statusbar('Failed to create PLM report!')
+            self.update_statusbar('Failed to create PLM report!', warn=True)
             return
 
-        self.update_statusbar('PLM report created.')
+        msg = f'PLM report created for unit {unit}'
+        self.update_statusbar(msg, success=True)
+
         msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Open now?'
         if dlgs.msgbox(msg=msg, yesno=True):
             fl.open_folder(rep.p_rep)
