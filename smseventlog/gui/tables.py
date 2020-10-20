@@ -94,6 +94,10 @@ class TableView(QTableView):
     @property
     def e(self):
         return self.model_from_activerow()
+    
+    def get_e(self, **kw):
+        """Same as e, but allow passing warn=False"""
+        return self.model_from_activerow(**kw)
 
     @property
     def e_db(self):
@@ -413,7 +417,7 @@ class TableView(QTableView):
         df = self.model().df
         return self.model().get_val_index(val=uid, col_name='UID')
 
-    def active_row_index(self, warn=True) -> int:
+    def active_row_index(self, warn=True, **kw) -> int:
         """Return index of currently selected row, or None"""
         irow = self.selectionModel().currentIndex().row()
         if irow > -1:
@@ -429,9 +433,9 @@ class TableView(QTableView):
         if i is None: return
         return dbt.Row(table_model=self.model(), i=i)
 
-    def model_from_activerow(self):
+    def model_from_activerow(self, **kw):
         # only returns values in current table view, not all database
-        i = self.active_row_index()
+        i = self.active_row_index(**kw)
         if i is None: return
         return self.model().create_model(i=i)
     
@@ -1818,11 +1822,10 @@ class FCSummary(FCBase):
         body = f'{f.greeting()}New FC Released:<br><br>{style.hide_index().render()}'
 
         # get email list from db
-        df2 = db.get_df(query=qr.EmailList())
-        lst = list(df2[(df2.MineSite==self.minesite) & (df2['FC Summary'].notnull())].Email)
+        email_list = qr.EmailListShort(col_name='FC Summary', minesite=self.minesite, usergroup=self.u.usergroup).emails
 
         # show new email
-        msg = em.Message(subject=title, body=body, to_recip=lst, show_=False)
+        msg = em.Message(subject=title, body=body, to_recip=email_list, show_=False)
 
         # attach files in fc folder
         p = self.get_fc_folder()
