@@ -30,6 +30,11 @@ class DBTransaction():
         
         f.set_self(vars())
 
+    def update_statusbar(self, msg, *args, **kw):
+        if not self.table_widget is None:
+            self.table_widget.mainwindow.update_statusbar(msg=msg, *args, **kw)
+            print(msg)
+
     def add_df(self, df, update_cols=None):
         """Add full or sliced df to update queue"""
         if not update_cols is None:
@@ -70,7 +75,8 @@ class DBTransaction():
         txn_func = getattr(s, f'bulk_{operation_type}_mappings')
         txn_func(self.dbtable, self.update_items)
         s.commit()
-        print(f'bulk {operation_type}: {len(self.update_items)}')
+        msg = f'Bulk {operation_type} records: {len(self.update_items)}'
+        self.update_statusbar(msg, success=True)
 
         return self
     
