@@ -212,7 +212,7 @@ class Report(object):
     def get_query(self, name):
         return self.dfs[name].get('query', None)
     
-    def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False):
+    def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False, **kw):
         if not self.dfs_loaded:
             self.load_all_dfs()
 
@@ -527,6 +527,17 @@ class PLMUnitReport(Report):
 
         self.load_sections('PLMUnit')
 
+    def create_pdf(self, **kw):
+        """Need to check df first to warn if no rows."""
+        sec = self.sections['PLM Analysis']
+        query = sec.query
+        df = query.get_df()
+
+        if df.shape[0] == 0:
+            return False # cant create report with now rows
+
+        return super().create_pdf(**kw)
+
 class ComponentReport(Report):
     def __init__(self, d_rng, minesite, **da) -> None:
         super().__init__(d_rng=d_rng, minesite=minesite, **da)
@@ -795,8 +806,9 @@ class PLMUnit(Section):
         d_rng = report.d_rng
         unit = report.unit
 
-        query = qr.PLMUnit(
+        self.query = qr.PLMUnit(
             unit=unit, d_lower=d_rng[0], d_upper=d_rng[1])
+        query = self.query
 
         sec = SubSection('Summary', self) \
             .add_df(
@@ -816,7 +828,7 @@ class PLMUnit(Section):
                 func=ch.chart_plm_monthly,
                 cap_align='left',
                 caption='PLM haul records per month.<br>*Note - final month may not represent complete month.')
-    
+           
     def set_paragraph(self, query, **kw):
         """Set paragraph data from query
         - NOTE query needs to already be loaded, must call after load_dfs
