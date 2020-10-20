@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 from seaborn import diverging_palette
 
+from . import errors as er
 from . import functions as f
 from . import styles as st
 from .__init__ import *
@@ -1448,6 +1449,7 @@ class PLMUnit(QueryBase):
             If None, default to d_upper - 6 months
         """   
         super().__init__(select_tablename='viewPLM')
+        # use_cached_df = True # hmmm dont actually need this
         a = self.select_table
         cols = [a.star]
 
@@ -1514,6 +1516,7 @@ class PLMUnit(QueryBase):
                 Overload_pct_110=lambda x: x.Accepted_110 / x.Total_ExcludeFlags,
                 Overload_pct_120=lambda x: x.Accepted_120 / x.Total_ExcludeFlags)
     
+    @er.errlog('Failed to get df_monthly', warn=True)
     def df_monthly(self):
         """Bin data into months for charting, will include missing data = good"""
 
@@ -1531,7 +1534,12 @@ class PLMUnit(QueryBase):
     def df_summary(self):
         """Create single summary row from all haulcycle records"""
         # need to grouby first to merge the summed values
-        gb = self.df_calc.groupby('Unit')
+        df = self.df_calc
+        if df.shape[0] == 0:
+            log.warning(f'No results in PLM query dataframe. Unit: {self.unit}')
+            return
+
+        gb = df.groupby('Unit')
 
         return gb \
             .agg(
@@ -1541,11 +1549,11 @@ class PLMUnit(QueryBase):
             .pipe(self.add_totals) \
             .reset_index(drop=False)
 
+    @er.errlog('Failed to get df_summary_report', warn=True)
     def df_summary_report(self):
         """Pivot single row of PLM summary into df for report."""
         # if df is None or not 0 in df.index:
         #     raise AttributeError('Can\'t pivot dataframe!')
-            
         m = self.df_summary.iloc[0].to_dict()
         
         cols = ['110 - 120%', '>120%']
