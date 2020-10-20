@@ -1437,7 +1437,7 @@ class UserSettings(QueryBase):
         f.set_self(vars())
 
 class PLMUnit(QueryBase):
-    def __init__(self, unit, d_upper, d_lower=None):
+    def __init__(self, unit, d_upper, d_lower=None, **kw):
         """Select PLM report data for single unit.
 
         Parameters
