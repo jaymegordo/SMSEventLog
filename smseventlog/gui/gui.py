@@ -583,12 +583,16 @@ class MainWindow(QMainWindow):
         self.update_statusbar(f'Creating PLM report for unit {kw["unit"]}...')
     
     def handle_plm_result(self, rep=None, unit=None, **kw):
-        if rep is None or not rep.p_rep.exists():
-            self.update_statusbar('Failed to create PLM report!', warn=True)
+        if rep is False:
+            # not super robust, but just warn if no rows in query
+            msg = f'No rows returned in query, can\'t create report!'
+            dlgs.msg_simple(msg=msg, icon='warning')
+
+        if not rep or not rep.p_rep.exists():
+            self.update_statusbar('Failed to create PLM report.', warn=True)
             return
 
-        msg = f'PLM report created for unit {unit}'
-        self.update_statusbar(msg, success=True)
+        self.update_statusbar(f'PLM report created for unit {unit}', success=True)
 
         msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Open now?'
         if dlgs.msgbox(msg=msg, yesno=True):
