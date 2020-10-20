@@ -38,7 +38,7 @@ def get_logger_from_func(func):
     
     return log
 
-def errlog(msg=None, err=True, warn=False, display=False):
+def errlog(msg=None, err=True, warn=False, display=False, default=None):
     """Wrapper to try/except func, log error, don't show to user, and return None
     - NOTE this suppresses the error unless display=True
 
@@ -71,7 +71,7 @@ def errlog(msg=None, err=True, warn=False, display=False):
                     func_name = get_func_name(func)
                     display_error(msg=msg, func_name=func_name, tb_msg=tb_msg)
 
-                return None
+                return default
         
         return wrapper
     
