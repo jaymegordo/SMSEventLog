@@ -47,6 +47,7 @@ class BaseDialog(QDialog):
         self.setWindowTitle(window_title)
         mainwindow = gbl.get_mainwindow()
         settings = gbl.get_settings()
+        minesite = gbl.get_minesite()
         mw = mainwindow
         vLayout = QVBoxLayout(self)
 
@@ -159,11 +160,14 @@ class InputForm(BaseDialog):
         
         return True
 
-    def get_items(self):
+    def get_items(self, lower=False):
         """Return dict of all {field items: values}"""
         m = {}
         for field in self.fields:
             m[field.text] = field.val
+
+        if lower:
+            m = {k.lower(): v for k, v in m.items()}
         
         return m
     
@@ -327,10 +331,9 @@ class AddEvent(AddRow):
 
         layout = self.vLayout
         df = db.get_df_unit()
-        minesite = gbl.get_minesite()
 
-        add(field=IPF(text='MineSite', default=minesite), items=f.config['MineSite'])
-        add(field=IPF(text='Unit'), items=list(df[df.MineSite==minesite].Unit))
+        add(field=IPF(text='MineSite', default=self.minesite), items=f.config['MineSite'])
+        add(field=IPF(text='Unit'), items=list(df[df.MineSite==self.minesite].Unit))
         add(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
 
         # Add btn to check smr 
@@ -581,13 +584,12 @@ class AddUnit(AddRow):
     def __init__(self, parent=None):
         super().__init__(parent=parent, window_title='Add Unit')
         df = db.get_df_unit()
-        minesite = gbl.get_minesite()
         self.tablename = 'UnitID'
 
         self.add_input(field=InputField(text='Unit'))
         self.add_input(field=InputField(text='Serial'))
         self.add_input(field=InputField(text='Model'), items=list(df.Model.unique()))
-        self.add_input(field=InputField(text='MineSite', default=minesite), items=f.config['MineSite'])
+        self.add_input(field=InputField(text='MineSite', default=self.minesite), items=f.config['MineSite'])
         self.add_input(field=InputField(text='Customer'), items=list(df.Customer.unique()))
         self.add_input(field=InputField(text='Engine Serial', col_db='EngineSerial'))
         self.add_input(field=InputField(text='Delivery Date', dtype='date', col_db='DeliveryDate'))
@@ -1120,6 +1122,33 @@ class Search(BaseDialog):
             i = self.num_items - 1
 
         self.index_changed.emit(i)
+
+class PLMReport(InputForm):
+    def __init__(self, unit : str = None, d_upper : dt = None, d_lower : dt = None, **kw):
+        super().__init__(window_title='PLM Report', **kw)
+        # unit, start date, end date
+        IPF = InputField
+
+        if d_upper is None:
+            d_upper = dt.now().date()
+        
+        if d_lower is None:
+            d_lower = d_upper + delta(days=-180)
+    
+        # Unit
+        df = db.get_df_unit()
+        lst = f.clean_series(df[df.MineSite==self.minesite].Unit)
+        self.add_input(field=IPF(text='Unit', default=unit), items=lst)
+        
+        # Dates
+        dates = {'Date Upper': d_upper, 'Date Lower': d_lower}
+        for k, v in dates.items():
+            self.add_input(
+                field=IPF(
+                    text=k,
+                    default=v,
+                    dtype='date'))
+
 
 def msgbox(msg='', yesno=False, statusmsg=None):
     """Show messagebox, with optional yes/no prompt\n
