@@ -562,7 +562,7 @@ class UnitInfo(QueryBase):
         isNumeric = cf('ISNUMERIC', ['val'])
         left = cf('LEFT', ['val', 'num'])
 
-        c = T('UnitSMR')
+        c, d = pk.Tables('UnitSMR', 'EquipType')
 
         days = fn.DateDiff('d', a.DeliveryDate, fn.CurTimestamp())
         remaining = Case().when(days<=365, 365 - days).else_(0).as_('Remaining')
@@ -572,10 +572,11 @@ class UnitInfo(QueryBase):
 
         b = c.select(c.Unit, fn.Max(c.SMR).as_('CurrentSMR'), fn.Max(c.DateSMR).as_('DateSMR')).groupby(c.Unit).as_('b')
 
-        cols = [a.MineSite, a.Customer, a.Model, a.Serial, a.EngineSerial, a.Unit, b.CurrentSMR, b.DateSMR, a.DeliveryDate, remaining, ge_remaining]
+        cols = [a.MineSite, a.Customer, d.EquipClass, a.Model, a.Serial, a.EngineSerial, a.Unit, b.CurrentSMR, b.DateSMR, a.DeliveryDate, remaining, ge_remaining]
 
         q = Query.from_(a) \
             .left_join(b).on_field('Unit') \
+            .left_join(d).on_field('Model') \
             .orderby(a.MineSite, a.Model, a.Unit)
         
         f.set_self(vars())

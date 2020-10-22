@@ -1684,15 +1684,28 @@ class TSI(EventLogBase):
 class UnitInfo(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        view = self.view
-        view.mcols['disabled'] = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty')
-        view.col_widths.update({
-            'Warranty Remaining': 40,
-            'GE Warranty': 40})
-        view.formats.update({
-            'Current SMR': '{:,.0f}'})
+        tbl_b = 'EquipType'
+        self.db_col_map = {
+            'Equip Type': tbl_b}
+
+        # cols not in table may not exist, have to check first
+        # NOTE not dry, could put these both in func
+        self.view.mcols['check_exist'] = tuple(self.db_col_map.keys())
 
         self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add')
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+            self.mcols['disabled'] = ('SMR Measure Date', 'Current SMR', 'Warranty Remaining', 'GE Warranty')
+            self.col_widths.update({
+                'Warranty Remaining': 40,
+                'GE Warranty': 40})
+            self.formats.update({
+                'Current SMR': '{:,.0f}'})
+
+            items = f.config['Lists']['EquipClass']
+            self.set_combo_delegate(col='Equip Type', items=items, allow_blank=False)
     
     def show_addrow(self):
         dlg = dlgs.AddUnit(parent=self)

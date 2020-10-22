@@ -111,6 +111,17 @@ Lists:
     TrueFalse:
         - 'True'
         - 'False'
+    EquipClass:
+        - Dozer
+        - Dragline
+        - Drill
+        - Excavator
+        - Grader
+        - Loader
+        - Shovel
+        - Truck
+        - Truck_Electric
+        - Truck_Mechanical
 
 
 # Convert title to tablename > can select from views but not update them
@@ -278,6 +289,7 @@ Headers:
     Unit Info:
         MineSite: MineSite
         Customer: Customer
+        Equip Type: EquipClass
         Model: Model
         Serial: Serial
         Engine Serial: EngineSerial
