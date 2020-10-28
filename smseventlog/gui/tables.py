@@ -1306,12 +1306,21 @@ class EventLog(EventLogBase):
     class View(EventLogBase.View):
         def __init__(self, parent):
             super().__init__(parent=parent)
-            self.col_widths.update(dict(Passover=50, Description=800, Status=100))
+            self.col_widths.update({
+                'Passover': 50,
+                'Description': 800,
+                'Status': 100,
+                'Failure Cause': 150})
+                
             self.highlight_funcs['Passover'] = self.highlight_by_val
             self.set_combo_delegate(col='Passover', items=['x'])
 
             self.set_combo_delegate(col='Issue Category', items=db.get_issues())
             self.set_combo_delegate(col='Sub Category', dependant_col='Issue Category')
+
+            items = sorted(f.config['Lists']['FailureCategory'])
+            self.set_combo_delegate(col='Failure Category', items=items)
+
 
         def get_style(self, df=None, outlook=False):
             return super().get_style(df=df, outlook=outlook) \

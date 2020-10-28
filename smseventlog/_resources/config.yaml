@@ -122,6 +122,29 @@ Lists:
         - Truck
         - Truck_Electric
         - Truck_Mechanical
+    FailureCategory:
+        - Assembly Issue
+        - Crack
+        - Cold
+        - Connection Loose
+        - Contamination
+        - Failed Component
+        - Factory Campaign
+        - Improper Maintenance
+        - Low Oil/ Fuel
+        - Low-hour Failure
+        - No Faults Active
+        - No Issue
+        - Normal Service
+        - Normal Wear
+        - OEM Issue
+        - Operations Damage
+        - Operator Error
+        - Snow/ Ice
+        - Vibration
+        - Water
+        - Calibration
+        - Customer Request
 
 
 # Convert title to tablename > can select from views but not update them
@@ -172,7 +195,7 @@ Headers:
         Date Complete: DateCompleted
         Issue Category: IssueCategory
         Sub Category: SubCategory
-        Cause: Cause
+        Failure Category: Cause
         Added By: CreatedBy
         Time Called to Event: TimeCalled
 
