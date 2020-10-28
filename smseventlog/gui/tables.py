@@ -1096,10 +1096,19 @@ class EventLogBase(TableWidget):
         # Fix ugly titles if needed
         title = e.Title
         title_good = f.nice_title(title=title)
+
         if not title == title_good:
             index = view.create_index_activerow(col_name='Title')
-            view.model().setData(index=index, val=title_good)
-            self.update_statusbar(f'Title fixed: {title_good}')
+
+            if not index is None:
+                view.model().setData(index=index, val=title_good)
+            else:
+                # not in table, just update db
+                # NOTE could put this into a better func so vals can be updated from any table
+                dbt.Row(dbtable=self.get_dbtable(), keys=dict(UID=e.UID)) \
+                    .update(vals=dict(Title=title_good))
+
+            self.update_statusbar(f'Title fixed: {title_good}', success=True)
 
         efl.EventFolder.from_model(e=e, irow=i, table_model=view.model()).show()
     
