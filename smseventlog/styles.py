@@ -243,6 +243,30 @@ def highlight_flags(df, m):
 
     return df1
 
+def highlight_expiry_dates(s, theme='light'):
+    """Highlight FC Dates approaching expiry
+    
+    Parameters
+    ---------
+    s : pd.Series
+        Only fmt single column at a time for now\n
+    theme : str
+        Dark or light theme for app or reports
+    """
+    m = f.config['color']
+    bg, t = m['bg'], m['text']
+
+    s1 = pd.Series(index=s.index) # blank series
+    s_days_exp = (dt.now() - s).dt.days # days as int btwn now and date in column
+
+    # filter column where date falls btwn range
+    s1[s_days_exp.between(-90, -30)] = format_cell(bg['lightyellow'], 'black')
+    s1[s_days_exp.between(-30, 0)] = format_cell(bg['lightorange'], 'black')
+    s1[s_days_exp > 0] = format_cell(bg['lightred'], 'white')
+    s1[s1.isnull()] = format_cell(*get_defaults(theme)) # default for everything else
+
+    return s1
+
 def highlight_val(df, val, bg_color, target_col, t_color=None, other_cols=None, theme='light'):
     m = f.config['color']
     bg, t = m['bg'], m['text']

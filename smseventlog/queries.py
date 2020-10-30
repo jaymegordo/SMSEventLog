@@ -691,10 +691,12 @@ class FCSummary(FCBase):
     def highlight_mandatory(self, style):
         bg_color = 'navyblue' if self.theme == 'light' else 'maroon'
         return style.apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='m', bg_color=bg_color, t_color='white', target_col='Type', other_cols=['FC Number'], theme=self.theme)
-
+    
     def update_style_part_1(self, style):
-        return style.background_gradient(cmap=self.cmap.reversed(), subset='% Complete', axis=None) \
-            .pipe(self.highlight_mandatory)
+        return style \
+            .background_gradient(cmap=self.cmap.reversed(), subset='% Complete', axis=None) \
+            .pipe(self.highlight_mandatory) \
+            .apply(st.highlight_expiry_dates, subset=['Expiry Date'], theme=self.theme)
 
     def update_style_part_2(self, style):
         # color y/n values green/red
@@ -708,8 +710,8 @@ class FCSummary(FCBase):
         return style.apply(st.highlight_yn, subset=subset, axis=None, color_good=color_good, theme=self.theme)
 
 class FCSummaryReport(FCSummary):
-    def __init__(self, da=None):
-        super().__init__(da=da)
+    def __init__(self, da=None, **kw):
+        super().__init__(da=da, **kw)
     
     def get_df(self, default=False):
         # from .database import db
@@ -758,19 +760,24 @@ class FCSummaryReport2(FCSummary):
 
     def update_style(self, style, **kw):
         # rotate unit column headers vertical
+        # set font size here based on number of columns, min 5 max 10
+        size = 280 // len(style.data.columns)
+        size = min(max(size, 5), 10)
+        font_size = f'{size}px'
+
         unit_col = 2
         s = []
         s.append(dict(
             selector=f'th.col_heading:nth-child(n+{unit_col})',
             props=[ 
-                ('font-size', '5px'),
+                ('font-size', font_size),
                 ('padding', '0px 0px'),
                 ('transform', 'rotate(-90deg)'),
                 ('text-align', 'center')]))
         s.append(dict(
             selector=f'td:nth-child(n+{unit_col})',
             props=[
-                ('font-size', '5px'),
+                ('font-size', font_size),
                 ('padding', '0px 0px'),
                 ('text-align', 'center')]))
 
@@ -790,6 +797,9 @@ class FCDetails(FCBase):
     def set_default_filter(self, **kw):
         super().set_default_filter(**kw)
         self.fltr.add(vals=dict(Complete=0))
+
+    def update_style(self, style, **kw):
+        return style.apply(st.highlight_expiry_dates, subset=['Expiry Date'], theme=self.theme)
 
 class NewFCs(FCBase):
     def __init__(self, d_rng, minesite):
@@ -851,6 +861,7 @@ class FCHistoryRolling(FCBase):
             minesite=minesite)
 
         sql = 'SELECT * FROM {}'.format(table_with_args(table='FCHistoryRolling', args=args))
+        print(sql)
         f.set_self(vars())
     
     def process_df(self, df):
