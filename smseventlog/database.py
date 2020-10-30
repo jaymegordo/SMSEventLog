@@ -16,18 +16,7 @@ global db
 log = getlog(__name__)
 # DATABASE
 
-# import time
-
-# retry_flag = True
-# retry_count = 0
-# while retry_flag and retry_count < 5:
-#   try:
-#     cursor.execute(query, [args['type'], args['id']])
-#     retry_flag = False
-#   except:
-#     print "Retry after 1 sec"
-#     retry_count = retry_count + 1
-#     time.sleep(1)
+# TODO Need to re implement error wrapping. Need to either only wrap specific high-level session funcs, or call everything through a custom db method.
 
 def wrap_single_class_func(cls, func_name, err_func):
     func = getattr(cls, func_name)
@@ -90,14 +79,20 @@ def _create_engine():
     return engine
 
 def e(func):
-    # NOTE not sure if any of these work yet
+    # exc.IntegrityError, 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+
+        except exc.IntegrityError as e:
+            log.warning(f'***** Re-raising: {type(e)}')
+            raise
         except (exc.IntegrityError, exc.ProgrammingError, exc.StatementError, pyodbc.ProgrammingError) as e:
             log.warning(f'***** Not handling error: {type(e)}')
-            # raise e
+
+            # print(f'Error message:\n\n{e}') # sqlalchemy wraps pyodbc.IntegreityError and returns msg as string
+
             db.rollback()
             return None # re raising the error causes sqlalchemy to catch it and raise more errors
 
@@ -210,10 +205,28 @@ class DB(object):
     def __exit__(self, *args):
         self.close()
     
+    def safe_commit(self, fail_msg=None):
+        try:
+            self.session.commit()
+            return True
+        except Exception as e:
+            # wrapping all sqla funcs causes this error to be exc.ResourceClosedError, not IntegrityError
+
+            if isinstance(e, pyodbc.IntegrityError):
+                fail_msg = f'Can\'t add row to database, already exists!'
+
+            if fail_msg is None:
+                fail_msg = f'Failed to commit database transaction | {type(e)}'
+
+            er.log_error(msg=fail_msg, log=log, display=True)
+            self.session.rollback()
+            return False
+
     def add_row(self, row):
-        # simple add single row to database. row must be created with sqlalchemy model
+        """Simple add single row to database.
+        - Row must be created with sqlalchemy model"""
         self.session.add(row)
-        self.session.commit()
+        return self.safe_commit()
         
     def read_query(self, q):
         return pd.read_sql(sql=q.get_sql(), con=self.engine)
@@ -462,6 +475,7 @@ class DB(object):
 
         return df
 
+    @er.errlog('Failed to import dataframe')
     def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None, index=False):
         rowsadded = 0
         if df is None or len(df) == 0:
@@ -469,15 +483,12 @@ class DB(object):
             f.discord(msg=f'{dt.now().strftime(fmt)} - {imptable}: No rows to import', channel='sms')
             return
 
-        try:
-            # .execution_options(autocommit=True)
-            df.to_sql(name=imptable, con=self.engine, if_exists='append', index=index, chunksize=chunksize)
+        # .execution_options(autocommit=True)
+        df.to_sql(name=imptable, con=self.engine, if_exists='append', index=index, chunksize=chunksize)
 
-            cursor = self.cursor
-            rowsadded = cursor.execute(impfunc).rowcount
-            cursor.commit()
-        except:
-            er.log_error(msg='Failed to import dataframe', log=log)
+        cursor = self.cursor
+        rowsadded = cursor.execute(impfunc).rowcount
+        cursor.commit()
 
         msg = f'{imptable}: {rowsadded}'
         if prnt: print(msg)
@@ -489,13 +500,7 @@ class DB(object):
         return rowsadded
     
     def query_single_val(self, q):
-        try:
-            cursor = self.cursor
-            return cursor.execute(q.get_sql()).fetchval()
-        except:
-            er.log_error(log=log)
-        finally:
-            cursor.close()
+        return self.cursor.execute(q.get_sql()).fetchval()
     
     def max_date_db(self, table=None, field=None, q=None, join_minesite=True, minesite='FortHills'):
         a = T(table)

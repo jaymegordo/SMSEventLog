@@ -51,6 +51,7 @@ color:
         skyblue: '#91c3ff'
         orange: '#f08a37'
         bgdark: '#19232d'
+        black: 'black'
     text:
         goodgreen: '#006100'
         good: '#003961'

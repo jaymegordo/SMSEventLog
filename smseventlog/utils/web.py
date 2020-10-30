@@ -194,7 +194,7 @@ class Web(object):
 
         return self._driver
     
-    def wait(self, time, cond, msg=None):
+    def wait(self, time, cond, msg=None, raise_err=True):
         try:
             element = WebDriverWait(self.driver, time).until(method=cond, message=msg)
             return element
@@ -204,6 +204,10 @@ class Web(object):
             self._driver.quit()
             self.update_statusbar('User closed browser window, stopping execution.', warn=True)
         except Exception as e:
+            if not raise_err:
+                self.update_statusbar(msg, warn=True)
+                return
+
             # add extra info to selenium's error message
             msg = f'\n\nFailed waiting for web element: {cond.locator}'
             if hasattr(e, 'msg'):
@@ -304,8 +308,9 @@ class SuncorConnect(Web):
         if not 'vdesk/webtop' in driver.current_url:
             self.login()
 
+        msg = 'Couldn\'t log in. Ensure password is correct.'
         element = wait(10, EC.presence_of_element_located(
-            (By.XPATH, '/html/body/div[1]/div[2]/div[1]/span[13]/span[2]')))
+            (By.XPATH, '/html/body/div[1]/div[2]/div[1]/span[13]/span[2]')), msg=msg, raise_err=False)
             
         if element is None: return
         element.click()

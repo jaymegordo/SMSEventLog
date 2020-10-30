@@ -148,7 +148,7 @@ class TableView(QTableView):
         self.model().change_color(Qt.magenta, False)
     
     def add_highlight_funcs(self, cols, func, cmplx=False):
-        # add same highlight func to multiple cols
+        """Add same highlight func to multiple cols"""
         if not isinstance(cols, list): cols = [cols]
         for col in cols:
             if not cmplx:
@@ -408,7 +408,9 @@ class TableView(QTableView):
         else:
             icol = model.get_col_idx(col_name)
 
-        if None in (irow, icol): return
+        if None in (irow, icol):
+            return None # not in table, need to make sure to handle this when calling
+
         return model.createIndex(irow, icol)
     
     def get_irow_uid(self, uid):
@@ -573,7 +575,6 @@ class TableView(QTableView):
                     model.setData(index=update_idx, val=val, queue=True)
             
             model.flush_queue(unlock=True)
-
 
     def _icon(self, icon_name):
         # Convinence function to get standard icons from Qt
@@ -1130,7 +1131,7 @@ class EventLogBase(TableWidget):
                 if dlgs.msgbox(msg=msg, yesno=True):
                     e_fc.UID = None
                     e_fc.DateCompleteSMS = None
-                    db.session.commit()
+                    db.safe_commit()
                 else:
                     self.update_statusbar('Warning: Can\'t delete event with linked FC.')
                     return
@@ -1593,12 +1594,12 @@ class TSI(EventLogBase):
         if not tsi.is_init: return
 
         Worker(func=tsi.open_tsi, mw=self.mainwindow, save_tsi=save_tsi) \
-            .add_signals(signals=('result', dict(func=self.accept_tsi_result))) \
+            .add_signals(signals=('result', dict(func=self.handle_tsi_result))) \
             .start()
 
         self.update_statusbar('Creating new TSI in worker thread. GUI free to use.')
 
-    def accept_tsi_result(self, tsi=None):
+    def handle_tsi_result(self, tsi=None):
         # get TSIWebpage obj back from worker thread, save TSI Number back to table
         if tsi is None: return
         
@@ -1640,14 +1641,10 @@ class TSI(EventLogBase):
         dlg = dlgs.FailureReport(parent=self, p_start=ef.p_pics, text=text)
         if not dlg.exec_(): return
 
-        # create header data from event dict + unit info
-        header_data = dbt.model_dict(e, include_none=True)
-        header_data.update(db.get_df_unit().loc[e.Unit])
-
         # create report obj and save as pdf in event folder
         from .. import reports as rp
-        rep = rp.FailureReport(header_data=header_data, pictures=dlg.pics, body=dlg.text, e=e) \
-            .create_pdf(p_base=ef._p_event)
+        rep = rp.FailureReport.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text) \
+            .create_pdf()
 
         msg = 'Failure report created, open now?'
         if dlgs.msgbox(msg=msg, yesno=True):
@@ -1751,6 +1748,10 @@ class FCBase(TableWidget):
 
         self.context_actions['view'] = ['viewfolder']
 
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+
     def import_fc(self):
         lst_csv = fc.get_import_files()
         if lst_csv is None: return
@@ -1802,7 +1803,7 @@ class FCSummary(FCBase):
 
         self.view.mcols['check_exist'] = tuple(self.db_col_map.keys()) # rows for cols may not exist yet
 
-    class View(TableView):
+    class View(FCBase.View):
         def __init__(self, parent):
             super().__init__(parent=parent)
 
@@ -1887,7 +1888,7 @@ class FCDetails(FCBase):
         self.db_col_map = {
             'Pics': tbl_b}
 
-    class View(TableView):
+    class View(FCBase.View):
         def __init__(self, parent):
             super().__init__(parent=parent)
 

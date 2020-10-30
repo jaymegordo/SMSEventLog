@@ -7,10 +7,8 @@ Body,Boarding Ladder
 Body,Bumper
 Body,Cab
 Body,Chassis
-Body,Deck
 Body,Dump Body
 Body,Exhaust
-Body,Frame
 Body,Grid Box
 Body,Grille
 Body,Handrails
@@ -105,6 +103,10 @@ Engine,15 - Instruments and Controls
 Engine,16 - Mounting Adaptations
 Engine,17 - Miscellaneous
 Engine,19 - Electronic Engine Controls
+Frame,Front
+Frame,Mid
+Frame,Rear
+Frame,Deck
 Fuel System,Fast Fuel
 Fuel System,Fuel Filters
 Fuel System,Fuel Lines

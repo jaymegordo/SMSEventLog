@@ -38,7 +38,7 @@ class SecretsManager(object):
     @property   
     def key(self):
         """Load key from secrets dir"""
-        return open(self.p_key, "rb").read()
+        return open(self.p_key, 'rb').read()
     
     @property
     def check_file(self):
@@ -57,7 +57,7 @@ class SecretsManager(object):
         file = self.get_secret_file(name=name)
 
         if ext == 'yaml':
-            return yaml.full_load(file)
+            return yaml.full_load(yaml.full_load(file)) # not sure why but need to call this twice
         elif ext == 'csv':
             return pd.read_csv(fl.from_bytes(file))
 
@@ -72,6 +72,8 @@ class SecretsManager(object):
         return self.decrypt_file(p=p, key=self.key)
     
     def encrypt_all_secrets(self):
+        """Convenience func to auto encrypt everything in _unencrypted with smseventlog.key
+        - Use to re-encrypt after pw changes (every three months for email/sap)"""
         for p in self.p_unencrypt.glob('*'):
             self.encrypt_file(p)
     
@@ -110,13 +112,13 @@ class SecretsManager(object):
         fn = Fernet(self.key)
         encrypted_data = fn.encrypt(file_data)
 
-        with open(p_save, "wb") as file:
+        with open(p_save, 'wb') as file:
             file.write(encrypted_data)
 
     def decrypt_file(self, p, key):
         """Decrypt file and return, DO NOT save back to disk"""
         fn = Fernet(key)
-        with open(p, "rb") as file:
+        with open(p, 'rb') as file:
             encrypted_data = file.read()
 
         decrypted_data = fn.decrypt(encrypted_data)
@@ -126,5 +128,5 @@ class SecretsManager(object):
         """Generates a key and save it into a file"""
         key = Fernet.generate_key()
 
-        with open(self.p_key, "wb") as key_file:
+        with open(self.p_key, 'wb') as key_file:
             key_file.write(key)

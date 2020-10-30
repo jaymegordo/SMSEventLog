@@ -84,9 +84,9 @@ class MainWindow(QMainWindow):
 
             # allow warn or success status to be passed with msg as dict
             if isinstance(msg, dict):
-                msg = msg.get('msg', None)
                 warn = msg.get('warn', False)
                 warn = msg.get('success', False)
+                msg = msg.get('msg', None) # kinda sketch
 
             bar = self.statusBar()
             prev_status = bar.currentMessage()

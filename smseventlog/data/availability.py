@@ -113,7 +113,7 @@ def ahs_pa_monthly():
 
 def dt_exclusions_ma_example(d_rng=None):
     # create all units with MA hrs below hrs in period
-    from ..data import utils as utl
+    from .internal import utils as utl
     units = []
     units.extend(utl.all_units(rng=(300,322)))
     units.extend(utl.all_units(rng=(323,348)))

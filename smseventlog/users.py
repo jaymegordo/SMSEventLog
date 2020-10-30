@@ -77,9 +77,8 @@ class User():
             if self.new_user:
                 db.session.add(e)
 
-            db.session.commit()
+            db.safe_commit(fail_msg='User failed to login.')
         except:
-            db.rollback()
-            er.log_error(msg='User failed to login.', log=log)
+            er.log_error(log=log)
         finally:
             return self

@@ -1,3 +1,4 @@
+from logging import warn
 import sqlalchemy as sa
 from sqlalchemy import and_, literal
 from sqlalchemy.orm.exc import NoResultFound
@@ -74,9 +75,13 @@ class DBTransaction():
         s = db.session
         txn_func = getattr(s, f'bulk_{operation_type}_mappings')
         txn_func(self.dbtable, self.update_items)
-        s.commit()
         msg = f'Bulk {operation_type} records: {len(self.update_items)}'
-        self.update_statusbar(msg, success=True)
+
+        if db.safe_commit():
+            self.update_statusbar(msg, success=True)
+        else:
+            msg = f'Failed: {msg}'
+            self.update_statusbar(msg, warn=True)
 
         return self
     
@@ -113,6 +118,19 @@ class Row():
                     keys[pk] = df.loc[pk, col] # transposed df from Details dialog, all fields are db_cols eg 'FCNumber' not 'FC Number'
 
         f.set_self(vars())
+
+    @classmethod
+    def example(cls, uid=None, e=True):
+        """Create instance of self with uid, only for EventLog table"""
+        if uid is None:
+            uid = 12602260565
+
+        row = cls(keys=dict(UID=uid), dbtable=dbm.EventLog)
+
+        if e:
+            return row.create_model_from_db()
+        else:
+            return row
 
     def update_single(self, val, header=None, field=None, check_exists=False):
         # convenience func to update single field/header: val in db
@@ -239,10 +257,4 @@ def join_query(tables, keys, join_field):
 
     return m
 
-def example(uid=None):
-    if uid is None:
-        uid = 12602260565
 
-    row = Row(keys=dict(UID=uid), dbtable=dbm.EventLog)
-    e = row.create_model_from_db()
-    return e
