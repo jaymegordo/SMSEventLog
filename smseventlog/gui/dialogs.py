@@ -19,7 +19,9 @@ def add_items_to_filter(field, fltr):
 
 class InputField():
     def __init__(self, text, col_db=None, box=None, dtype='text', default=None, table=None, opr=None, enforce=False, like=False):
-        if col_db is None: col_db = text.replace(' ', '')
+        if col_db is None:
+            col_db = text.replace(' ', '')
+
         boxLayout = None
         f.set_self(vars())
     
@@ -266,12 +268,7 @@ class AddRow(InputForm):
         
         if not self.table_model is None:
             self.table_model.insertRows(m=m, select=True)
-    
-    def add_row_db(self, row):
-        # TODO probably merge this with Row class? > update all? BULK update (with 2 component rows)
-        # dbt.print_model(model=row)
-        db.add_row(row=row)
-    
+       
     def add_row_queue(self, row):
         # add row (model) to queue
         self.queue.append(row)
@@ -303,10 +300,16 @@ class AddRow(InputForm):
         super().accept()
         row = self.row
         self.set_row_attrs(row=row)
-        self.add_row_db(row=row)
+        # dbt.print_model(row)
+
+        if not db.add_row(row=row):
+            self.update_statusbar('Failed to add row to database.', warn=True)
+            return False
+
         self.add_row_table(row=row)
 
         self.parent.view.resizeRowsToContents()
+        return True # row successfully added to db
 
 class AddEmail(AddRow):
     def __init__(self, parent=None):
@@ -344,11 +347,14 @@ class AddEvent(AddRow):
         if not is_cummins:
             # Checkboxes
             cb_eventfolder = ff.CheckBox('Create Event Folder', checked=True)
+            # cb_onedrive = ff.CheckBox('Create OneDrive Folder', checked=True)
             cb_tsi = ff.CheckBox('Create TSI')
             cb_fc = ff.CheckBox('Link FC')
             cb_fc.stateChanged.connect(self.create_fc)
+            # cb_eventfolder.stateChanged.connect(self.toggle_ef)
 
             self.formLayout.addRow('', cb_eventfolder)
+            # self.formLayout.addRow('', cb_onedrive)
             self.formLayout.addRow('', cb_tsi)
             self.formLayout.addRow('', cb_fc)
 
@@ -379,6 +385,17 @@ class AddEvent(AddRow):
         self.fUnit.box.select_all()
         f.set_self(vars())
         self.show()
+
+    def toggle_ef(self, state):
+        """Toggle OneDrive folder when EventFolder change"""
+        # source = self.sender()
+        # box = source.box
+        cb = self.cb_onedrive
+
+        if state == Qt.Checked:
+            cb.setEnabled(True)
+        else:
+            cb.setEnabled(False)
 
     @pyqtSlot(int)
     def component_changed(self, ix):
@@ -591,8 +608,8 @@ class AddUnit(AddRow):
         self.add_input(field=InputField(text='Model'), items=list(df.Model.unique()))
         self.add_input(field=InputField(text='MineSite', default=self.minesite), items=f.config['MineSite'])
         self.add_input(field=InputField(text='Customer'), items=list(df.Customer.unique()))
-        self.add_input(field=InputField(text='Engine Serial', col_db='EngineSerial'))
-        self.add_input(field=InputField(text='Delivery Date', dtype='date', col_db='DeliveryDate'))
+        self.add_input(field=InputField(text='Engine Serial'))
+        self.add_input(field=InputField(text='Delivery Date', dtype='date'))
 
         self.show()
        
@@ -606,10 +623,8 @@ class AddUnit(AddRow):
             ans = dlg.exec_()
             if not ans: return
             
-        super().accept()
-        # self.set_row_attrs(row=self.row)
-        # dbt.print_model(self.row)
-        self.update_statusbar(f'New unit added to database: {model}, {unit}', success=True)
+        if super().accept():
+            self.update_statusbar(f'New unit added to database: {model}, {unit}', success=True)
 
 class CreateModelbase(AddRow):
     def __init__(self, model, parent=None):
@@ -646,7 +661,7 @@ class CreateModelbase(AddRow):
         row = self.row
         row.Model = self.model
         self.set_row_attrs(row=row)
-        self.add_row_db(row=row)
+        db.add_row(row=row)
 
         self.accept_2()
 
@@ -1162,7 +1177,7 @@ def msgbox(msg='', yesno=False, statusmsg=None):
         Show more detailed smaller message
     """
 
-    if app_running() and yesno:
+    if gbl.app_running() and yesno:
         app = check_app()
         dlg = MsgBox_Advanced(msg=msg, window_title=gbl.title, yesno=yesno, statusmsg=statusmsg)
         return dlg.exec_()
@@ -1183,7 +1198,7 @@ def msg_simple(msg: str = '', icon: str = '', infotext=None):
     infotext : [type], optional\n
         Detailed text to show, by default None
     """
-    if app_running():
+    if gbl.app_running():
         dlg = QMessageBox()
         dlg.setText(msg)
         dlg.setWindowTitle(gbl.title)
@@ -1200,6 +1215,11 @@ def msg_simple(msg: str = '', icon: str = '', infotext=None):
         return dlg.exec_()
     else:
         print(msg)
+
+def show_err_msg(text, detailed_text=None):
+    if gbl.app_running():
+        dlg = ErrMsg(text=text, detailed_text=detailed_text) 
+        dlg.exec_()
 
 def inputbox(msg='Enter value:', dtype='text', items=None, editable=False):
     app = check_app()
@@ -1337,9 +1357,6 @@ def check_app():
     from . import startup
     app = startup.get_qt_app()
     return app
-
-def app_running():
-    return not QApplication.instance() is None
 
 def unit_exists(unit):
     """Check if unit exists, outside of DB class, raise error message if False"""
