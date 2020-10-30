@@ -88,7 +88,7 @@ class EventFolder(UnitFolder):
         year = dateadded.year
 
         wo_blank = 'WO' + ' ' * 14
-        if not workorder or 'nan' in workorder.lower():
+        if not workorder or 'nan' in str(workorder).lower():
             workorder = wo_blank
 
         # confirm unit, date, title exist?
@@ -112,11 +112,14 @@ class EventFolder(UnitFolder):
         return efl
     
     @classmethod
-    def example(cls, uid=108085410910):
-        from . import dbtransaction as dbt
+    def example(cls, uid=108085410910, e=None):
         from .gui import startup
         app = startup.get_qt_app()
-        e = dbt.example(uid=uid)
+
+        if e is None:
+            from . import dbtransaction as dbt
+            e = dbt.Row.example(uid=uid)
+
         return cls.from_model(e=e)
     
     @property
@@ -128,6 +131,11 @@ class EventFolder(UnitFolder):
     @property
     def p_pics(self) -> Path:
         return self._p_event / 'Pictures'
+    
+    @property
+    def pics(self) -> list:
+        """Return pics from self.p_pics"""
+        return [p for p in self.p_pics.glob('*') if not p.is_dir()]
     
     def update_eventfolder_path(self, vals : dict):
         """Update folder path with defaults (actually new vals) + changed vals (previous)"""
@@ -253,11 +261,11 @@ class EventFolder(UnitFolder):
         try:
             p = self._p_event
             p_pics = p / 'Pictures'
-            p_dls = p / 'Downloads'
+            # p_dls = p / 'Downloads'
 
             if not p.exists():
                 p_pics.mkdir(parents=True)
-                p_dls.mkdir(parents=True)
+                # p_dls.mkdir(parents=True)
 
                 if ask_show:
                     msg = 'Event folder created. Would you like to open?'
