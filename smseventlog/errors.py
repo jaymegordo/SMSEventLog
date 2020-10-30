@@ -200,7 +200,7 @@ def print_error(msg=''):
         msg = build_message(msg) # add traceback
         print(f'\n\n*------------------*\n{msg}')
 
-def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None, prnt=False, func=None, tb_msg: str=None, func_name=None, **kw):
+def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None, prnt=False, func=None,func_name=None, **kw):
     """Main func to manually log errors
 
     Parameters
@@ -228,12 +228,12 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
         exc = sys.exc_info()[1]
 
     if display:
-        display_error(exc=exc, func_name=func_name)
+        display_error(exc=exc, func_name=func_name, **kw)
 
     if not log is None:
         log.error(msg, exc_info=True)
 
-def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, log=None, msg: str=None):
+def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, log=None, msg: str=None, **kw):
     """Display error message to user in gui dialog
 
     Parameters
@@ -260,9 +260,8 @@ def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, lo
 
     tb_msg = format_traceback() if tb_msg is None else tb_msg
 
-    from .gui.dialogs import ErrMsg
-    dlg = ErrMsg(text=msg, detailed_text=tb_msg) 
-    dlg.exec_()
+    from .gui.dialogs import show_err_msg
+    show_err_msg(text=msg, detailed_text=tb_msg)
 
 
 # Custom error classes
