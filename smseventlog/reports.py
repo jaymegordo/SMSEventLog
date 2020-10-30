@@ -5,6 +5,7 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 from . import charts as ch
+from . import dbtransaction as dbt
 from . import functions as f
 from . import queries as qr
 from . import styles as st
@@ -247,7 +248,7 @@ class Report(object):
         # may need to write html to file to debug issues
         html_out = template.render(template_vars)
         if write_html:
-            with open('html_out.html', 'w+', encoding='utf-8') as file:
+            with open('report.html', 'w+', encoding='utf-8') as file:
                 file.write(html_out)
 
         if p_base is None:
@@ -289,28 +290,41 @@ class TestReport(Report):
         self.add_items(['signature_block'])
 
 class FleetMonthlyReport(Report):
-    def __init__(self, d=None, minesite='FortHills'):
+    def __init__(self, d=None, minesite='FortHills', secs=None, items=None):
         super().__init__(d=d)
 
         period_type = 'month'
         period = self.d_rng[0].strftime('%Y-%m')
         title = f'{minesite} Fleet Monthly Report - {period}'
         f.set_self(vars())
+        
+        if not secs:
+            secs = ['UnitSMR', 'AvailBase', 'Components', 'FCs', 'FrameCracks']
 
-        secs = ['UnitSMR', 'AvailBase', 'Components', 'FCs', 'FrameCracks']
+        if not items:
+            items = ['title_page', 'truck_logo', 'exec_summary', 'table_contents']
+
         self.load_sections(secs)
-        self.add_items(['title_page', 'truck_logo', 'exec_summary', 'table_contents'])
+        self.add_items(items)
+    
+    @classmethod
+    def example_rainyriver(cls):
+        return cls(minesite='RainyRiver', secs=['FCs'], items=['title_page', 'exec_summary'])
 
     def set_exec_summary(self):
         gq = self.get_query
         ex = self.exec_summary
+        sections = self.sections
 
-        self.sections['Availability'].set_exec_summary(ex=ex) # avail sets its own exec_summary
+        if 'Availability' in sections:
+            self.sections['Availability'].set_exec_summary(ex=ex) # avail sets its own exec_summary
         
-        ex['Components'] = gq('Component Changeout History').exec_summary()
+        if 'Components' in sections:
+            ex['Components'] = gq('Component Changeout History').exec_summary()
 
-        ex['Factory Campaigns'] = gq('FC Summary').exec_summary()
-        ex['Factory Campaigns'].update(gq('Completed FCs').exec_summary())
+        if 'Factory Campaigns' in sections:
+            ex['Factory Campaigns'] = gq('FC Summary').exec_summary()
+            ex['Factory Campaigns'].update(gq('Completed FCs').exec_summary())
     
     def email(self):
         self.set_exec_summary()
@@ -404,7 +418,7 @@ class FCReport(Report):
         self.load_sections('FCs')
 
 class FailureReport(Report):
-    def __init__(self, title=None, header_data=None, body=None, pictures=None, e=None):
+    def __init__(self, title=None, header_data=None, body=None, pictures=None, e=None, ef=None, **kw):
         super().__init__()
         self.html_template = 'failure_report.html'
 
@@ -435,8 +449,37 @@ class FailureReport(Report):
 
         # pics > need two column layout
         f.set_self(vars())
+    
+    @classmethod
+    def from_model(cls, e, **kw):
+        """Create report from model e, with header data from event dict + unit info"""
+        header_data = dbt.model_dict(e, include_none=True)
+        header_data.update(db.get_df_unit().loc[e.Unit])
 
-    def create_pdf(self, p_base):
+        return cls(e=e, header_data=header_data, **kw)
+
+    @classmethod
+    def example(cls, uid=None):
+        pics = []
+        e = dbt.Row.example(uid=uid)
+
+        body = dict(
+            complaint='The thing keeps breaking.',
+            cause='Uncertain',
+            correction='Component replaced with new.',
+            details=e.Description)
+
+        # use eventfolder to get pictures
+        from . import eventfolders as efl
+        ef = efl.EventFolder.example(uid=uid, e=e)
+        pics = ef.pics[:3]
+
+        return cls.from_model(e=e, ef=ef, pictures=pics, body=body)
+
+    def create_pdf(self, p_base=None, **kw):
+        if p_base is None:
+            p_base = self.ef._p_event
+
         df_head_html = self.style_header(df=self.df_head) \
             .render()
 
@@ -448,7 +491,7 @@ class FailureReport(Report):
             body_sections=body,
             pictures=sorted(self.pictures))
 
-        return super().create_pdf(p_base=p_base, template_vars=template_vars, check_overwrite=True)
+        return super().create_pdf(p_base=p_base, template_vars=template_vars, check_overwrite=True, **kw)
 
     def style_header(self, df):
         return self.style_df(df=df) \
@@ -873,7 +916,7 @@ class FCs(Section):
                 query=qr.FCComplete(d_rng=d_rng, minesite=minesite),
                 caption='FCs completed during the report period.')
 
-        fcsummary = qr.FCSummaryReport() # need to pass parent query to FC summary 2 to use its df
+        fcsummary = qr.FCSummaryReport(minesite=minesite) # need to pass parent query to FC summary 2 to use its df
         sec = SubSection('FC Summary', self) \
             .add_df(
                 query=fcsummary,
