@@ -103,6 +103,9 @@ class RefreshTable(InputForm):
         elif name == 'tsi author':
             username = self.mainwindow.username
             add_input(field=IPF(text='TSI Author', default=username, col_db='TSIAuthor'), checkbox=True, cb_enabled=False)
+
+        elif name == 'tsi number':
+            add_input(field=IPF(text='TSI Number'), checkbox=True, cb_enabled=False)
         
         elif name == 'major components':
             table = T('ComponentType')
@@ -197,7 +200,7 @@ class ComponentSMR(RefreshTable):
 class TSI(EventLogBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_features(features=['tsi author'])
+        self.add_features(features=['tsi author', 'tsi number'])
 
 class FCBase(RefreshTable):
     def __init__(self, parent=None):
