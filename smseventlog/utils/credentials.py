@@ -97,9 +97,6 @@ class CredentialManager(object):
 
                 SecretsManager().write(file_data=self.static_creds_full, name=self.name_creds)
 
-                # NOTE could write a better func for updating part of a yaml file
-                # with open(self.p_static_creds, 'w+') as file:
-                #     yaml.dump(self.static_creds_full, file)
             except:
                 log.warning(f'Failed to write credentials back to file: {vals}')
     

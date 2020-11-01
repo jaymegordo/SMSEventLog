@@ -42,6 +42,9 @@ pyinstaller = "*"
 pycparser = "==2.14"
 kaleido = "*"
 chromedriver-autoinstaller = {git = "https://github.com/jaymegordo/python-chromedriver-autoinstaller.git", ref = "master"}
+onedrivesdk = {git = "https://github.com/OneDrive/onedrive-sdk-python.git", ref = "master"}
+onedrivesdk-fork = "*"
+pypandoc = "*"
 
 [requires]
 python_version = "3.8"

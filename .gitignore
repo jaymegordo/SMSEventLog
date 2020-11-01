@@ -34,3 +34,4 @@ smseventlog/_resources/csv/fleet_monthly_report_email.csv
 run.spec
 _info/utils/generate-iconset.py
 pyu.log
+smseventlog/utils/onedrive.py

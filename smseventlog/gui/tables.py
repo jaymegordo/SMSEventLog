@@ -1004,7 +1004,7 @@ class EventLogBase(TableWidget):
             self.mcols['hide'] = ('UID',)
             self.mcols['longtext'] = ('Description', 'Failure Cause', 'Comments', 'Details', 'Notes')
             self.mcols['disabled'] = ('Model', 'Serial')
-            self.mcols['fill_enabled'] = ('Passover', 'Status', 'Removal Reason')
+            self.mcols['fill_enabled'] = ('Passover', 'Status', 'Removal Reason', 'Issue Category', 'Sub Category', 'Failure Category')
             self.highlight_vals.update({
                 'closed': 'goodgreen',
                 'open': 'bad',

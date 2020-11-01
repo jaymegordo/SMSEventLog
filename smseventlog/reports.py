@@ -95,7 +95,8 @@ class Report(object):
         return self
 
     def load_df(self, name, saved=False):
-        # load df from either function defn or query obj
+        """Load df from either function defn or query obj"""
+        print(name)
         m = self.dfs[name]
         func, query, da, name = m['func'], m['query'], m['da'], m['name']
 

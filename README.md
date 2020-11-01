@@ -21,6 +21,7 @@ The log is structured around several main tables, each of which can be used to i
 
 ### Troubleshooting
 * log file: `%localappdata%\SMS Equipment Inc\SMS Event Log\logging`
+* registry settings: `Computer\HKEY_CURRENT_USER\Software\sms\smseventlog`
 
 ## Usage
 ### Keyboard shortcuts
