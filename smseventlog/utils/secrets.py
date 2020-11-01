@@ -57,7 +57,7 @@ class SecretsManager(object):
         file = self.get_secret_file(name=name)
 
         if ext == 'yaml':
-            return yaml.full_load(yaml.full_load(file)) # not sure why but need to call this twice
+            return yaml.full_load(file)
         elif ext == 'csv':
             return pd.read_csv(fl.from_bytes(file))
 
@@ -82,7 +82,7 @@ class SecretsManager(object):
         if not p.exists():
             raise FileNotFoundError(f'Couldn\'t find secret file: {p}')
 
-        with open(p, "rb") as file:
+        with open(p, 'rb') as file:
             file_data = file.read()
 
         self.write(file_data, name=p.name, **kw)
@@ -106,7 +106,8 @@ class SecretsManager(object):
         p_save = p_save / name
         ext = name.split('.')[-1]
 
-        if ext in ('yaml', 'yml'):
+        # non-bytes dict passed back, encode as bytes here
+        if ext in ('yaml', 'yml') and isinstance(file_data, dict):
             file_data = yaml.dump(file_data).encode() # encode str as bytes
 
         fn = Fernet(self.key)
