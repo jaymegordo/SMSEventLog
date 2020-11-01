@@ -252,7 +252,7 @@ class QueryBase(object):
         ---
         pd.DataFrame
         """
-        if not (self.use_cached_df and not self.df_loaded):
+        if not (self.use_cached_df and not self.df_loaded) or not self.df_loaded:
             self.df = db.get_df(query=self, **kw)
             self.df_loaded = True
 
@@ -451,7 +451,6 @@ class ComponentCOReport(ComponentCOBase):
         return style.background_gradient(
             cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=-4000, vmax=4000) \
             .pipe(st.add_table_attributes, s='class="pagebreak_table"')
-
 
     @property
     def mask_planned(self):
@@ -1330,7 +1329,7 @@ class FrameCracks(EventLogBase):
         super().__init__(da=da, **kw)
         a, b = self.a, self.b
         cols = [a.Unit, a.DateAdded, a.Title, a.SMR, a.TSIPartName, a.TSIDetails, a.WOComments, a.TSINumber, 
-        a.SuncorWO]
+        a.SuncorWO, a.IssueCategory, a.SubCategory, a.Cause]
 
         q = self.q \
             .orderby(a.Unit, a.DateAdded)
@@ -1339,11 +1338,13 @@ class FrameCracks(EventLogBase):
         self.set_minesite()
         
     def set_default_args(self, d_lower):
+        a = self.a
         self.add_fltr_args([
             dict(vals=dict(DateAdded=d_lower)),
-            dict(vals=dict(Title='%crack%')),
+            dict(ct=(a.Title.like('crack')) | ((a.IssueCategory == 'frame') & (a.Cause == 'crack'))),
             dict(vals=dict(Model='%980%'), table=self.b)])
         
+
     def process_df(self, df):
         df = df.rename(columns=dict(SuncorWO='Order'))
         df.Order = pd.to_numeric(df.Order, errors='coerce').astype('Int64')
