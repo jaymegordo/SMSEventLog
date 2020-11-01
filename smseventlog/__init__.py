@@ -47,9 +47,11 @@ def getlog(name):
     if name == '': name = 'base'
 
     log = logging.getLogger(name)
-    log.setLevel(logging.DEBUG)
-    log.addHandler(sh)
-    log.addHandler(fh)
+
+    if not AZURE_WEB:
+        log.setLevel(logging.DEBUG)
+        log.addHandler(sh)
+        log.addHandler(fh)
 
     return log
 
