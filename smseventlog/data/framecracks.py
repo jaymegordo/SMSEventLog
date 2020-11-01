@@ -71,7 +71,8 @@ def pre_process_framecracks(d_lower=None):
     df_sun = load_df_sun()
     df_smr = load_df_smr(d_lower=d_lower)
 
-    df_new = merge_sms_sun(df_sms, df_sun, df_smr)
+    df_new = merge_sms_sun(df_sms, df_sun, df_smr) \
+        .drop(columns=['IssueCategory', 'SubCategory', 'Cause'])
     
     # remove rows where Order already exists in df_old
     df_new = df_new[(~df_new.Order.isin(df_old.Order) | df_new.Order.isnull())]
@@ -127,11 +128,14 @@ def merge_sms_sun(df_sms, df_sun, df_smr):
     # tag dumpbody location using floc
     df.loc[df['Functional Loc.']=='STRUCTR-BODYGP-DUMPBODY', 'Location'] = 'Dumpbody'
 
-    # try and get Location from sms data, else NaN
+    # try and get Location from sms WO Comments, else NaN
     lst = ['front', 'mid', 'rear', 'dumpbody', 'deck', 'handrail']
     pat = '({})'.format('|'.join([f'\({item}\)' for item in lst])) # match value = "(rear)"
     df['Location'] = df['WOComments'].str.extract(pat, expand=False, flags=re.IGNORECASE) \
         .str.replace('(', '').str.replace(')', '').str.title()
+
+    # also match on issue==Frame + failure category==crack > chose SubCategory eg Rear
+    df.loc[(df.IssueCategory=='Frame') & (df.Cause=='Crack'), 'Location'] = df.SubCategory
     
     df = df.rename(columns=dict(DateAdded='Date'))
 
