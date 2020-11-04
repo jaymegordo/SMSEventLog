@@ -147,8 +147,11 @@ def default_style(df, outlook=False):
         selector='table',
         props=[('border', '1px solid #000000'), ('margin-top', '0px'), ('margin-bottom', '2px')]))
 
-    numeric_mask = df.dtypes.apply(lambda x: issubclass(np.dtype(str(x).lower()).type, np.number))
-    date_mask = df.dtypes.apply(lambda x: issubclass(np.dtype(str(x).lower()).type, np.datetime64))
+    def is_np(item):
+        return issubclass(type(item), np.dtype)
+
+    numeric_mask = df.dtypes.apply(lambda x: is_np(x) and issubclass(np.dtype(str(x).lower()).type, np.number))
+    date_mask = df.dtypes.apply(lambda x: is_np(x) and issubclass(np.dtype(str(x).lower()).type, np.datetime64))
     
     s.extend(set_column_style(mask=numeric_mask, props=('text-align', 'right')))
     s.extend(set_column_style(mask=~numeric_mask, props=('text-align', 'left')))
