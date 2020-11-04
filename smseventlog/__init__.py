@@ -18,7 +18,8 @@ import pandas as pd
 import numpy as np
 import pypika as pk
 from dateutil.relativedelta import relativedelta
-from pypika import Case, Criterion
+from pypika import Case, Criterion, DatePart
+from pypika.terms import PseudoColumn
 from pypika import CustomFunction as cf
 from pypika import Order, Query
 from pypika import Table as T
@@ -55,13 +56,13 @@ def getlog(name):
 
     return log
 
+if sys.platform.startswith('win'):
+    applocal = Path.home() / 'AppData/Local/SMS Equipment Inc/SMS Event Log'
+else:
+    applocal = Path.home() / 'Library/Application Support/SMS Event Log'
+
 if not AZURE_WEB:
     # create logger
-    if sys.platform.startswith('win'):
-        applocal = Path.home() / 'AppData/Local/SMS Equipment Inc/SMS Event Log'
-    else:
-        applocal = Path.home() / 'Library/Application Support/SMS Event Log'
-
     p_log = applocal / 'logging'
     if not p_log.exists():
         p_log.mkdir(parents=True)
