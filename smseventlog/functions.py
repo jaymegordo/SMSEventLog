@@ -22,12 +22,9 @@ global drive, config, config_platform, platform, topfolder, projectfolder, temp,
 if sys.platform.startswith('win'):
     drive = Path('P:\\')
     platform = 'win'
-    # NOTE applocal imported from smseventlog.__init__ now
-    # applocal = Path.home() / 'AppData/Local/SMS Equipment Inc/SMS Event Log'
 else:
     drive = Path('/Volumes/Public')
     platform = 'mac'
-    # applocal = Path.home() / 'Library/Application Support/SMS Event Log'
 
 temp = applocal / 'temp'    
 p_ext = applocal / 'extensions'

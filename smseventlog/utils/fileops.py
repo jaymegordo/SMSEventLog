@@ -5,13 +5,15 @@ from distutils import dir_util
 from io import StringIO
 
 import psutil
-from hurry.filesize import size
+
+try:
+    from hurry.filesize import size
+except ModuleNotFoundError:
+    pass
 
 from .__init__ import *
 
 log = getlog(__name__)
-log.setLevel(logging.INFO)
-log.addHandler(sh)
 
         
 def date_created(p) -> dt:
