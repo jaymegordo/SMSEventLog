@@ -158,7 +158,7 @@ def chart_avail_rolling(df, period_type='month', title=None):
     fig.add_trace(go.Bar(
         name = 'Hours',
         x=df.Period,
-        y=df.SumSMS,
+        y=df.SMS,
         marker_color=color()['darkgrey']))
     
     fig.add_trace(go.Scatter(
@@ -197,6 +197,7 @@ def chart_avail_rolling(df, period_type='month', title=None):
         height=400,
         width=600,
         bargap=0.5,
+        xaxis_type='category',
         yaxis2=dict(
             title='Availability',
             showgrid=False,
@@ -204,7 +205,6 @@ def chart_avail_rolling(df, period_type='month', title=None):
             fixedrange=True,
             range=[0,1],
             tickformat=',.0%'),
-        xaxis_type='category',
         legend=dict(y=-0.25))
 
     return fig

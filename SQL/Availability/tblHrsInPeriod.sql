@@ -5,7 +5,8 @@ GO
 ALTER FUNCTION [dbo].[tblHrsInPeriod](
     @DateLower DATE,
     @DateUpper DATE,
-    @MineSite VARCHAR(255))
+    @MineSite VARCHAR(255),
+    @period VARCHAR(10) = 'month')
 
 RETURNS TABLE
 AS
@@ -14,33 +15,34 @@ RETURN
 -- Return Unit and sum of total hrs in system and excluded from system within specified period
 
 SELECT
-    t.Unit,
-    DATEDIFF(hour, t.MinDate, @DateUpper) - t.ExcludeHours_MA + 24 as HrsPeriod_MA,
-    t.ExcludeHours_MA,
-    DATEDIFF(hour, t.MinDate, @DateUpper) - t.ExcludeHours_PA + 24 as HrsPeriod_PA,
-    t.ExcludeHours_PA
+    -- need min and max date per group
 
-FROM (
-    SELECT
-        a.Unit,
-        CASE WHEN @DateLower < a.DeliveryDate THEN a.DeliveryDate ELSE @DateLower END as MinDate,
-        ISNULL(b.ExcludeHours_MA, 0) as ExcludeHours_MA,
-        ISNULL(b.ExcludeHours_PA, 0) as ExcludeHours_PA
+    CASE WHEN @period = 'month' THEN
+        CAST(YEAR(c.Date) as VARCHAR) + '-' + CAST(MONTH(c.Date) as VARCHAR)
+        ELSE
+        CAST(YEAR(c.Date) as VARCHAR) + '-' + CAST(DATEPART(week, c.Date) as VARCHAR)
+    END as Period,
 
-    FROM UnitID a
-        LEFT JOIN (
-            SELECT 
-                c.Unit,
-                SUM(IIF(c.MA = 1, c.Hours, 0)) as ExcludeHours_MA,
-                SUM(c.Hours) as ExcludeHours_PA
-            FROM
-                DowntimeExclusions c
-            WHERE
-                c.Date BETWEEN @DateLower AND @DateUpper
-            GROUP BY c.Unit
-        ) b on a.Unit=b.Unit
+    c.Unit,
+    ROUND(SUM(IIF(c.MA = 1, c.Hours, 0)), 0) as ExcludeHours_MA,
+    ROUND(SUM(c.Hours), 0) as ExcludeHours_PA
 
-    WHERE
-        a.MineSite = @MineSite
-    ) t
+FROM
+    DowntimeExclusions c
+    LEFT JOIN UnitID a on a.Unit=c.Unit
+
+WHERE
+    c.Date BETWEEN @DateLower AND @DateUpper and
+    a.MineSite = @MineSite
+
+GROUP BY
+    c.Unit,
+
+    CASE WHEN @period = 'month' THEN
+        CAST(YEAR(c.Date) as VARCHAR) + '-' + CAST(MONTH(c.Date) as VARCHAR)
+        ELSE
+        CAST(YEAR(c.Date) as VARCHAR) + '-' + CAST(DATEPART(week, c.Date) as VARCHAR)
+    END
+
+
 GO
