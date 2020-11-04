@@ -195,10 +195,11 @@ class QueryBase(object):
             if hasattr(self, 'get_query'): # need to do this after init for queries with subqueries
                 q = self.get_query()
 
-            sql = q.select(*self.cols) \
-                .where(self.fltr.expand_criterion()) \
-                .get_sql().replace("'d'", '"d"') # TODO: fix for this was answered
-            
+            if q.get_sql() == '':
+                # no select cols defined yet
+                q = q.select(*self.cols)
+
+            sql = str(q.where(self.fltr.expand_criterion()))
             self.last_sql = sql
 
         return sql
@@ -563,7 +564,7 @@ class UnitInfo(QueryBase):
 
         c, d = pk.Tables('UnitSMR', 'EquipType')
 
-        days = fn.DateDiff('d', a.DeliveryDate, fn.CurTimestamp())
+        days = fn.DateDiff(PseudoColumn('day'), a.DeliveryDate, fn.CurTimestamp())
         remaining = Case().when(days<=365, 365 - days).else_(0).as_('Remaining')
         remaining2 = Case().when(days<=365*2, 365*2 - days).else_(0)
 
@@ -747,8 +748,8 @@ class FCSummaryReport(FCSummary):
 
 class FCSummaryReport2(FCSummary):
     def __init__(self, parent):
+        """Must init with parent query object to use it's df"""
         super().__init__()
-        # must init with parent query object to use it's df
         f.set_self(vars())
     
     def get_df(self, default=False):
@@ -1005,86 +1006,278 @@ class AvailTopDowns(AvailBase):
         return m
 
 class AvailSummary(QueryBase):
-    def __init__(self, d_rng, model='980%', minesite='FortHills'):
+    def __init__(self, d_rng=None, period_name=None, model='980%', minesite='FortHills', period='month'):
         super().__init__()
         self.view_cols.update(
-            Target_MA='MA Target',
-            SMS_MA='MA',
-            HrsPeriod_MA='Hrs Period MA',
-            HrsPeriod_PA='Hrs Period PA')
+            ma_target='MA Target',
+            hrs_period_ma='Hrs Period MA',
+            hrs_period_pa='Hrs Period PA')
 
         self.formats.update({
             'MA Target': '{:.2%}',
             'MA': '{:.2%}',
             'PA': '{:.2%}',
             'Hrs Period MA': '{:,.0f}',
-            'Hrs Period PA': '{:,.0f}'})
+            'Hrs Period PA': '{:,.0f}',
+            'Target Hrs Variance': '{:,.0f}'})
+
+        if not period_name is None:
+            m = dict(month=df_months, week=df_weeks)
+            d_rng = tuple(m[period]().loc[period_name][['StartDate', 'EndDate']])
+
+        if period == 'week':
+            fmt = '%Y-%U-%w'
+            fmt_period = 'W'
+            fmt_str = 'Week %U'
+        else:
+            fmt = '%Y-%m'
+            fmt_period = 'M'
+            fmt_str = fmt
         
-        args = dict(
-            d_lower=d_rng[0],
-            d_upper=d_rng[1],
-            model=model,
-            minesite=minesite,
-            exclude_ma=False,
-            ahs_active=True,
-            split_ahs=False)
-        
-        sql = 'SELECT * FROM {} ORDER BY Unit'.format(table_with_args(table='udfMAReport', args=args))
         f.set_self(vars())
     
-    def process_df(self, df):
-        return self.add_totals(df)
-    
-    def exec_summary(self):
-        totals, d_rng = self.totals, self.d_rng
-        days = (d_rng[1] - d_rng[0]).days
+    @property
+    def q(self):
+        d_rng, period, model, minesite = self.d_rng, self.period, self.model, self.minesite
+        a, b = pk.Tables('Downtime', 'UnitID')
 
-        if days > 31:
-            current_period = 'YTD'
-        elif days > 7:
-            current_period = d_rng[0].strftime('%B %Y')
+        hrs_in_period = cf('tblHrsInPeriod', ['d_lower', 'd_upper', 'minesite', 'period'])
+        period_range = cf('period_range', ['startdate', 'enddate', 'period'])
+        _year = cf('YEAR', ['date'])
+        _month = cf('MONTH', ['date'])
+        datepart = cf('DATEPART', ['period_type', 'date'])
+
+        year = _year(a.ShiftDate)
+        month = _month(a.ShiftDate)
+        week = datepart(PseudoColumn('iso_week'), a.ShiftDate)
+
+        if period == 'month':
+            _period = fn.Concat(year, '-', month) #.as_('period')
         else:
-            current_period = (d_rng[0] + delta(days=7)).strftime('Week %W')
+            _period = fn.Concat(year, '-', week) #.as_('period')
+
+        # Create all week/month periods in range crossed with units
+        q_prd = Query.from_(period_range(d_rng[0], d_rng[1], period)).select('period')
+        q_base = Query.from_(b) \
+            .select(q_prd.period, b.Unit) \
+            .cross_join(q_prd).cross() \
+            .where(Criterion.all([
+                b.MineSite==minesite,
+                b.model.like(model)]))
+
+        # Unit, Total, SMS, Suncor
+        cols_dt = [
+            _period.as_('period'),
+            a.Unit,
+            fn.Sum(a.Duration).as_('Total'),
+            fn.Sum(a.SMS).as_('SMS'),
+            fn.Sum(a.Suncor).as_('Suncor')]
+
+        q_dt = Query.from_(a) \
+            .select(*cols_dt) \
+            .where(Criterion.all([
+                a.ShiftDate.between(d_rng[0], d_rng[1]),
+                a.Duration > 0.01])) \
+            .groupby(a.Unit, _period)
+
+        cols1 = [
+            q_base.period,
+            q_base.Unit,
+            q_dt.Total,
+            q_dt.SMS,
+            q_dt.Suncor]
+
+        q1 = Query.from_(q_base) \
+            .select(*cols1) \
+            .left_join(q_dt).on_field('Unit', 'Period')
+
+        q_hrs = Query.from_(hrs_in_period(d_rng[0], d_rng[1], minesite, period)).select('*')
+
+        cols = [
+            b.Model,
+            b.DeliveryDate,
+            q1.star,
+            q_hrs.ExcludeHours_MA,
+            q_hrs.ExcludeHours_PA,
+            Case().when(b.AHSActive==1, 'AHS').else_('Staffed').as_('Operation')]
+
+        return Query.from_(q1) \
+            .select(*cols) \
+            .left_join(b).on_field('Unit') \
+            .left_join(q_hrs).on_field('Unit', 'Period') \
+            .where(b.Model.like(model))
+
+    def process_df(self, df):
+        """Calc data from week/monthly grouped data from db"""
+        # read ma_guarante data
+        p = f.resources / 'csv/ma_guarantee.csv'
+        df_ma_gt = pd.read_csv(p)
+
+        if self.period == 'week':
+            df.period = df.period + '-0'
+
+        numeric_cols = df.select_dtypes('number').columns
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+        
+        return df \
+            .assign(
+                period=lambda x: pd.to_datetime(x.period, format=self.fmt).dt.to_period(self.fmt_period),
+                d_upper=lambda x: pd.to_datetime(x.period.dt.end_time.dt.date),
+                age=lambda x: x.d_upper.dt.to_period('M').astype(int) - x.DeliveryDate.dt.to_period('M').astype(int),
+                hrs_period=lambda x: ((np.minimum(x.period.dt.end_time, np.datetime64(self.d_rng[1])) - x.period.dt.start_time).dt.days + 1) * 24,
+                hrs_period_ma=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_MA, 0),
+                hrs_period_pa=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_PA, 0),
+                MA=lambda x: (x.hrs_period_ma - x.SMS) / x.hrs_period_ma,
+                PA=lambda x: (x.hrs_period_pa - x.Total) / x.hrs_period_pa) \
+            .replace([np.inf, -np.inf], np.nan) \
+            .fillna(dict(MA=1, PA=1)) \
+            .sort_values(['age']) \
+            .pipe(lambda df: pd.merge_asof(
+                left=df, right=df_ma_gt, on='age', direction='forward', allow_exact_matches=True))
+    
+    def filter_max_period(self, df):
+        return df[df.period == max(df.period)]
+    
+    def df_report(self, period='last'):
+        """Return report-only cols, for highest period in raw data"""
+        cols = ['Model', 'Unit', 'Total', 'SMS', 'Suncor', 'ma_target', 'MA', 'hrs_period_ma', 'PA', 'hrs_period_pa', 'Operation']
+
+        df = self.df.copy()
+
+        # filter to ytd, group by unit, weighted avg
+        if period == 'ytd':
+            df = df \
+                .assign(
+                    period=lambda x: x.period.dt.year) \
+                .pipe(self.filter_max_period) \
+                .groupby(['Model', 'Unit', 'Operation'], as_index=False) \
+                .agg(**self.agg_cols(df=df))
+
+        elif period == 'last':
+            df = df.pipe(self.filter_max_period)
+
+        return df[cols] \
+            .sort_values(['Unit']) \
+            .reset_index(drop=True) \
+            .pipe(self.rename_cols)
+
+    def rename_cols(self, df):
+        return df.rename(columns=dict(
+            period='Period',
+            ma_target='MA Target',
+            hrs_period_ma='Hrs Period MA',
+            hrs_period_pa='Hrs Period PA',
+            target_hrs_var='Target Hrs Variance'))
+
+    def w_avg(self, s, df, wcol):
+        """Calc weighted avg for column weighted by another, eg MA by hrs_period_ma"""
+        return np.average(s, weights=df.loc[s.index, wcol])
+    
+    def agg_cols(self, df):
+        """Column agg funcs for summary and ytd report"""
+        w_avg = self.w_avg
+
+        return dict(
+            Total=('Total', 'sum'),
+            SMS=('SMS', 'sum'),
+            Suncor=('Suncor', 'sum'),
+            ma_target=('ma_target', partial(w_avg, df=df, wcol='hrs_period_ma')),
+            MA=('MA', partial(w_avg, df=df, wcol='hrs_period_ma')),
+            PA=('PA', partial(w_avg, df=df, wcol='hrs_period_pa')),
+            hrs_period_ma=('hrs_period_ma', 'sum'),
+            hrs_period_pa=('hrs_period_pa', 'sum'))
+
+    def df_summary(self, group_ahs=False, period=None):
+        """Group by period and summarise
+        - NOTE need to make sure fulll history is loaded to 12 periods back
+
+        Parameters
+        ----------
+        group_ahs : bool\n
+            group by 'operation' eg ahs/staffed
+        max_period : bool\n
+            filter data to max period only first
+
+        Returns
+        -------
+        pd.DataFrame
+            Grouped df
+        """        
+        df = self.df.copy()
+        group_cols = ['period']
+
+        if period in ('last', 'ytd'):
+            if period == 'ytd':
+                df.period = df.period.dt.year
+            
+            df = self.filter_max_period(df=df)
+
+        if group_ahs:
+            group_cols.append('Operation')
+
+        return df \
+            .pipe(lambda df: df[df.Unit != 'F300']) \
+            .groupby(group_cols, as_index=False) \
+            .agg(
+                Unit=('Unit', 'count'),
+                **self.agg_cols(df=df)) \
+            .assign(
+                target_hrs_var=lambda x: (x.MA - x.ma_target) * x.hrs_period_ma)
+
+    def style_totals(self, style):
+        return style \
+            .pipe(st.highlight_totals_row, exclude_cols=('Unit', 'MA')) \
+            .pipe(self.highlight_greater) \
+            .format(self.formats)
+
+    def df_totals(self):
+        """Return df of totals for most recent period, split by AHS/Staffed"""
+        return pd.concat([
+                self.df_summary(group_ahs=True, period='last'),
+                self.df_summary(group_ahs=False, period='last')]) \
+            .fillna(dict(Operation='Total')) \
+            .drop(columns=['period']) \
+            .reset_index(drop=True) \
+            .pipe(self.rename_cols)
+
+    def style_history(self, style, **kw):
+        return style \
+            .apply(st.highlight_greater, subset=['MA', 'Target Hrs Variance'], axis=None, ma_target=style.data['MA Target']) \
+            .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
+
+    def df_history_rolling(self):
+        """df of 12 period (week/month) rolling summary.
+        - period col converted back to str"""
+        cols = ['period', 'SMS', 'ma_target', 'MA', 'target_hrs_var', 'PA']
+        return self.df_summary(group_ahs=False) \
+            .assign(period=lambda x: x.period.dt.strftime(self.fmt_str)) \
+            [cols] \
+            .pipe(self.rename_cols)
+   
+    def exec_summary(self, period='last'):
+        d_rng = self.d_rng
+
+        df = self.df_summary(period=period)
+        totals = df.loc[0].to_dict()
+
+        if period == 'last':
+            current_period = totals['period'].strftime(self.fmt_str)
+        elif period == 'ytd':
+            current_period = 'YTD'
 
         m = {}
-        target_hrs_variance = (totals['MA'] - totals['MA Target']) * totals['Hrs Period MA']
-
         m[current_period] = {
                 'Physical Availability': '{:.2%}'.format(totals['PA']),
                 'Mechanical Availability': '{:.2%}'.format(totals['MA']),
-                'Target MA': '{:.2%}'.format(totals['MA Target']),
-                'Target Hrs Variance': '{:,.0f}'.format(target_hrs_variance)
-            }
+                'Target MA': '{:.2%}'.format(totals['ma_target']),
+                'Target Hrs Variance': '{:,.0f}'.format(totals['target_hrs_var'])}
         
         return m
 
     def sum_prod(self, df, col1, col2):
-        # create sumproduct for weighted MA and PA %s
+        """Create sumproduct for weighted MA and PA %s
+        - NOTE not used, just keeping for reference"""
         return (df[col1] * df[col2]).sum() / df[col2].sum()
-
-    def get_totals(self, df, totals_name='Total'):
-        df = df[df.Unit != 'F300']
-        m = {
-            'Model': totals_name,
-            'Unit': df.Unit.count(),
-            'Total': df.Total.sum(),
-            'SMS': df.SMS.sum(),
-            'Suncor': df.Suncor.sum(),
-            'MA Target': self.sum_prod(df, 'MA Target', 'Hrs Period MA'),
-            'MA': self.sum_prod(df, 'MA', 'Hrs Period MA'),
-            'PA': self.sum_prod(df, 'PA', 'Hrs Period PA'),
-            'Hrs Period MA': df['Hrs Period MA'].sum(),
-            'Hrs Period PA': df['Hrs Period PA'].sum()}
-
-        return m
-
-    def add_totals(self, df, totals_name='Total'):
-        # just used to save totals for exec summary now
-        m = self.get_totals(df, totals_name)
-        self.totals = m
-        
-        # return df.append(m, ignore_index=True)
-        return df
     
     def highlight_greater(self, style):
         return style.apply(st.highlight_greater, subset=['MA', 'Unit'], axis=None, ma_target=style.data['MA Target'])
@@ -1107,68 +1300,8 @@ class AvailSummary(QueryBase):
             .background_gradient(cmap=cmap, subset=subset, axis=None) \
             .pipe(self.highlight_greater) \
             # .pipe(st.add_table_attributes, s='style="font-size: 10px;"', do=not outlook)
+   
 
-    def df_totals(self):
-        # calc totals for ahs/staffed/all, return df
-        # make sure self.df is not none
-        df = self.df
-        data = []
-        data.extend([self.get_totals(
-            df=df[df.Operation==name], totals_name=name) for name in ('Staffed', 'AHS')])
-
-        data.append(self.get_totals(df=df))
-
-        return pd.DataFrame(data).rename(columns=dict(Model='Operation'))
-    
-    def style_totals(self, style):
-        return style \
-            .pipe(st.highlight_totals_row, exclude_cols=('Unit', 'MA')) \
-            .pipe(self.highlight_greater) \
-            .format(self.formats)
-
-class AvailHistory(QueryBase):
-    def __init__(self, d_rng, period_type='month', model='980%', minesite='FortHills', num_periods=12):
-        super().__init__()
-
-        self.view_cols.update(
-            Target_MA='MA Target',
-            SMS_MA='MA',
-            Target_Hrs_Variance='Target Hrs Variance')
-
-        self.formats.update({
-            'MA Target': '{:.2%}',
-            'MA': '{:.2%}',
-            'PA': '{:.2%}',
-            'Target Hrs Variance': '{:,.0f}'})
-
-        args = dict(
-            model=model,
-            minesite=minesite,
-            d_upper=d_rng[1],
-            period_type=period_type,
-            ahs_active=True,
-            split_ahs=False,
-            num_periods=num_periods)
-
-        sql = 'SELECT * FROM {}'.format(table_with_args(table='udfMASummaryTable', args=args))
-        f.set_self(vars())
-    
-    def process_df(self, df):
-        if self.period_type == 'month':
-            days = 0
-            fmt = '%Y-%m'
-        else:
-            days = 7 # need to offset week so it ligns up with suncor's weeks
-            fmt = '%Y-Week %W'
-
-        df['Period'] = (df.DateLower + delta(days=days)).dt.strftime(fmt)
-        df = df[['Period', 'SumSMS', 'MA Target', 'MA', 'Target Hrs Variance', 'PA']]
-        return df
-    
-    def update_style(self, style, **kw):
-        return style \
-            .apply(st.highlight_greater, subset=['MA', 'Target Hrs Variance'], axis=None, ma_target=style.data['MA Target']) \
-            .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
 
 class AvailRawData(AvailBase):
     def __init__(self, da=None, **kw):
@@ -1314,7 +1447,7 @@ class AvailShortfalls(AvailBase):
             .rename(columns=dict(Combined='Major Causes'))
         
         # get ma summary and merge combined comment df
-        df = self.parent.df.copy()
+        df = self.parent.df_report(period='last').copy()
         df = df[df.MA < df['MA Target']]
 
         df = df[df.Model != 'Total']
