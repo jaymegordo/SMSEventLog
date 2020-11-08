@@ -1082,6 +1082,11 @@ class EventLogBase(TableWidget):
 
             row.update(vals=vals)
             self.update_statusbar(msg=f'Event closed: {e.Unit} - {d.strftime("%Y-%m-%d")} - {e.Title} ')
+        
+        elif index.data() == 'Cancelled':
+            # check if event has linked FC and unlink
+            e_fc = self.get_e_fc(uid=e.UID)
+            self.unlink_fc(e_fc=e_fc)
             
     def view_folder(self):
         """Open event folder of currently active row in File Explorer/Finder"""
@@ -1113,25 +1118,36 @@ class EventLogBase(TableWidget):
 
         efl.EventFolder.from_model(e=e, irow=i, table_model=view.model()).show()
     
+    def get_e_fc(self, uid):
+        """Try to select FC from FactoryCampaing table by UID"""
+        return dbt.select_row_by_secondary(dbtable=dbm.FactoryCampaign, col='UID', val=uid)
+    
+    def unlink_fc(self, e_fc):
+        """Unlink FC from event by setting e_fc UID to None"""
+        if e_fc is None:
+            return
+
+        e_fc.UID = None
+        e_fc.DateCompleteSMS = None
+        if db.safe_commit():
+            self.update_statusbar(f'{e_fc.Unit} - FC {e_fc.FCNumber} unlinked from event.')
+    
     def remove_row(self):
-        # remove selected event from table and delete from db
+        """Remove selected event from table and delete from db"""
         view, e, row = self.view, copy.deepcopy(self.e), self.row
         if row is None: return
 
         m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
-
         msg = f'Are you sure you would like to permanently delete the event:\n\n{f.pretty_dict(m)}'
 
         if dlgs.msgbox(msg=msg, yesno=True):
 
             # Check if Event is linked to FC, ask to unlink
-            e_fc = dbt.select_row_by_secondary(dbtable=dbm.FactoryCampaign, col='UID', val=e.UID)
+            e_fc = self.get_e_fc(uid=e.UID)
             if not e_fc is None:
                 msg = f'This event is linked to FC {e_fc.FCNumber}, would you like to unlink the FC?'
                 if dlgs.msgbox(msg=msg, yesno=True):
-                    e_fc.UID = None
-                    e_fc.DateCompleteSMS = None
-                    db.safe_commit()
+                    self.unlink_fc(e_fc=e_fc)
                 else:
                     self.update_statusbar('Warning: Can\'t delete event with linked FC.')
                     return
@@ -1321,7 +1337,6 @@ class EventLog(EventLogBase):
 
             items = sorted(f.config['Lists']['FailureCategory'])
             self.set_combo_delegate(col='Failure Category', items=items)
-
 
         def get_style(self, df=None, outlook=False):
             return super().get_style(df=df, outlook=outlook) \
@@ -1790,8 +1805,18 @@ class FCBase(TableWidget):
 class FCSummary(FCBase):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.add_action(name='Email New FC', func=self.email_new_fc, btn=True, tooltip='Create email to send to customer, attaches FC docs.')
-        self.add_action(name='Close FC', func=self.close_fc, btn=True, tooltip='Set selected FC to "ManualClosed=True" and hide FC from this list.')
+        self.add_action(
+            name='Email New FC',
+            func=self.email_new_fc,
+            btn=True,
+            ctx='fc',
+            tooltip='Create email to send to customer, attaches FC docs.')
+        self.add_action(
+            name='Close FC',
+            func=self.close_fc,
+            btn=True,
+            ctx='fc',
+            tooltip='Set selected FC to "ManualClosed=True" and hide FC from this list.')
 
         # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
@@ -2089,9 +2114,7 @@ class Availability(TableWidget):
         cols = ['Total', 'SMS', 'Suncor', 'Category Assigned', 'Comment']
         txn = dbt.DBTransaction(table_model=model) \
             .add_df(df=df, update_cols=cols) \
-            .update_all()
-        
-        dlgs.msg_simple(msg='Records updated.')
+            .update_all()       
        
     def assign_suncor(self):
         """Auto assign all vals in selected range to suncor
