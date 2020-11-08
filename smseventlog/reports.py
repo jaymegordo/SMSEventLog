@@ -219,6 +219,7 @@ class Report(object):
         return self.dfs[name].get('df', None)
 
     def get_query(self, name):
+        """Return query obj based on df section name"""
         return self.dfs[name].get('query', None)
     
     def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False, **kw):
@@ -577,6 +578,10 @@ class PLMUnitReport(Report):
         f.set_self(vars())
 
         self.load_sections('PLMUnit')
+    
+    @classmethod
+    def example(cls):
+        return cls(unit='F306', d_upper=dt(2020,10,18), d_lower=dt(2019,10,18))
 
     def create_pdf(self, **kw):
         """Need to check df first to warn if no rows."""
@@ -729,9 +734,9 @@ class AvailBase(Section):
                 caption='Unit availability performance vs MA targets. Units highlighted blue met the target. Columns [Total, SMS, Suncor] highlighted darker red = worse performance.<br>*Unit F300 excluded from summary calculations.') \
             .add_df(
                 name='Fleet Availability YTD', # used for chart
+                query=summary_ytd,
                 func=summary_ytd.df_report,
                 da=dict(period='ytd'),
-                query=summary_ytd,
                 display=False) \
             .add_df(
                 name='Summary Totals',
@@ -797,9 +802,8 @@ class AvailBase(Section):
     def set_exec_summary(self, ex):
         gq, m = self.report.get_query, {}
 
-        query = gq('Fleet Availability')
-        m.update(query.exec_summary(period='last'))
-        m.update(query.exec_summary(period='ytd'))
+        m.update(gq('Fleet Availability').exec_summary(period='last'))
+        m.update(gq('Fleet Availability YTD').exec_summary(period='ytd'))
         m.update(gq(self.name_topdowns).exec_summary())
 
         ex['Availability'] = m
@@ -869,8 +873,7 @@ class PLMUnit(Section):
         d_rng = report.d_rng
         unit = report.unit
 
-        self.query = qr.PLMUnit(
-            unit=unit, d_lower=d_rng[0], d_upper=d_rng[1])
+        self.query = qr.PLMUnit(unit=unit, d_lower=d_rng[0], d_upper=d_rng[1])
         query = self.query
 
         sec = SubSection('Summary', self) \
@@ -885,12 +888,13 @@ class PLMUnit(Section):
         sec = SubSection('Payload History', self) \
             .add_df(
                 func=query.df_monthly,
+                da=dict(add_unit_smr=True),
                 has_chart=True,
                 display=False) \
             .add_chart(
                 func=ch.chart_plm_monthly,
                 cap_align='left',
-                caption='PLM haul records per month.<br>*Note - final month may not represent complete month.')
+                caption='PLM haul records per month.<br>*Final month may not represent complete month.<br>*A large relative difference between SMR Operated and PLM records per month could indicated posibble missing PLM records.')
            
     def set_paragraph(self, query, **kw):
         """Set paragraph data from query
