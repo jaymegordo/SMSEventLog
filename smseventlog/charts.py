@@ -382,6 +382,31 @@ def chart_plm_monthly(df, title=None, **kw):
     df = df.copy()
     bg = color()
 
+    if 'SMR_worked' in df.columns:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.update_layout(
+            yaxis2=dict(
+                title='SMR Hours Operated',
+                showgrid=False,
+                rangemode='nonnegative',
+                overlaying='y'))
+
+        fig.add_trace(go.Scatter(
+            name='SMR Operated',
+            x=df.index.to_timestamp(),
+            y=df['SMR_worked'],
+            yaxis='y2',
+            mode='markers', 
+            marker=dict(
+                opacity=0.5,
+                color='grey')))
+
+    ticktext = df.index.copy().astype(str)
+    df.index = df.index.to_timestamp()
+    xaxis = dict(
+        ticktext=ticktext,
+        tickvals=df.index)
+
     m = dict(
         Accepted_100=bg['navyblue'],
         Accepted_110=bg['orange'],
@@ -396,10 +421,6 @@ def chart_plm_monthly(df, title=None, **kw):
                 marker_color=m.get(col)))
     
     update_fig(fig, title=f'PLM Haul Records (Monthly)')
-
-    xaxis = dict(
-        ticktext=df.index.to_period().astype(str),
-        tickvals=df.index)
     
     fig.update_layout(
         height=400,
