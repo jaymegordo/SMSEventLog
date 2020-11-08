@@ -481,13 +481,13 @@ class MainWindow(QMainWindow):
             p = uf.p_unit
         else:
             # No unit selected, try to get minesite equip path
-            p = f.config['EquipPaths'].get(self.minesite.replace('-', ''), None)
+            p = f.drive / f.config['EquipPaths'].get(self.minesite.replace('-', ''), '')
         
         if p is None:
             p = Path.home() / 'Desktop'
 
         lst_csv = dlgs.get_filepaths(p_start=p)
-        if lst_csv is None:
+        if not lst_csv:
             return # user didn't select anything
         
         from ..data.internal import plm
