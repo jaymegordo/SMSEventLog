@@ -1748,6 +1748,36 @@ class PLMUnit(QueryBase):
             .pipe(self.format_custom, subset=pd.IndexSlice[df.index[:-1], cols], type_='int') \
             .pipe(self.format_custom, subset=pd.IndexSlice[df.index[-1], cols], type_='pct')
 
+class UnitSMRMonthly(QueryBase):
+    """Return max smr per month per unit, grouped monthly"""
+    def __init__(self, unit=None, **kw):
+        super().__init__(**kw)
+        a, b = pk.Tables('UnitSMR', 'UnitID')
+
+        _year = cf('YEAR', ['date'])
+        _month = cf('MONTH', ['date'])
+        year = _year(a.DateSMR)
+        month = _month(a.DateSMR)
+        _period = fn.Concat(year, '-', month)
+
+        cols = [a.Unit, _period.as_('Period'), fn.Max(a.SMR).as_('SMR')]
+        q = Query.from_(a) \
+            .left_join(b).on_field('Unit') \
+            .where(a.Unit==unit) \
+            .groupby(a.Unit, _period)
+
+        f.set_self(vars())
+    
+    def process_df(self, df):
+        return df \
+            .assign(
+                Period=lambda x: pd.to_datetime(x.Period, format='%Y-%m').dt.to_period('M')) \
+            .sort_values(['Unit', 'Period']) \
+            .assign(SMR_worked=lambda x: x.SMR.diff()) \
+            .fillna(0)
+    
+    def df_monthly(self, period_index=False):
+        return self.df.set_index('Period')
 
 def table_with_args(table, args):
     def fmt(arg):
