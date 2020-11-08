@@ -1119,16 +1119,20 @@ class AvailSummary(QueryBase):
         numeric_cols = df.select_dtypes('number').columns
         df[numeric_cols] = df[numeric_cols].fillna(0)
         
+        # age: add 1 month age to units delivered in first half of the month (<= 15 days)
+
         return df \
             .assign(
                 period=lambda x: pd.to_datetime(x.period, format=self.fmt).dt.to_period(self.fmt_period),
                 d_upper=lambda x: pd.to_datetime(x.period.dt.end_time.dt.date),
-                age=lambda x: x.d_upper.dt.to_period('M').astype(int) - x.DeliveryDate.dt.to_period('M').astype(int),
+                _age=lambda x: x.d_upper.dt.to_period('M').astype(int) - x.DeliveryDate.dt.to_period('M').astype(int),
+                age=lambda x: np.where(x.DeliveryDate.dt.day <= 15, x._age + 1, x._age),
                 hrs_period=lambda x: ((np.minimum(x.period.dt.end_time, np.datetime64(self.d_rng[1])) - x.period.dt.start_time).dt.days + 1) * 24,
                 hrs_period_ma=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_MA, 0),
                 hrs_period_pa=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_PA, 0),
                 MA=lambda x: (x.hrs_period_ma - x.SMS) / x.hrs_period_ma,
                 PA=lambda x: (x.hrs_period_pa - x.Total) / x.hrs_period_pa) \
+            .drop(columns=['_age']) \
             .replace([np.inf, -np.inf], np.nan) \
             .fillna(dict(MA=1, PA=1)) \
             .sort_values(['age']) \
@@ -1245,12 +1249,17 @@ class AvailSummary(QueryBase):
             .apply(st.highlight_greater, subset=['MA', 'Target Hrs Variance'], axis=None, ma_target=style.data['MA Target']) \
             .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
 
-    def df_history_rolling(self):
+    def df_history_rolling(self, prd_str=True):
         """df of 12 period (week/month) rolling summary.
+
+        Parameters
+        ----------
+        prd_str : bool\n
+            convert Period to string (for display and charts), easier but don't always want
         - period col converted back to str"""
         cols = ['period', 'SMS', 'ma_target', 'MA', 'target_hrs_var', 'PA']
         return self.df_summary(group_ahs=False) \
-            .assign(period=lambda x: x.period.dt.strftime(self.fmt_str)) \
+            .assign(period=lambda x: x.period.dt.strftime(self.fmt_str) if prd_str else x.period) \
             [cols] \
             .pipe(self.rename_cols)
    
@@ -1300,8 +1309,6 @@ class AvailSummary(QueryBase):
             .background_gradient(cmap=cmap, subset=subset, axis=None) \
             .pipe(self.highlight_greater) \
             # .pipe(st.add_table_attributes, s='style="font-size: 10px;"', do=not outlook)
-   
-
 
 class AvailRawData(AvailBase):
     def __init__(self, da=None, **kw):
@@ -1603,7 +1610,7 @@ class PLMUnit(QueryBase):
             # always start at first day of month
             d_lower = first_last_month(d_upper + delta(days=-180))[0]
         
-        d_rng = (d_lower, d_upper)
+        d_rng = (d_lower, d_upper + delta(days=1)) # between cuts off at T00:00:00
 
         q = Query.from_(a) \
             .orderby(a.datetime)
@@ -1663,18 +1670,29 @@ class PLMUnit(QueryBase):
                 Overload_pct_120=lambda x: x.Accepted_120 / x.Total_ExcludeFlags)
     
     @er.errlog('Failed to get df_monthly', warn=True)
-    def df_monthly(self):
+    def df_monthly(self, add_unit_smr=False):
         """Bin data into months for charting, will include missing data = good"""
 
         # set DateIndex range to lower and upper of data (wouldn't show if data was missing)
         d_rng = self.d_rng
-        idx = pd.date_range(d_rng[0], d_rng[1], freq='M')
+        idx = pd.date_range(d_rng[0], last_day_month(d_rng[1]), freq='M').to_period()
 
-        return self.df_calc \
+        df = self.df_calc \
             .groupby(pd.Grouper(key='DateTime', freq='M')) \
             .sum() \
             .pipe(self.add_totals) \
+            .pipe(lambda df: df.set_index(df.index.to_period())) \
             .merge(pd.DataFrame(index=idx), how='right', left_index=True, right_index=True)
+
+        if add_unit_smr:
+            # combine df_smr SMR_worked with plm df
+            query_smr = UnitSMRMonthly(unit=self.unit)
+            df_smr = query_smr.df_monthly(period_index=True) \
+                [['SMR_worked']]
+
+            df = df.merge(df_smr, how='left', left_index=True, right_index=True)
+
+        return df
 
     @property
     def df_summary(self):
@@ -1797,6 +1815,9 @@ def first_last_month(d):
     d_lower = dt(d.year, d.month, 1)
     d_upper = d_lower + relativedelta(months=1) + delta(days=-1)
     return (d_lower, d_upper)
+
+def last_day_month(d):
+    return first_last_month(d)[1]
 
 def df_months():
     # Month
