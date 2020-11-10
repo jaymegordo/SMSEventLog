@@ -89,7 +89,7 @@ class MainWindow(QMainWindow):
                 msg = msg.get('msg', None) # kinda sketch
 
             bar = self.statusBar()
-            prev_status = bar.currentMessage()
+            self.prev_status = bar.currentMessage()
             bar.showMessage(msg)
 
             msg_lower = msg.lower()
@@ -109,23 +109,32 @@ class MainWindow(QMainWindow):
     
     def revert_status(self):
         # revert statusbar to previous status
-        if not hasattr(self, 'prev_status'): self.prev_status = ''
+        if not hasattr(self, 'prev_status'):
+            self.prev_status = ''
+
         self.update_statusbar(msg=self.prev_status)
 
+    @er.errlog(warn=True)
     def after_init(self):
+        """Steps to run before MainWindow is shown.
+        - Everything in here must suppress errors and continue"""
         self.username = self.get_username()
         self.init_sentry()
 
         self.u = users.User(username=self.username, mainwindow=self).login()
+        log.debug('user init')
 
         last_tab_name = self.settings.value('active table', 'Event Log')
         self.tabs.init_tabs()
         self.tabs.activate_tab(title=last_tab_name)
+        log.debug('last tab activated')
 
         # initialize updater
         self.updater = Updater(mw=self)
+        log.debug('updater initialized')
 
         self.active_table_widget().refresh(default=True)
+        log.debug('last table refreshed')
 
         self.check_update()
         self.start_update_timer()
@@ -172,7 +181,7 @@ class MainWindow(QMainWindow):
         self.update_statusbar('Extracting update and restarting...')
 
     def init_sentry(self):
-        # sentry is error logging application
+        """Add user-related scope information to sentry"""
         with configure_scope() as scope:
             scope.user = dict(
                 username=self.username,
