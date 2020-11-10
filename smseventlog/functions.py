@@ -239,6 +239,9 @@ def remove_bad_chars(w : str):
 
 def nice_title(title: str) -> str:
     """Remove slashes, capitalize first letter, avoid acronyms"""
+    if pd.isnull(title):
+        return ''
+        
     if title.strip() == '':
         return title
         
