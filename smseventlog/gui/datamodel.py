@@ -261,10 +261,14 @@ class TableModel(QAbstractTableModel):
             if not self.display_color: return None
             
             # check self.m_color_display first
-            if role == Qt.BackgroundRole:
-                color = self.m_color_bg[col][row]
-            elif role == Qt.ForegroundRole:
-                color = self.m_color_text[col][row]
+            try:
+                if role == Qt.BackgroundRole:
+                    color = self.m_color_bg[col][row]
+                elif role == Qt.ForegroundRole:
+                    color = self.m_color_text[col][row]
+            except:
+                # if static dfs not set at init properly, just return None so sentry doesn't send 1000 errors
+                return None
             
             if not pd.isnull(color):
                 return color
