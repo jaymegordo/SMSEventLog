@@ -25,8 +25,6 @@ def launch():
 
     from PyQt5.QtGui import QScreen # just used for default
 
-    er.init_sentry()
-    decorate_modules()
     app = get_qt_app()
 
     s = QSettings('sms', 'smseventlog', app)
