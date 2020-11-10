@@ -336,7 +336,7 @@ class AddEvent(AddRow):
         df = db.get_df_unit()
 
         add(field=IPF(text='MineSite', default=self.minesite), items=f.config['MineSite'])
-        add(field=IPF(text='Unit'), items=list(df[df.MineSite==self.minesite].Unit))
+        add(field=IPF(text='Unit', enforce=True), items=list(df[df.MineSite==self.minesite].Unit))
         add(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
 
         # Add btn to check smr 
@@ -358,7 +358,7 @@ class AddEvent(AddRow):
             self.formLayout.addRow('', cb_tsi)
             self.formLayout.addRow('', cb_fc)
 
-        add(field=IPF(text='Title', dtype='textbox'))
+        add(field=IPF(text='Title', dtype='textbox', enforce=True))
         add(field=IPF(text='Failure Cause', dtype='textbox'))
 
         # Warranty Status
@@ -534,9 +534,15 @@ class AddEvent(AddRow):
                 self.cb_fc.setChecked(False)
              
     def accept(self):
+        """AddEvent accept adds rows differently (can queue multiple)
+        - just bypass everthing and call base qt accept"""
         row, m = self.row, self.m
         unit = self.fUnit.val
         rows = []
+
+        if not self.check_enforce_items():
+            return
+        
         self.add_row_queue(row=row) # need to update at least row1
 
         if not unit_exists(unit=unit): return
@@ -782,7 +788,7 @@ class BiggerBox(QMessageBox):
             num_lines = len(self.detailed_text.split('\n'))
             font_size = f.config_platform['font size']
             height = num_lines * (font_size + 7)
-            new_size = QSize(600, min(height, 600))
+            new_size = QSize(800, min(height, 600))
             details_box.setFixedSize(new_size)
 
         self.initial_resize = True
