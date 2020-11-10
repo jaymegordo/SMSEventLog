@@ -1,3 +1,4 @@
+import socket
 from urllib import parse
 
 import pyodbc
@@ -7,10 +8,10 @@ from sqlalchemy.engine.base import Connection  # just to wrap errors
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool.base import Pool
 
+from . import errors as er
 from . import functions as f
 from .__init__ import *
 from .utils.secrets import SecretsManager
-from . import errors as er
 
 global db
 log = getlog(__name__)
@@ -65,7 +66,6 @@ def str_conn():
     params = parse.quote_plus(db_string)
     return f'mssql+pyodbc:///?odbc_connect={params}'
 
-@er.errlog('Failed to create engine!', err=True)
 def _create_engine():
     """Create sqla engine object
     - sqlalchemy.engine.base.Engine
@@ -74,9 +74,14 @@ def _create_engine():
 
     # connect_args = {'autocommit': True}
     # , isolation_level="AUTOCOMMIT"
-    wrap_connection_funcs()
-    engine = create_engine(str_conn(), fast_executemany=True, pool_pre_ping=True)   
-    return engine
+
+    return create_engine(
+        str_conn(),
+        fast_executemany=True,
+        pool_pre_ping=True,
+        pool_timeout=5,
+        pool_recycle=3600)
+        # connect_args={'Remote Query Timeout': 5})
 
 def e(func):
     # exc.IntegrityError, 
@@ -120,15 +125,42 @@ class DB(object):
         print(f'Initializing database')
         self.reset(False)
         
-        # TODO: should put these into a better table store
         df_unit = None
         df_fc = None
         df_component = None
         dfs = {}
         domain_map = dict(SMS='KOMATSU', Cummins='CED', Suncor='NETWORK')
         domain_map_inv = f.inverse(m=domain_map)
+        last_internet_success = dt.now() + delta(seconds=-61)
         f.set_self(vars())
     
+    @er.errlog(warn=True, default=True)
+    def check_internet(self, host="8.8.8.8", port=53, timeout=3, recheck_time=60):
+        """
+        Test if internet connection exists before attempting any database operations
+        Host: 8.8.8.8 (google-public-dns-a.google.com)
+        OpenPort: 53/tcp
+        Service: domain (DNS/TCP)
+        recheck_time : int, default 60
+            only re-check every x seconds
+        """
+        # raise er.NoInternetError() # testing
+
+        # Kinda sketch, but just avoid re-checking too frequently
+        if (dt.now() - self.last_internet_success).seconds < recheck_time:
+            return True
+
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            s.connect((host, port))
+            s.shutdown(socket.SHUT_RDWR)
+            s.close()
+            self.last_internet_success = dt.now()
+            return True
+        except socket.error as ex:
+            raise er.NoInternetError()
+
     def rollback(self):
         """Wrapper for session rollback"""
         try:
@@ -152,6 +184,8 @@ class DB(object):
         
     @property
     def engine(self):
+        self.check_internet()
+
         if self._engine is None:
             self._engine = _create_engine()
         
@@ -179,22 +213,22 @@ class DB(object):
 
     @property
     def session(self):
+        self.check_internet() # need to call every time in case using _session
         if self._session is None:
             try:
                 # create session, this is for the ORM part of sqlalchemy
                 self._session = sessionmaker(bind=self.engine)()
+                # TODO wrap session methods to retry?
+
             except Exception as e:
                 raise er.SMSDatabaseError('Couldn\'t create session.') from e
 
         return self._session
 
+    @er.errlog('Error closing raw_connection')
     def close(self):
         if self._engine is None: return
-
-        try:
-            self._engine.raw_connection().close()
-        except:
-            log.error('Error closing raw_connection', exc_info=True)
+        self._engine.raw_connection().close()
 
     def __del__(self):
         self.close()
@@ -206,12 +240,12 @@ class DB(object):
         self.close()
     
     def safe_commit(self, fail_msg=None):
+        session = self.session
         try:
-            self.session.commit()
+            session.commit()
             return True
         except Exception as e:
             # wrapping all sqla funcs causes this error to be exc.ResourceClosedError, not IntegrityError
-
             if isinstance(e, pyodbc.IntegrityError):
                 fail_msg = f'Can\'t add row to database, already exists!'
 
@@ -219,7 +253,7 @@ class DB(object):
                 fail_msg = f'Failed to commit database transaction | {type(e)}'
 
             er.log_error(msg=fail_msg, log=log, display=True)
-            self.session.rollback()
+            session.rollback()
             return False
 
     def add_row(self, row):
@@ -284,7 +318,7 @@ class DB(object):
         Returns
         -------
         pd.DataFrame
-        """        
+        """
         dfs = self.dfs
         title = query.title
         df = dfs.get(title, None)
