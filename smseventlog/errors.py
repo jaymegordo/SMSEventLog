@@ -11,16 +11,32 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.integrations.tornado import TornadoIntegration
 
-try:
-    from PyQt5.QtWidgets import QMessageBox
-except ModuleNotFoundError:
-    pass
-
 from .__init__ import SYS_FROZEN, VERSION, getlog
 
 base_log = getlog(__name__)
 
+
+def global_exception_hook(*exc_info):
+    # exc_info = (exc_type, exc, exc_traceback)
+    try:
+        log_error(display=True, exc_info=exc_info)
+    except:
+        # if any issues with custom err handling, always try pass back to sentry, then base
+        if hasattr(sys, 'sentry_excepthook'):
+            sys.sentry_excepthook(*exc_info)
+        else:
+            sys.__excepthook__(*exc_info)
+
+        base_log.warning('Custom excepthook failed, falling back to sentry.')
+
 def get_func_name(func, *args, **kw):
+    """Get function full name from func obj
+    >>> get_func_name(func)
+    >>> 'smseventlog.gui.whatever'
+    """
+    if func is None:
+        return
+
     try:
         return inspect.getmodule(func).__name__
     except:
@@ -37,6 +53,17 @@ def get_logger_from_func(func):
         log.warning('Failed to get logger for func.')
     
     return log
+
+def get_func_name_from_tb(tb):
+    """Get function name from traceback, EXCLUDING lambda funcs
+    - Used to get 'good' function name instead of 'couldnt run function <lambda>' """
+    try:
+        exclude = ('<', 'lambda')
+        lst_funcs = [item.split(' in ')[1].split('\n')[0] for item in traceback.format_tb(tb)]
+        return list(filter(lambda x: not any(item in x for item in exclude), lst_funcs))[0]
+    except:
+        base_log.warning('Couldn\'t extract function name from traceback.')
+        return tb.tb_frame.f_code.co_name
 
 def errlog(msg=None, err=True, warn=False, display=False, default=None):
     """Wrapper to try/except func, log error, don't show to user, and return None
@@ -57,25 +84,28 @@ def errlog(msg=None, err=True, warn=False, display=False, default=None):
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except:
+            except Exception as exc:
                 log = get_logger_from_func(func)
-                err_msg = f'Failed: {func.__name__} | {msg}'
+                err_msg = f'Failed: {func.__name__}'
+                if not msg is None:
+                    err_msg = f'{err_msg} | {msg}'
 
                 if warn:
                     log.warning(err_msg)
                 elif err:
-                    log.error(err_msg, exc_info=True)
-                
-                if display:
-                    tb_msg = format_traceback()
-                    func_name = get_func_name(func)
-                    display_error(msg=msg, func_name=func_name, tb_msg=tb_msg)
+                    log_error(msg=msg, display=display, func=func, exc=exc)
 
-                return default
+                return default # default obj to return
         
         return wrapper
     
     return decorator
+
+def sentry_before_send(event, hint):
+    """NOTE - not used, here for example. Traceback 'Raw' shows same info on sentry"""
+    event['extra']['exception'] = [''.join(
+        traceback.format_exception(*hint['exc_info']))]
+    return event
 
 @errlog('Failed to init Sentry')
 def init_sentry():
@@ -83,6 +113,7 @@ def init_sentry():
         dsn="https://66c22032a41b453eac4e0aac4fb03f82@o436320.ingest.sentry.io/5397255",
         integrations=[SqlalchemyIntegration(), TornadoIntegration(), AioHttpIntegration()],
         release=f'sms-event-log@{VERSION}')
+        # before_send=sentry_before_send)
 
 def test_wrapper(func):
     # handle all errors in Web, allow suppression of errors if eg user closes window
@@ -145,7 +176,9 @@ def decorate_all_classes(module_name=None, module=None, err_func=None):
             wrap_all_class_funcs(obj, err_func=err_func)
 
 def e(func):
-    # error handler/wrapper for the gui
+    """Error handler/wrapper for the gui
+    - All methods of gui objects (eg TableWidget, TableView) wrapped with this
+    - NOTE not used anymore"""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
 
@@ -158,7 +191,7 @@ def e(func):
             func_name = func.__name__
             log = get_logger_from_func(func) 
 
-            print(f'\n\nfunc: {func_name}, args: {args}, kwargs: {kwargs}')
+            print(f'\n\nfunc: {func_name}, args: {args}, kwargs: {kwargs}\n\n')
             log_error(func=func, exc=e, log=log, display=True)
 
     return wrapper
@@ -200,8 +233,9 @@ def print_error(msg=''):
         msg = build_message(msg) # add traceback
         print(f'\n\n*------------------*\n{msg}')
 
-def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None, prnt=False, func=None,func_name=None, **kw):
-    """Main func to manually log errors
+def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None, prnt=False, func=None, func_name=None, exc_info: tuple=None, **kw):
+    """Base func to log/handle errors
+    - eg, ignore things like 'NoInternetError' or 'NoRowSelectedError'
 
     Parameters
     ----------
@@ -217,21 +251,52 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
     func: optional
         Function object\n
         Already formatted traceback string, may have been passed in from different thread, so cant build here
-    """ 
-    if prnt: # or not 'linux' in sys.platform:
-        print_error(msg) # always print if not SYS_FROZEN
+    exc_info : tuple
+        comes from sys.excepthook, (exc_type, exc_value, exc_traceback)
+    """
+    if prnt:
+        print_error(msg)
+
+    # err came from excepthook, extract info
+    if not exc_info is None:
+        kw['tb_msg'] = ''.join(traceback.format_exception(*exc_info))
+        exc_type, exc, tb = exc_info
+        func_name = get_func_name_from_tb(tb=tb)
+        log = getlog(inspect.getmodule(tb).__name__) # 'smseventlog.gui.my_module'
 
     if func_name is None:
-        func_name = func.__name__ if not func is None else None
+        func_name = get_func_name(func)
     
     if exc is None:
-        exc = sys.exc_info()[1]
+        exc = sys.exc_info()[1] # doesnt work if comes from excepthook, but all good
+    
+    # get extra errors if raised with 'from'
+    excs = [exc]
+    if hasattr(exc, '__cause__'):
+        excs.append(exc.__cause__)
+
+    # Suppress error if 'expected' (NoInternet, NoRowSelected)
+    for _exc in excs:
+        if issubclass(type(_exc), ExpectedError):
+            return
 
     if display:
-        display_error(exc=exc, func_name=func_name, **kw)
+        display_error(exc=exc, func_name=func_name, msg=msg, **kw)
 
     if not log is None:
-        log.error(msg, exc_info=True)
+        # exc_info = True makes sentry/logger collect it
+        if exc_info is None:
+            exc_info = True
+
+        if msg is None:
+            msg = str(exc)
+
+        log.error(msg, exc_info=exc_info)
+        return
+    
+    # unhandled exception, pass back to sentry if we don't handle - doesn't ever get here
+    if not exc_info is None:
+        sys.sentry_excepthook(*exc_info)
 
 def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, log=None, msg: str=None, **kw):
     """Display error message to user in gui dialog
@@ -246,7 +311,7 @@ def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, lo
         Used to check exception type and add extra info, by default None\n
     msg : str, optional
         Custom message to pass in, if None use default
-    """    
+    """
     if func_name is None:
         func_name = get_last_func_name() # fallback to try getting from traceback
 
@@ -266,7 +331,19 @@ def display_error(func_name: str=None, tb_msg: str=None, exc: Exception=None, lo
 
 # Custom error classes
 class Error(Exception):
-    """Base class for other exceptions"""
+    """Base class for custom exceptions"""
+    def update_statusbar(self, msg=None, **kw):
+        from .gui._global import update_statusbar
+        update_statusbar(msg=msg, **kw)
+    
+class FakeError(Error):
+    """Easy obvious fake error to throw for testing"""
+    def __init__(self, message='Fake Error'):
+        super().__init__(message)
+
+class ExpectedError(Error):
+    """Exceptions derrived from this class will not be logged.
+    - Usually just show status message and ignore"""
     pass
 
 class SMSDatabaseError(Error):
@@ -283,3 +360,23 @@ class SMSDatabaseError(Error):
         #         # will be tagged with my-tag="my value"
         #         print(f'Capturing exception: {type(exc)}')
         #         capture_exception(exc) # sys.exc_info()[1]
+
+class NoInternetError(ExpectedError):
+    """Raised if no internet connection detected."""
+    def __init__(self, message='No internet connection available.'):
+        super().__init__(message)
+            
+        base_log.warning('No internet connection.')
+        msg = 'WARNING: No internet connection detected. Please check your connection and try again.'
+        self.update_statusbar(msg=msg)
+
+class NoRowSelectedError(ExpectedError):
+    """Raised if no internet connection detected."""
+    def __init__(self, message='No row selected in table.'):
+        super().__init__(message)
+        self.update_statusbar(msg=message, warn=True)
+
+sys._excepthook = sys.excepthook # save original excepthook
+init_sentry() # sentry overrides excepthook, need to init first to override it
+sys.sentry_excepthook = sys.excepthook # call events back to sentry if we want
+sys.excepthook = global_exception_hook # assign custom excepthook
