@@ -6,7 +6,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from . import functions as f
 from . import errors as er
 from .__init__ import *
-from .database import db, e
+from .database import db
 from .utils import dbmodel as dbm
 
 log = getlog(__name__)
@@ -70,7 +70,6 @@ class DBTransaction():
         
         self.update_items.append(m)
     
-    @e
     def update_all(self, operation_type='update'):
         s = db.session
         txn_func = getattr(s, f'bulk_{operation_type}_mappings')
@@ -141,51 +140,46 @@ class Row():
         self.update(vals={field: val}, check_exists=check_exists)
 
     def update(self, vals=None, delete=False, check_exists=False):
-        # update (multiple) values in database, based on unique row, field, value, and primary keys(s)
-        # key must either be passed in manually or exist in current table's df
-        try:
-            t, keys = self.dbtable, self.keys
+        """Update (multiple) values in database, based on unique row, field, value, and primary keys(s)
+        - key must either be passed in manually or exist in current table's df"""
+        t, keys = self.dbtable, self.keys
 
-            if len(keys) == 0:
-                raise AttributeError('Need to set keys before update!')
-            
-            session = db.session
-            cond = [getattr(t, pk)==keys[pk] for pk in keys] # list of multiple key:value pairs for AND clause
+        if len(keys) == 0:
+            raise AttributeError('Need to set keys before update!')
+        
+        session = db.session
+        cond = [getattr(t, pk)==keys[pk] for pk in keys] # list of multiple key:value pairs for AND clause
 
-            if not delete:
-                if vals is None: raise AttributeError('No values to update!')
-                sql = sa.update(t).values(vals).where(and_(*cond))
-                print(sql)
+        if not delete:
+            if vals is None: raise AttributeError('No values to update!')
+            sql = sa.update(t).values(vals).where(and_(*cond))
+            print(sql)
+        else:
+            sql = sa.delete(t).where(and_(*cond)) # kinda sketch to even have this here..
+
+        if not check_exists:
+            session.execute(sql)
+        else:
+            # Check if row exists, if not > create new row object, update it, add to session, commit
+            q = session.query(t).filter(and_(*cond))
+            exists = session.query(literal(True)).filter(q.exists()).scalar()
+
+            if not exists:
+                e = t(**keys, **vals)
+                session.add(e)
             else:
-                sql = sa.delete(t).where(and_(*cond)) # kinda sketch to even have this here..
-
-            if not check_exists:
                 session.execute(sql)
-            else:
-                # Check if row exists, if not > create new row object, update it, add to session, commit
-                q = session.query(t).filter(and_(*cond))
-                exists = session.query(literal(True)).filter(q.exists()).scalar()
-
-                if not exists:
-                    e = t(**keys, **vals)
-                    session.add(e)
-                else:
-                    session.execute(sql)
-                
-            session.commit()
-            return True # transaction succeeded
-        except:
-            operation = 'update' if not delete else 'delete'
-            msg = f'Couldn\'t {operation} row.'
-            er.log_error(msg=msg, display=True, log=log)
+            
+        return db.safe_commit() # True if transaction succeeded
     
     def create_model_from_db(self):
-        # query sqalchemy orm session using model eg dbo.EventLog, and keys eg {UID=123456789}
-        # return instance of model
-        session = db.session
-        e = session.query(self.dbtable).get(self.keys)
+        """Query sqalchemy orm session using model eg dbo.EventLog, and keys eg {UID=123456789}
 
-        return e
+        Returns
+        ------
+            instance of model
+        """
+        return db.session.query(self.dbtable).get(self.keys)
 
     def printself(self):
         m = dict(
@@ -256,5 +250,3 @@ def join_query(tables, keys, join_field):
         m.update(model_dict(item, include_none=True))
 
     return m
-
-
