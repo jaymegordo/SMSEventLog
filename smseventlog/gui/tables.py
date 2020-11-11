@@ -426,26 +426,22 @@ class TableView(QTableView):
             return irow
         else:
             if warn:
-                msg = 'No row selected in table.'
-                dlgs.msg_simple(msg=msg, icon='warning')
+                raise er.NoRowSelectedError()
             return None
     
     def row_from_activerow(self):
         i = self.active_row_index()
-        if i is None: return
         return dbt.Row(table_model=self.model(), i=i)
 
     def model_from_activerow(self, **kw):
         # only returns values in current table view, not all database
         i = self.active_row_index(**kw)
-        if i is None: return
         return self.model().create_model(i=i)
     
     def model_from_activerow_db(self):
         # create model from db (to access all fields, eg MineSite)
         # NOTE this relies on MineSite being a field in Event Log > can also use db.get_df_unit() for model/minesite
         row = self.row_from_activerow()
-        if row is None: return
         return row.create_model_from_db() # TODO this won't work with mixed tables eg FCSummary
     
     def df_from_activerow(self, i=None):
@@ -723,7 +719,7 @@ class TableWidget(QWidget):
         return self.view.row
 
     def add_action(self, name, func, shortcut=None, btn=False, ctx=False, tooltip=None):
-        act = QAction(name, self, triggered=er.e(func))
+        act = QAction(name, self, triggered=func)
         act.setToolTip(tooltip)
         name_action = name.replace(' ', '_').lower()
         setattr(self, f'act_{name_action}', act)
@@ -749,12 +745,6 @@ class TableWidget(QWidget):
         btn.clicked.connect(func)
         self.btnbox.addWidget(btn)      
    
-    def add_shortcut(self, name, func, shortcut=None):
-        act = QAction(name, self, triggered=func)
-        act.setShortcut(QKeySequence(shortcut))
-        self.addAction(act)
-        return act
-
     def show_addrow(self):
         dlg = dlgs.AddEvent(parent=self)
         dlg.exec_()
@@ -771,7 +761,6 @@ class TableWidget(QWidget):
     def show_details(self):
         """Show details view dialog"""
         row = self.view.row_from_activerow()
-        if row is None: return
         
         model = row.create_model_from_db()
         df = dbt.df_from_row(model=model)
@@ -804,8 +793,10 @@ class TableWidget(QWidget):
 
         self.refresh(default=default)
 
+    @er.errlog(display=True)
     def refresh(self, **kw):
-        # RefreshTable dialog will have modified query's fltr, load data to table view
+        """Load dataframe to table view
+        - RefreshTable dialog will have modified query's fltr"""
         self.update_statusbar('Refreshing table, please wait...')
         self.mainwindow.app.processEvents()
        
@@ -817,10 +808,9 @@ class TableWidget(QWidget):
 
         if not df is None and not len(df) == 0:
             self.view.display_data(df=df)
+            self.mainwindow.revert_status()
         else:
-            dlgs.msg_simple(msg='No rows returned in query!', icon='warning')
-        
-        self.mainwindow.revert_status()
+            self.update_statusbar(msg='No rows returned in query.', warn=True)
 
     def get_dbtable(self, header=None):
         # return dbtable (definition) for specific header
@@ -1061,7 +1051,6 @@ class EventLogBase(TableWidget):
         if not self.title in ('Event Log', 'Work Orders'): return
 
         view, e, row = self.view, self.e, self.row
-        if row is None: return
 
         if index.data() in ('Closed', 'Complete'):
             # update both StatusEvent and StatusWO in db
@@ -1092,7 +1081,7 @@ class EventLogBase(TableWidget):
         """Open event folder of currently active row in File Explorer/Finder"""
         if not self.check_cummins(): return
         view, i, e = self.view, self.i, self.e_db
-        if e is None: return
+
         try:
             minesite = db.get_unit_val(e.Unit, 'MineSite')
         except KeyError:
@@ -1135,7 +1124,6 @@ class EventLogBase(TableWidget):
     def remove_row(self):
         """Remove selected event from table and delete from db"""
         view, e, row = self.view, copy.deepcopy(self.e), self.row
-        if row is None: return
 
         m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
         msg = f'Are you sure you would like to permanently delete the event:\n\n{f.pretty_dict(m)}'
@@ -1171,7 +1159,6 @@ class EventLogBase(TableWidget):
         # find WO for selected row in email inbox, write back to table
         if not self.check_cummins(): return
         e = self.e_db
-        if e is None: return
 
         from ..utils.exchange import ExchangeAccount
         if not hasattr(self, 'exchange_account') or self.exchange_account is None:
@@ -1190,7 +1177,8 @@ class EventLogBase(TableWidget):
         self.update_statusbar(f'Searching Outlook for work order...')
 
     def handle_wo_result(self, wo, uid=None):
-        # need row uid
+        """Get WO from worker thread, write back to table
+        - TODO this is too slow, need to improve"""
 
         if not wo is None:
             # write wo back to table/db
@@ -1212,7 +1200,6 @@ class EventLogBase(TableWidget):
 
     def update_smr(self):
         row, e = self.row, self.e_db
-        if e is None: return
 
         cur_smr = e.SMR
         e_smr = db.session.query(dbm.UnitSMR).get(dict(Unit=e.Unit, DateSMR=e.DateAdded))
@@ -1235,7 +1222,6 @@ class EventLogBase(TableWidget):
     def jump_event(self):
         """Jump to selected event in EventLog or WorkOrders table"""
         e, mw = self.e, self.mainwindow
-        if e is None: return
 
         m = {'Event Log': 'Work Orders', 'Work Orders': 'Event Log'}
         other_title = m.get(self.title, None)
@@ -1343,8 +1329,7 @@ class EventLog(EventLogBase):
                 .pipe(st.set_column_widths, vals=dict(Status=80, Description=400, Title=100), outlook=outlook)
 
     def email_passover(self):
-        """Email current passover rows as table in outlook.
-        """        
+        """Email current passover rows as table in outlook."""        
         df = self.view.model().df
 
         cols = ['Status', 'Unit', 'Title', 'Description', 'Date Added']
@@ -1368,7 +1353,7 @@ class EventLog(EventLogBase):
         self.email_table(subject=subject, body=body, email_list=email_list, df=df, prompts=False)
     
     def remove_old_dates(self, s):
-        # split description on newlines, remove old dates if too long, color dates red
+        """Split description on newlines, remove old dates if too long, color dates red"""
         if not isinstance(s, str): return s
         if s.strip() == '': return s
 
@@ -1433,7 +1418,6 @@ class WorkOrders(EventLogBase):
     def email_wo(self, title, body_text, exclude_cols):
         """Email a WorkOrder (Open|Close) for the currently selected row"""
         e = self.e
-        if e is None: return # no row selected in table
 
         title = f'{title} - {e.Unit} - {e.Title}'
 
@@ -1447,7 +1431,6 @@ class WorkOrders(EventLogBase):
     def email_wo_request(self):
         """Email a WorkOrder request for the currently selected row"""
         e = self.e
-        if e is None: return
 
         wrnty_type = 'warranty' if e.WarrantyYN.lower() == 'yes' else e.WarrantyYN
 
@@ -1522,7 +1505,6 @@ class TSI(EventLogBase):
     
     def remove_row(self):
         view, e, row = self.view, self.e, self.row
-        if row is None: return
 
         m = dict(Unit=e.Unit, DateAdded=e.DateAdded, Title=e.Title)
 
@@ -1548,7 +1530,7 @@ class TSI(EventLogBase):
        
     @property
     def driver(self):
-        # save driver for use between TSI webpage calls
+        """Save driver for use between TSI webpage calls"""
         return self._driver if hasattr(self, '_driver') else None
     
     @driver.setter
@@ -1568,7 +1550,6 @@ class TSI(EventLogBase):
         if not self.check_cummins(): return
         from ..utils.web import TSIWebPage
         e2 = self.e
-        if e2 is None: return
         view, e = self.view, self.e_db
 
         d = e.DateAdded.strftime('%m/%d/%Y')
@@ -1639,7 +1620,6 @@ class TSI(EventLogBase):
     def create_failure_report(self):
         if not self.check_cummins(): return
         e, row, view = self.e_db, self.row, self.view
-        if row is None: return
 
         # get event folder
         ef = efl.EventFolder.from_model(e=e, irow=row.i, table_model=view.model())
@@ -1668,7 +1648,6 @@ class TSI(EventLogBase):
     def zip_recent_dls(self):
         if not self.check_cummins(): return
         e = self.e
-        if e is None: return
         unit = e.Unit
 
         p_dls = dls.zip_recent_dls_unit(unit=unit, _zip=False)
@@ -1685,10 +1664,9 @@ class TSI(EventLogBase):
     def email_report(self):
         """Email selected row, attach failure report doc if exists
         - TODO handle multiple rows/reports
-        - TODO issue with mac attaching files, windows works """
+        """
         if not self.check_cummins(): return
         view, e = self.view, self.e_db
-        if e is None: return
 
         minesite = db.get_unit_val(e.Unit, 'MineSite')
         ef = efl.EventFolder.from_model(e=e)
@@ -1742,9 +1720,8 @@ class UnitInfo(TableWidget):
         dlg.exec_()
 
     def remove_row(self):
-        # remove selected unit from table and delete from db
+        """Remove selected unit from table and delete from db"""
         view, e, row = self.view, self.e, self.row
-        if row is None: return
 
         m = dict(Unit=e.Unit, Model=e.Model, MineSite=e.MineSite)
 
@@ -1781,7 +1758,6 @@ class FCBase(TableWidget):
             return
 
         e = self.e
-        if e is None: return
 
         p = f.drive / f.config['FilePaths']['Factory Campaigns'] / e.FCNumber
 
@@ -1957,10 +1933,9 @@ class EmailList(TableWidget):
         dlg.exec_()
     
     def remove_row(self):
-        # remove selected email from database
-        # NOTE this could be made a bit more DRY, combine with EventLogBase remove_row
+        """Remove selected email from database
+        - NOTE this could be made a bit more DRY, combine with EventLogBase remove_row"""
         view, e, row = self.view, self.e, self.row
-        if row is None: return
 
         m = dict(MineSite=e.MineSite, Email=e.Email)
         m_pretty = f.pretty_dict(m)
@@ -2033,8 +2008,8 @@ class Availability(TableWidget):
             # if a value is changed in any of self.mcols['dynamic'], model needs to re-request stylemap from query for that specific col
 
         def get_style(self, df=None, outlook=False):
-            # this supercedes the default tableview get_style
-            # used for email > should probably move/merge this with query
+            """This supercedes the default tableview get_style
+            - used for email > should probably move/merge this with query"""
             theme = 'light'
             return super().get_style(df=df, outlook=outlook, exclude_cols=['Unit']) \
                 .pipe(st.set_column_widths, vals=dict(StartDate=60, EndDate=60, Comment=400)) \
@@ -2133,7 +2108,7 @@ class Availability(TableWidget):
         model.flush_queue(unlock=True)
     
     def filter_unit_eventlog(self):
-        # filter eventlog to currently selected unit and jump to table
+        """Filter eventlog to currently selected unit and jump to table"""
         view = self.view
         unit = view.create_index_activerow('Unit').data()
 
@@ -2157,7 +2132,7 @@ class Availability(TableWidget):
         return p_base / f'{name}.pdf'
     
     def create_report(self):
-        # show menu to select period
+        """Show menu to select period"""
         from ..reports import AvailabilityReport
         from .refreshtables import AvailReport
 
@@ -2381,9 +2356,7 @@ class FilterListMenuWidget(QWidgetAction):
         # TODO
 
     def on_list_itemChanged(self, item):
-        ###
-        # Figure out what "select all" check-box state should be
-        ###
+        """Figure out what "select all" check-box state should be"""
         lst_widget = self.lst_widget
         count = lst_widget.count()
 
@@ -2417,9 +2390,7 @@ class FilterListMenuWidget(QWidgetAction):
 
         lst_widget.blockSignals(False)
 
-        ###
         # Filter dataframe according to list
-        ###
         items = []
         for i in range(count):
             i = lst_widget.item(i)
