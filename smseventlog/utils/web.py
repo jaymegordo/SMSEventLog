@@ -17,13 +17,6 @@ from .__init__ import *
 from .credentials import CredentialManager
 
 log = getlog(__name__)
-level = logging.INFO
-log.setLevel(level)
-sh.setLevel(level)
-
-fmt = logging.Formatter('%(lineno)d:%(levelname)s - %(message)s')
-sh.setFormatter(fmt)
-log.addHandler(sh)
 
 # find_element_by_class_name',
 # 'find_element_by_css_selector',

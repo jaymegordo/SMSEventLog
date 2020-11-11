@@ -40,6 +40,8 @@ def update_statusbar(msg, *args, **kw):
     mw = get_mainwindow()
     if not mw is None:
         mw.update_statusbar(msg, *args, **kw)
+    else:
+        print(msg)
 
 def app_running():
     return not QApplication.instance() is None

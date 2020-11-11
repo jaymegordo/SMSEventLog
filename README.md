@@ -1,5 +1,5 @@
 <p align="right">
-    <img src="./smseventlog/_resources/images/sms_icon.png" width="100" height="100" title="SMS Logo"/>
+    <img src="/SMSEventLog/smseventlog/_resources/images/sms_icon.png" width="100" height="100" title="SMS Logo"/>
 </p>
 
 The SMS Event Log is a desktop application to create a single source of truth for a variety of technical information related to equipment events/failures/work completed. It is designed to be highly available, fast, user friendly, and scalable to any number of equipment fleets/mine sites.
@@ -116,6 +116,15 @@ There are several extra functions in the menubar, such as:
         * `pip install twine`
         * Used to push build wheel to pypi
 * Install pyodbc
+* count lines of code in project: `pygount --suffix=py --format=summary smseventlog`
+
+    ```
+    Language   Files    %     Code     %     Comment    %   
+    ---------  -----  ------  -----  ------  -------  ------
+    Python        46  100.00  10748  100.00     1699  100.00
+    ---------  -----  ------  -----  ------  -------  ------
+    Sum total     46          10748             1699
+    ```
 
 ### GUI
 * PyQt5

@@ -42,7 +42,7 @@ SYS_FROZEN = getattr(sys, 'frozen', False)
 
 def getlog(name):
     """Factory to create logger with 'smseventlog' removed from name"""
-    name = '.'.join(name.split('.')[1:])
+    name = '.'.join(str(name).split('.')[1:])
     
     # cant set name to nothing or that calls the ROOT logger
     if name == '': name = 'base'

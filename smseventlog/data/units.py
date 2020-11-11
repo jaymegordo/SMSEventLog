@@ -98,8 +98,7 @@ def df_unit_hrs_monthly(month):
     dates.append(dtlower)
     dates.append(dtlower + relativedelta(months=1))
 
-    a = T('UnitID')
-    b = T('UnitSMR')
+    a, b = pk.Tables('UnitID', 'UnitSMR')
     
     cols = [a.Unit, b.DateSMR, b.SMR]
 
