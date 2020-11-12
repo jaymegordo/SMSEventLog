@@ -3,8 +3,8 @@ import inspect
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView
 
 from . import _global as gbl
-from .__init__ import *
 from . import formfields as ff
+from .__init__ import *
 
 log = getlog(__name__)
 # TODO reload ff.Combobox items on toggle - signal/slot somehow?
@@ -64,6 +64,7 @@ class InputForm(BaseDialog):
         super().__init__(parent=parent, window_title=window_title)
         name = self.__class__.__name__
         _names_to_avoid = ('minesite_qcombobox') # always want to use 'current' minesite
+        _save_items = tuple()
         formLayout = QFormLayout()
         formLayout.setLabelAlignment(Qt.AlignLeft)
         formLayout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -75,7 +76,7 @@ class InputForm(BaseDialog):
         add_okay_cancel(dlg=self, layout=self.vLayout)
         f.set_self(vars())
 
-    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None, tooltip=None):
+    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None, tooltip=None, cb_spacing=None):
         # Add input field to form
         text, dtype = field.text, field.dtype
 
@@ -104,15 +105,19 @@ class InputForm(BaseDialog):
             box.setEnabled(cb_enabled)
             cb.box = box # attach box to toggle later
             cb.stateChanged.connect(self.toggle)
+            if cb_spacing:
+                boxLayout.addSpacing(cb_spacing)
+
             boxLayout.addWidget(cb)
             field.cb = cb
             cb.set_name(name=text)
         elif btn:
+            # btn.setFixedSize(btn.size)
             boxLayout.addWidget(btn)
             btn.box = box
-        else:
-            # add spacer
-            boxLayout.addSpacing(30)
+        # else:
+        #     # add spacer
+        #     boxLayout.addSpacing(30)
         
         setattr(self, 'f{}'.format(field.text.replace(' ', '')), field)
         field.box = box
@@ -210,11 +215,12 @@ class InputForm(BaseDialog):
     def _save_settings(self):
         """Save ui controls and values to QSettings"""
         for obj in self.children():
-            if self._is_handled_type(obj):
+            name = obj.objectName()
+            if self._is_handled_type(obj) or name in self._save_items:
                 val = obj.val
 
                 if not val is None:
-                    self.settings.setValue(f'dlg_{self.name}_{obj.objectName()}', val)
+                    self.settings.setValue(f'dlg_{self.name}_{name}', val)
 
     def _restore_settings(self):
         """Set saved value back to ui control"""
@@ -223,7 +229,7 @@ class InputForm(BaseDialog):
 
             if (self._is_handled_type(obj) and
                 not name in self._names_to_avoid and
-                not len(name) == 0):
+                not len(name) == 0) or name in self._save_items:
                 
                 val = self.settings.value(f'dlg_{self.name}_{name}')
                 if not val is None:
@@ -330,7 +336,8 @@ class AddEvent(AddRow):
         super().__init__(parent=parent, window_title='Add Event')
         FCNumber = None
         IPF, add = InputField, self.add_input
-        is_cummins = self.parent.u.is_cummins
+        is_cummins = parent.u.is_cummins if not parent is None else False
+        self._save_items = ('unit_qcombobox',)
 
         layout = self.vLayout
         df = db.get_df_unit()
@@ -340,7 +347,7 @@ class AddEvent(AddRow):
         add(field=IPF(text='Date', dtype='date', col_db='DateAdded'))
 
         # Add btn to check smr 
-        btn = self.create_button('get')
+        btn = self.create_button('Get SMR')
         btn.clicked.connect(self.get_smr)
         self.add_input(field=IPF(text='SMR', dtype='int'), btn=btn)
 
@@ -349,14 +356,23 @@ class AddEvent(AddRow):
             cb_eventfolder = ff.CheckBox('Create Event Folder', checked=True)
             # cb_onedrive = ff.CheckBox('Create OneDrive Folder', checked=True)
             cb_tsi = ff.CheckBox('Create TSI')
+            
+            # FC
             cb_fc = ff.CheckBox('Link FC')
             cb_fc.stateChanged.connect(self.create_fc)
+            btn_open_fcs = btn = self.create_button('Open FCs')
+            btn_open_fcs.setToolTip('View all open FCs for current unit.')
+            btn_open_fcs.clicked.connect(self.show_open_fcs)
+            box_fc = QHBoxLayout()
+            box_fc.addWidget(cb_fc)
+            box_fc.addWidget(btn_open_fcs)
+
             # cb_eventfolder.stateChanged.connect(self.toggle_ef)
 
             self.formLayout.addRow('', cb_eventfolder)
             # self.formLayout.addRow('', cb_onedrive)
             self.formLayout.addRow('', cb_tsi)
-            self.formLayout.addRow('', cb_fc)
+            self.formLayout.addRow('', box_fc)
 
         add(field=IPF(text='Title', dtype='textbox', enforce=True))
         add(field=IPF(text='Failure Cause', dtype='textbox'))
@@ -382,8 +398,11 @@ class AddEvent(AddRow):
 
         self.add_component_fields()
 
+        self._restore_settings()
         self.fUnit.box.select_all()
         f.set_self(vars())
+        self.accepted.connect(self.close)
+        self.rejected.connect(self.close)
         self.show()
 
     def toggle_ef(self, state):
@@ -415,9 +434,9 @@ class AddEvent(AddRow):
         row.Pictures = 0
         return row
 
-    def create_button(self, name):
+    def create_button(self, name, width=80):
         btn = QPushButton(name, self)
-        btn.setFixedSize(QSize(24, btn.sizeHint().height()))
+        btn.setFixedSize(QSize(width, btn.sizeHint().height()))
         return btn
     
     def add_component_fields(self):
@@ -430,7 +449,7 @@ class AddEvent(AddRow):
             return field
         
         def _add_smr(text):
-            btn = self.create_button('get')
+            btn = self.create_button('Get SMR')
             btn.clicked.connect(self.get_component_smr)
             field = self.add_input(field=IPF(text=text, dtype='int', col_db='ComponentSMR'), btn=btn)
             field.box.setEnabled(False)
@@ -510,6 +529,20 @@ class AddEvent(AddRow):
     
     def create_uid(self):
         return str(time.time()).replace('.','')[:12]
+    
+    def show_open_fcs(self):
+        """Toggle open FCs dialog for current unit"""
+        if not hasattr(self, 'dlg_fc') or self.dlg_fc is None:
+            unit = self.fUnit.val
+            dlg_fc = UnitOpenFC(parent=self, unit=unit)
+            
+            # move fc top left to AddEvent top right
+            dlg_fc.move(self.frameGeometry().topRight())
+            dlg_fc.show()
+            self.dlg_fc = dlg_fc
+        else:
+            self.dlg_fc.close()
+            self.dlg_fc = None
     
     def link_fc(self):
         # add event's UID to FC in FactoryCampaign table
@@ -602,6 +635,19 @@ class AddEvent(AddRow):
                 from .. import eventfolders as efl
                 ef = efl.EventFolder.from_model(e=row)
                 ef.create_folder(ask_show=True)
+
+    @classmethod
+    def _get_handled_types(cls):
+        """Don't save any settings except unit_qcombobox"""
+        return tuple()
+
+    def closeEvent(self, event):
+        """Reimplement just to close the FC dialog too, couldn't find a better way"""
+        try: self.dlg_fc.close()
+        except: pass
+
+        self._save_settings()
+        return super().closeEvent(event)
 
 class AddUnit(AddRow):
     def __init__(self, parent=None):
@@ -832,6 +878,158 @@ class MsgBox_Advanced(QDialog):
         hLayout.addWidget(btn, alignment=Qt.AlignRight)
         layout.addLayout(hLayout)
 
+class DialogTableWidget(QTableWidget):
+    """Simple table widget to display as a pop-out dialog"""
+    def __init__(self, df=None, query=None, editable=False, name='table', col_widths=None):
+        super().__init__()
+        self.setObjectName(name)
+        self.formats = {}
+        self.query = query
+
+        self.setColumnCount(df.shape[1])
+        self.setHorizontalHeaderLabels(list(df.columns))
+
+        if col_widths:
+            self.min_width = sum(col_widths.values())
+            for col, width in col_widths.items():
+                self.setColumnWidth(df.columns.get_loc(col), width)
+
+        if not editable:
+            self.setEditTriggers(QTableWidget.NoEditTriggers)
+
+        self.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        f.set_self(vars())
+    
+    def sizeHint(self): 
+        """"Sketch, but have to override size width"""
+        size = super().sizeHint()
+
+        if hasattr(self, 'min_width'):
+            return QSize(self.min_width + 34, size.height())
+        else:
+            return size
+    
+    def set_formats(self, df):
+        date_cols = df.dtypes[df.dtypes=='datetime64[ns]'].index.to_list()
+        int_cols = df.dtypes[df.dtypes=='Int64'].index.to_list()
+        self.formats.update({col: '{:%Y-%m-%d}' for col in date_cols})
+        self.formats.update({col: '{:,.0f}' for col in int_cols})
+
+    def set_df(self, df):
+        if df is None:
+            return
+
+        self.set_formats(df=df)
+        self.setRowCount(df.shape[0])
+        self.setVerticalHeaderLabels(list(df.index.astype(str)))
+
+        # set delegate for column alignment based on dtype
+        from .delegates import TableWidgetDelegate
+        delegate = TableWidgetDelegate(parent=self, df=df)
+        self.setItemDelegate(delegate)
+
+        df_display = f.df_to_strings(df=df, formats=self.formats)
+
+        query = self.query
+        if not query is None:
+            stylemap = query.get_stylemap(df=df)
+            if stylemap is None:
+                return
+
+            bg, text = stylemap[0], stylemap[1]
+
+        for irow, row in enumerate(df.index):
+            for icol, col in enumerate(df.columns):
+              
+                item = QTableWidgetItem(str(df_display.loc[row, col]))
+
+                # set background and text colors
+                if not query is None:
+                    color_bg = bg[col].get(row, None)
+                    color_text = text[col].get(row, None)
+
+                    if color_bg: item.setBackground(color_bg)
+                    if color_text: item.setForeground(color_text)
+
+                self.setItem(irow, icol, item)
+
+        # self.resizeColumnsToContents()
+        self.resizeRowsToContents()
+        self.adjustSize()
+
+class UnitOpenFC(QDialog):
+    """Show table widget of unit's open FCs"""
+    def __init__(self, unit, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Open FCs')
+
+        query = qr.FCOpen()
+        df_fc = db.get_df_fc()
+        df_unit = db.get_df_unit()
+        minesite = gbl.get_minesite()
+
+        btn_controls = QHBoxLayout()
+        cb_minesite = ff.ComboBox(items=db.get_list_minesite(), default=minesite)
+        cb_unit = ff.ComboBox()
+        btn_controls.addWidget(cb_minesite)
+        btn_controls.addWidget(cb_unit)
+        btn_controls.addStretch(1) # force buttons to right side
+        # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        vLayout = QVBoxLayout(self)
+        # vLayout.setSizeConstraint(QVBoxLayout.SetFixedSize)
+        vLayout.addLayout(btn_controls)
+
+        col_widths = {
+            'FC Number': 80,
+            'Type': 40,
+            'Subject': 300,
+            'ReleaseDate': 90,
+            'ExpiryDate': 90,
+            'Age': 60,
+            'Remaining': 70}
+
+        tbl = DialogTableWidget(
+            df=pd.DataFrame(columns=col_widths.keys()),
+            col_widths=col_widths,
+            query=query,
+            name='fc_table')
+
+        vLayout.addWidget(tbl)
+
+        add_okay_cancel(dlg=self, layout=vLayout)
+        f.set_self(vars())
+        self.load_table(unit=unit)
+        
+        self.set_units_list()
+        cb_unit.val = unit
+
+        cb_minesite.currentIndexChanged.connect(self.set_units_list)
+        cb_unit.currentIndexChanged.connect(self._load_table)
+    
+    def set_units_list(self):
+        """Change units list when minesite changes"""
+        cb_unit, cb_minesite, df = self.cb_unit, self.cb_minesite, self.df_unit
+        items = f.clean_series(df[df.MineSite == cb_minesite.val].Unit)
+        cb_unit.set_items(items)
+    
+    def _load_table(self):
+        """Load table from cb_unit value"""
+        self.load_table(unit=self.cb_unit.val)
+
+    def load_table(self, unit):
+        """Reload table data when unit changes"""
+        tbl, df, query, layout = self.tbl, self.df_fc, self.query, self.vLayout
+
+        df = df.pipe(query.df_open_fc_unit, unit=unit)
+
+        tbl.set_df(df)
+        tbl.setFocus()
+        self.adjustSize()
+
 class DetailsView(QDialog):
     def __init__(self, parent=None, df=None):
         super().__init__(parent)
@@ -841,9 +1039,6 @@ class DetailsView(QDialog):
         tbl = self.create_table(df=df)
         vLayout = QVBoxLayout(self)
         vLayout.addWidget(tbl)
-
-        # update box
-        textedit = QTextEdit()
 
         add_okay_cancel(dlg=self, layout=vLayout)
         
@@ -1263,7 +1458,8 @@ def about():
 
 def set_multiselect(dlg):
     # allow selecting multiple directories for QFileDialog. # NOTE not currently used
-    from PyQt5.QtWidgets import (QFileSystemModel, QAbstractItemView, QTreeView, QListView)
+    from PyQt5.QtWidgets import (QAbstractItemView, QFileSystemModel,
+                                 QListView, QTreeView)
 
     # set multiselect
     for view in dlg.findChildren((QListView, QTreeView)):
@@ -1355,7 +1551,7 @@ def show_item(name, parent=None, *args, **kw):
     # show message dialog by name eg gbl.show_item('InputUserName')
     app = check_app()
     dlg = getattr(sys.modules[__name__], name)(parent=parent, *args, **kw)
-    print(dlg.styleSheet())
+    # print(dlg.styleSheet())
     return dlg, dlg.exec_()
 
 def check_app():
