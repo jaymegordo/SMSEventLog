@@ -4,7 +4,45 @@ from .__init__ import *
 
 log = getlog(__name__)
 
-# TODO maybe move to formfields
+global m_align
+m_align =  {
+    'object': Qt.AlignLeft,
+    'float64': Qt.AlignRight,
+    'int64': Qt.AlignRight,
+    'bool': Qt.AlignCenter,
+    'datetime64[ns]': Qt.AlignCenter}
+
+class TableWidgetDelegate(QStyledItemDelegate):
+    """Alignment delegate for TableWidget cells
+    - Aligning this way takes way too long for full table"""
+    def __init__(self, parent=None, df=None):
+        super().__init__(parent=parent)
+        self.parent = parent
+        self.df = df
+        self.index = None
+    
+    def _initStyleOption(self, option, index):
+        # bypass to parent
+        super().initStyleOption(option, index)
+    
+    def initStyleOption(self, option, index):
+        """set column alignment based on data type"""
+        # model = self.parent.model()
+        df = self.df
+        icol = index.column()
+        # dtype = model.get_dtype(icol=icol)
+        dtype = str(df.dtypes[icol])
+        
+        # align all cols except 'longtext' VCenter
+        alignment = m_align.get(dtype, Qt.AlignLeft)
+        # col_name = model.get_col_name(icol=icol)
+
+        # if not col_name in self.parent.mcols['longtext']:
+        #     alignment |= Qt.AlignVCenter
+
+        option.displayAlignment = alignment
+        self._initStyleOption(option, index)
+
 class TextEditor(QTextEdit):
     returnPressed = pyqtSignal()
 
