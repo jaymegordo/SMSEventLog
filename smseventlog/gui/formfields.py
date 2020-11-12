@@ -64,29 +64,41 @@ class FormFields(object):
             pass # NOTE not sure which methods select text in all types of boxes yet
 
 class ComboBox(QComboBox, FormFields):
-    def __init__(self, items=None, editable=True, *args, **kw):
+    def __init__(self, items=None, editable=True, default=None, *args, **kw):
         super().__init__(*args, **kw)
         self.setMaxVisibleItems(20)
         self.setEditable(editable)
         self.setDuplicatesEnabled(False)
+        self.set_items(items)
 
-        if items is None: items = []
-        self.addItems(items)
-        self.items = items
-        self.items_original = items
+        if default:
+            self.val = default
     
     @FormFields.val.setter
     def val(self, value):
         # prevent adding previous default items not in this list, allow wildcards
-        if value in self.items or '*' in value:
-            self._set_val(value)
+        val_lower = str(value).lower()
+
+        if '*' in value:
+            self._set_val(value) # just use setText
+
+        elif val_lower in self.items_lower:
+            idx = self.items_lower.index(val_lower)
+            self.setCurrentIndex(idx)
     
     def select_all(self):
         self.setFocus()
         self.lineEdit().selectAll()
     
     def set_items(self, items):
-        # clear all items and add new
+        """Clear all items and add new"""
+        if items is None:
+            items = []
+
+        self.items = items
+        self.items_original = items
+        self.items_lower = [str(item).lower() for item in self.items]
+
         self.clear()
         self.addItems(items)
     
