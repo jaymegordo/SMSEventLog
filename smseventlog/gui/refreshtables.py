@@ -76,7 +76,7 @@ class RefreshTable(InputForm):
             
         elif name == 'fc number':
             df = db.get_df_fc()
-            lst = f.clean_series(s=df[df.MineSite==ms].FCNumber)
+            lst = f.clean_series(s=df[df.MineSite==ms]['FC Number'])
             add_input(field=IPF(text='FC Number'), items=lst, checkbox=True, cb_enabled=False)
         
         elif name == 'fc complete':
