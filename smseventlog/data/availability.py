@@ -70,10 +70,10 @@ def update_dt_exclusions_ma(units, rng_dates=None, dates=None):
     q = pk.Query().update(t).set(t.MA, 0).where(pk.Criterion.all(cond))
     sql = q.get_sql()
     
-    # print(sql)
     cursor = db.cursor
-    cursor.execute(sql)
+    rows = cursor.execute(sql).rowcount
     cursor.commit()
+    print(f'Rows updated: {rows}')
 
 def process_df_downtime(df):
     if df is None: return None
@@ -111,8 +111,8 @@ def ahs_pa_monthly():
     df = df.pivot(index='Unit', columns='MonthStart', values='Sum_DT')
     return df
 
-def dt_exclusions_ma_example(d_rng=None):
-    # create all units with MA hrs below hrs in period
+def weekly_dt_exclusions_update(d_rng=None):
+    """create all units with MA hrs below hrs in period"""
     from .internal import utils as utl
     units = []
     units.extend(utl.all_units(rng=(300,322)))
