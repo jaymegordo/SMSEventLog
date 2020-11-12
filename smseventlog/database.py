@@ -134,7 +134,6 @@ class DB(object):
         last_internet_success = dt.now() + delta(seconds=-61)
         f.set_self(vars())
     
-    @er.errlog(warn=True, default=True)
     def check_internet(self, host="8.8.8.8", port=53, timeout=3, recheck_time=60):
         """
         Test if internet connection exists before attempting any database operations
@@ -479,20 +478,8 @@ class DB(object):
         return self.df_fc
 
     def set_df_fc(self):
-        a = T('FactoryCampaign')
-        b = T('FCSummary')
-        c = T('UnitID')
-
-        subject = Case().when(b.SubjectShort.notnull(), b.SubjectShort).else_(b.Subject).as_('Subject')
-
-        cols = [a.FCNumber, a.Unit, c.MineSite, subject]
-        q = Query.from_(a).select(*cols) \
-            .left_join(b).on_field('FCNumber') \
-            .left_join(c).on_field('Unit')
-        
-        df = self.read_query(q=q)
-        df['Title'] = df.FCNumber + ' - ' + df.Subject
-        self.df_fc = df
+        from .queries import FCOpen
+        self.df_fc = FCOpen().get_df()
     
     def get_df_component(self):
         name = 'component'

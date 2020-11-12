@@ -261,8 +261,12 @@ class QueryBase(object):
 
     def get_stylemap(self, df, col=None):
         """Convert irow, icol stylemap to indexes
-        
-        Consumed by datamodel set_stylemap()
+        - Consumed by datamodel set_stylemap()
+
+        Returns
+        ------
+        tuple\n
+            tuple of defaultdicts bg, text colors
         """
         if df.shape[0] <= 0 or not hasattr(self, 'update_style'):
             return None
@@ -623,6 +627,10 @@ class FCBase(QueryBase):
     def sort_by_fctype(self, df):
         return f.sort_df_by_list(df=df, lst=['M', 'FAF', 'DO', 'FT'], lst_col='Type', sort_cols='FC Number')
 
+    def highlight_mandatory(self, style):
+        bg_color = 'navyblue' if self.theme == 'light' else 'maroon'
+        return style.apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='m', bg_color=bg_color, t_color='white', target_col='Type', other_cols=['FC Number'], theme=self.theme)
+
 class FCSummary(FCBase):
     def __init__(self, da=None, **kw):
         super().__init__(da=da, **kw)
@@ -687,10 +695,6 @@ class FCSummary(FCBase):
         return style \
             .pipe(self.update_style_part_1) \
             .pipe(self.update_style_part_2)
-
-    def highlight_mandatory(self, style):
-        bg_color = 'navyblue' if self.theme == 'light' else 'maroon'
-        return style.apply(st.highlight_val, axis=None, subset=['Type', 'FC Number'], val='m', bg_color=bg_color, t_color='white', target_col='Type', other_cols=['FC Number'], theme=self.theme)
     
     def update_style_part_1(self, style):
         return style \
@@ -800,6 +804,56 @@ class FCDetails(FCBase):
 
     def update_style(self, style, **kw):
         return style.apply(st.highlight_expiry_dates, subset=['Expiry Date'], theme=self.theme)
+
+class FCOpen(FCBase):
+    """Query for db"""
+    def __init__(self, theme='dark'):
+        super().__init__(theme=theme)
+        a, b = pk.Tables('viewFactoryCampaign', 'UnitID')
+
+        cols = [a.FCNumber, a.Unit, b.MineSite, a.Subject, a.Complete, a.Classification, a.ReleaseDate, a.ExpiryDate]
+        q = Query.from_(a).select(*cols) \
+            .left_join(b).on_field('Unit') \
+            .where(
+                (a.Complete==0) &
+                ((a.Classification=='M') | (a.ExpiryDate >= dt.now().date())))
+        
+        f.set_self(vars())
+    
+    def process_df(self, df):
+        return df \
+            .assign(Title=lambda x: x.FCNumber.str.cat(x.Subject, sep=' - ')) \
+            .rename(columns=dict(
+                FCNumber='FC Number',
+                Classification='Type'))
+    
+    def df_open_fc_unit(self, df=None, unit=None):
+        """Filter df to open FCs per unit
+        - Allow passing in df so don't need to query (if comes from cached db df)"""
+
+        if df is None:
+            df = self.df
+        
+        cols = ['FC Number', 'Type', 'Subject', 'ReleaseDate', 'ExpiryDate']
+
+        return df \
+            .pipe(lambda df: df[df.Unit==unit]) \
+            [cols] \
+            .assign(
+                Age=lambda x: (dt.now() - x.ReleaseDate).dt.days,
+                Remaining=lambda x: (x.ExpiryDate - dt.now()).dt.days) \
+            .pipe(
+                f.sort_df_by_list,
+                lst=['M', 'FAF', 'DO', 'FT'],
+                lst_col='Type',
+                sort_cols='FC Number') \
+            .reset_index(drop=True)
+    
+    def update_style(self, style):
+        """Style df for table dialog"""
+        return style \
+            .pipe(self.highlight_mandatory) \
+            .apply(st.highlight_expiry_dates, subset=['ExpiryDate'], theme=self.theme)
 
 class NewFCs(FCBase):
     def __init__(self, d_rng, minesite):
