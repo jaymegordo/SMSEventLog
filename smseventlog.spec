@@ -1,5 +1,4 @@
 # -*- mode: python -*-
-# TODO exclude db_secret.txt from build
 
 project_path = None
 
@@ -137,7 +136,7 @@ if upx:
 
 icon = str(f.resources / f'images/{icon_name}')
 
-run_pyupdater = True
+run_pyupdater = False
 if run_pyupdater:
     print('**** PYUPDATER ****')
     name = name_pyu # running from pyupdater
