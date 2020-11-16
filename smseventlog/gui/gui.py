@@ -114,7 +114,7 @@ class MainWindow(QMainWindow):
 
         self.update_statusbar(msg=self.prev_status)
 
-    @er.errlog(warn=True)
+    @er.errlog()
     def after_init(self):
         """Steps to run before MainWindow is shown.
         - Everything in here must suppress errors and continue"""
