@@ -90,9 +90,9 @@ def convert_df_db_cols(title, df):
     df.columns = [m[c] if c in m.keys() else c for c in df.columns]
     return df
 
-def convert_dict_db_view(title, m, output='view'):
-    # convert dict with from either db or view, to output type cols
-    # NOTE only converts columns which exist in the given table view eg 'Work Orders' or 'Event Log'
+def convert_dict_db_view(title : str, m : dict, output : str='view'):
+    """Convert dict with from either db or view, to output type cols
+    - NOTE only converts columns which exist in the given table view eg 'Work Orders' or 'Event Log'"""
     func_name = 'convert_list_db_view' if output == 'view' else 'convert_list_view_db'
     func = getattr(sys.modules[__name__], func_name)
     initial_cols = list(m.keys())
@@ -365,7 +365,7 @@ def append_default_row(df):
         'int64': pd.NA,
         'float64': pd.NA,
         'datetime64[ns]': pd.NaT,
-        'bool': None,
+        'bool': None, # False makes 'truth value of array ambiguous issues'
         'object': None}
     
     dtypes = {k: str(v).lower() for k, v in df.dtypes.items()} # convert dtypes to lowercase strings

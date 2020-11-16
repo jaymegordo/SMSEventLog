@@ -109,6 +109,13 @@ def unzip(p: Path, p_dst: Path = None, delete=False) -> Path:
 
     return p
 
+def unzip_pyu_archive():
+    """Win only, convenience func to unzip pyu archive to local dir after build"""
+    p = f.projectfolder / 'pyu-data/files'
+    p = [p for p in p.glob('*zip*')][0]
+    p_dst = Path.home() / 'documents/smseventlog_pyu'
+    return unzip(p=p, p_dst=p_dst)
+
 def remove_files(lst):
     for p in lst:
         if p.exists():

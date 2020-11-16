@@ -26,6 +26,7 @@ discord = "*"
 azure-functions = "*"
 openpyxl = "*"
 "hurry.filesize" = "*"
+# pyqt5 = "==5.13.0"
 pyqt5 = "*"
 appscript = {version = "*", sys_platform = "== 'darwin'"}
 pywin32 = {version = "*", sys_platform = "== 'win32'"}
