@@ -298,67 +298,6 @@ class DB(object):
     def save_df(self, df, name):
         self.dfs[name] = df
 
-    def get_df(self, query, refresh=True, default=False, base=False, prnt=False, **kw) -> pd.DataFrame:
-        """Load df from database, must call with query object.
-
-        Parameters
-        ----------
-        query : QueryBase\n
-        refresh : bool, optional
-        
-        - Not used, by default True\n
-        default : bool, optional
-        - Pass **kw through to query.set_default_filter if default=True, by default False\n
-        base : bool, optional
-            [description], by default False\n
-        prnt : bool, optional
-            Print query sql, by default False\n
-
-        Returns
-        -------
-        pd.DataFrame
-        """
-        dfs = self.dfs
-        title = query.title
-        df = dfs.get(title, None)
-
-        if default and hasattr(query, 'set_default_filter'):
-            query.set_default_filter(**kw)
-
-        if base and hasattr(query, 'set_base_filter'):
-            query.set_base_filter(**kw)
-
-        if df is None or refresh:
-            try:
-                sql = query.get_sql(**kw)
-                if sql is None:
-                    log.warning('No sql to get dataframe.')
-                    return
-                
-                if prnt: print(sql)
-
-                df = pd \
-                    .read_sql(sql=sql, con=self.engine) \
-                    .pipe(f.parse_datecols) \
-                    .pipe(f.convert_int64) \
-                    .pipe(f.convert_df_view_cols, m=query.view_cols) \
-                    .pipe(f.set_default_dtypes, m=query.default_dtypes)
-
-                query.fltr.print_criterion()
-
-                if hasattr(query, 'process_df'):
-                    df = query.process_df(df=df)
-
-                dfs[title] = df
-            except Exception as e:
-                msg = f'Couldn\'t get dataframe: {query.name}'
-                er.log_error(msg=msg, exc=e, log=log, display=True)
-                df = pd.DataFrame()
-
-            query.set_fltr() # reset filter after every refresh call
-
-        return df
-
     def get_unit_val(self, unit, field):
         # TODO bit messy, should have better structure to get any val from saved table
         self.set_df_unit()

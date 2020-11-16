@@ -234,6 +234,24 @@ class QueryBase(object):
         for da in args:
             fltr.add(**da)
     
+    def _set_default_filter(self, do=False, **kw):
+        """Just used for piping"""
+        if do and hasattr(self, 'set_default_filter'):
+            self.set_default_filter(**kw)
+        
+        return self
+    
+    def _set_base_filter(self, do=False, **kw):
+        """Just used for piping"""
+        if do and hasattr(self, 'set_base_filter'):
+            self.set_base_filter(**kw)
+        
+        return self
+
+    def process_df(self, df):
+        """Placeholder for piping"""
+        return df
+    
     @property
     def df(self):
         if not self.df_loaded:
@@ -244,18 +262,53 @@ class QueryBase(object):
     def df(self, data):
         self._df = data
 
-    def get_df(self, **kw) -> pd.DataFrame:
+    def _get_df(self, default=False, base=False, prnt=False, **kw) -> pd.DataFrame:
         """Execute query and return dataframe
-        - Load dataframe if not already loaded
-        - Can pass **kw through here > database.get_df > set_default_filter(**kw)
         
+        Parameters
+        ----------
+        default : bool, optional
+            self.set_default_filter if default=True, default False\n
+        base : bool, optional
+            self.set_base_filter, default False\n
+        prnt : bool, optional
+            Print query sql, default False\n
+
         Returns
         ---
         pd.DataFrame
         """
-        if not (self.use_cached_df and not self.df_loaded) or not self.df_loaded:
-            self.df = db.get_df(query=self, **kw)
+        self._set_default_filter(do=default, **kw) \
+            ._set_base_filter(do=base, **kw)
+
+        sql = self.get_sql(**kw)
+        if prnt: print(sql)
+
+        return pd \
+            .read_sql(sql=sql, con=db.engine) \
+            .pipe(f.parse_datecols) \
+            .pipe(f.convert_int64) \
+            .pipe(f.convert_df_view_cols, m=self.view_cols) \
+            .pipe(f.set_default_dtypes, m=self.default_dtypes) \
+            .pipe(self.process_df)
+
+    def get_df(self, **kw) -> pd.DataFrame:
+        """Wrapper for _get_df
+
+        Returns
+        ---
+        pd.DataFrame
+        """
+        if self.use_cached_df and self.df_loaded:
+            return self.df
+
+        try:
+            self.df = self._get_df(**kw)
             self.df_loaded = True
+            self.fltr.print_criterion()
+        finally:
+            # always reset filter after every refresh call
+            self.set_fltr()
 
         return self.df
 
@@ -1381,8 +1434,8 @@ class AvailRawData(AvailBase):
 
         f.set_self(vars())
 
-    def set_fltr(self):
-        super().set_fltr()
+    def _set_fltr(self):
+        return
         # self.fltr.add(vals=dict(Duration=0.01), opr=op.gt) # filter out everything less than 0.01
         # ^ can't use this need to see AHS duplicates which were set to 0
 
@@ -1444,8 +1497,7 @@ class Availability(AvailRawData):
         self.set_lastweek()
 
     def set_allopen(self, **kw):
-        self.set_minesite()
-        self.fltr.add(ct=self.ct_allopen)
+        self.set_default_filter()
  
     def process_df(self, df):
         p = f.resources / 'csv'
