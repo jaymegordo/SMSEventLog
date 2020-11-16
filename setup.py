@@ -5,7 +5,7 @@ from pathlib import Path
 
 from setuptools import Command, find_packages, setup
 
-VERSION = '3.3.1'
+VERSION = '3.3.2'
 
 # Remove leftover folders from setuptools
 class CleanCommand(Command):
