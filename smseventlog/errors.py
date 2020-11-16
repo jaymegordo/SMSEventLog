@@ -17,17 +17,25 @@ base_log = getlog(__name__)
 
 
 def global_exception_hook(*exc_info):
-    # exc_info = (exc_type, exc, exc_traceback)
+    """Custom exception hook to catch all errors in central location
+    
+    Parameters
+    ---------
+    exc_info : tuple\n
+        Comes from sys.exc_info() - (exc_type, exc, exc_traceback)
+    """
     try:
         log_error(display=True, exc_info=exc_info)
     except:
         # if any issues with custom err handling, always try pass back to sentry, then base
+        base_log.error('Custom excepthook failed, falling back to sentry', exc_info=True)
+
         if hasattr(sys, 'sentry_excepthook'):
             sys.sentry_excepthook(*exc_info)
         else:
+            base_log.debug('Failing back to sys.__excepthook__')
             sys.__excepthook__(*exc_info)
 
-        base_log.warning('Custom excepthook failed, falling back to sentry.')
 
 def get_func_name(func, *args, **kw):
     """Get function full name from func obj
@@ -350,16 +358,6 @@ class SMSDatabaseError(Error):
     """Raised when something goes wrong with the database connection"""
     def __init__(self, message='General database error'):
         super().__init__(message)
-
-        # if SYS_FROZEN or True:
-        #     # error lines aren't manually captured by sentry when frozen yet.
-            
-        #     with push_scope() as scope:
-        #         scope.set_tag('traceback', traceback.format_exc())
-        #         # scope.level = 'warning'
-        #         # will be tagged with my-tag="my value"
-        #         print(f'Capturing exception: {type(exc)}')
-        #         capture_exception(exc) # sys.exc_info()[1]
 
 class NoInternetError(ExpectedError):
     """Raised if no internet connection detected."""
