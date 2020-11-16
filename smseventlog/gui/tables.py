@@ -605,7 +605,7 @@ class TableView(QTableView):
         return self.mcols['center']
 
     def remove_row(self, i=None):
-        # default, just remove row from table view
+        """default, just remove row from table view"""
         if i is None: i = self.active_row_index()
         self.model().removeRows(i=i)
 
@@ -614,7 +614,7 @@ class TableView(QTableView):
             self.mainwindow.update_statusbar(msg=msg, *args, **kw)
 
     def filter_column(self, col_name, val):
-        # toggle specific filter on column
+        """Toggle specific filter on column"""
         model = self.model()
         name_index = self.nameindex_from_activerow() # TODO probably connect this to a signal to use other places
 
@@ -663,8 +663,10 @@ class TableWidget(QWidget):
 
         if not parent is None:
             self.mainwindow = parent.mainwindow
+            self.settings = self.mainwindow.settings
         else:
             self.mainwindow = gbl.get_mainwindow()
+            self.settings = gbl.get_settings()
 
         self.title = f.config['TableName']['Class'][name]
 
@@ -944,7 +946,7 @@ class TableWidget(QWidget):
         """Save UserGroup filter settings 
         - NOTE this will need to be restructured if we add more filters"""
         if not self.persistent_filters: return
-        s = self.mainwindow.settings
+        s = self.settings
 
         for field in self.persistent_filters:
             items = [field.box, field.cb]
@@ -957,7 +959,7 @@ class TableWidget(QWidget):
     def restore_persistent_filter_settings(self):
         """Restore UserGroup filter settings"""
         if not self.persistent_filters: return
-        s = self.mainwindow.settings
+        s = self.settings
 
         for field in self.persistent_filters:
             items = [field.box, field.cb]
@@ -1418,10 +1420,10 @@ class WorkOrders(EventLogBase):
     def email_wo(self, title, body_text, exclude_cols):
         """Email a WorkOrder (Open|Close) for the currently selected row"""
         e = self.e
-
         title = f'{title} - {e.Unit} - {e.Title}'
 
-        m = {item:item for item in ['PRP', 'RAMP', 'Service', 'Parts']}
+        m = {item: item for item in ['PRP', 'RAMP', 'Service', 'Parts']}
+        m.update({'No': 'Service'})
         name = m.get(e.WarrantyYN, 'WO Request')
         
         lst = qr.EmailListShort(col_name=name, minesite=self.minesite, usergroup=self.u.usergroup).emails
@@ -1432,7 +1434,8 @@ class WorkOrders(EventLogBase):
         """Email a WorkOrder request for the currently selected row"""
         e = self.e
 
-        wrnty_type = 'warranty' if e.WarrantyYN.lower() == 'yes' else e.WarrantyYN
+        m = dict(yes='warranty', no='non-warranty')
+        wrnty_type = m.get(e.WarrantyYN.lower(), e.WarrantyYN)
 
         self.email_wo(
             title='Open WO Request',
@@ -2117,7 +2120,7 @@ class Availability(TableWidget):
         table_widget = tabs.get_widget(title)
 
         if table_widget.view.model().rowCount() == 0:
-            table_widget.refresh_lastmonth(default=True)
+            table_widget.refresh_lastmonth()
 
         table_widget.view.model().filter_by_items(col='Unit', items=[unit])
         tabs.activate_tab(title)
