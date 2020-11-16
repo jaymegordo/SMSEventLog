@@ -37,7 +37,7 @@ class TableModel(QAbstractTableModel):
         table_widget = view.parent #sketch
         formats = parent.formats
         highlight_funcs = parent.highlight_funcs
-        # _stylemap = {}
+        m_display, m_color_bg, m_color_text = {}, {}, {}
         current_row = -1
         self.highlight_rows = True
         selection_color = QColor(f.config['color']['bg']['yellowrow'])
@@ -68,7 +68,8 @@ class TableModel(QAbstractTableModel):
         return model
     
     def set_df(self, df, center_cols=None):
-        # Set or change pd DataFrame to show
+        """Set or change pd DataFrame to show
+        - Used when reloading full new table"""
         _df_orig = df.copy()
         _df_pre_dyn_filter = None # Clear dynamic filter
         self._cols = list(df.columns)
@@ -87,11 +88,10 @@ class TableModel(QAbstractTableModel):
 
         self.mcols = mcols
         self.set_date_formats()
-        self.set_static_dfs(df=df)
+        self.set_static_dfs(df=df, reset=True)
 
         f.set_self(vars(), exclude='df')
         self.df = df
-        # self.set_stylemap()
     
     def set_date_formats(self):
         for i in self.mcols['date']:
@@ -100,23 +100,25 @@ class TableModel(QAbstractTableModel):
         for i in self.mcols['datetime']:
             self.formats[self.headerData(i)] = '{:%Y-%m-%d     %H:%M}'
 
+    def update_rows_label(self):
+        """set so mainwindow can update current rows label"""
+        self.visible_rows = self._df.shape[0]
+        self.total_rows = self._df_orig.shape[0]
+
+        if not self.view.mainwindow is None:
+            self.view.mainwindow.update_rows_label()
+
     @property
     def df(self):
         return self._df
 
     @df.setter
     def df(self, dataFrame):
-        # print('Setting Dataframe', dataFrame.shape)
         """Setter should only be used internal to DataFrameModel.  Others should use set_df()"""
         self.layoutAboutToBeChanged.emit()
         self.modelAboutToBeReset.emit()
         self._df = dataFrame
-
-        # set so mainwindow can update current rows label
-        self.visible_rows = self._df.shape[0]
-        self.total_rows = self._df_orig.shape[0]
-        if not self.view.mainwindow is None:
-            self.view.mainwindow.update_rows_label()
+        self.update_rows_label()
         
         self.modelReset.emit()
         self.layoutChanged.emit()
@@ -124,21 +126,10 @@ class TableModel(QAbstractTableModel):
         if self._df.shape[0] > 0:
             self.parent.resizeRowsToContents()
    
-    def set_static_dfs(self, df):
-        """Set static dict copies of df string value + colors for faster display in table.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-        """        
-        self.m_display = f.df_to_strings(df=df, formats=self.formats).to_dict()
-        self.m_color_bg = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.BackgroundRole).to_dict()
-        self.m_color_text = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.ForegroundRole).to_dict()
-
-        self.set_stylemap(df=df)
-    
     def search(self, search_text: str) -> list:
-        """Filter self.m_display dict to values which match search text"""
+        """Filter self.m_display dict to values which match search text
+        - TODO this searches everything in m_display, need to filter to ONLY active df
+        """
 
         if search_text.strip() == '':
             return []
@@ -155,8 +146,60 @@ class TableModel(QAbstractTableModel):
 
         return lst_out
 
+    def update_static_df(self, m_new : dict, m_update : dict):
+        """Update single static df with new vals
+        - used to update single row
+
+        Parameters
+        ----------
+        m_new : dict
+            new vals to merge to m_update\n
+        m_update : dict
+            dict to update, one of (m_display, m_color_bg, m_color_text)
+        """
+        for col_name in m_new.keys():
+            m_update[col_name].update(m_new[col_name])
+
+    def get_static_dfs(self, df) -> tuple:
+        """Get Display, Background, Text dicts
+        - Call for full df or single row
+        
+        Returns
+        -------
+        tuple[m_display, m_color_bg, m_color_text]
+        """
+
+        m_display = f.df_to_strings(df=df, formats=self.formats).to_dict()
+        m_color_bg = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.BackgroundRole).to_dict()
+        m_color_text = f.df_to_color(df=df, highlight_funcs=self.highlight_funcs, role=Qt.ForegroundRole).to_dict()
+
+        return (m_display, m_color_bg, m_color_text)
+
+    def set_static_dfs(self, df, reset=False):
+        """Set static dict copies of df string value + colors for faster display in table.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            full df or single row
+        reset : bool
+            reset static dfs if true, else append
+        """
+        static_dfs_new = self.get_static_dfs(df=df)
+        static_dfs_orig = [self.m_display, self.m_color_bg, self.m_color_text]
+
+        if reset:
+            self.m_display, self.m_color_bg, self.m_color_text = static_dfs_new
+        else:
+            # called when adding a single row
+            for m_new, m_orig in zip(static_dfs_new, static_dfs_orig):
+                self.update_static_df(m_new=m_new, m_update=m_orig)
+
+        self.set_stylemap(df=df)
+
     def set_stylemap(self, df=None, col=None):
-        """Get colors from applying a stylemap func to df, merge to static dfs"""
+        """Get colors from applying a stylemap func to df, merge to static dfs
+        - Only updates > can call with full df or single row"""
         if df is None: df = self.df
         if df.shape[0] == 0: return
 
@@ -165,6 +208,7 @@ class TableModel(QAbstractTableModel):
         m_stylemap = self.query.get_stylemap(df=df, col=col)
         if m_stylemap is None: return
 
+        # loop stylemap cols, update full column values
         for col_name in m_stylemap[0].keys():
             self.m_color_bg[col_name].update(m_stylemap[0][col_name])
             self.m_color_text[col_name].update(m_stylemap[1][col_name])
@@ -206,7 +250,8 @@ class TableModel(QAbstractTableModel):
                 else:
                     return ''
             elif orientation == Qt.Vertical:
-                return i
+                # return i
+                return int(self.df.index[i])
 
         return None
 
@@ -254,7 +299,10 @@ class TableModel(QAbstractTableModel):
             row, col = df.index[irow], df.columns[icol]
         
         if role == Qt.DisplayRole:
-            return str(self.m_display[col][row])
+            try:
+                return str(self.m_display[col][row])
+            except KeyError:
+                return None
 
         elif role in (Qt.BackgroundRole, Qt.ForegroundRole):
             # ask table_widget for cell color given df, irow, icol
@@ -266,8 +314,9 @@ class TableModel(QAbstractTableModel):
                     color = self.m_color_bg[col][row]
                 elif role == Qt.ForegroundRole:
                     color = self.m_color_text[col][row]
-            except:
+            except KeyError:
                 # if static dfs not set at init properly, just return None so sentry doesn't send 1000 errors
+                # log.warning(f'Couldn\'t get value for row: {row}, col: {col}, role: {role}')
                 return None
             
             if not pd.isnull(color):
@@ -318,7 +367,6 @@ class TableModel(QAbstractTableModel):
             log.warning(f'Couldn\'t get value for row: {row}, col: {col}, role: {role}')
             return None
 
-
         if role == Qt.EditRole:
             return val if not pd.isnull(val) else ''
         elif role == self.RawDataRole:
@@ -355,11 +403,9 @@ class TableModel(QAbstractTableModel):
 
         # dont update db if value is same as previous
         if role == Qt.EditRole and val_prev != val:
-
             # keep original df copy in sync for future filtering
             self._df_orig.loc[row, col] = val
             df.loc[row, col] = val
-            # self.m_values[col][row] = val
 
             # set display vals, NOTE this could go into own func maybe
             if not pd.isnull(val):
@@ -531,7 +577,8 @@ class TableModel(QAbstractTableModel):
         irow : int, default None
             Add entire row to queue
         - NOTE just using default dbtable for now
-        - Could have multiple dbtables per row... have to check headers for each? bulk update once per table??"""
+        - Could have multiple dbtables per row... have to check headers for each? bulk update once per table??
+        """
 
         # if keys aren't in update_vals, need to use irow to get from current df row
         check_key_vals = self.df.iloc[irow].to_dict() if not irow is None else vals
@@ -552,7 +599,7 @@ class TableModel(QAbstractTableModel):
 
         if self._queue_locked:
             return
-        
+                
         txn = dbt.DBTransaction(table_model=self) \
             .add_items(update_items=list(self.queue.values())) \
             .update_all() \
@@ -574,40 +621,71 @@ class TableModel(QAbstractTableModel):
         
         return e
                
-    def insertRows(self, m, i=None, num_rows=1, select=False):
-        # insert new row to table view
-        # m is dict with view_cols
-        
+    def insertRows(self, m : dict, i : int=None, num_rows=1, select=False):
+        """Insert new row to table
+
+        Parameters
+        ----------
+        m : dict
+            Vals for new row to insert\n
+        i : int, optional
+            Insert at specific location, default end of table\n
+        num_rows : int, optional
+            number of rows to insert, default 1\n
+        select : bool, optional
+            select row after insert, default False
+        """
         if i is None:
             i = self.rowCount()
 
         self.beginInsertRows(QModelIndex(), i, i + num_rows - 1)
-        self._df = self.df.pipe(f.append_default_row)
 
-        # NOTE maybe append blank row to each static df instead of resetting all..
-        self.set_static_dfs(df=self._df)
+        self._df_orig = self._df_orig.pipe(f.append_default_row)
+        df_new_row = self._df_orig.iloc[-1:]
 
+        # concat this way to preserve index of new row from _df_orig
+        self._df = pd.concat([self.df, self._df_orig.iloc[-1:]])
+
+        # setting new data will trigger update of static dfs
         for col, val in m.items():
             icol = self.get_col_idx(col)
             if not icol is None:
                 index = self.createIndex(i, icol)
                 self.setData(index=index, val=val, update_db=False, triggers=False)
 
+        self.set_static_dfs(df=self._df_orig.iloc[-1:], reset=False)
+        self.update_rows_label()
         self.endInsertRows()
 
         if select:
             self.parent.select_by_index(index=self.createIndex(i, 1))
 
+        return df_new_row
+
     def append_row(self, data):
         # TODO use this instead of insert
         self.insert_row([data], self.rowCount())
 
-    def removeRows(self, i, num_rows=1):
-        # TODO build remove more than one row
+    def removeRows(self, i : int, num_rows : int=1):
+        """Remove single row from table model
+
+        Parameters
+        ----------
+        i : int
+            row int to remove
+        num_rows : int, optional
+            not implemented, default 1
+        
+        - TODO build remove more than one row
+        """        
+
         self.beginRemoveRows(QModelIndex(), i, i + num_rows - 1)
-        df = self._df
-        self._df = df.drop(df.index[i]).reset_index(drop=True)
-        self.set_static_dfs(df=self._df)
+
+        df = self.df
+        row_name = df.index[i]
+        self._df_orig = self._df_orig.drop(row_name)
+        self._df = df.drop(row_name) # can't call self.df layout signals mess table up
+        self.update_rows_label()
 
         self.endRemoveRows()
 
