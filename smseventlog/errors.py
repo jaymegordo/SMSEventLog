@@ -73,7 +73,7 @@ def get_func_name_from_tb(tb):
         base_log.warning('Couldn\'t extract function name from traceback.')
         return tb.tb_frame.f_code.co_name
 
-def errlog(msg=None, err=True, warn=False, display=False, default=None):
+def errlog(msg=None, err=True, warn=False, display=False, default=None, status_msg=False):
     """Wrapper to try/except func, log error, don't show to user, and return None
     - NOTE this suppresses the error unless display=True
 
@@ -98,7 +98,10 @@ def errlog(msg=None, err=True, warn=False, display=False, default=None):
                 if not msg is None:
                     err_msg = f'{err_msg} | {msg}'
 
-                if warn:
+                if status_msg:
+                    from .gui._global import update_statusbar
+                    update_statusbar(msg)
+                elif warn:
                     log.warning(err_msg)
                 elif err:
                     log_error(msg=msg, display=display, func=func, exc=exc)
@@ -344,6 +347,10 @@ class Error(Exception):
         from .gui._global import update_statusbar
         update_statusbar(msg=msg, **kw)
     
+    def show_warn_dialog(self, msg=None):
+        from .gui.dialogs import msg_simple
+        msg_simple(msg)
+    
 class FakeError(Error):
     """Easy obvious fake error to throw for testing"""
     def __init__(self, message='Fake Error'):
@@ -373,6 +380,12 @@ class NoRowSelectedError(ExpectedError):
     def __init__(self, message='No row selected in table.'):
         super().__init__(message)
         self.update_statusbar(msg=message, warn=True)
+
+class InputError(ExpectedError):
+    """Raised if incorrect input from dialog."""
+    def __init__(self, message='Incorrect input.'):
+        super().__init__(message)
+        self.show_warn_dialog(msg=message)
 
 sys._excepthook = sys.excepthook # save original excepthook
 init_sentry() # sentry overrides excepthook, need to init first to override it
