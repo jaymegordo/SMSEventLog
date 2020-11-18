@@ -4,11 +4,77 @@ from bs4 import BeautifulSoup
 
 from .. import styles as st
 from ..gui import dialogs as dlgs
+from .. import errors as er
 from .__init__ import *
 
 log = getlog(__name__)
 
 # NOTE could make FCImport object to store results better
+
+@er.errlog('Incorrect unit input', status_msg=True)
+def parse_units(units : str, prefix : str = None) -> list:
+    """Parse string list/range of units, add prefix
+
+    Parameters
+    ----------
+    units : str
+        list/range of units
+    prefix : str, optional
+        prefix to append to each unit, default None
+
+    Returns
+    -------
+    list
+        list of parsed units
+    Bool
+        False if unit in range cannot be converted to int
+
+    Examples
+    -------
+    >>> fc.parse_units('301, 302--303', 'F')
+    >>> ['F301', 'F302', 'F303']
+    """
+
+    # parse unit_range string
+    units = units.split(',')
+
+    # get upper/lower range if str has '-'
+    units_range = list(filter(lambda x: '--' in x, units))
+    units = list(filter(lambda x: not '--' in x, units))
+
+    for _rng in units_range:
+        rng = _rng.split('--')
+        try:
+            lower = int(rng[0])
+            upper = int(rng[1])
+        except:
+            msg = f'Values for range must be integers: "{_rng.strip()}"'
+            dlgs.msg_simple(msg=msg, icon='warning')
+            return False
+
+        units.extend([unit for unit in range(lower, upper + 1)])
+
+    # strip whitespace, convert to str, add prefix
+    if prefix is None: prefix = ''
+    units = list(map(lambda x: f'{prefix}{str(x).strip()}', units))
+
+    return units
+
+def create_fc_manual(units : list, fc_number : str, _type : str, subject : str, release_date : dt, expiry_date : dt, **kw):
+    """Create manual FC from input dialog"""    
+
+    df = db.get_df_unit() \
+        .pipe(lambda df: df[df.Unit.isin(units)]) \
+        [['Model', 'Serial']] \
+        .reset_index() \
+        .assign(
+            FCNumber=fc_number,
+            Subject=subject,
+            Classification=_type,
+            StartDate=release_date,
+            EndDate=expiry_date)
+
+    import_fc(df=df, **kw)
 
 def tblcount(tbl):
     cursor = db.cursor
@@ -33,7 +99,7 @@ def get_import_files():
 
     return lst
 
-def import_fc(lst_csv, upload=True, df=None, worker_thread=False):   
+def import_fc(lst_csv=None, upload=True, df=None, worker_thread=False):   
     start = timer()
 
     if df is None:
@@ -44,8 +110,9 @@ def import_fc(lst_csv, upload=True, df=None, worker_thread=False):
     d_lower = dt.now() + delta(days=-730)
     df = df[df.StartDate >= d_lower]
 
-    print('Loaded ({}) FCs from {} file(s) in: {}s' \
-        .format(len(df), len(lst_csv), f.deltasec(start, timer())))
+    if not lst_csv is None:
+        print('Loaded ({}) FCs from {} file(s) in: {}s' \
+            .format(len(df), len(lst_csv), f.deltasec(start, timer())))
 
     # import to temp staging table in db, then merge new rows to FactoryCampaign
     if upload:
@@ -104,7 +171,9 @@ def create_fc_folder(fc_number):
         print(f'Couldn\'t make fc path for: {fc_number}')
 
 def read_fc(p):
-    # Remove missing units
+    """Read FC csv from KA
+    - Removes units not in db
+    """
     # Drop and reorder,  Don't import: CompletionSMR, claimnumber, ServiceLetterDate
     cols = ['FCNumber','Model', 'Serial', 'Unit', 'StartDate', 'EndDate', 'DateCompleteKA', 'Subject', 'Classification', 'Branch', 'Status']
 
