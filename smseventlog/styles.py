@@ -226,8 +226,18 @@ def highlight_yn(df, color_good='good', theme='light'):
 
     return pd.DataFrame(data=data, index=df.index, columns=df.columns)
 
-def highlight_multiple_vals(df, m):
-    # highlight multiple vals in df based on input dict of {val: (bg_color, t_color)}
+def highlight_multiple_vals(df, m : dict, convert=False, theme='light'):
+    """Highlight multiple vals in df based on input from style.apply
+    
+    Parameters
+    ----------
+    m : dict
+        {val: (bg_color, t_color)}
+    convert : bool
+        if true, convert color map to bg/text first
+    """
+    if convert:
+        m = convert_color_code(m_color=m, theme=theme)
 
     m.update({None: ('inherit', 'inherit')})
     m_replace = {k: format_cell(bg=v[0], t=v[1]) for k, v in m.items()}
@@ -235,7 +245,7 @@ def highlight_multiple_vals(df, m):
     return df.replace(m_replace)
 
 def highlight_flags(df, m):
-    # highlight flagged columns
+    """Highlight flagged columns for oil samples"""
     df1 = highlight_multiple_vals(df=df, m=m)
 
     flagged_cols = [col for col in df.columns if '_f' in col]
@@ -356,3 +366,18 @@ def write_html(html, name=None):
     p = f.topfolder.parent / f'{name}.html'
     with open(str(p), 'w+') as file:
         file.write(html)
+
+def convert_color_code(m_color : dict, theme : str='light'):
+    """Convert color names to bg/text color codes from config
+    - used to pass in to highlight_multiple_vals
+    
+    Parameters
+    ---------
+    m_color : dict
+        dict of named color vals eg {'S1 Service': 'lightyellow'}
+    """
+    m = f.config['color']
+    bg, t = m['bg'], m['text']
+    default_bg, default_t = get_defaults(theme)
+
+    return {k: (bg.get(v, default_bg), t.get(v, default_t)) for k, v in m_color.items()}
