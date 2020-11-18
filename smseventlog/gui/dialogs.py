@@ -59,6 +59,10 @@ class BaseDialog(QDialog):
         self.setFixedSize(self.sizeHint())
         return super().show()
 
+    def update_statusbar(self, msg, *args, **kw):
+        if not self.mainwindow is None:
+            self.mainwindow.update_statusbar(msg=msg, *args, **kw)
+
 class InputForm(BaseDialog):
     def __init__(self, parent=None, window_title=''):
         super().__init__(parent=parent, window_title=window_title)
@@ -143,12 +147,14 @@ class InputForm(BaseDialog):
         # always access the QT base accept
         return super().accept()
 
-    def accept(self):
+    def accept(self, save_settings=True):
         if not self.check_enforce_items():
             return
 
         self.items = self.get_items()
-        self._save_settings()
+        
+        if save_settings:
+            self._save_settings()
         super().accept()
     
     def check_enforce_items(self):
@@ -234,10 +240,6 @@ class InputForm(BaseDialog):
                 val = self.settings.value(f'dlg_{self.name}_{name}')
                 if not val is None:
                     obj.val = val
-
-    def update_statusbar(self, msg, *args, **kw):
-        if not self.mainwindow is None:
-            self.mainwindow.update_statusbar(msg=msg, *args, **kw)
 
 class AddRow(InputForm):
     def __init__(self, parent=None, window_title='Add Item'):
@@ -750,6 +752,53 @@ class PasswordPrompt(InputForm):
 
         self.add_input(field=InputField(text=id_type.title()))
         self.add_input(field=InputField(text='Password'))
+
+class CustomFC(InputForm):
+    def __init__(self, **kw):
+        super().__init__(window_title='Create Custom FC')
+        add, IPF = self.add_input, InputField
+
+        text = f'Enter list or range of units to create a custom FC.\n\
+        \nRanges must be defined by two dashes "--", Eg)\nPrefix: F\nUnits: 302--310, 312, 315--317\n\n'
+        label = QLabel(text)
+        label.setMaximumWidth(300)
+        label.setWordWrap(True)
+        self.vLayout.insertWidget(0, label)
+
+        add(field=IPF(text='FC Number', enforce=True))
+        add(field=IPF(text='Prefix'))
+        add(field=IPF(text='Units', enforce=True))
+        add(field=IPF(text='Subject', enforce=True))
+        add(field=IPF(text='Type'), items=['M', 'FAF', 'DO', 'FT'])
+        add(field=IPF(text='Release Date', dtype='date', col_db='ReleaseDate'))
+        add(field=IPF(text='Expiry Date', dtype='date', col_db='ExpiryDate'))
+    
+    def accept(self):
+        if not self.check_enforce_items():
+            return
+
+        from ..data import factorycampaign as fc
+        units = fc.parse_units(units=self.fUnits.val, prefix=self.fPrefix.val)
+        self.units = units
+
+        # units have incorrect input
+        if not units:
+            return
+        
+        units_bad = db.units_not_in_db(units=units)
+        if units_bad:
+            # tried with units which don't exist in db
+            msg = f'The following units do not exist in the database. Please add them then try again:\n{units_bad}'
+            msg_simple(msg=msg, icon='warning')
+            return
+        
+        fc_number = self.fFCNumber.val
+        lst_units = '\n'.join(units)
+        msg = f'Create new FC "{fc_number}"?\n\nUnits:\n{lst_units}'
+        if not msgbox(msg=msg, yesno=True):
+            return
+        
+        super().accept(save_settings=False)
 
 class TSIUserName(PasswordPrompt):
     def __init__(self):

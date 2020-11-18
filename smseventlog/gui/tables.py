@@ -667,6 +667,7 @@ class TableWidget(QWidget):
         else:
             self.mainwindow = gbl.get_mainwindow()
             self.settings = gbl.get_settings()
+        mw = self.mainwindow
 
         self.title = f.config['TableName']['Class'][name]
 
@@ -1576,10 +1577,14 @@ class TSI(EventLogBase):
 
         msg, docs = 'Select documents to attach?', None
         if dlgs.msgbox(msg=msg, yesno=True):
-            from ..utils.tsi import attach_docs
             ef = efl.EventFolder.from_model(e=e)
             ef.check()
-            docs = attach_docs(ef=ef)
+            docs = self.attach_docs(ef=ef)
+
+            if not docs:
+                msg = 'No documents selected, abort TSI?'
+                if dlgs.msgbox(msg=msg, yesno=True):
+                    return
             
         tsi = TSIWebPage(
             field_vals=field_vals,
@@ -1597,6 +1602,25 @@ class TSI(EventLogBase):
             .start()
 
         self.update_statusbar('Creating new TSI in worker thread. GUI free to use.')
+
+    def attach_docs(self, ef=None):
+        """Prompt user to select tsi docs and downloads to attach to tsiwebpage"""
+        lst_files = []
+
+        # show FileDialog and select docs to attach to TSI
+        lst = dlgs.get_filepaths(p_start=ef._p_event)
+        if not lst is None:
+            lst_files.extend(lst)
+
+        # Select download zip
+        p_dls = ef.p_unit / 'Downloads'
+        p_dls_year = p_dls / f'{ef.year}'
+        p_start = p_dls_year if p_dls_year.exists() else p_dls
+        lst = dlgs.get_filepaths(p_start=p_start)
+        if not lst is None:
+            lst_files.extend(lst)
+
+        return lst_files
 
     def handle_tsi_result(self, tsi=None):
         # get TSIWebpage obj back from worker thread, save TSI Number back to table
@@ -1738,8 +1762,21 @@ class FCBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.add_action(name='Import FCs', func=self.import_fc, btn=True, tooltip=f'Import FCs from FC import folder:\n{f.config["FilePaths"]["Import FC"]}')
-        self.add_action(name='View FC Folder', func=self.view_fc_folder, btn=True, tooltip=f'Open FC folder at:\n{f.config["FilePaths"]["Factory Campaigns"]}')
+        self.add_action(
+            name='Import FCs',
+            func=self.import_fc,
+            btn=True,
+            tooltip=f'Import FCs from FC import folder:\n{f.config["FilePaths"]["Import FC"]}')
+        self.add_action(
+            name='View FC Folder',
+            func=self.view_fc_folder,
+            btn=True,
+            tooltip=f'Open FC folder at:\n{f.config["FilePaths"]["Factory Campaigns"]}')
+        self.add_action(
+            name='Create FC',
+            func=self.create_fc_manual,
+            btn=True,
+            tooltip='Create custom FC for range of units.')
 
         self.context_actions['view'] = ['viewfolder']
 
@@ -1755,6 +1792,28 @@ class FCBase(TableWidget):
             .add_signals(signals=('result', dict(func=fc.ask_delete_files))) \
             .start()
         self.update_statusbar('FC import started in worker thread.')
+    
+    def create_fc_manual(self):
+        dlg = dlgs.CustomFC(parent=self)
+        if not dlg.exec_():
+            return
+
+        units = dlg.units
+        fc_number = dlg.fFCNumber.val
+
+        m = dict(
+            units=units,
+            fc_number=fc_number,
+            _type=dlg.fType.val,
+            subject=dlg.fSubject.val,
+            release_date=dlg.fReleaseDate.val,
+            expiry_date=dlg.fExpiryDate.val)
+        
+        msg = f'Successfully created manual FC "{fc_number}" for [{len(units)}] unit(s).'
+        Worker(func=fc.create_fc_manual, mw=self.mw, worker_thread=True, **m) \
+            .add_signals(signals=('result', dict(func=lambda *args: self.update_statusbar(msg=msg)))) \
+            .start()
+        self.update_statusbar('Manual FC import started in worker thread.')
     
     def get_fc_folder(self):
         if not fl.drive_exists():
