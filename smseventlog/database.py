@@ -312,6 +312,17 @@ class DB(object):
         self.set_df_unit()
         return unit in self.df_unit.Unit
     
+    def units_not_in_db(self, units : list):
+        """Check list of units in db
+        Returns
+        -------
+        list
+            list of units not in db
+        """
+        df = self.get_df_unit()
+        lst = df[df.Unit.isin(units)].Unit.to_list()
+        return list(set(units) - set(lst))
+    
     def get_modelbase(self, model):
         df = self.get_df_equiptype()
         try:
