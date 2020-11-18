@@ -1445,6 +1445,22 @@ class AvailRawData(AvailBase):
         bg_color = 'white' if theme == 'light' else self.color['bg']['bgdark']
         cmap = LinearSegmentedColormap.from_list('red_white', [bg_color, self.color['bg']['lightred']])
         return style.background_gradient(cmap=cmap, subset=['Total', 'SMS', 'Suncor'], axis=None)
+    
+    def highlight_category_assigned(self, style):
+        if self.theme == 'dark': return style
+
+        m = {
+            'S1 Service': 'lightyellow',
+            'S4 Service': 'lightblue',
+            'S5 Service': 'lightgreen',
+            'Collecting Info': 'lightyellow'}
+
+        return style.apply(
+            st.highlight_multiple_vals,
+            subset=['Category Assigned'],
+            m=m,
+            convert=True,
+            theme=self.theme)
 
     def update_style(self, style, **kw):
         # used for reporting + gui (only for colors)
@@ -1458,6 +1474,7 @@ class AvailRawData(AvailBase):
             .pipe(self.background_gradient) \
             .apply(st.highlight_alternating, subset=['Unit'], theme=self.theme, color=color) \
             .pipe(st.set_column_widths, vals=col_widths) \
+            .pipe(self.highlight_category_assigned) \
             .hide_columns(['DownReason'])
 
 class Availability(AvailRawData):
