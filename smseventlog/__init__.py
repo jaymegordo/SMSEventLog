@@ -31,7 +31,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-__version__ = '3.3.2'
+__version__ = '3.3.3'
 VERSION = __version__
 
 # Set environments
