@@ -372,7 +372,7 @@ class EventLog(EventLogBase):
         super().__init__(**kw)
         a, b = self.a, self.b
 
-        cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.FailureCause, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy]
+        cols = [a.UID, a.PassoverSort, a.StatusEvent, a.Unit, a.Title, a.Description, a.FailureCause, a.DateAdded, a.DateCompleted, a.IssueCategory, a.SubCategory, a.Cause, a.CreatedBy, a.TimeCalled]
 
         q = self.q \
             .orderby(a.DateAdded, a.Unit)
@@ -441,7 +441,7 @@ class ComponentSMR(QueryBase):
     def __init__(self, **kw):
         super().__init__(**kw)
         a, b, c = self.select_table, *pk.Tables('ComponentType', 'UnitID')
-        cols = [a.MineSite, a.Model, a.Unit, a.Component, a.Modifier, a.BenchSMR, a.CurrentUnitSMR, a.SMRLastCO, a.CurrentComponentSMR, a.PredictedCODate, a.LifeRemaining]
+        cols = [a.MineSite, a.Model, a.Unit, a.Component, a.Modifier, a.BenchSMR, a.CurrentUnitSMR, a.SMRLastCO, a.CurrentComponentSMR, a.PredictedCODate, a.LifeRemaining, a.SNInstalled]
 
         q = Query.from_(a) \
             .left_join(b).on_field('Floc') \
@@ -458,6 +458,7 @@ class ComponentSMR(QueryBase):
 
     def set_allopen(self, **kw):
         self.set_minesite()
+        self.fltr.add(vals=dict(major=1))
     
     def background_gradient(self, style):
         df = style.data
@@ -770,12 +771,11 @@ class FCSummaryReport(FCSummary):
     def __init__(self, da=None, **kw):
         super().__init__(da=da, **kw)
     
-    def get_df(self, default=False):
+    def get_df(self, **kw):
         # from .database import db
         # df = db.get_df(query=self, default=default)
-        df = super().get_df(default=default)
-        # self.df = df
-        return df[df.columns[:8]]
+        return super().get_df(**kw) \
+            .pipe(lambda df: df.loc[:, df.columns[:8]])
 
     def process_df(self, df):
         df = super().process_df(df)
@@ -783,7 +783,9 @@ class FCSummaryReport(FCSummary):
         return df
     
     def update_style(self, style, **kw):
-        return style.pipe(self.update_style_part_1)
+        return style \
+            .pipe(self.update_style_part_1) \
+            .pipe(st.set_col_alignment, col_name='Total Complete', alignment='center')
 
     def exec_summary(self):
         m, m2 = {}, {}
@@ -809,30 +811,41 @@ class FCSummaryReport2(FCSummary):
         super().__init__()
         f.set_self(vars())
     
-    def get_df(self, default=False):
+    def get_df(self, **kw):
         df = self.parent.df.copy()
         df.drop(df.columns[1:8].drop('Type'), axis=1, inplace=True) # drop other cols except Type
         self.df = df
         return df
 
     def update_style(self, style, **kw):
-        # rotate unit column headers vertical
-        # set font size here based on number of columns, min 5 max 10
-        size = 280 // len(style.data.columns)
-        size = min(max(size, 5), 10)
+        """rotate unit column headers vertical
+        set font size here based on number of columns, min 5 max 10"""
+        df = style.data
+        size = 280 // len(df.columns)
+        size = min(max(size, 5), 9)
         font_size = f'{size}px'
 
         unit_col = 2
+        nth_child = f'nth-child(n+{unit_col})'
         s = []
         s.append(dict(
-            selector=f'th.col_heading:nth-child(n+{unit_col})',
+            selector=f'th.col_heading:{nth_child}',
             props=[ 
                 ('font-size', font_size),
-                ('padding', '0px 0px'),
                 ('transform', 'rotate(-90deg)'),
+                ('padding', '0px 0px'),
                 ('text-align', 'center')]))
+        
+        # SUPER-HACK to make vertical headers resize header row height properly
         s.append(dict(
-            selector=f'td:nth-child(n+{unit_col})',
+            selector=f'th.col_heading:{nth_child}:before',
+            props=[ 
+                ('content', "''"),
+                ('padding-top', '110%'),
+                ('display', 'inline-block'),
+                ('vertical-align', 'middle')]))
+        s.append(dict(
+            selector=f'td:{nth_child}',
             props=[
                 ('font-size', font_size),
                 ('padding', '0px 0px'),
@@ -930,13 +943,25 @@ class NewFCs(FCBase):
 class FCComplete(FCBase):
     def __init__(self, d_rng, minesite):
         super().__init__(minesite=minesite)
-        a, d = self.a, self.d
+        a, b, d = self.a, self.b, self.d
         # get all FCs complete during month, datecompletesms
         # group by FC number, count
 
-        self.cols = [a.FCNumber.as_('FC Number'), a.Classification.as_('Type'), a.Subject, fn.Count(a.FCNumber).as_('Completed')]
+        # self.default_dtypes.update(
+        #     **f.dtypes_dict('Int64', ['Completed']))
+        
+        self.formats.update({
+            'Hours': '{:,.1f}',
+            'Total Hours': '{:,.1f}'})
+
+        self.cols = [
+            a.FCNumber.as_('FC Number'),
+            a.Classification.as_('Type'),
+            a.Subject,
+            fn.Count(a.FCNumber).as_('Completed'),
+            b.hours.as_('Hours')]
         self.q = self.q \
-            .groupby(a.FCNumber, a.Subject, a.Classification) \
+            .groupby(a.FCNumber, a.Subject, a.Classification, b.hours) \
             .orderby(a.Classification)
 
         self.add_fltr_args([
@@ -944,7 +969,8 @@ class FCComplete(FCBase):
             dict(vals=dict(MineSite=minesite), table=d)])
 
     def process_df(self, df):
-        return df.pipe(self.sort_by_fctype)
+        return df.pipe(self.sort_by_fctype) \
+            .assign(**{'Total Hours': lambda x: x.Completed * x['Hours']})
     
     def exec_summary(self):
         m = {}
@@ -980,7 +1006,7 @@ class EmailList(QueryBase):
         """Full table for app display/editing, NOT single list for emailing"""
         super().__init__(**kw)
         a = self.select_table
-        cols = [a.UserGroup, a.MineSite, a.Email, a.Passover, a.WORequest, a.FCCancelled, a.PicsDLS, a.PRP, a.FCSummary, a.TSI, a.RAMP, a.Service, a.Parts]
+        cols = [a.UserGroup, a.MineSite, a.Email, a.Passover, a.WORequest, a.FCCancelled, a.PicsDLS, a.PRP, a.FCSummary, a.TSI, a.RAMP, a.Service, a.Parts, a.AvailDaily, a.AvailReports]
 
         q = Query.from_(a) \
             .orderby(a.UserGroup, a.MineSite, a.Email)
@@ -1002,7 +1028,7 @@ class EmailList(QueryBase):
         return df
 
 class EmailListShort(EmailList):
-    def __init__(self, col_name: str, minesite: str, usergroup: str=None, **kw):
+    def __init__(self, col_name: str, minesite: str, usergroup: str='SMS', **kw):
         """Just the list we actually want to email
 
         Parameters
@@ -1010,7 +1036,7 @@ class EmailListShort(EmailList):
         name : str,
             column name to filter for 'x'\n
         minesite : str\n
-        usergroup : str, default None\n
+        usergroup : str, default SMS\n
 
         Examples
         ---
@@ -1955,6 +1981,22 @@ def df_months():
         m[name] = (*first_last_month(d), name)
 
     return pd.DataFrame.from_dict(m, columns=cols, orient='index')
+
+def df_rolling_n_months(n : int=12):
+    """Create df of n rolling months with periodindex
+
+    Parameters
+    ----------
+    n : int, optional
+        n months, default 12
+    """    
+    d_upper = last_day_month(dt.now() + relativedelta(months=-1))
+    d_lower = d_upper + relativedelta(months=(n - 1) * -1)
+    idx = pd.date_range(d_lower, d_upper, freq='M').to_period()
+    return pd.DataFrame(data=dict(period=idx.astype(str)), index=idx) \
+        .assign(
+            d_lower=lambda x: x.index.to_timestamp(),
+            d_upper=lambda x: x.d_lower + pd.tseries.offsets.MonthEnd(1))
 
 def df_weeks():
     # Week
