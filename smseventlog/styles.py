@@ -99,6 +99,15 @@ def string_to_attrs(s):
     lst = s.split('=')
     return dict(zip(lst[::2], lst[1::2]))
 
+def set_col_alignment(style, col_name, alignment):
+    i = style.data.columns.get_loc(col_name)
+    s =[dict(
+        selector=f'td:nth-child({i + 1})', # css table 1-indexed not 0
+        props=[('text-align', alignment)])]
+
+    return style \
+        .pipe(add_table_style, s)
+
 def set_column_style(mask, props):
     # loop columns in mask, get index, set column style
     s = []
@@ -137,8 +146,10 @@ def default_style(df, outlook=False):
 
     s = []
     m = f.config['color']
+
+    # thead selects entire header row, instead of individual header cells. Not sure if works for outlook
     s.append(dict(
-        selector='th',
+        selector='thead',
         props=[('text-align', 'center'), ('background', m['thead'])]))
     s.append(dict(
         selector='th, td',
@@ -150,7 +161,8 @@ def default_style(df, outlook=False):
     def is_np(item):
         return issubclass(type(item), np.dtype)
 
-    numeric_mask = df.dtypes.apply(lambda x: is_np(x) and issubclass(np.dtype(str(x).lower()).type, np.number))
+    # numeric_mask = df.dtypes.apply(lambda x: is_np(x) and issubclass(np.dtype(str(x).lower()).type, np.number))
+    numeric_mask = df.dtypes.apply(lambda x: pd.api.types.is_numeric_dtype(x))
     date_mask = df.dtypes.apply(lambda x: is_np(x) and issubclass(np.dtype(str(x).lower()).type, np.datetime64))
     
     s.extend(set_column_style(mask=numeric_mask, props=('text-align', 'right')))
