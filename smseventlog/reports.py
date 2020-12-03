@@ -287,6 +287,29 @@ class Report(object):
 
         HTML(string=html_in, base_url=str(p_reports)).write_pdf(p_out, stylesheets=[p_reports / 'report_style.css'])
 
+    @property
+    def exec_summary_html(self):
+        """Convert exec summary to html for email body"""
+        self.set_exec_summary()
+        template = self.env.get_template('exec_summary_template.html')
+        template_vars = dict(
+            exec_summary=self.exec_summary,
+            d_rng=self.d_rng)
+
+        return template.render(template_vars) \
+            .replace('Executive Summary', '')
+         
+    @property
+    def email_html(self):
+        return f'{f.greeting()}{self.exec_summary_html}'
+    
+    def email(self):
+        """Email report with custom email list and html body"""
+        msg = em.Message(subject=self.title, body=self.email_html, to_recip=self.email_list, show_=False)
+
+        msg.add_attachment(self.p_rep)
+        msg.show()
+
 class TestReport(Report):
     def __init__(self):
         super().__init__()
@@ -335,26 +358,10 @@ class FleetMonthlyReport(Report):
             ex['Factory Campaigns'] = gq('FC Summary').exec_summary()
             ex['Factory Campaigns'].update(gq('Completed FCs').exec_summary())
     
-    def email(self):
-        self.set_exec_summary()
-        template = self.env.get_template('exec_summary_template.html')
-        template_vars = dict(
-            exec_summary=self.exec_summary,
-            d_rng=self.d_rng)
-
-        html_out = template.render(template_vars) \
-            .replace('Executive Summary', '')
-
-        body = f'{f.greeting()}{html_out}'
-        subject = self.title
-
+    @property
+    def email_list(self):
         p = f.resources / 'csv/fleet_monthly_report_email.csv'
-        email_list = list(pd.read_csv(p).Email)
-        msg = em.Message(subject=subject, body=body, to_recip=email_list, show_=False)
-
-        p = Path.home() / f'desktop/{self.title}.pdf'
-        msg.add_attachment(p)
-        msg.show()
+        return list(pd.read_csv(p).Email)
 
 class SMRReport(Report):
     def __init__(self, d=None, minesite='FortHills'):
@@ -416,15 +423,34 @@ class OilSamplesReport(Report):
         self.add_items('title_page')
 
 class FCReport(Report):
-    def __init__(self, d=None, minesite='FortHills'):
-        super().__init__(d=d)
+    def __init__(self, d=None, minesite='FortHills', **kw):
+        super().__init__(d=d, **kw)
 
         period_type = 'month'
         period = self.d_rng[0].strftime('%Y-%m')
         title = f'{minesite} Factory Campaign Report - {period}'
+
         f.set_self(vars())
 
+        items = ['title_page', 'exec_summary', 'table_contents']
         self.load_sections('FCs')
+        self.add_items(items)
+
+    @property
+    def email_list(self):
+        return qr.EmailListShort(col_name='FCSummary', minesite=self.minesite).emails
+
+    @property
+    def email_html(self):
+        html_table = self.style_df('FC Summary', outlook=True).hide_index().render()
+        return f'{f.greeting()}See attached report for FC Summary {self.period}.<br><br>{self.exec_summary_html}<br>{html_table}'
+
+    def set_exec_summary(self):
+        gq = self.get_query
+        ex = self.exec_summary
+
+        ex['Factory Campaigns'] = gq('FC Summary').exec_summary()
+        ex['Factory Campaigns'].update(gq('Completed FCs').exec_summary())
 
 class FailureReport(Report):
     def __init__(self, title=None, header_data=None, body=None, pictures=None, e=None, ef=None, **kw):
@@ -894,7 +920,7 @@ class PLMUnit(Section):
             .add_chart(
                 func=ch.chart_plm_monthly,
                 cap_align='left',
-                caption='PLM haul records per month.<br>*Final month may not represent complete month.<br>*A large relative difference between SMR Operated and PLM records per month could indicated posibble missing PLM records.')
+                caption='PLM haul records per month.<br>*Final month may not represent complete month.<br>*A large relative difference between SMR Operated and PLM records per month could indicate posibble missing PLM records.')
            
     def set_paragraph(self, query, **kw):
         """Set paragraph data from query
