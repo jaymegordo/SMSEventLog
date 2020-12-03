@@ -198,7 +198,7 @@ Headers:
         Sub Category: SubCategory
         Failure Category: Cause
         Added By: CreatedBy
-        Time Called to Event: TimeCalled
+        Time Called: TimeCalled
 
     Work Orders:
         UID: UID
@@ -309,6 +309,7 @@ Headers:
         Curr Comp SMR: CurrentComponentSMR
         Pred. CO Date: PredictedCODate
         Life Remaining: LifeRemaining
+        Last SN Installed: SNInstalled
 
     Unit Info:
         MineSite: MineSite
@@ -338,6 +339,8 @@ Headers:
         RAMP: RAMP
         Service: Service
         Parts: Parts
+        AvailDaily: AvailDaily
+        AvailReports: AvailReports
     
     Availability:
         Unit: Unit

@@ -81,10 +81,11 @@ class TableModel(QAbstractTableModel):
         mcols['disabled'] = self.get_col_idxs(parent.mcols['disabled'])
         mcols['fill_enabled'] = self.get_col_idxs(parent.mcols['fill_enabled'])
         mcols['datetime'] = self.get_col_idxs(parent.mcols['datetime'])
+        mcols['time'] = self.get_col_idxs(parent.mcols['time'])
 
-        # date cols have to exclude datetime cols
+        # date cols have to exclude datetime + time cols
         date_cols = self.get_col_idxs(df.dtypes[df.dtypes=='datetime64[ns]'].index)
-        mcols['date'] = [i for i in date_cols if not i in mcols['datetime']]
+        mcols['date'] = [i for i in date_cols if not i in mcols['datetime'] + mcols['time']]
 
         self.mcols = mcols
         self.set_date_formats()
@@ -99,6 +100,9 @@ class TableModel(QAbstractTableModel):
 
         for i in self.mcols['datetime']:
             self.formats[self.headerData(i)] = '{:%Y-%m-%d     %H:%M}'
+        
+        for i in self.mcols['time']:
+            self.formats[self.headerData(i)] = '{:%H:%M}'
 
     def update_rows_label(self):
         """set so mainwindow can update current rows label"""

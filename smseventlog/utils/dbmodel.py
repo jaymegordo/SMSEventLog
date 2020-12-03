@@ -129,6 +129,8 @@ class EmailList(Base):
     RAMP = Column(Unicode(255))
     Service = Column(Unicode(255))
     Parts = Column(Unicode(255))
+    AvailDaily = Column(Unicode(255))
+    AvailReports = Column(Unicode(255))
 
 
 class EquipType(Base):
@@ -175,7 +177,7 @@ class EventLog(Base):
     SMR = Column(Integer)
     DateAdded = Column(Date)
     DateCompleted = Column(Date)
-    TimeCalled = Column(Time)
+    TimeCalled = Column(Date)
     IssueCategory = Column(Unicode(255))
     SubCategory = Column(Unicode(255))
     Cause = Column(Unicode(255))
@@ -508,7 +510,7 @@ class UnitID(Base):
     MineSite = Column(Unicode(255), index=True)
     Model = Column(Unicode(50), nullable=False)
     Serial = Column(Unicode(50), nullable=False, index=True)
-    EngineSerial = Column(Float(53))
+    EngineSerial = Column(Unicode(50))
     Unit = Column(Unicode(255), primary_key=True)
     DeliveryDate = Column(Date)
     VerPLM = Column(SmallInteger)

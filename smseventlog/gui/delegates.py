@@ -235,7 +235,8 @@ class DateDelegateBase(CellDelegate):
         editor.setMinimumWidth(self.parent.columnWidth(index.column()) + 10) # add 10px (editor cuts off date)
 
         calendar = editor.calendarWidget()
-        calendar.clicked.connect(self.commitAndCloseEditor)
+        if not calendar is None:
+            calendar.clicked.connect(self.commitAndCloseEditor)
         self.editor = editor
 
         return editor
@@ -245,12 +246,25 @@ class DateDelegateBase(CellDelegate):
 
         if pd.isnull(val):
             val = self.cur_date
+        elif isinstance(self, TimeDelegate):
+            val = self.get_time(d=val)
 
         getattr(editor, self.set_editor)(val)
 
     def setModelData(self, editor, model, index):
         editor_date = getattr(editor, self.date_type)()
-        d = QDateTime(editor_date).toPyDateTime()
+        if isinstance(self, TimeDelegate):
+            # get date from DateAdded
+            index_dateadded = index.siblingAtColumn(model.get_col_idx('Date Added'))
+            d1 = model.data(index=index_dateadded, role=TableModel.RawDataRole)
+            if d1 is None:
+                d1 = dt.now()
+
+            t = QTime(editor_date).toPyTime()
+            d = dt(d1.year, d1.month, d1.day, t.hour, t.minute)
+        else:
+            d = QDateTime(editor_date).toPyDateTime()
+
         model.setData(index, d)
 
 # TODO use formfields.DateEdit/DateTimeEdit
@@ -260,11 +274,14 @@ class DateTimeDelegate(DateDelegateBase):
         editor_format = 'yyyy-MM-dd hh:mm'
         display_format = '%Y-%m-%d     %H:%M'
         date_editor = QDateTimeEdit
-        cur_date = dt.now()
         date_type = 'dateTime'
         set_editor = 'setDateTime'
         width = 144
         f.set_self(vars())
+    
+    @property
+    def cur_date(self):
+        return dt.now()
     
 class DateDelegate(DateDelegateBase):
     def __init__(self, parent=None):
@@ -272,8 +289,31 @@ class DateDelegate(DateDelegateBase):
         editor_format = 'yyyy-MM-dd'
         display_format = '%Y-%m-%d'
         date_editor = QDateEdit
-        cur_date = dt.now().date()
         date_type = 'date'
         set_editor = 'setDate'
         width = 90
-        f.set_self(vars())        
+        f.set_self(vars())
+
+    @property
+    def cur_date(self):
+        return dt.now().date()   
+
+class TimeDelegate(DateDelegateBase):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        editor_format = 'hh:mm'
+        display_format = '%H:%M'
+        date_editor = QTimeEdit
+        date_type = 'time'
+        set_editor = 'setTime'
+        width = 90
+        f.set_self(vars())
+    
+    def get_time(self, d):
+        t = QTime()
+        t.setHMS(d.hour, d.minute, 0)
+        return t
+
+    @property
+    def cur_date(self):
+        return self.get_time(d=dt.now())
