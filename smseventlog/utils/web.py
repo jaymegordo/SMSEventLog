@@ -56,7 +56,7 @@ def tsi_form_vals():
     return field_vals
 
 class Web(object):
-    def __init__(self, table_widget=None, mw=None, _driver=None, **kw):
+    def __init__(self, table_widget=None, mw=None, _driver=None, headless=False, **kw):
         pages = {}
         if not table_widget is None: mw = table_widget.mainwindow
 
@@ -102,7 +102,14 @@ class Web(object):
 
         chrome_profile = Path.home() / ext
         options.add_argument(f'user-data-dir={chrome_profile}')
-        options.add_argument('window-size=(1,1)')
+        if self.headless:
+            # options.headless = True
+            options.add_argument('--headless')
+            # options.add_argument('--no-sandbox')
+            # options.add_argument('--disable-gpu')
+        else:
+            options.add_argument('window-size=(1,1)')
+
         # options.add_argument('--profile-directory=Default')
         
         prefs = {'profile.default_content_settings.popups': 0,
@@ -202,7 +209,10 @@ class Web(object):
                 return
 
             # add extra info to selenium's error message
-            msg = f'\n\nFailed waiting for web element: {cond.locator}'
+            msg = f'\n\nFailed waiting for web element:'
+            if hasattr(cond, 'locator'):
+                msg = f'{msg} {cond.locator}'
+
             if hasattr(e, 'msg'):
                 if not e.msg is None:
                     e.msg += msg
@@ -234,13 +244,12 @@ class Web(object):
         # convert current url to nice page name
         pages_lookup = f.inverse(self.pages)
         url = self.driver.current_url.split('?')[0] # remove ? specific args
-        # print(url)
         return pages_lookup.get(url, None)
     
     def current_page_index(self, page_order):
         # find index of current page name in given page order
         current_page = self.current_page_name()
-        # print(f'current_page: {current_page}')
+        print(f'current_page: {current_page}')
         i = page_order.index(current_page) if current_page in page_order else -1
         return i
 
@@ -359,10 +368,10 @@ class TSIWebPage(Web):
         field_vals = form_vals_default.copy()
 
         form_fields = {
-            'Failure SMR': 'elogic_machinesmr',
+            'Failure SMR': 'kom_failuresmr',
+            'Hours On Parts': 'kom_hoursonpartsdecimal',
             'Failure Date': 'elogic_failuredate_datepicker_description',
             'Repair Date': 'kom_machinerepaircompletiondate_datepicker_description',
-            'Hours On Parts': 'kom_hoursonparts',
             'Part Number': 'kom_failedpartnumber',
             'Part Name': 'kom_failedpartname',
             'Serial': 'kom_failedcomponentserialnumber',
@@ -436,7 +445,7 @@ class TSIWebPage(Web):
         element.send_keys(Keys.ENTER)
 
         # 'Other' button
-        element = wait(10, EC.element_to_be_clickable(
+        element = wait(20, EC.element_to_be_clickable(
             (By.XPATH, '/html/body/div[1]/div/div[3]/div/div/div[2]/div/div/div[1]/button[4]')))
         element.click()
 
@@ -475,10 +484,8 @@ class TSIWebPage(Web):
                 send_enter = False if not 'date' in name.lower() else True
 
                 self.set_val(element, val, send_enter=send_enter)
-            except:
-                log.warning(f'Couldn\'t set field value: {name}, {val}')
-
-        return
+            except Exception as e:
+                log.warning(f'Couldn\'t set field value: {name}, {val}, {e}')
 
     def fill_all_fields(self, field_vals=None):
 
@@ -571,6 +578,7 @@ class TSIWebPage(Web):
         element.click()
 
         self.update_statusbar(f'TSI Submitted: {self.tsi_number}', success=True)
+
 
 def attach_to_session(executor_url, session_id):
     original_execute = WebDriver.execute
