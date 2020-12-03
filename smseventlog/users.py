@@ -27,6 +27,7 @@ class User():
             minesite = ''
 
         # Disable everything for those idiots over at cummins
+        # is_cummins = True
         is_cummins = True if (not domain is None and 'CED' in domain) or 'cummins' in email.lower() or usergroup == 'Cummins' else False
         
         f.set_self(vars())

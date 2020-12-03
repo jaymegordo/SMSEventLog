@@ -2,7 +2,7 @@ from ..queries import FrameCracks
 from .__init__ import *
 
 """
-    1. Load frame cracks from sap (load_framecracks.vbs) + save to /onedrive/desktop/import/frame cracks/frame cracks.xlsx
+    1. Load frame cracks from sap (load_framecracks.vbs) + save to /onedrive/desktop/import/frame cracks/Frame Cracks.xlsx
     2. Make sure SMS data has been categorized front, mid, rear from eventlog
     3. run pre_process_framecracks (copies merged data to clipboard)
     4. paste data back to working xlsx file and remove duplicates/split rows as needed

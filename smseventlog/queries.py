@@ -946,9 +946,6 @@ class FCComplete(FCBase):
         a, b, d = self.a, self.b, self.d
         # get all FCs complete during month, datecompletesms
         # group by FC number, count
-
-        # self.default_dtypes.update(
-        #     **f.dtypes_dict('Int64', ['Completed']))
         
         self.formats.update({
             'Hours': '{:,.1f}',
@@ -970,7 +967,9 @@ class FCComplete(FCBase):
 
     def process_df(self, df):
         return df.pipe(self.sort_by_fctype) \
-            .assign(**{'Total Hours': lambda x: x.Completed * x['Hours']})
+            .assign(**{
+                'Hours': lambda x: x.Hours.fillna(0),
+                'Total Hours': lambda x: x.Completed * x['Hours']})
     
     def exec_summary(self):
         m = {}
@@ -1943,8 +1942,9 @@ class UnitSMRMonthly(QueryBase):
             .assign(SMR_worked=lambda x: x.SMR.diff()) \
             .fillna(0)
     
-    def df_monthly(self, period_index=False):
+    def df_monthly(self, period_index=False, max_period=None, n_periods=None):
         return self.df.set_index('Period')
+    
 
 def table_with_args(table, args):
     def fmt(arg):

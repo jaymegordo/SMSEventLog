@@ -310,17 +310,6 @@ class Report(object):
         msg.add_attachment(self.p_rep)
         msg.show()
 
-class TestReport(Report):
-    def __init__(self):
-        super().__init__()
-        title = 'Test Report'
-        self.current_period = 'April 2020'
-        signatures = ['Suncor Reliability', 'Suncor Maintenance', 'SMS', 'Komatsu']
-
-        f.set_self(vars())
-
-        self.add_items(['signature_block'])
-
 class FleetMonthlyReport(Report):
     def __init__(self, d=None, minesite='FortHills', secs=None, items=None):
         super().__init__(d=d)
@@ -376,6 +365,9 @@ class SMRReport(Report):
         self.add_items(['title_page', 'signature_block'])
     
     def create_pdf(self, p_base=None, csv=True):
+        if not self.dfs_loaded:
+            self.load_all_dfs()
+            
         if csv:
             self.save_csv(p_base=p_base)
 
