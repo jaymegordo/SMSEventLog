@@ -108,8 +108,14 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text='TSI Number'), checkbox=True, cb_enabled=False)
         
         elif name == 'major components':
-            table = T('ComponentType')
-            add_input(field=IPF(text=title, default='True', table=table, col_db='Major'), items=['True', 'False'], checkbox=True, cb_enabled=False)
+            if self.__class__.__name__ == 'ComponentSMR':
+                table = None # default to viewPredictedCO
+                cb_enabled = True
+            else:
+                table = T('ComponentType')
+                cb_enabled = False
+
+            add_input(field=IPF(text=title, default='True', table=table, col_db='Major'), items=['True', 'False'], checkbox=True, cb_enabled=cb_enabled)
         
         elif name == 'title':
             add_input(field=IPF(text='Title', col_db=title), checkbox=True, cb_enabled=False,
@@ -195,7 +201,7 @@ class ComponentSMR(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         # Component/major comp need different table
-        self.add_features(features=['minesite', 'unit', 'model', 'component'])
+        self.add_features(features=['minesite', 'unit', 'model', 'component', 'major components'])
 
 class TSI(EventLogBase):
     def __init__(self, parent=None):
