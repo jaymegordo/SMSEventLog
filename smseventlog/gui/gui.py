@@ -101,8 +101,7 @@ class MainWindow(QMainWindow):
                 color = 'white'
 
             palette = bar.palette()
-            color = QColor(color)
-            palette.setColor(QPalette.Foreground, color)
+            palette.setColor(QPalette.Foreground, QColor(color))
             bar.setPalette(palette)
 
             self.app.processEvents()
@@ -259,6 +258,9 @@ class MainWindow(QMainWindow):
     def open_sap(self):
         from ..utils.web import SuncorConnect
         self.sc = SuncorConnect(ask_token=True, mw=self, _driver=self.driver)
+        if self.sc.token is None:
+            return # user didn't input token
+
         Worker(func=self.sc.open_sap, mw=self) \
             .add_signals(signals=('result', dict(func=self.handle_sap_result))) \
             .start()
@@ -285,6 +287,7 @@ class MainWindow(QMainWindow):
         file_.addSeparator()
         menu_reports = file_.addMenu('Reports')
         menu_reports.addAction(self.act_fleet_monthly_report)
+        menu_reports.addAction(self.act_fc_report)
         menu_reports.addSeparator()
         menu_reports.addAction(self.act_plm_report)
         menu_reports.addAction(self.act_import_plm_manual)
@@ -338,6 +341,7 @@ class MainWindow(QMainWindow):
         act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=self.create_fleet_monthly_report)
         act_plm_report = QAction('PLM Report', self, triggered=self.create_plm_report)
         act_import_plm_manual = QAction('Import PLM Records', self, triggered=self.import_plm_manual)
+        act_fc_report = QAction('FC Report', self, triggered=self.create_fc_report)
         
         # Reset credentials
         act_username = QAction('Reset Username', self, triggered=self.set_username)
@@ -479,6 +483,29 @@ class MainWindow(QMainWindow):
         if dlgs.msgbox(msg=msg, yesno=True):
             rep.email()
 
+    def create_fc_report(self):
+        dlg = dlgs.FCReport()
+        if not dlg.exec_():
+            return
+        
+        from ..reports import FCReport
+        rep = FCReport(d=dlg.d, minesite=dlg.items['MineSite'])
+
+        Worker(func=rep.create_pdf, mw=self) \
+            .add_signals(signals=('result', dict(func=self.handle_fc_result))) \
+            .start()
+
+        self.update_statusbar('Creating FC Report...')
+    
+    def handle_fc_result(self, rep=None):
+        # TODO could make handling report results way more dry
+        if rep is None: return
+        fl.open_folder(rep.p_rep)
+
+        msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
+        if dlgs.msgbox(msg=msg, yesno=True):
+            rep.email()
+
     def import_plm_manual(self):
         """Allow user to manually select haulcycle files to upload"""
         t = self.active_table_widget()
@@ -511,11 +538,11 @@ class MainWindow(QMainWindow):
         from ..data.internal import plm
 
         view = self.active_table()
-        e = view.get_e(warn=False)
-        if not e is None:
-            # don't set dialog w unit and date, just default
+        try:
+            e = view.e
             unit, d_upper = e.Unit, e.DateAdded
-        else:
+        except er.NoRowSelectedError:
+            # don't set dialog w unit and date, just default
             unit, d_upper = None, None
         
         # Report dialog will always set final unit etc
