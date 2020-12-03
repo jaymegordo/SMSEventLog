@@ -369,12 +369,26 @@ class AddEvent(AddRow):
             box_fc.addWidget(cb_fc)
             box_fc.addWidget(btn_open_fcs)
 
+            # outstanding FCs
+            box_fc_out = QHBoxLayout()
+            label_fc = QLabel('Outstanding FCs: ')
+            label_fc_m = QLabel('M: ')
+            label_fc_other = QLabel('Other: ')
+            box_fc_out.addWidget(label_fc)
+            box_fc_out.addStretch(1)
+            box_fc_out.addWidget(label_fc_m)
+            box_fc_out.addWidget(label_fc_other)
+
             # cb_eventfolder.stateChanged.connect(self.toggle_ef)
 
             self.formLayout.addRow('', cb_eventfolder)
             # self.formLayout.addRow('', cb_onedrive)
             self.formLayout.addRow('', cb_tsi)
+
+            add_linesep(self.formLayout)
             self.formLayout.addRow('', box_fc)
+            self.formLayout.addRow('', box_fc_out)
+            add_linesep(self.formLayout)
 
         add(field=IPF(text='Title', dtype='textbox', enforce=True))
         add(field=IPF(text='Failure Cause', dtype='textbox'))
@@ -405,7 +419,26 @@ class AddEvent(AddRow):
         f.set_self(vars())
         self.accepted.connect(self.close)
         self.rejected.connect(self.close)
+        self.fUnit.box.currentIndexChanged.connect(self.update_open_fc_labels)
+        self.update_open_fc_labels()
         self.show()
+
+    def update_open_fc_labels(self):
+        """Update outstanding FC labels for M and Other when unit changed"""
+        unit = self.fUnit.val
+
+        s = db.get_df_fc() \
+            .pipe(lambda df: df[df.Unit==unit]) \
+            .groupby(['Type']).size()
+
+        count_m = s.get('M', 0)
+        count_other = sum(s[s.index != 'M'].values)
+
+        self.label_fc_m.setText(f'M: {count_m}')
+        self.label_fc_other.setText(f'Other: {count_other}')
+
+        color = '#ff5454' if count_m > 0 else 'white'
+        self.label_fc_m.setStyleSheet(f"""QLabel {{color: {color}}}""")
 
     def toggle_ef(self, state):
         """Toggle OneDrive folder when EventFolder change"""
@@ -674,8 +707,8 @@ class AddUnit(AddRow):
         
         if modelbase is None:
             dlg = CreateModelbase(model=model, parent=self)
-            ans = dlg.exec_()
-            if not ans: return
+            if not dlg.exec_():
+                return
             
         if super().accept():
             self.update_statusbar(f'New unit added to database: {model}, {unit}', success=True)
@@ -825,7 +858,7 @@ class ChangeMinesite(InputForm):
     def __init__(self, parent=None, window_title='Change MineSite'):
         super().__init__(parent=parent, window_title=window_title)
         lst = db.get_list_minesite()
-        self.add_input(field=InputField('MineSite', default=gbl.get_minesite()), items=lst) \
+        self.add_input(field=InputField('MineSite', default=self.minesite), items=lst) \
             .box.select_all()
 
         self.show()
@@ -1413,6 +1446,25 @@ class PLMReport(InputForm):
                     text=k,
                     default=v,
                     dtype='date'))
+
+class FCReport(InputForm):
+    def __init__(self, **kw):
+        super().__init__(window_title='FC Report', **kw)
+
+        self.add_input(field=InputField(text='MineSite', default=self.minesite), items=f.config['MineSite'])
+
+        df = qr.df_rolling_n_months(n=12)
+        months = df.period.to_list()[::-1]
+        self.add_input(field=InputField(text='Month', default=months[0]), items=months)
+
+        f.set_self(vars())
+
+    def accept(self):
+        """Set day based on selected month"""
+        period = self.fMonth.val
+        self.d = self.df.loc[period, 'd_lower']
+
+        super().accept()
 
 
 def msgbox(msg='', yesno=False, statusmsg=None):
