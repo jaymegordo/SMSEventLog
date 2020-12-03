@@ -323,7 +323,7 @@ def sort_df_by_list(df, lst, lst_col, sort_cols=[]):
     return df
 
 def parse_datecols(df):
-    # convert any columns with 'date' or 'time' in header name to datetime
+    """Convert any columns with 'date' or 'time' in header name to datetime"""
     datecols = list(filter(lambda x: any(s in x.lower() for s in ('date', 'time')) , df.columns))
     df[datecols] = df[datecols].apply(pd.to_datetime)
     return df
@@ -451,6 +451,7 @@ def convert_stylemap_index_color(style):
         m_text[col][row] = set_color(style_vals, i=1)
 
     return m_background, m_text
+
 
 
 # simple obfuscation for db connection string

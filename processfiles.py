@@ -45,8 +45,8 @@ CLI.add_argument(
 )
 
 if __name__ == '__main__':
-    def get_units(lower, upper):
-        return [f'F{unit}' for unit in range(lower, upper + 1)]
+    # def get_units(lower, upper):
+    #     return [f'F{unit}' for unit in range(lower, upper + 1)]
     
     a = CLI.parse_args()
     units, ftype, rng, startdate, batch, all_units = a.units, a.ftype, a.range, a.startdate, a.batch, a.all_units

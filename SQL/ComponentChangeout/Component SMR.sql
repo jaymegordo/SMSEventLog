@@ -1,12 +1,3 @@
--- MineSite, Model, Unit, Component, Side, BenchSMR, Current Unit SMR, SMR at last CO, Current Component SMR, Predicted CO date, Life Remaining (days)
--- Only components where Unit's model's EquipClass = ComponentType.EquipClass
-
--- @Model
--- @Unit
--- @MineSite
--- @Floc
--- @Date
-
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -29,7 +20,10 @@ FROM
         t3.CurrentUnitSMR,
         t2.LastCO as SMRLastCO, 
         t3.CurrentUnitSMR - ISNULL(t2.LastCO, 0) as CurrentComponentSMR,
-        CAST(DATEADD(day, (t3.BenchSMR - (t3.CurrentUnitSMR - ISNULL(t2.LastCO, 0))) / 20, CURRENT_TIMESTAMP) as DATE) as PredictedCODate
+        CAST(DATEADD(day, (t3.BenchSMR - (t3.CurrentUnitSMR - ISNULL(t2.LastCO, 0))) / 20, CURRENT_TIMESTAMP) as DATE) as PredictedCODate,
+        t3.Floc,
+        t3.Major,
+        t2.SNInstalled
     
     FROM 
         (SELECT 
@@ -40,6 +34,7 @@ FROM
             c.Modifier,
             c.Floc,
             c.BenchSMR,
+            c.Major,
             t1.CurrentUnitSMR
 
         FROM ComponentType c, 
@@ -57,14 +52,25 @@ FROM
         WHERE 
             u.Active=1 and
             c.BenchSMR IS NOT NULL and
-            c.Major=1 and
+            -- c.Major=1 and
             c.EquipClass=e.EquipClass) as t3 
 
         LEFT JOIN (
-            SELECT EventLog.Unit, EventLog.Floc, Max(EventLog.SMR) AS LastCO 
-            FROM EventLog
+            SELECT
+                e.Unit,
+                e.Floc,
+                Max(e.SMR) AS LastCO,
+                e.SNInstalled
+            FROM EventLog e
             WHERE ComponentCO='True'
-            GROUP BY EventLog.Unit, EventLog.Floc) AS t2 ON t2.Floc=t3.Floc AND t2.Unit=t3.Unit
+            GROUP BY
+                e.Unit,
+                e.Floc,
+                e.SNInstalled) AS t2
+            
+            ON t2.Floc=t3.Floc AND t2.Unit=t3.Unit
     ) as t4
     -- ORDER BY t3.Unit, t3.Floc
+
+
 GO

@@ -114,9 +114,10 @@ def ahs_pa_monthly():
 def weekly_dt_exclusions_update(d_rng=None):
     """create all units with MA hrs below hrs in period"""
     from .internal import utils as utl
-    units = []
-    units.extend(utl.all_units(rng=(300,322)))
-    units.extend(utl.all_units(rng=(323,348)))
+    # units = []
+    # units.extend(utl.all_units(rng=(300,322)))
+    # units.extend(utl.all_units(rng=(323,348)))
+    units = utl.all_units()
 
     if d_rng is None:
         d_rng = (dt(2020,8,7), dt(2020,8,23))
