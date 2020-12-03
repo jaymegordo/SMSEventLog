@@ -417,6 +417,7 @@ class AddEvent(AddRow):
         self._restore_settings()
         self.fUnit.box.select_all()
         f.set_self(vars())
+        
         self.accepted.connect(self.close)
         self.rejected.connect(self.close)
         self.fUnit.box.currentIndexChanged.connect(self.update_open_fc_labels)
@@ -425,6 +426,9 @@ class AddEvent(AddRow):
 
     def update_open_fc_labels(self):
         """Update outstanding FC labels for M and Other when unit changed"""
+        if self.is_cummins:
+            return # fc labels not implemented for cummins
+
         unit = self.fUnit.val
 
         s = db.get_df_fc() \
