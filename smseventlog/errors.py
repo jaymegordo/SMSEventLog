@@ -273,7 +273,12 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
         kw['tb_msg'] = ''.join(traceback.format_exception(*exc_info))
         exc_type, exc, tb = exc_info
         func_name = get_func_name_from_tb(tb=tb)
-        log = getlog(inspect.getmodule(tb).__name__) # 'smseventlog.gui.my_module'
+        
+        try:
+            log = getlog(inspect.getmodule(tb).__name__) # 'smseventlog.gui.my_module'
+        except:
+            log = base_log
+            log.warning(f'failed to get logger from tb')
 
     if func_name is None:
         func_name = get_func_name(func)
