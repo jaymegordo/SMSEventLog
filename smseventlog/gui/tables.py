@@ -12,7 +12,7 @@ from . import refreshtables as rtbls
 from .__init__ import *
 from .datamodel import TableModel
 from .delegates import (CellDelegate, ComboDelegate, DateDelegate,
-                        DateTimeDelegate)
+                        DateTimeDelegate, TimeDelegate)
 from .multithread import Worker
 
 log = getlog(__name__)
@@ -304,6 +304,14 @@ class TableView(QTableView):
                 self.setColumnWidth(i, datetime_delegate.width)
                 col = model.headerData(i)
                 self.formats[col] = '{:%Y-%m-%d     %H:%M}'
+                self.setItemDelegateForColumn(i, datetime_delegate)
+
+        if self.mcols['time']:
+            datetime_delegate = TimeDelegate(self)
+            for i in model.mcols['time']:
+                self.setColumnWidth(i, datetime_delegate.width)
+                col = model.headerData(i)
+                self.formats[col] = '{:%H:%M}'
                 self.setItemDelegateForColumn(i, datetime_delegate)
 
     def set_combo_delegate(self, col : str, items : list = None, dependant_col : str = None, allow_blank=True):
@@ -1317,7 +1325,9 @@ class EventLog(EventLogBase):
                 'Description': 800,
                 'Status': 100,
                 'Failure Cause': 150})
-                
+            
+            self.mcols['time'] = ('Time Called',)
+
             self.highlight_funcs['Passover'] = self.highlight_by_val
             self.set_combo_delegate(col='Passover', items=['x'])
 
@@ -1665,12 +1675,19 @@ class TSI(EventLogBase):
 
         # create report obj and save as pdf in event folder
         from .. import reports as rp
-        rep = rp.FailureReport.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text) \
-            .create_pdf()
+        rep = rp.FailureReport.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text)
 
-        msg = 'Failure report created, open now?'
-        if dlgs.msgbox(msg=msg, yesno=True):
-            fl.open_folder(rep.p_rep)
+        def handle_report_result(rep=None):
+            if rep is None: return
+            msg = 'Failure report created, open now?'
+            if dlgs.msgbox(msg=msg, yesno=True):
+                fl.open_folder(rep.p_rep)
+
+        Worker(func=rep.create_pdf, mw=self.mw) \
+            .add_signals(signals=('result', dict(func=handle_report_result))) \
+            .start()
+
+        self.update_statusbar('Creating failure report in worker thread.')
 
     def zip_recent_dls(self):
         if not self.check_cummins(): return
@@ -1775,6 +1792,7 @@ class FCBase(TableWidget):
         self.add_action(
             name='Create FC',
             func=self.create_fc_manual,
+            shortcut='Ctrl+Shift+N',
             btn=True,
             tooltip='Create custom FC for range of units.')
 
@@ -1793,6 +1811,9 @@ class FCBase(TableWidget):
             .start()
         self.update_statusbar('FC import started in worker thread.')
     
+    def show_addrow(self):
+        self.create_fc_manual()
+
     def create_fc_manual(self):
         dlg = dlgs.CustomFC(parent=self)
         if not dlg.exec_():
@@ -2107,13 +2128,6 @@ class Availability(TableWidget):
             if ops[0](val, row_prev.StartDate) and ops[1](val, row_prev.EndDate):
                 return QColor('red')
 
-    def get_email_list(self, email_type='Daily'):
-        # get email list from csv
-        p = f.resources / 'csv/avail_email.csv'
-        df2 = pd.read_csv(p)
-        
-        return list(df2[df2[email_type]==1].Email)
-
     def email_table(self):
         self.email_assignments(filter_assignments=False)
 
@@ -2137,7 +2151,9 @@ class Availability(TableWidget):
 
         body = f'{f.greeting()}See below for current downtime assignments. Please correct and respond with any updates as necessary.'
 
-        super().email_table(subject=subject, body=body, email_list=self.get_email_list(), df=df)
+        email_list = qr.EmailListShort(col_name='AvailDaily', minesite='FortHills', usergroup='SMS').emails
+
+        super().email_table(subject=subject, body=body, email_list=email_list, df=df)
         
     def save_assignments(self):
         model = self.view.model()
@@ -2259,7 +2275,8 @@ class Availability(TableWidget):
 
             body = f'{body}<br>{html_exec}<br>{style1}<br><br>{style2}'
 
-        msg = em.Message(subject=title, body=body, to_recip=self.get_email_list('Reports'), show_=False)
+        email_list = qr.EmailListShort(col_name='AvailReports', minesite='FortHills', usergroup='SMS').emails
+        msg = em.Message(subject=title, body=body, to_recip=email_list, show_=False)
         msg.add_attachment(p_rep)
         msg.show()
 
