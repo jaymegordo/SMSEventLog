@@ -63,6 +63,7 @@ class Report(object):
             self.include_items.update({item: True})
 
     def get_section(self, name):
+        """TODO not working, just use report['section name']"""
         for sec in self.sections.values():
             for item in sec:
                 if item['name'] == name:
@@ -721,13 +722,25 @@ class UnitSMR(Section):
     def __init__(self, report, **kw):
         super().__init__(title='SMR Hours', report=report)
 
+        query_f300 = qr.UnitSMRMonthly(unit='F300')
+
         d = report.d_rng[0]
         month = d.month
         sec = SubSection('SMR Hours Operated', self) \
             .add_df(
                 func=un.df_unit_hrs_monthly,
                 da=dict(month=month),
-                caption='SMR hours operated during the report period.') # TODO change month, make query
+                caption='SMR hours operated during the report period.')
+        
+        sec = SubSection('F300 SMR Hours Operated', self) \
+            .add_df(
+                func=query_f300.df_monthly,
+                da=dict(max_period='2020-11', n_periods=12, totals=True),
+                caption='F300 SMR operated, 12 month rolling.<br>*SMR is max SMR value in period.',
+                style_func=query_f300.style_f300)
+        
+        f.set_self(vars())
+            
 
 class AvailBase(Section):
     def __init__(self, report, **kw):
@@ -796,10 +809,18 @@ class AvailBase(Section):
                 linked=True)
 
         # needs to be subsec so can be weekly/monthly
+        da = None
+        if period_type == 'month':
+            da = dict(
+                totals=True,
+                merge_f300=True,
+                query_f300=report.sections['SMR Hours'].query_f300)
+
         sec = SubSection('Availability History', self) \
             .add_df(
                 query=summary,
                 func=summary.df_history_rolling,
+                da=da,
                 style_func=summary.style_history,
                 has_chart=False,
                 caption=f'12 {period_type} rolling availability performance vs targets.') \

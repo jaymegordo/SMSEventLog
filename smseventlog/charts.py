@@ -155,15 +155,26 @@ def chart_avail_rolling(df, period_type='month', title=None):
         title = f'12 {period_type.title()} Rolling Availability vs Downtime Hours'
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
+    # remove totals, convert back to period... kinda sketch
+    df = df[df.Period.astype(str).str.contains('Total') != True] \
+        .assign(Period=lambda x: pd.to_datetime(x.Period.astype(str), format='%Y-%m').dt.to_period('M'))
+
+    x = df.Period.dt.to_timestamp()
+    ticktext = df.Period.copy().astype(str)
+    xaxis = dict(
+        ticktext=ticktext,
+        tickvals=x,
+        type='category')
+
     fig.add_trace(go.Bar(
         name = 'Hours',
-        x=df.Period,
+        x=x,
         y=df.SMS,
         marker_color=color()['darkgrey']))
     
     fig.add_trace(go.Scatter(
         name='MA Target',
-        x=df.Period,
+        x=x,
         y=df['MA Target'],
         yaxis='y2',
         mode='lines', 
@@ -174,7 +185,7 @@ def chart_avail_rolling(df, period_type='month', title=None):
 
     fig.add_trace(go.Scatter(
         name='MA',
-        x=df.Period,
+        x=x,
         y=df.MA,
         yaxis='y2',
         line=dict(  
@@ -183,7 +194,7 @@ def chart_avail_rolling(df, period_type='month', title=None):
 
     fig.add_trace(go.Scatter(
         name='PA',
-        x=df.Period,
+        x=x,
         y=df.PA,
         yaxis='y2',
         line=dict(  
@@ -197,7 +208,7 @@ def chart_avail_rolling(df, period_type='month', title=None):
         height=400,
         width=600,
         bargap=0.5,
-        xaxis_type='category',
+        xaxis=xaxis,
         yaxis2=dict(
             title='Availability',
             showgrid=False,
@@ -382,7 +393,7 @@ def chart_plm_monthly(df, title=None, **kw):
     df = df.copy()
     bg = color()
 
-    if 'SMR_worked' in df.columns:
+    if 'SMR Operated' in df.columns:
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.update_layout(
             yaxis2=dict(
@@ -394,7 +405,7 @@ def chart_plm_monthly(df, title=None, **kw):
         fig.add_trace(go.Scatter(
             name='SMR Operated',
             x=df.index.to_timestamp(),
-            y=df['SMR_worked'],
+            y=df['SMR Operated'],
             yaxis='y2',
             mode='markers', 
             marker=dict(
