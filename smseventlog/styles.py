@@ -343,12 +343,16 @@ def highlight_alternating(s, color='navyblue', theme='light'):
 
     return s1
 
-def highlight_totals_row(style, exclude_cols=()):
+def highlight_totals_row(style, exclude_cols=(), n_cols=1, do=True):
     # highlight the last row of given dataframe
+    if not do: return style
     bg = f.config['color']['thead']
-    df = style.data
+    subset = pd.IndexSlice[style.data.index[-1 * n_cols:], :]
     
-    return style.apply(lambda x: [format_cell(bg, 'white') if not x.index[i] in exclude_cols else 'background-color: inherit' for i, v in enumerate(x)], subset=df.index[-1], axis=1)
+    return style.apply(
+        lambda x: [format_cell(bg, 'white') if not x.index[i] in exclude_cols else 'background-color: inherit' for i, v in enumerate(x)],
+        subset=subset,
+        axis=1)
 
 def highlight_accepted_loads(df):
     m = f.config['color']
