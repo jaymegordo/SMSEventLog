@@ -253,6 +253,48 @@ class Web(object):
         i = page_order.index(current_page) if current_page in page_order else -1
         return i
 
+    def java_click(self, element):
+        self.driver.execute_script("arguments[0].click();", element)
+
+    def click_multi(self, vals, wait=10, by=None):
+        """Click multi values, accepts dict or list of xpaths"""
+        if by is None:
+            by_defualt = By.CSS_SELECTOR
+        else:
+            by_defualt = by
+
+        if not isinstance(vals, dict):
+            # convert list of identifiers to click to dict
+            items = {key: by for key in vals}
+
+        for key, val in vals.items():
+            if not isinstance(val, dict):
+                by = val
+            else:
+                # get by or other args from sub dict
+                by = val.get('by', by_defualt)
+                frame_name = val.get('iframe', None)
+                
+                # switch to iframe
+                if frame_name:
+                    self.driver.switch_to_frame(frame_name)
+
+            element = self.wait(wait, EC.element_to_be_clickable((by, key)))
+            self.java_click(element)
+    
+    def fill_multi(self, vals, wait=20, by=None, inv=False):
+        if by is None:
+            by = By.XPATH
+        
+        # reverse dict
+        if inv:
+            vals = {v: k for k, v in vals.items()}
+
+        for key, val in vals.items():
+            element = self.wait(wait, EC.presence_of_element_located((by, key)))
+            self.set_val(element, val)
+
+
 class SuncorConnect(Web):
     # auto login to suncor's SAP system
     def __init__(self, ask_token=True, **kw):
@@ -338,6 +380,51 @@ class SuncorConnect(Web):
             pass
         
         return self
+
+class SuncorWorkRemote(Web):
+    def __init__(self, ask_token=True, **kw):
+        super().__init__(**kw)
+        self.pages.update(dict(
+            home='https://workremote.suncor.com',
+            citrix='https://workremote.suncor.com/+CSCO+0075676763663A2F2F666861666F702E6668617062652E70627A++/Citrix/CitrxPRD-CGYWeb/'))
+        token = None
+
+        username, password, token_pin = CredentialManager('sap').load()
+        
+        f.set_self(vars())
+
+    def open_sap(self):
+        driver = self.driver
+        self.new_browser()
+        driver.get(self.pages['home'])
+
+        login_creds = dict(
+            username=self.username,
+            password_input=self.password)
+        self.fill_multi(vals=login_creds, by=By.ID)
+
+        # 20s to accept Microsoft Authenticator prompt on phone after first btn
+        btns = {
+            'input[type=submit]': By.CSS_SELECTOR,
+            'input[type=button]:nth-child(2)': By.CSS_SELECTOR,
+            'Suncor Citrix': dict(iframe='content', by=By.PARTIAL_LINK_TEXT),
+            'protocolhandler-welcome-installButton': By.ID,
+            'protocolhandler-detect-alreadyInstalledLink': By.ID}
+
+        self.click_multi(vals=btns, by=By.CSS_SELECTOR)
+
+        # fill second login form
+        login_creds = dict(
+            username=self.username,
+            password=self.password)
+        self.fill_multi(vals=login_creds, by=By.ID)
+
+        btns = {
+            'loginBtn': By.ID,
+            'SAP 760': By.PARTIAL_LINK_TEXT,
+            'SAP Logon 760': By.PARTIAL_LINK_TEXT,
+        }
+        self.click_multi(vals=btns)
 
 class TSIWebPage(Web):
     def __init__(self, field_vals={}, serial=None, model=None, table_widget=None, uid=None, docs=None, **kw):

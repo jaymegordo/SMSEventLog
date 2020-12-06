@@ -256,20 +256,19 @@ class MainWindow(QMainWindow):
         self._driver = driver
             
     def open_sap(self):
-        from ..utils.web import SuncorConnect
-        self.sc = SuncorConnect(ask_token=True, mw=self, _driver=self.driver)
-        if self.sc.token is None:
-            return # user didn't input token
+        from ..utils.web import SuncorWorkRemote
+        self.sc = SuncorWorkRemote(mw=self, _driver=self.driver)
 
         Worker(func=self.sc.open_sap, mw=self) \
             .add_signals(signals=('result', dict(func=self.handle_sap_result))) \
             .start()
-        self.update_statusbar('SAP opened in worker thread.')
+        self.update_statusbar('Opening SAP...')
     
     def handle_sap_result(self, sc=None):
         # just need to keep a referece to the driver in main thread so chrome doesnt close
         if sc is None: return
         self.driver = sc.driver
+        self.update_statusbar('SAP started.', success=True)
 
     def create_menu(self):
         bar = self.menuBar()
