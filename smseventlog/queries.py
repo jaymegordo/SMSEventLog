@@ -339,6 +339,19 @@ class QueryBase(object):
     def set_minesite(self):
         self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
 
+    def expand_monthly_index(self, df, d_rng=None):
+        """Expand monthly PeriodIndex to include missing months"""
+        s = df.index
+        if d_rng is None:
+            # expand to min and max existing dates
+            d_rng = (s.min().to_timestamp(), s.max().to_timestamp() + relativedelta(months=1))
+
+        idx = pd.date_range(d_rng[0], d_rng[1], freq='M').to_period()
+
+        return df \
+            .merge(pd.DataFrame(index=idx), how='right', left_index=True, right_index=True) \
+            .rename_axis(s.name)
+
 class EventLogBase(QueryBase):
     def __init__(self, da=None, **kw):
         super().__init__(da=da, **kw)
@@ -1151,7 +1164,9 @@ class AvailSummary(QueryBase):
             'PA': '{:.2%}',
             'Hrs Period MA': '{:,.0f}',
             'Hrs Period PA': '{:,.0f}',
-            'Target Hrs Variance': '{:,.0f}'})
+            'Target Hrs Variance': '{:,.0f}',
+            'F300 SMR Operated': '{:,.0f}',
+            'Variance F300': '{:,.0f}'})
 
         if not period_name is None:
             m = dict(month=df_months, week=df_weeks)
@@ -1377,11 +1392,13 @@ class AvailSummary(QueryBase):
             .pipe(self.rename_cols)
 
     def style_history(self, style, **kw):
+        widths = {'Target Hrs Variance': 60, 'F300 SMR Operated': 60, 'Variance F300': 60}
         return style \
             .apply(st.highlight_greater, subset=['MA', 'Target Hrs Variance'], axis=None, ma_target=style.data['MA Target']) \
-            .pipe(st.set_column_widths, vals={'Target Hrs Variance': 60})
+            .pipe(st.set_column_widths, vals=widths) \
+            .pipe(st.highlight_totals_row, n_cols=2, do=self.period == 'month')
 
-    def df_history_rolling(self, prd_str=True):
+    def df_history_rolling(self, prd_str=False, totals=False, merge_f300=False, **kw):
         """df of 12 period (week/month) rolling summary.
 
         Parameters
@@ -1393,7 +1410,50 @@ class AvailSummary(QueryBase):
         return self.df_summary(group_ahs=False) \
             .assign(period=lambda x: x.period.dt.strftime(self.fmt_str) if prd_str else x.period) \
             [cols] \
+            .pipe(self.merge_f300, do=merge_f300, **kw) \
+            .pipe(self.append_totals_history, do=totals) \
             .pipe(self.rename_cols)
+    
+    def append_totals_history(self, df, do=False):
+        if not do: return df
+
+        max_year = df.period.max().to_timestamp().year
+
+        def _max(col_name):
+            """Calc for Total & Total YTD"""    
+            return [
+                df[df.period >= str(max_year)][col_name].sum(),
+                df[col_name].sum()]
+
+        data = dict(
+            period=['Total YTD', 'Total'],
+            SMS=_max('SMS'),
+            target_hrs_var=_max('target_hrs_var'))
+        
+        # may or may not have SMR Operated column
+        if 'F300 SMR Operated' in df.columns:
+            data.update({
+                'F300 SMR Operated': _max('F300 SMR Operated'),
+                'Variance F300': _max('Variance F300')})
+
+        df2 = pd.DataFrame(data)
+
+        return df \
+            .append(df2, ignore_index=True)
+    
+    def merge_f300(self, df, query_f300=None, do=False, **kw):
+        if not do: return df
+        if query_f300 is None:
+            query_f300 = UnitSMRMonthly(unit='F300')
+
+        df_smr = query_f300.df_monthly() \
+            [['SMR Operated']]
+
+        return df.merge(df_smr, how='left', left_on='period', right_on='Period') \
+            .assign(target_var_f300=lambda x: x.target_hrs_var + x['SMR Operated']) \
+            .rename(columns={
+                'SMR Operated': 'F300 SMR Operated',
+                'target_var_f300': 'Variance F300'})
    
     def exec_summary(self, period='last'):
         d_rng = self.d_rng
@@ -1823,19 +1883,19 @@ class PLMUnit(QueryBase):
 
         # set DateIndex range to lower and upper of data (wouldn't show if data was missing)
         d_rng = self.d_rng
-        idx = pd.date_range(d_rng[0], last_day_month(d_rng[1]), freq='M').to_period()
+        d_rng = (d_rng[0], last_day_month(d_rng[1]))
 
         df = self.df_calc \
             .groupby(pd.Grouper(key='DateTime', freq='M')) \
             .sum() \
             .pipe(self.add_totals) \
             .pipe(lambda df: df.set_index(df.index.to_period())) \
-            .merge(pd.DataFrame(index=idx), how='right', left_index=True, right_index=True)
+            .pipe(self.expand_monthly_index, d_rng=d_rng)
 
         if add_unit_smr:
             # combine df_smr SMR_worked with plm df
             query_smr = UnitSMRMonthly(unit=self.unit)
-            df_smr = query_smr.df_monthly(period_index=True) \
+            df_smr = query_smr.df_monthly() \
                 [['SMR_worked']]
 
             df = df.merge(df_smr, how='left', left_index=True, right_index=True)
@@ -1939,11 +1999,39 @@ class UnitSMRMonthly(QueryBase):
             .assign(
                 Period=lambda x: pd.to_datetime(x.Period, format='%Y-%m').dt.to_period('M')) \
             .sort_values(['Unit', 'Period']) \
+            .set_index('Period') \
+            .pipe(self.expand_monthly_index) \
             .assign(SMR_worked=lambda x: x.SMR.diff()) \
-            .fillna(0)
+            .fillna(dict(SMR_worked=0, Unit=self.unit))
     
-    def df_monthly(self, period_index=False, max_period=None, n_periods=None):
-        return self.df.set_index('Period')
+    def df_monthly(self, max_period=None, n_periods=0, totals=False, **kw):
+        df = self.df
+        if max_period is None:
+            max_period = df.index.max()
+
+        return df \
+            .pipe(lambda df: df[df.index <= max_period]) \
+            .iloc[n_periods * -1:, :] \
+            .pipe(self.append_totals, do=totals) \
+            .rename(columns=dict(SMR_worked='SMR Operated'))
+    
+    def append_totals(self, df, do=True):
+        if not do:
+            return df
+
+        max_year = df.index.max().to_timestamp().year
+        data = dict(
+            Period=['Total YTD', 'Total'],
+            SMR_worked=[df[df.index >= str(max_year)].SMR_worked.sum(), df.SMR_worked.sum()])
+        df2 = pd.DataFrame(data)
+
+        return df \
+            .reset_index(drop=False) \
+            .append(df2, ignore_index=True)
+    
+    def style_f300(self, style):
+        return style \
+            .pipe(st.highlight_totals_row, n_cols=2)
     
 
 def table_with_args(table, args):
