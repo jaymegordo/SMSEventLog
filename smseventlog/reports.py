@@ -278,6 +278,9 @@ class Report(object):
         self.p_rep = p
         return self
     
+    def outlook_table(self, name):
+        return self.style_df(name, outlook=True).hide_index().render()
+
     def render_html(self, p_html, p_out=None):
         # for testing pre-created html
         if p_out is None:
@@ -311,12 +314,18 @@ class Report(object):
         msg.add_attachment(self.p_rep)
         msg.show()
 
+    def open_(self):
+        """Open report filepath"""
+        from .utils.fileops import open_folder
+        open_folder(self.p_rep)
+
 class FleetMonthlyReport(Report):
     def __init__(self, d=None, minesite='FortHills', secs=None, items=None):
         super().__init__(d=d)
 
         period_type = 'month'
         period = self.d_rng[0].strftime('%Y-%m')
+        name = period
         title = f'{minesite} Fleet Monthly Report - {period}'
         f.set_self(vars())
         
@@ -383,13 +392,16 @@ class SMRReport(Report):
         df.to_csv(p)
 
 class AvailabilityReport(Report):
-    def __init__(self, d_rng, name, period_type='week', minesite='FortHills', **kw):
-        super().__init__(d_rng=d_rng)
+    def __init__(self, name, period_type='week', minesite='FortHills', **kw):
+        super().__init__()
+        df = qr.df_period(freq=period_type)
+        d_rng = df.loc[name, 'd_rng']
+        name_title = df.loc[name, 'name_title']
 
         signatures = ['Suncor Reliability', 'Suncor Maintenance', 'SMS', 'Komatsu']
             
-        title = f'Suncor Reconciliation Report - {minesite} - {period_type.title()}ly - {name}'
-        f.set_self(vars(), exclude='d_rng')
+        title = f'Suncor Reconciliation Report - {minesite} - {period_type.title()}ly - {name_title}'
+        f.set_self(vars()) # , exclude='d_rng'
 
         self.load_sections('AvailStandalone')
         self.add_items(['title_page', 'exec_summary', 'table_contents'])
@@ -400,6 +412,21 @@ class AvailabilityReport(Report):
     def set_exec_summary(self):
         ex = self.exec_summary
         self.sections['Availability'].set_exec_summary(ex=ex)
+
+    @property
+    def email_list(self):
+        return qr.EmailListShort(col_name='AvailReports', minesite=self.minesite, usergroup='SMS').emails
+
+    @property
+    def email_html(self):
+        """Create email html with exec summary + 2 tables"""
+        return '{}{}{}.<br>{}<br>{}<br><br>{}'.format(
+            f.greeting(),
+            'See attached report for availability ',
+            self.name_title,
+            self.exec_summary_html,
+            self.outlook_table('Fleet Availability'),
+            self.outlook_table('Summary Totals'))
 
 class FrameCracksReport(Report):
     def __init__(self):
@@ -741,17 +768,13 @@ class UnitSMR(Section):
         
         f.set_self(vars())
             
-
 class AvailBase(Section):
     def __init__(self, report, **kw):
         super().__init__(title='Availability', report=report)
         n = 10
         d_rng, d_rng_ytd, ms, period_type = self.d_rng, self.d_rng_ytd, self.minesite, self.report.period_type
 
-        offset = dict(month=dict(months=-11), week=dict(weeks=-11))
-        d_lower = d_rng[0] + relativedelta(**offset.get(period_type))
-
-        summary = qr.AvailSummary(d_rng=(d_lower, d_rng[1]), period=period_type)
+        summary = qr.AvailSummary.from_name(name=self.report.name, period=period_type)
         summary_ytd = summary
 
         # need the monthly grouping too if period=week
@@ -809,7 +832,7 @@ class AvailBase(Section):
                 linked=True)
 
         # needs to be subsec so can be weekly/monthly
-        da = None
+        da = {}
         if period_type == 'month':
             da = dict(
                 totals=True,
@@ -960,15 +983,6 @@ class FCs(Section):
         super().__init__(title='Factory Campaigns', report=report)
         d_rng, minesite = self.d_rng, self.minesite
 
-        sec = SubSection('Outstanding FCs', self) \
-            .add_df(
-                query=qr.FCHistoryRolling(d_rng=d_rng, minesite=minesite),
-                display=False) \
-            .add_chart(
-                func=ch.chart_fc_history,
-                linked=False,
-                caption='Outstanding mandatory FCs vs labour hours. (Measured at end of month).')
-
         sec = SubSection('New FCs', self) \
             .add_df(
                 query=qr.NewFCs(d_rng=d_rng, minesite=minesite),
@@ -977,7 +991,17 @@ class FCs(Section):
         sec = SubSection('Completed FCs', self) \
             .add_df(
                 query=qr.FCComplete(d_rng=d_rng, minesite=minesite),
-                caption='FCs completed during the report period.')
+                caption='FCs completed during the report period, using minimum of (Date Completed, Date Claimed).')
+
+        query_history = qr.FCHistoryRolling(d_rng=d_rng, minesite=minesite)
+        sec = SubSection('FC History', self) \
+            .add_df(
+                func=query_history.df_history,
+                display=False) \
+            .add_chart(
+                func=ch.chart_fc_history,
+                linked=False,
+                caption='Outstanding (M) vs Completed (All) count vs labour hours. (Measured at end of month).')
 
         fcsummary = qr.FCSummaryReport(minesite=minesite) # need to pass parent query to FC summary 2 to use its df
         sec = SubSection('FC Summary', self) \
