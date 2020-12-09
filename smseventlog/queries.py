@@ -2056,6 +2056,58 @@ def first_last_month(d):
 def last_day_month(d):
     return first_last_month(d)[1]
 
+def df_period(freq, n=0, ytd=False):
+    """Return df of periods for specified freq
+
+    Parameters
+    ----------
+    freq : str
+        M or W
+    n : int, optional
+        filter last n periods, default 0
+    ytd : bool, optional
+        filter periods to start of year, default False
+
+    Returns
+    -------
+    pd.DataFrame
+        df of periods
+    """
+    freq = dict(month='M', week='W').get(freq, freq) # convert from month/week
+    d_upper = dt.now()
+    d_lower = d_upper + delta(days=-365)
+    idx = pd.date_range(d_lower, d_upper, freq=freq).to_period()
+
+    m = dict(
+        W=dict(fmt_str='%Y-%U'),
+        M=dict(fmt_str='%Y-%m')) \
+        .get(freq)
+    
+    def _rename_week(df, do=False):
+        if not do: return df
+        return df \
+            .assign(name=lambda x: x.period.dt.strftime('Week %U'))
+    
+    def _filter_ytd(df, do=ytd):
+        if not do: return df
+        return df[df.period >= str(df.period.max().year)]
+
+    df = pd.DataFrame(index=idx)
+
+    return df \
+        .assign(
+            start_date=lambda x: pd.to_datetime(x.index.start_time.date),
+            end_date=lambda x: pd.to_datetime(x.index.end_time.date),
+            d_rng=lambda x: list(zip(x.start_date.dt.date, x.end_date.dt.date)),
+            name=lambda x: x.index.to_timestamp(freq).strftime(m['fmt_str'])) \
+        .rename_axis('period') \
+        .reset_index(drop=False) \
+        .set_index('name', drop=False) \
+        .pipe(_filter_ytd, do=ytd) \
+        .pipe(_rename_week, do=freq=='W') \
+        .rename(columns=dict(name='name_title')) \
+        .iloc[-1 * n:]
+
 def df_months():
     # Month
     cols = ['StartDate', 'EndDate', 'Name']
