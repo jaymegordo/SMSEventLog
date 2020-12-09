@@ -252,6 +252,9 @@ def nice_title(title: str) -> str:
         f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w for w in title.split())  
     
 def str_to_bool(val):
+    if isinstance(val, (np.bool_, np.bool)):
+        return bool(val)
+
     return bool(strtobool(val))
 
 def convert_date(val):
