@@ -204,7 +204,7 @@ class MainWindow(QMainWindow):
         s = self.settings
         s.setValue('window size', self.size())
         s.setValue('window position', self.pos())
-        s.setValue('screen', self.screen().geometry().center())
+        s.setValue('screen', self.geometry().center())
         s.setValue('minesite', self.minesite)
         s.setValue('active table', self.active_table_widget().title)
 
