@@ -287,27 +287,25 @@ class Availability(RefreshTable):
         self.add_features(['start date', 'end date', 'unit'])
         self.insert_linesep(i=2)
 
-    def get_rng(self):
+    def set_rng(self):
         fMonth, fWeek = self.fMonth, self.fWeek
 
         if fMonth.cb.isChecked():
-            val = fMonth.val
-            df = self.df_month
+            name = fMonth.val
             period_type = 'month'
         elif fWeek.cb.isChecked():
-            val = fWeek.val
-            df = self.df_week
+            name = fWeek.val
             period_type = 'week'
-
-        d_rng = tuple(df.loc[val, col] for col in ('StartDate', 'EndDate'))
-        name = df.loc[val, 'Name']
-
-        return d_rng, period_type, name
+        
+        df = qr.df_period(freq=period_type)
+        d_rng = df.loc[name, 'd_rng']
+        f.set_self(vars())
 
     def accept(self):
         if any([self.fWeek.cb.isChecked(), self.fMonth.cb.isChecked()]):
-            d_rng = self.get_rng()[0]
-            self.parent.query.fltr.add(vals=dict(ShiftDate=d_rng), term='between')
+
+            self.set_rng()
+            self.parent.query.fltr.add(vals=dict(ShiftDate=self.d_rng), term='between')
             self.parent.refresh()
             return super().accept_()
         else:
@@ -318,7 +316,7 @@ class AvailReport(Availability):
         super().__init__(parent=parent)
 
     def accept(self):
-        self.d_rng, self.period_type, self.name = self.get_rng()
+        self.set_rng()
         return super().accept_()
 
 
