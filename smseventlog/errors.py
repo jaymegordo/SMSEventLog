@@ -104,7 +104,7 @@ def errlog(msg=None, err=True, warn=False, display=False, default=None, status_m
                 elif warn:
                     log.warning(err_msg)
                 elif err:
-                    log_error(msg=msg, display=display, func=func, exc=exc)
+                    log_error(msg=msg, display=display, func=func, exc_info=sys.exc_info())
 
                 return default # default obj to return
         
@@ -274,11 +274,12 @@ def log_error(msg: str=None, exc: Exception=None, display: bool=False, log=None,
         exc_type, exc, tb = exc_info
         func_name = get_func_name_from_tb(tb=tb)
         
-        try:
-            log = getlog(inspect.getmodule(tb).__name__) # 'smseventlog.gui.my_module'
-        except:
-            log = base_log
-            log.warning(f'failed to get logger from tb')
+        if log is None:
+            try:
+                log = getlog(inspect.getmodule(tb).__name__) # 'smseventlog.gui.my_module'
+            except:
+                log = base_log
+                log.warning(f'failed to get logger from tb')
 
     if func_name is None:
         func_name = get_func_name(func)
