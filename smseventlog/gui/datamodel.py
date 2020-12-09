@@ -402,7 +402,7 @@ class TableModel(QAbstractTableModel):
                 else:
                     msg = f'Error: incorrect data type "{type(val)}" for "{val}"'
                     self.table_widget.mainwindow.update_statusbar(msg=msg)
-                    log.info(msg)
+                    log.warning(msg)
                     return
 
         # dont update db if value is same as previous
@@ -586,6 +586,12 @@ class TableModel(QAbstractTableModel):
 
         # if keys aren't in update_vals, need to use irow to get from current df row
         check_key_vals = self.df.iloc[irow].to_dict() if not irow is None else vals
+        
+        # make sure keys are converted to db cols
+        check_key_vals = f.convert_dict_db_view(
+            title=self.table_widget.title,
+            m=check_key_vals,
+            output='db')
 
         key_tuple, key_dict = dbt.get_dbtable_key_vals(dbtable=self.dbtable_default, vals=check_key_vals)
         self.queue[key_tuple].update(**key_dict, **vals) # update all vals - existing key, or create new key
