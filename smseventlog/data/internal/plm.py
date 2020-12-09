@@ -98,9 +98,12 @@ def update_plm_single_unit(unit, import_=True, maxdate=None):
 
 def get_minesite_from_path(p : Path) -> str:
     """Parse file path, check if in equip paths"""
-    lst = list(filter(lambda x: x[0] in str(p), m_equip.items()))
+    if not isinstance(p, Path): p = Path(p)
+    lst = list(filter(lambda x: x[0] in p.as_posix(), m_equip.items()))
     if lst:
         return lst[0][1]
+    else:
+        log.warning(f'Couldn\'t get minesite in path: {p}')
 
 def read_haul(p):
     """Wrap import_haul for errors"""
@@ -117,21 +120,32 @@ def import_haul(p):
 
     # header, try unit, then try getting unit with serial
     df_head = pd.read_csv(p, nrows=6, header=None)
-    unit = df_head[0][1].split(':')[1].strip().upper().replace('O','0').replace('F-','F').replace('F0','F')
+    unit = df_head[0][1].split(':')[1].strip()
+    
+    minesite = get_minesite_from_path(p)
+    if minesite == 'FortHills':
+        unit = unit.upper().replace('O','0').replace('F-','F').replace('F0','F')
 
-    if unit == '':
-        minesite = get_minesite_from_path(p)
+    if unit == '' or not db.unit_exists(unit):
+        # try to get unit from serial/minesite
         if minesite is None:
             raise Exception('Couldn\'t get minesite from unit path.')
 
         serial = df_head[0][0].split(':')[1].strip().upper()
 
         if serial.strip() == '':
-            raise Exception('Couldn\'t read serial from haul file.')
-
-        unit = db.get_unit(serial=serial, minesite=minesite)
-        # if unit == 'F1401':
-        #     print(unit, serial)
+            # fallback to getting unit from path
+            unit = utl.unit_from_path(p)
+            if not unit is None:
+                log.warning(f'Falling back to unit from path: {unit}, {p}')
+            else:
+                raise Exception('Couldn\'t read serial from haul file.')
+        
+        if unit == '':
+            unit = db.get_unit(serial=serial, minesite=minesite)
+    
+    if not db.unit_exists(unit):
+        raise Exception(f'Unit: {unit} does not exist in db.')
 
     return pd.read_csv(p, engine='c', header=8, usecols=m_cols, parse_dates=[['Date', 'Time']]) \
         .iloc[:-2] \
