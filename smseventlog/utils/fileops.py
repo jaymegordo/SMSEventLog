@@ -6,11 +6,6 @@ from io import StringIO
 
 import psutil
 
-try:
-    from hurry.filesize import size
-except ModuleNotFoundError:
-    pass
-
 from .__init__ import *
 
 log = getlog(__name__)
@@ -75,10 +70,10 @@ def zip_folder(p, delete=False, calculate_size=False, p_new=None):
 
         # print file size compression savings
         if calculate_size:
-            size_pre = sum(f.stat().st_size for f in p.glob('**/*') if f.is_file())
+            size_pre = calc_size(p=p)
             size_post = sum(f.stat().st_size for f in p_dst.parent.glob('*.zip'))
             size_pct = size_post / size_pre
-            print(f'Reduced size to: {size_pct:.1%}\nPre: {size(size_pre)}\nPost: {size(size_post)}')
+            print(f'Reduced size to: {size_pct:.1%}\nPre: {size_readable(size_pre)}\nPost: {size_readable(size_post)}')
         
         if delete:
             shutil.rmtree(p)
@@ -133,18 +128,91 @@ def find_files_ext(p, extensions):
 def find_files_partial(p, partial_text):
     return [p_ for p_ in p.glob('*') if partial_text.lower() in str(p_).lower()]
 
+def size_readable(nbytes):
+    """Return human readable file size string from bytes"""
+    suffixes = ('B', 'KB', 'MB', 'GB', 'TB', 'PB')
+    i = 0
+    while nbytes >= 1024 and i < len(suffixes) - 1:
+        nbytes /= 1024.
+        i += 1
+
+    f = f'{nbytes:.2f}'.rstrip('0').rstrip('.')
+    return f'{f} {suffixes[i]}'
+
+def calc_size(p : Path, nice=True):
+    """Calculate size of directory and all subdirs
+
+    Parameters
+    ----------
+    p : Path
+        [description]
+    nice : bool, optional
+        return raw float or nicely formatted string, default False
+
+    Returns
+    -------
+    int | string
+        size of folder
+    """    
+    _size = sum(f.stat().st_size for f in p.glob('**/*') if f.is_file())
+    return size_readable(_size) if nice else _size
 
 # OTHER
-def drive_exists():
-    if f.drive.exists():
-        return True
+def check(p : Path, **kw):
+    """Check path exists, with drive check first"""
+    if not isinstance(p, Path): p = Path(p)
+
+    # if path is on drive, manual check drive first
+    if f.drive.as_posix() in p.as_posix():
+        if not drive_exists(**kw):
+            return False
+        else:
+            return p.exists()
     else:
-        from ..gui import dialogs as dlgs
-        msg = 'Cannot connect to network drive. \
-            \n\nCheck: \n\t1. VPN is connected\n\t2. Drive is activated \
-            \n\n(To activate drive, open any folder on the drive).'
-        dlgs.msg_simple(msg=msg, icon='warning')
+        return p.exists()
+
+def drive_exists(warn=True, timeout=2):
+    """Check if network drive exists
+
+    Parameters
+    ----------
+    warn : bool, optional
+        raise NoPDriver error or not, default True\n
+    timeout : int, optional
+        timeout in seconds to ping drive (windows only), default 2\n
+
+    Returns
+    -------
+    bool
+        if drive exists
+
+    Raises
+    ------
+    er.NoPDriveError
+        (er.ExpectedError), will just stop process and warn but not break anything
+    """  
+    _exists = False
+    if f.is_win():
+        # path.exists() takes 20s to check on win if doesnt exists, use ping instead (kinda sketch)
+        ip = '172.17.1.163'
+        args = f'-n 1 -w {timeout * 1000}'
+        cmd = f'ping {args} {ip}'
+        _exists = not subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode
+    else:
+        _exists = f.drive.exists()
+
+    if _exists:
+        return True
+    elif warn:
+        raise er.NoPDriveError()
+    else:
         return False
+        # from ..gui import dialogs as dlgs
+        # msg = 'Cannot connect to network drive. \
+        #     \n\nCheck: \n\t1. VPN is connected\n\t2. Drive is activated \
+        #     \n\n(To activate drive, open any folder on the drive).'
+        # dlgs.msg_simple(msg=msg, icon='warning')
+        # return False
 
 def open_folder(p, check_drive=False):
     if check_drive and not drive_exists():
