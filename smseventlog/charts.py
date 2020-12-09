@@ -40,41 +40,92 @@ def update_fig(fig, title=None):
 def chart_fc_history(df, title=None):
 
     if title is None:
-        title = 'Outstanding Mandatory FC History - 12 Month Rolling'
+        title = 'FC History - 12 Month Rolling'
 
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    # fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig = make_subplots(
+        rows=2,
+        cols=1,
+        vertical_spacing=0.15,
+        subplot_titles=('Number FCs', 'Labour Hours'))
+
+    x = df.Period.dt.to_timestamp()
+    ticktext = df.Period.copy().astype(str)
+    xaxis = dict(
+        ticktext=ticktext,
+        tickvals=x,
+        type='category',
+        tickangle=-90)
 
     fig.add_trace(
         go.Bar(
-            name='Number Outstanding FCs',
-            y=df.Outstanding,
-            x=df.Month,
-            marker_color=color()['darkgrey'],
-            offsetgroup=0))
+            name='Number Outstanding (M)',
+            y=df.num_outstanding,
+            x=x,
+            marker=dict(
+                opacity=0.5,
+                color=color()['navyblue']),
+            offsetgroup=0),
+            row=1,
+            col=1)
+
+    fig.add_trace(
+        go.Bar(
+            name='Number Completed (All)',
+            y=df.num_completed,
+            x=x,
+            marker=dict(
+                color=color()['navyblue']),
+            offsetgroup=1),
+            row=1,
+            col=1)
     
     fig.add_trace(
         go.Bar(
-            name='Outstanding Labour Hours',
-            y=df.OutstandingHours,
-            x=df.Month,
-            marker_color=color()['navyblue'],
-            yaxis='y2',
-            offsetgroup=1
-        ))
+            name='Outstanding Labour Hours (M)',
+            y=df.hrs_outstanding,
+            x=x,
+            marker=dict(
+                opacity=0.5,
+                color=color()['maroon']),
+            # yaxis='y2',
+            offsetgroup=0),
+            row=2,
+            col=1
+        )
+
+    fig.add_trace(
+        go.Bar(
+            name='Completed Labour Hours (All)',
+            y=df.hrs_completed,
+            x=x,
+            marker_color=color()['maroon'],
+            # yaxis='y2',
+            offsetgroup=1),
+            row=2,
+            col=1
+        )
 
     update_fig(fig, title=title)
 
+    fmt = ',.0f'
     fig.update_layout(
-        yaxis_title='Number FCs',
         barmode='group',
-        xaxis_type='category',
-        bargap=0.2,
-        height=350,
-        width=700,
-        xaxis_tickangle=-90,
-        legend=dict(y=-0.3),
+        yaxis=dict(
+            tickformat=fmt),
         yaxis2=dict(
-            title='Laboour Hours'))
+            tickformat=fmt),
+        xaxis=xaxis,
+        xaxis2=xaxis,
+        bargap=0.2,
+        height=700,
+        width=700,
+        legend=dict(
+            orientation='v',
+            font=dict(size=10),
+            y=1.1,
+            x=0.7),
+            )
         
     return fig
 
@@ -156,11 +207,19 @@ def chart_avail_rolling(df, period_type='month', title=None):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # remove totals, convert back to period... kinda sketch
-    df = df[df.Period.astype(str).str.contains('Total') != True] \
-        .assign(Period=lambda x: pd.to_datetime(x.Period.astype(str), format='%Y-%m').dt.to_period('M'))
+    if period_type == 'month':
+        fmt_str = '%Y-%m'
+        freq = 'M'
+    else: # doesnt work not rly needed
+        fmt_str = 'Week %U'
+        freq = 'W'
+
+    if not isinstance(df.dtypes['Period'], pd.PeriodDtype) and period_type == 'month':
+        df = df[df.Period.astype(str).str.contains('Total') != True] \
+            .assign(Period=lambda x: pd.to_datetime(x.Period.astype(str), format=fmt_str).dt.to_period(freq))
 
     x = df.Period.dt.to_timestamp()
-    ticktext = df.Period.copy().astype(str)
+    ticktext = df.Period.dt.strftime(fmt_str)
     xaxis = dict(
         ticktext=ticktext,
         tickvals=x,
