@@ -464,7 +464,7 @@ def chart_plm_monthly(df, title=None, **kw):
         fig.add_trace(go.Scatter(
             name='SMR Operated',
             x=df.index.to_timestamp(),
-            y=df['SMR Operated'],
+            y=df['SMR Operated'].fillna(0),
             yaxis='y2',
             mode='markers', 
             marker=dict(

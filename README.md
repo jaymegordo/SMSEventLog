@@ -161,7 +161,7 @@ There are several extra functions in the menubar, such as:
     * [AppUpdatesDemo](https://github.com/jameswettenhall/pyupdater-wx-demo/blob/master/run.py)
 
 * [PyInstaller](https://pyinstaller.readthedocs.io/en/stable/usage.html)
-    * In project dir (SMS), `python -m build` (runs custom build python file which calls PyInstaller with args)
+    * In project dir (SMS) (windows), `pipenv run python build_scripts\build.py` (runs custom build python file which calls PyInstaller with args)
     * Only use PyInstaller on its own to create a test build because PyUpdater auto zips everything.
     * This will package app and output files to /dist/[mac|win]
 
