@@ -84,7 +84,6 @@ def add_table_attributes(style, s, do=True):
     attrs = style.table_attributes
     if not attrs is None:
         s = f'{attrs} {s}'
-        # print(s)
 
     style.set_table_attributes(s)
     return style
@@ -126,10 +125,13 @@ def set_column_widths(style, vals, hidden_index=True, outlook=False):
 
     if not outlook:
         for col_name, width in vals.items():
-            icol = style.data.columns.get_loc(col_name) + offset
-            s.append(dict(
-                selector=f'th.col_heading:nth-child({icol})',
-                props=[('width', f'{width}px')]))
+
+            # some tables have different cols for monthly/weekly (F300 SMR)
+            if col_name in style.data.columns:
+                icol = style.data.columns.get_loc(col_name) + offset
+                s.append(dict(
+                    selector=f'th.col_heading:nth-child({icol})',
+                    props=[('width', f'{width}px')]))
     
         return style.pipe(add_table_style, s)
     

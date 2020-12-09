@@ -245,6 +245,7 @@ Headers:
         FC Number: FCNumber
         Complete: Complete
         Closed: ManualClosed
+        Ignore: Ignore
         Type: Classification
         Subject: Subject
         Date Complete SMS: DateCompleteSMS

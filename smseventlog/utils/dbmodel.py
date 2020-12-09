@@ -631,5 +631,6 @@ class FactoryCampaign(Base):
     ServiceLetterDate = Column(Date)
     Notes = Column(Unicode(255))
     CustomSort = Column(Integer)
+    Ignore = Column(BIT, server_default=text("((0))"))
 
     EventLog = relationship('EventLog')
