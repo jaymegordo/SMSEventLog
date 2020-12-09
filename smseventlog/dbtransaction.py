@@ -74,6 +74,12 @@ class DBTransaction():
         s = db.session
         txn_func = getattr(s, f'bulk_{operation_type}_mappings')
         txn_func(self.dbtable, self.update_items)
+
+        num_recs = len(self.update_items)
+        if num_recs == 0:
+            log.info(f'No records to update.')
+            return
+            
         msg = f'Bulk {operation_type} records: {len(self.update_items)}'
 
         if db.safe_commit():
