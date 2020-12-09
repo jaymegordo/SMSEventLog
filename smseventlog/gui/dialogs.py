@@ -1187,7 +1187,7 @@ class FailureReport(QDialog):
         elif not p_start.exists():
             self.update_statusbar(f'Couldn\'t find event images path: {p_start}', warn=True)
         
-        dlg = QFileDialogPreview(directory=str(p_start), options=QFileDialog.DontUseNativeDialog, standalone=False)
+        dlg = QFileDialogPreview(directory=str(p_start), standalone=False)
         vLayout.addWidget(dlg)
         add_linesep(vLayout)
 
@@ -1234,12 +1234,10 @@ class QFileDialogPreview(QFileDialog):
     """
     Create QFileDialog with image preview
     """
-    def __init__(self, parent=None, caption='', directory=None, filter=None, standalone=True, **kw):
-        super().__init__(parent, caption, directory, filter, **kw)
-
+    def __init__(self, parent=None, caption='', directory=None, filter=None, standalone=True, options=QFileDialog.DontUseNativeDialog, **kw):
+        super().__init__(parent, caption, directory, filter, options=options, **kw)
         box = QVBoxLayout()
         if not standalone: self.disable_buttons()
- 
         self.setFixedSize(self.width() + 400, self.height())
         self.setFileMode(QFileDialog.ExistingFiles)
         self.setViewMode(QFileDialog.Detail)
@@ -1277,8 +1275,8 @@ class QFileDialogPreview(QFileDialog):
         # remove okay/cancel buttons from dialog, when showing in another dialog
         btn_box = self.findChild(QDialogButtonBox)
         if btn_box:
-            self.layout().removeWidget(btn_box)
             btn_box.hide()
+            # self.layout().removeWidget(btn_box) # this stopped working for some reason
  
     def onChange(self, *args):
         if not args:
@@ -1435,7 +1433,7 @@ class PLMReport(InputForm):
             d_upper = dt.now().date()
         
         if d_lower is None:
-            d_lower = d_upper + delta(days=-180)
+            d_lower = d_upper + relativedelta(years=-1)
     
         # Unit
         df = db.get_df_unit()
@@ -1571,11 +1569,18 @@ def set_multiselect(dlg):
         if isinstance(view.model(), QFileSystemModel):
             view.setSelectionMode(QAbstractItemView.MultiSelection)
 
+def check_dialog_path(p : Path):
+    if not fl.check(p, warn=False):
+        gbl.update_statusbar(f'Path: {p} does not exist. Check VPN connection.', warn=True)
+        p = Path.home() / 'Desktop'
+    
+    return str(p)
+
 def get_filepath_from_dialog(p_start):
     app = check_app()
 
     s = QFileDialog.getExistingDirectory(
-        directory=str(p_start),
+        directory=check_dialog_path(p_start),
         options=QFileDialog.ShowDirsOnly | QFileDialog.DontUseNativeDialog)
 
     if s:
@@ -1587,9 +1592,9 @@ def get_filepaths(p_start : Path):
     app = check_app()
 
     lst = QFileDialog.getOpenFileNames(
-        directory=str(p_start),
-        options=QFileDialog.DontUseNativeDialog
-    )
+        directory=check_dialog_path(p_start),
+        options=QFileDialog.DontUseNativeDialog)
+
     if lst:
         return lst[0] # lst is list of files selected + filetypes > ignore filetypes part
     return None
