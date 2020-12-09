@@ -88,11 +88,17 @@ def get_recent_dls_unit(unit : str) -> Path:
 def zip_recent_dls_unit(unit :str, _zip=True) -> Path:
     """Func for gui to find (optional zip) most recent dls folder by parsing date in folder title"""
     from ...gui.dialogs import msg_simple, msgbox
+    from ...gui import _global as gbl
 
     p_dls = get_recent_dls_unit(unit=unit)
 
     if not p_dls is None:
-        msg = f'Found dls folder:\n\n{p_dls.name}\n\nZip now?'
+        msg = f'Found DLS folder: {p_dls.name}, calculating size...'
+        gbl.update_statusbar(msg)
+        gbl.get_mainwindow().app.processEvents()
+
+        size = fl.calc_size(p_dls)
+        msg = f'Found DLS folder:\n\n{p_dls.name}\n{size}\n\nZip now?'
         if not msgbox(msg=msg, yesno=True): return
     else:
         msg = f'Couldn\'t find recent DLS folder, check folder structure for issues.'
