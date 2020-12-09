@@ -1892,7 +1892,7 @@ class FCSummary(FCBase):
             super().__init__(parent=parent)
 
             self.mcols['hide'] = ('MineSite',)
-            self.mcols['fill_enabled'] = ('Action Reqd')
+            self.mcols['fill_enabled'] = ('Action Reqd',)
             self.col_widths.update({
                 'Subject': 250,
                 'Comments': 600,
@@ -1979,7 +1979,7 @@ class FCDetails(FCBase):
             self.highlight_funcs['Pics'] = self.highlight_pics
             self.highlight_funcs['Complete'] = self.highlight_by_val
             self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject', 'Pics')
-            self.mcols['fill_enabled'] = ('Date Complete')
+            self.mcols['fill_enabled'] = ('Date Complete', 'Ignore')
             self.mcols['hide'] = ('UID',)
             self.col_widths.update({
                 'Complete': 60,
@@ -1987,6 +1987,8 @@ class FCDetails(FCBase):
                 'Type': 60,
                 'Subject': 400,
                 'Notes': 400})
+
+            self.set_combo_delegate(col='Ignore', items=f.config['Lists']['TrueFalse'], allow_blank=False)
     
     def view_folder(self):
         view, i, e = self.view, self.i, self.e
@@ -2039,10 +2041,8 @@ class EmailList(TableWidget):
 class Availability(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.report = None
 
         self.add_action(name='Create Report', func=self.create_report, btn=True)
-        self.add_action(name='Email Report', func=self.email_report, btn=True)
         self.add_action(name='Email Assignments', func=self.email_assignments, shortcut='Ctrl+Shift+E', btn=True)
         self.add_action(
             name='Filter Assigned',
@@ -2215,7 +2215,7 @@ class Availability(TableWidget):
         from .refreshtables import AvailReport
 
         dlg = AvailReport(parent=self)
-        self.dlg = dlg
+        # self.dlg = dlg
         if not dlg.exec_(): return
 
         p_base = self.get_report_base(dlg.period_type)
@@ -2227,7 +2227,7 @@ class Availability(TableWidget):
             else:
                 p_base = Path.home() / 'Desktop'
 
-        rep = AvailabilityReport(d_rng=dlg.d_rng, period_type=dlg.period_type, name=dlg.name)
+        rep = AvailabilityReport(name=dlg.name, period_type=dlg.period_type)
         
         Worker(func=rep.create_pdf, mw=self.mainwindow, p_base=p_base) \
             .add_signals(signals=('result', dict(func=self.handle_report_result))) \
@@ -2236,49 +2236,13 @@ class Availability(TableWidget):
     
     def handle_report_result(self, rep=None):
         if rep is None: return
-        self.report = rep
-        dlg = self.dlg
-        fl.open_folder(rep.p_rep)
+        rep.open_()
 
         msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
         self.update_statusbar(msg, success=True)
+        
         if dlgs.msgbox(msg=msg, yesno=True):
-            self.email_report(period_type=dlg.period_type, p_rep=rep.p_rep, name=dlg.name)
-            
-    def email_report(self, period_type=False, p_rep=None, name=None):
-        from .refreshtables import AvailReport
-        
-        if not period_type:
-            dlg = AvailReport(parent=self)
-            if not dlg.exec_(): return
-            d_rng, period_type, name = dlg.d_rng, dlg.period_type, dlg.name
-
-        title = self.get_report_name(period_type, name)
-        
-        if not p_rep:
-            p_rep = self.get_report_path(p_base=self.get_report_base(period_type), name=title)
-        
-        body = f'{f.greeting()}See attached report for availability {name}.'
-
-        if not self.report is None:
-            rep = self.report
-            if not rep.p_rep is None: p_rep = rep.p_rep # lol
-            style1 = rep.style_df('Fleet Availability', outlook=True).hide_index().render()
-            style2 = rep.style_df('Summary Totals', outlook=True).hide_index().render()
-
-            template = rep.env.get_template('exec_summary_template.html')
-            template_vars = dict(
-                exec_summary=rep.exec_summary,
-                d_rng=rep.d_rng)
-
-            html_exec = template.render(template_vars)
-
-            body = f'{body}<br>{html_exec}<br>{style1}<br><br>{style2}'
-
-        email_list = qr.EmailListShort(col_name='AvailReports', minesite='FortHills', usergroup='SMS').emails
-        msg = em.Message(subject=title, body=body, to_recip=email_list, show_=False)
-        msg.add_attachment(p_rep)
-        msg.show()
+            rep.email()
 
 class UserSettings(TableWidget):
     def __init__(self, parent=None):
