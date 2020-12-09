@@ -656,6 +656,7 @@ class UnitInfo(QueryBase):
         self.fltr.add(vals=dict(MineSite=self.minesite))
 
 class FCBase(QueryBase):
+    """Defines base structure/table joins for other FC queries"""
     def __init__(self, da=None, **kw):
         super().__init__(da=da, **kw)
         a = self.select_table
@@ -731,9 +732,6 @@ class FCSummary(FCBase):
         df2 = df2.drop(columns=['Total', 'Complete']) \
             .rename_axis('FC Number') \
             .reset_index()
-
-        # can't pivot properly if Hours column (int) is NULL > just set to 0
-        df.loc[df.Hrs.isnull(), 'Hrs'] = 0
         
         # If ALL values in column are null (Eg ReleaseDate) need to fill with dummy var to pivot
         for col in ['Release Date', 'Expiry Date']:
@@ -742,7 +740,9 @@ class FCSummary(FCBase):
 
         index = [c for c in df.columns if not c in ('Unit', 'Complete')] # use all df columns except unit, complete
 
-        df = df.pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete') \
+        df = df \
+            .fillna(dict(Hrs=0)) \
+            .pipe(f.multiIndex_pivot, index=index, columns='Unit', values='Complete') \
             .reset_index() \
             .merge(right=df2, how='left', on='FC Number') # merge summary
 
@@ -875,7 +875,7 @@ class FCDetails(FCBase):
         super().__init__(**kw)
         a, b, c, d = self.a, self.b, self.c, self.d
 
-        self.cols = [a.UID, d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Pictures, a.Notes]
+        self.cols = [a.UID, d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Ignore, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Pictures, a.Notes]
 
     def set_default_filter(self, **kw):
         super().set_default_filter(**kw)
@@ -975,7 +975,7 @@ class FCComplete(FCBase):
             .orderby(a.Classification)
 
         self.add_fltr_args([
-            dict(vals=dict(DateCompleteSMS=d_rng), term='between'),
+            dict(vals=dict(MinDateComplete=d_rng), term='between'),
             dict(vals=dict(MineSite=minesite), table=d)])
 
     def process_df(self, df):
@@ -1201,14 +1201,30 @@ class AvailSummary(QueryBase):
 
         if period == 'week':
             fmt = '%Y-%U-%w'
-            fmt_period = 'W'
+            freq = 'W'
             fmt_str = 'Week %U'
         else:
             fmt = '%Y-%m'
-            fmt_period = 'M'
+            freq = 'M'
             fmt_str = fmt
         
         f.set_self(vars())
+
+    @classmethod
+    def from_name(cls, name, period='month', **kw):
+        """Return query for correct range week/month based on single date"""
+        row = df_period(freq=period).loc[name]
+
+        offset = dict(
+            month=dict(months=-11),
+            week=dict(weeks=-11)) \
+            .get(period)
+
+        return cls(
+            d_rng=(
+                row['start_date'] + relativedelta(**offset),
+                row['end_date']),
+            period=period, **kw)
     
     @property
     def q(self):
@@ -1297,7 +1313,7 @@ class AvailSummary(QueryBase):
 
         return df \
             .assign(
-                period=lambda x: pd.to_datetime(x.period, format=self.fmt).dt.to_period(self.fmt_period),
+                period=lambda x: pd.to_datetime(x.period, format=self.fmt).dt.to_period(self.freq),
                 d_upper=lambda x: pd.to_datetime(x.period.dt.end_time.dt.date),
                 _age=lambda x: x.d_upper.dt.to_period('M').astype(int) - x.DeliveryDate.dt.to_period('M').astype(int),
                 age=lambda x: np.where(x.DeliveryDate.dt.day <= 15, x._age + 1, x._age),
@@ -1406,7 +1422,8 @@ class AvailSummary(QueryBase):
         return style \
             .pipe(st.highlight_totals_row, exclude_cols=('Unit', 'MA')) \
             .pipe(self.highlight_greater) \
-            .format(self.formats)
+            .format(self.formats) \
+            .format({k: '{:,.0f}' for k in ('Total', 'SMS', 'Suncor')})
 
     def df_totals(self):
         """Return df of totals for most recent period, split by AHS/Staffed"""
@@ -1419,11 +1436,21 @@ class AvailSummary(QueryBase):
             .pipe(self.rename_cols)
 
     def style_history(self, style, **kw):
-        widths = {'Target Hrs Variance': 60, 'F300 SMR Operated': 60, 'Variance F300': 60}
+        widths = {'Target Hrs Variance': 60, 'F300 SMR Operated': 60}
+        def _style_week(style, do=False):
+            if not do: return style
+            return style.format(lambda x: x.strftime(self.fmt_str), subset='Period')
+
         return style \
-            .apply(st.highlight_greater, subset=['MA', 'Target Hrs Variance'], axis=None, ma_target=style.data['MA Target']) \
+            .apply(
+                func=st.highlight_greater,
+                subset=['MA', 'Target Hrs Variance'],
+                axis=None,
+                ma_target=style.data['MA Target']) \
             .pipe(st.set_column_widths, vals=widths) \
-            .pipe(st.highlight_totals_row, n_cols=2, do=self.period == 'month')
+            .pipe(st.highlight_totals_row, n_cols=2, do=self.period=='month') \
+            .pipe(_style_week, do=self.period=='week') \
+            .format(dict(SMS='{:,.0f}'))
 
     def df_history_rolling(self, prd_str=False, totals=False, merge_f300=False, **kw):
         """df of 12 period (week/month) rolling summary.
@@ -1432,7 +1459,8 @@ class AvailSummary(QueryBase):
         ----------
         prd_str : bool\n
             convert Period to string (for display and charts), easier but don't always want
-        - period col converted back to str"""
+        - period col converted back to str
+        """
         cols = ['period', 'SMS', 'ma_target', 'MA', 'target_hrs_var', 'PA']
         return self.df_summary(group_ahs=False) \
             .assign(period=lambda x: x.period.dt.strftime(self.fmt_str) if prd_str else x.period) \
@@ -1442,6 +1470,7 @@ class AvailSummary(QueryBase):
             .pipe(self.rename_cols)
     
     def append_totals_history(self, df, do=False):
+        """Append YTD Total + Total to 12-period rolling avail history table"""
         if not do: return df
 
         max_year = df.period.max().to_timestamp().year
@@ -1460,8 +1489,7 @@ class AvailSummary(QueryBase):
         # may or may not have SMR Operated column
         if 'F300 SMR Operated' in df.columns:
             data.update({
-                'F300 SMR Operated': _max('F300 SMR Operated'),
-                'Variance F300': _max('Variance F300')})
+                'F300 SMR Operated': _max('F300 SMR Operated')})
 
         df2 = pd.DataFrame(data)
 
@@ -1469,6 +1497,7 @@ class AvailSummary(QueryBase):
             .append(df2, ignore_index=True)
     
     def merge_f300(self, df, query_f300=None, do=False, **kw):
+        """Merge F300 SMR operated to avail history table"""
         if not do: return df
         if query_f300 is None:
             query_f300 = UnitSMRMonthly(unit='F300')
@@ -1477,10 +1506,10 @@ class AvailSummary(QueryBase):
             [['SMR Operated']]
 
         return df.merge(df_smr, how='left', left_on='period', right_on='Period') \
-            .assign(target_var_f300=lambda x: x.target_hrs_var + x['SMR Operated']) \
             .rename(columns={
                 'SMR Operated': 'F300 SMR Operated',
                 'target_var_f300': 'Variance F300'})
+            # .assign(target_var_f300=lambda x: x.target_hrs_var + x['SMR Operated']) \
    
     def exec_summary(self, period='last'):
         d_rng = self.d_rng
@@ -1513,21 +1542,16 @@ class AvailSummary(QueryBase):
     def update_style(self, style, outlook=False, **kw):
         df = style.data
         cmap = LinearSegmentedColormap.from_list('red_white', ['white', '#F8696B'])
-        
-        # u = df.index.get_level_values(0)
-        # subset = pd.IndexSlice[u[:-1], ['Total', 'SMS', 'Suncor']] # u[:-1] to exclude totals row
         subset = ['Total', 'SMS', 'Suncor']
 
-        # TODO need to fix this, parse style= better
+        # HACK need smaller font size for report. add_table_attrs doesn't work for multiple 'style' values, need to overwrite completely. 
+        # TODO Could make table attrs a dict and parse before final render
         if not outlook:
             style.set_table_attributes('style="border-collapse: collapse; font-size: 10px;"')
-        else:
-            style.set_table_attributes('style="border-collapse: collapse;"')
 
         return style \
             .background_gradient(cmap=cmap, subset=subset, axis=None) \
-            .pipe(self.highlight_greater) \
-            # .pipe(st.add_table_attributes, s='style="font-size: 10px;"', do=not outlook)
+            .pipe(self.highlight_greater)
 
 class AvailRawData(AvailBase):
     def __init__(self, da=None, **kw):
@@ -1904,7 +1928,6 @@ class PLMUnit(QueryBase):
                 Overload_pct_110=lambda x: x.Accepted_110 / x.Total_ExcludeFlags,
                 Overload_pct_120=lambda x: x.Accepted_120 / x.Total_ExcludeFlags)
     
-    @er.errlog('Failed to get df_monthly', warn=True)
     def df_monthly(self, add_unit_smr=False):
         """Bin data into months for charting, will include missing data = good"""
 
@@ -1923,7 +1946,7 @@ class PLMUnit(QueryBase):
             # combine df_smr SMR_worked with plm df
             query_smr = UnitSMRMonthly(unit=self.unit)
             df_smr = query_smr.df_monthly() \
-                [['SMR_worked']]
+                [['SMR Operated']]
 
             df = df.merge(df_smr, how='left', left_index=True, right_index=True)
 
@@ -2149,6 +2172,19 @@ def df_months():
 
     return pd.DataFrame.from_dict(m, columns=cols, orient='index')
 
+def df_weeks():
+    # Week
+    cols = ['StartDate', 'EndDate', 'Name']
+
+    m = {}
+    year = dt.now().year
+    for wk in range(1, 53):
+        s = f'2020-W{wk-1}'
+        d = dt.strptime(s + '-1', "%Y-W%W-%w").date()
+        m[f'{year}-{wk}'] = (d, d + delta(days=6), f'Week {wk}')
+
+    return pd.DataFrame.from_dict(m, columns=cols, orient='index')
+
 def df_rolling_n_months(n : int=12):
     """Create df of n rolling months with periodindex
 
@@ -2164,16 +2200,3 @@ def df_rolling_n_months(n : int=12):
         .assign(
             d_lower=lambda x: x.index.to_timestamp(),
             d_upper=lambda x: x.d_lower + pd.tseries.offsets.MonthEnd(1))
-
-def df_weeks():
-    # Week
-    cols = ['StartDate', 'EndDate', 'Name']
-
-    m = {}
-    year = dt.now().year
-    for wk in range(1, 53):
-        s = f'2020-W{wk-1}'
-        d = dt.strptime(s + '-1', "%Y-W%W-%w").date()
-        m[f'{year}-{wk}'] = (d, d + delta(days=6), f'Week {wk}')
-
-    return pd.DataFrame.from_dict(m, columns=cols, orient='index')
