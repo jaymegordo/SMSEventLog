@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
             # allow warn or success status to be passed with msg as dict
             if isinstance(msg, dict):
                 warn = msg.get('warn', False)
-                warn = msg.get('success', False)
+                success = msg.get('success', False)
                 msg = msg.get('msg', None) # kinda sketch
 
             bar = self.statusBar()
@@ -562,6 +562,13 @@ class MainWindow(QMainWindow):
 
         if maxdate < m['d_upper']:
             # worker will call back and make report when finished
+            if not fl.drive_exists(warn=False):
+                msg = 'Can\'t connect to P Drive. Create report without updating records first?'
+                if dlgs.msgbox(msg=msg, yesno=True):
+                    self.make_plm_report(**m)
+
+                return
+
             Worker(func=plm.update_plm_single_unit, mw=self, unit=unit) \
                 .add_signals(
                     signals=('result', dict(
@@ -578,7 +585,7 @@ class MainWindow(QMainWindow):
     
     def handle_import_result_manual(self, rowsadded=None, **kw):
         if not rowsadded is None:
-            msg = dict(msg=f'PLM records added to database: {rowsadded}', success=True)
+            msg = dict(msg=f'PLM records added to database: {rowsadded}', success=rowsadded > 0)
         else:
             msg = 'Warning: Failed to import PLM records.'
 
@@ -605,7 +612,7 @@ class MainWindow(QMainWindow):
             ef = None
 
         # If cant get event folder, ask to create at desktop
-        if ef is None or not ef.check(check_pics=False):
+        if ef is None or not ef.check(check_pics=False, warn=False):
             p = Path.home() / 'Desktop'
             msg = f'Can\'t get event folder, create report at desktop?'
             if not dlgs.msgbox(msg=msg, yesno=True):
