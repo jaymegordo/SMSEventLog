@@ -372,6 +372,14 @@ class SMSDatabaseError(Error):
     def __init__(self, message='General database error'):
         super().__init__(message)
 
+class NoPDriveError(ExpectedError):
+    """Raised if no internet connection detected."""
+    def __init__(self, message='No P Drive connection available.'):
+        super().__init__(message)
+        
+        msg = 'WARNING: Cannot connect to P Drive. Ensure drive is both CONNECTED and ACTIVE.'
+        self.update_statusbar(msg=msg)
+
 class NoInternetError(ExpectedError):
     """Raised if no internet connection detected."""
     def __init__(self, message='No internet connection available.'):
