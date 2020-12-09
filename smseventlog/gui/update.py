@@ -3,7 +3,6 @@ import warnings
 import logging
 
 from pyupdater.client import Client
-from hurry.filesize import size
 
 from .. import functions as f
 from .. import errors as er
@@ -104,7 +103,7 @@ class Updater(object):
         downloaded = info.get('downloaded')
         status = info.get('status')
         pct = downloaded / total
-        self.update_statusbar(msg=f'Update {status} - {size(total)} - {pct:.0%}')
+        self.update_statusbar(msg=f'Update {status} - {fl.size_readable(total)} - {pct:.0%}')
     
     @property
     def version(self):

@@ -1656,6 +1656,7 @@ class TSI(EventLogBase):
 
     def create_failure_report(self):
         if not self.check_cummins(): return
+        fl.drive_exists()
         e, row, view = self.e_db, self.row, self.view
 
         # get event folder
@@ -1691,6 +1692,7 @@ class TSI(EventLogBase):
 
     def zip_recent_dls(self):
         if not self.check_cummins(): return
+        fl.drive_exists()
         e = self.e
         unit = e.Unit
 
@@ -1837,9 +1839,7 @@ class FCBase(TableWidget):
         self.update_statusbar('Manual FC import started in worker thread.')
     
     def get_fc_folder(self):
-        if not fl.drive_exists():
-            return
-
+        fl.drive_exists()
         e = self.e
 
         p = f.drive / f.config['FilePaths']['Factory Campaigns'] / e.FCNumber
@@ -2220,7 +2220,7 @@ class Availability(TableWidget):
 
         p_base = self.get_report_base(dlg.period_type)
 
-        if not fl.drive_exists():
+        if not fl.drive_exists(warn=False):
             msg = 'Not connected to drive, create report at desktop?'
             if not dlgs.msgbox(msg=msg, yesno=True):
                 return
@@ -2240,7 +2240,7 @@ class Availability(TableWidget):
 
         msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
         self.update_statusbar(msg, success=True)
-        
+
         if dlgs.msgbox(msg=msg, yesno=True):
             rep.email()
 

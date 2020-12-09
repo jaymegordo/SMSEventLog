@@ -162,6 +162,7 @@ class EventFolder(UnitFolder):
     @property
     def exists(self):
         """Simple check if folder exists"""
+        fl.drive_exists()
         return self._p_event.exists()
     
     @property
@@ -177,7 +178,7 @@ class EventFolder(UnitFolder):
         except:
             return False
 
-    def check(self, p_prev : Path = None, check_pics=True):
+    def check(self, p_prev : Path = None, check_pics=True, **kw):
         """Check if self.p_event exists.
 
         Parameters
@@ -192,7 +193,7 @@ class EventFolder(UnitFolder):
             True if folder exists or replace was successful.
         """        
         from .gui import dialogs as dlgs
-        if not fl.drive_exists():
+        if not fl.drive_exists(**kw):
             return
             
         p = self._p_event
@@ -254,9 +255,7 @@ class EventFolder(UnitFolder):
 
     def create_folder(self, show=True, ask_show=False):
         from .gui import dialogs as dlgs
-        
-        if not fl.drive_exists():
-            return
+        fl.drive_exists()
             
         try:
             p = self._p_event
