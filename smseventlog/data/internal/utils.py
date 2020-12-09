@@ -1,5 +1,6 @@
 from . import dls, faults, plm
 from .__init__ import *
+import re
 
 log = getlog(__name__)
 
@@ -64,13 +65,18 @@ def all_units(rng=None):
     return [f'F{n}' for n in range(*rng)]
 
 def unit_from_path(p):
-    parentname = '1. 980E Trucks'
+    """Regex find first occurance of unit in path"""
+    minesite = plm.get_minesite_from_path(p)
 
-    for i, val in enumerate(p.parts):
-        if val == parentname:
-            return p.parts[i + 1].split(' - ')[0]
-    
-    return None
+    units = db.get_df_unit() \
+        .pipe(lambda df: df[df.MineSite==minesite]) \
+        .Unit.unique().tolist()
+
+    match = re.search(f'({"|".join(units)})', str(p))
+    if match:
+        return match.groups()[0]
+    else:
+        log.warning(f'Couldn\'t find unit in path: {p}')
 
 def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype='haul', exclude=[]):
     # recurse and find fault/haulcycle csv files
@@ -124,8 +130,8 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
     lst = []
     config = get_config()[ftype]
 
+    fl.drive_exists()
     for unit in units:
-        if not fl.drive_exists(): return
         p_unit = efl.UnitFolder(unit=unit).p_unit
         lst_search = [x for x in p_unit.iterdir() if x.is_dir() and x.name.lower() in search_folders] # start at downloads
 
