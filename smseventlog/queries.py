@@ -997,21 +997,48 @@ class FCComplete(FCBase):
 class FCHistoryRolling(FCBase):
     def __init__(self, d_rng, minesite='FortHills', da=None):
         super().__init__(da=da)
+        a, b, c, d = self.a, self.b, self.c, self.d
 
-        # need to see history of open labour hrs per month 12 months rolling
-        # count of open at time x - count of complete at time x?
+        self.cols = [d.MineSite, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, a.MinDateComplete, a.ReleaseDate, a.ExpiryDate, b.hours, a.Ignore]
 
-        args = dict(
-            d_upper=d_rng[1], # need to pass last day of next month
-            minesite=minesite)
-
-        sql = 'SELECT * FROM {}'.format(table_with_args(table='FCHistoryRolling', args=args))
-        print(sql)
+        q = self.q \
+            .where(d.MineSite==minesite)
+        
         f.set_self(vars())
+
+    def df_history(self):
+        return df_rolling_n_months().d_upper \
+            .apply(self.status_at_date) \
+            .merge(self.df_complete_monthly(), how='left', left_index=True, right_index=True) \
+            .rename_axis('Period') \
+            .reset_index(drop=False)
     
-    def process_df(self, df):
-        df['Month'] = df.Date.dt.strftime('%Y-%m')
-        return df
+    def df_complete_monthly(self):
+        """Return df of period, num completed, hrs completed"""
+        return self.df \
+            .assign(period=lambda x: x.MinDateComplete.dt.to_period('M')) \
+            .groupby(['period']) \
+            .agg(
+                num_completed=('hours', 'count'),
+                hrs_completed=('hours', 'sum'))
+            
+    def df_incomplete(self, checkdate):
+        """Return records which are incomplete for given checkdate"""
+        return self.df \
+            .pipe(lambda df: df[
+                (df.ReleaseDate < checkdate) &
+                (df.Classification == 'M') &
+                (df.Ignore == False) &
+                ((df.MinDateComplete.isnull()) | (df.MinDateComplete > checkdate))])
+    
+    def status_at_date(self, checkdate) -> pd.Series:
+        """Count num open and hrs open at checkdate"""
+        df = self.df_incomplete(checkdate)
+        m = dict(
+            num_outstanding=df.shape[0],
+            hrs_outstanding=df.hours.sum())
+
+        return pd.Series(m)
 
 class EmailList(QueryBase):
     def __init__(self, **kw):
