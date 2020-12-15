@@ -266,7 +266,7 @@ def zip_recent_dls(units, d_lower=dt(2020,1,1)):
 def stats_from_dsc(p):
     # get stats file path from dsc path
     try:
-        return list(Path(p/'stats').glob('SERIAL*csv'))[0]
+        return list((p / 'stats').glob('SERIAL*csv'))[0]
     except:
         return None
         print(f'Couldn\'t read stats: {p}')
@@ -281,37 +281,49 @@ def import_stats(lst=None):
 
     return df
 
+
+def get_list_stats(unit):
+    """Return list of STATS csvs for specific unit"""
+    from ...eventfolders import UnitFolder
+    uf = UnitFolder(unit=unit)
+
+    p_dls = uf.p_dls
+
+    return p_dls.glob('SERIAL*csv')
+
+def smr_from_stats(lst):
+
+    return pd.concat([get_stats(p) for p in lst])
+
+
 def get_stats(p):
-    # read stats csv and convert to single row df, to be combined
-    cols = ['Unit', 'Today\'s date / time', 'PSC code version', 'TCI code version', 'FB187 Serial Number', 'FB187/197 Serial Number', 'Inv 1 Serial number', 'Inv 2 Serial number']
+    """read stats csv and convert to single row df of timestamp, psc/tsc versions + inv SNs, to be combined"""
 
     # dict to convert messy to nice names
     m = {
-        'Unit': 'Unit',
-        'Today\'s date / time': 'Timestamp',
-        'PSC code version': 'PSC ver',
-        'TCI code version': 'TSC ver',
-        'FB187 Serial Number': 'FB187/197 SN',
-        'FB187/197 Serial Number': 'FB187/197 SN',
-        'Inv 1 Serial number': 'Inv 1 SN',
-        'Inv 2 Serial number': 'Inv 2 SN'}
+        'unit': 'unit',
+        'Today\'s date / time': 'timestamp',
+        'Total Hours': 'engine_hours',
+        'PSC code version': 'psc_ver',
+        'TCI code version': 'tsc_ver',
+        'FB187 Serial Number': 'FB187_197_sn',
+        'FB187/197 Serial Number': 'FB187_197_sn',
+        'Inv 1 Serial number': 'inv_1_sn',
+        'Inv 2 Serial number': 'inv_2_sn'}
 
     cols = list(m.keys())
 
-    try:
-        df = pd.read_csv(p, index_col=0)
-        df = df[df.iloc[:,0].isin(cols[1:])] # exclude unit from find cols
-        df['Unit'] = utl.unit_from_path(p)
+    df = pd.read_csv(p, index_col=0) \
+        .applymap(lambda x: str(x).strip()) \
+        .pipe(lambda df: df[df.iloc[:, 0].isin(cols[1:])]) \
+        .assign(unit=utl.unit_from_path(p))
 
-        df = df.pivot(index='Unit', columns=df.columns[0], values=df.columns[1])
-        df.rename_axis('Unit', inplace=True, axis=1)
-        df.reset_index(inplace=True)
+    df = df.pivot(index='unit', columns=df.columns[0], values=df.columns[1]) \
+        .rename_axis('unit', axis=1) \
+        .reset_index() \
+        .rename(columns=m) \
+        .assign(timestamp=lambda x: pd.to_datetime(x.timestamp))
 
-        df.columns = [m[col] for col in df.columns] # rename to nice cols
-        df = df[list(OrderedDict.fromkeys(m.values()))] # reorder, keeping original
-        df.Timestamp = pd.to_datetime(df.Timestamp)
-    except:
-        print(f'Error getting stats: {p}')
-        df = pd.DataFrame()
+    df = df[list(OrderedDict.fromkeys(m.values()))] # reorder, keeping original
 
     return df
