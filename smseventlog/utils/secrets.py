@@ -5,6 +5,8 @@ from cryptography.fernet import Fernet
 from . import fileops as fl
 from .__init__ import *
 
+log = getlog(__name__)
+
 class SecretsManager(object):
     """Context manager to handle loading encrypted files from secrets folder
 
@@ -15,12 +17,17 @@ class SecretsManager(object):
     
     Examples
     ---
+    >>> from smseventlog.utils.secrets import SecretsManager
+
     - load yaml dict automatically
     >>> m = SecretsManager('db.yaml').load
 
     - as context manager:
     >>> with SecretsManager('db.yaml') as file:
         m = yaml.full_load(file)
+    
+    - re encrypt all files in /unencrypted after pws change
+    >>> SecretsManager().encrypt_all_secrets()
     """    
     def __init__(self, load_filename=None):
         p_secret = f.secret
@@ -74,8 +81,12 @@ class SecretsManager(object):
     def encrypt_all_secrets(self):
         """Convenience func to auto encrypt everything in _unencrypted with smseventlog.key
         - Use to re-encrypt after pw changes (every three months for email/sap)"""
+        i = 0
         for p in self.p_unencrypt.glob('*'):
-            self.encrypt_file(p)
+            if self.encrypt_file(p):
+                i += 1
+        
+        log.info(f'Successfully encrypted [{i}] file(s).')
     
     def encrypt_file(self, p: Path, **kw):
         """Open file, encrypt, and save it to secrets folder"""
@@ -86,6 +97,7 @@ class SecretsManager(object):
             file_data = file.read()
 
         self.write(file_data, name=p.name, **kw)
+        return True
     
     def write(self, file_data: bytes, name: str, p_save: Path=None, **kw):
         """Write unencrypted file back as encrypted

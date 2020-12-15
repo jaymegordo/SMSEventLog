@@ -6,8 +6,15 @@ from .secrets import SecretsManager
 log = getlog(__name__)
 
 class CredentialManager(object):
-    # load and save credentials to QSettings
-    # prompt for creds when not found
+    """load and save credentials to QSettings, or just yaml file
+        - prompt for creds when not found
+
+    Examples
+    --------
+    >>> from smseventlog.utils.credentials import CredentialManager
+    >>> cm = CredentialManager(name='fluidlife', gui=False)
+    >>> cm.load_mu
+    """
     config = {
         'tsi': {
             'id_type': 'username',
@@ -57,9 +64,9 @@ class CredentialManager(object):
         if prompt: self.prompt_credentials()
     
     def load(self):
-        # load id/pw from QSettings
+        """load id/pw from QSettings or file in secrets"""
         name = self.name
-        keys = self.config.get('keys', [])
+        keys = self.config.get('keys', ['username', 'password']) # assume user/pw (wont work for eg sentry)
         m = self.load_multi(keys=keys)
 
         if self.gui and any(m.get(x) is None for x in ('id', 'password')):
