@@ -123,3 +123,33 @@ def weekly_dt_exclusions_update(d_rng=None):
         d_rng = (dt(2020,8,7), dt(2020,8,23))
         
     update_dt_exclusions_ma(units=units, rng_dates=d_rng)
+
+def convert_fh_old(p=None):
+
+    if p is None:
+        p = Path('/Users/Jayme/Desktop/downtime_old.csv')
+    
+    m = dict(
+        EqmtID='Unit',
+        StartTimeDT='StartDate',
+        EndDate='EndDate',
+        Duration='Duration',
+        ShiftDate='ShiftDate',
+        Reason='Comment',
+        SMS='SMS',
+        Suncor='Suncor',
+        Origin='Origin'
+        )
+
+    df = pd.read_csv(p, parse_dates=['StartTimeDT']) \
+        .rename(columns=m) \
+        .fillna(dict(SMS=0, Suncor=0)) \
+        .assign(
+            Duration=lambda x: x.SMS + x.Suncor,
+            EndDate=lambda x: (x.StartDate + pd.to_timedelta(x.Duration, unit='h')).round('1s'),
+            ShiftDate=lambda x: x.StartDate.round('1d'),
+            Origin='Staffed') \
+        [list(m.values())] \
+        .drop_duplicates(subset=['Unit', 'StartDate', 'EndDate'])
+
+    return df
