@@ -80,7 +80,7 @@ def _create_engine():
         fast_executemany=True,
         pool_pre_ping=True,
         pool_timeout=5,
-        pool_recycle=3600)
+        pool_recycle=1700)
         # connect_args={'Remote Query Timeout': 5})
 
 def e(func):
