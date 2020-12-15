@@ -197,7 +197,11 @@ def drive_exists(warn=True, timeout=2):
         ip = '172.17.1.163'
         args = f'-n 1 -w {timeout * 1000}'
         cmd = f'ping {args} {ip}'
-        _exists = not subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode
+        _exists = not subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            creationflags=subprocess.CREATE_NO_WINDOW).returncode
     else:
         _exists = f.drive.exists()
 
