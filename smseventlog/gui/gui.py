@@ -560,7 +560,7 @@ class MainWindow(QMainWindow):
         maxdate = query.max_date()
         if maxdate is None: maxdate = dt.now() + delta(days=-731)
 
-        if maxdate < m['d_upper']:
+        if maxdate + delta(days=5) < m['d_upper']:
             # worker will call back and make report when finished
             if not fl.drive_exists(warn=False):
                 msg = 'Can\'t connect to P Drive. Create report without updating records first?'
