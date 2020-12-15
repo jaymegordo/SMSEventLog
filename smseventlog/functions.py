@@ -207,7 +207,29 @@ def bump_version(ver, vertype='patch'):
     
     return '.'.join((str(i) for i in m.values()))
 
-def deltasec(start, end):
+def deltasec(start, end=None):
+    """Return difference from time object formatted as seconds
+
+    Parameters
+    ----------
+    start : time.time
+        start time obj
+    end : time.time, optional
+        end time, by default None
+
+    Returns
+    -------
+    str
+        time formatted as seconds string
+    Examples
+    --------
+    >>> start = time()
+    >>> f.deltasec(start)
+    >>> '00:00:13'
+    """    
+    if end is None:
+        end = time.time()
+
     return str(delta(seconds=end - start)).split('.')[0]
 
 def cursor_to_df(cursor):

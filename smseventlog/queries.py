@@ -1384,6 +1384,7 @@ class AvailSummary(QueryBase):
     def df_summary(self, group_ahs=False, period=None):
         """Group by period and summarise
         - NOTE need to make sure fulll history is loaded to 12 periods back
+        - Always exclude F300 from summary calcs
 
         Parameters
         ----------

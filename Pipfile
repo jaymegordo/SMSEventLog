@@ -10,10 +10,10 @@ sqlacodegen = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
 bump2version = "*"
 pyupdater-s3-plugin = "*"
-black = "*"
+# black = "*" # needs allow_prereleases
 
 [packages]
-pandas = "==1.1.2" # lock to stop updates to io.formats.style.py
+pandas = "*"  # ==1.1.2 lock to stop updates to io.formats.style.py
 pypika = "*"
 pyyaml = "*"
 sqlalchemy = "*"
@@ -25,11 +25,9 @@ exchangelib = "*"
 discord = "*"
 azure-functions = "*"
 openpyxl = "*"
-"hurry.filesize" = "*"
-# pyqt5 = "==5.13.0"
 pyqt5 = "*"
 appscript = {version = "*", sys_platform = "== 'darwin'"}
-pywin32 = {version = "*", sys_platform = "== 'win32'"}
+# pywin32 = {version = "*", sys_platform = "== 'win32'"}
 plotly = "*"
 seaborn = "*"
 matplotlib = "*"
@@ -39,16 +37,17 @@ weasyprint = "*" # ==51
 jinja2 = "*"
 cairosvg = "==2.4.2"
 sentry-sdk = "*"
-pyinstaller = "*"
+pyinstaller = {ref = "master", git = "https://github.com/pyinstaller/pyinstaller.git"}
 pycparser = "==2.14"
 kaleido = "*"
-chromedriver-autoinstaller = {git = "https://github.com/jaymegordo/python-chromedriver-autoinstaller.git", ref = "master"}
-onedrivesdk = {git = "https://github.com/OneDrive/onedrive-sdk-python.git", ref = "master"}
-onedrivesdk-fork = "*"
+chromedriver-autoinstaller = {ref = "master", git = "https://github.com/jaymegordo/python-chromedriver-autoinstaller.git"}
+# onedrivesdk = {git = "https://github.com/OneDrive/onedrive-sdk-python.git", ref = "master"}
+# onedrivesdk-fork = "*"
 pypandoc = "*"
+psutil = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3.9"
 
 [pipenv]
-allow_prereleases = true
+allow_prereleases = false
