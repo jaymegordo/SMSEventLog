@@ -5,6 +5,9 @@ import requests
 
 from ..queries import OilReportSpindle, OilSamples
 from .__init__ import *
+from smseventlog.utils.credentials import CredentialManager
+
+log = getlog(__name__)
 
 # NOTE eventually drop records > 1yr old from db
 
@@ -13,17 +16,25 @@ class OilSamples():
         _samples = []
 
         if login is None:
-            login = dict(username='jgordon', password='8\'Bigmonkeys')
+            login = CredentialManager(name='fluidlife', gui=False).static_creds
 
         f.set_self(vars())
 
-    def load_samples_fluidlife(self, d_lower):
-        # load samples from fluidlife api, save to self._samples as list of dicts
+    def load_samples_fluidlife(self, d_lower, d_upper=None):
+        """Load samples from fluidlife api, save to self._samples as list of dicts"""
         l = self.login
-        startdate = d_lower.strftime('%Y-%m-%d-%H:%M:%S')
+        def _format_date(d):
+            return d.strftime('%Y-%m-%d-%H:%M:%S')
         
-        url = 'https://mylab2.fluidlife.com/mylab/api/history/jsonExport?username={}&password={}&startDateTime={}'.format(l['username'], l['password'], startdate)
+        url = 'https://mylab2.fluidlife.com/mylab/api/history/jsonExport?username={}&password={}&startDateTime={}'.format(
+            l['username'],
+            l['password'],
+            _format_date(d_lower))
 
+        if not d_upper is None:
+            url = f'{url}&endDateTime={_format_date(d_upper)}'
+
+        print(url)
         start = timer()
         self._samples = requests.get(url).json()['historyList']
         print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
@@ -51,15 +62,15 @@ class OilSamples():
     
     def df_samples(self, recent=False, flatten=False):
         # only used to upload to db, otherwise use query.OilSamples()
-        cols = ['labTrackingNo', 'unitId', 'componentId', 'componentLocation', 'componentType', 'sampleDate', 'processDate', 'meterReading', 'componentService', 'oilChanged', 'sampleRank', 'results', 'recommendations', 'comments', 'testResults']
+        cols = ['histNo', 'unitId', 'componentId', 'componentLocation', 'componentType', 'sampleDate', 'processDate', 'meterReading', 'componentService', 'oilChanged', 'sampleRank', 'results', 'recommendations', 'comments', 'testResults']
 
         # query lab == lab to drop None keys, (None != itself)
+        # .query('histNo == histNo') \ # removes null/duplicates or something?
         df = pd.DataFrame.from_dict(self.samples)[cols] \
-            .query('labTrackingNo == labTrackingNo') \
-            .set_index('labTrackingNo') \
+            .set_index('histNo') \
             .pipe(f.parse_datecols) \
             .pipe(self.most_recent_samples, do=recent) \
-            .pipe(self.flatten_test_results, do=flatten)
+            .pipe(flatten_test_results, do=flatten)
 
         # remove suncor's leading 0s
         m = {'^F0': 'F', '^03': '3', '^02': '2'}
@@ -68,7 +79,7 @@ class OilSamples():
         # return only units which exist in the database
         df = df[df.unitId.isin(db.unique_units())]
         
-        df.index = df.index.str.replace(' ', '')
+        # df.index = df.index.str.replace(' ', '')
         
         return df
     
@@ -78,7 +89,7 @@ class OilSamples():
         df.testResults = df.testResults.apply(json.dumps) # testResults is list of dicts, need to serialize
 
         return db.import_df(
-            df=df, imptable='OilSamplesImport', impfunc='ImportOilSamples', notification=True, index=True, prnt=True)
+            df=df, imptable='OilSamplesImport', impfunc='ImportOilSamples', notification=True, index=True, prnt=True, chunksize=5000)
        
     def most_recent_samples(self, df, do=True):
         if not do: return df
@@ -90,7 +101,7 @@ class OilSamples():
             .groupby(['unitId', 'componentId', 'componentLocation']) \
             .first() \
             .reset_index() \
-            .set_index('labTrackingNo')
+            .set_index('histNo')
 
     def flagged_samples(self, fields=None, recent=False):
         # return flagged samples, either all or only most recent
@@ -149,7 +160,7 @@ def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
 
     for result_col in result_cols:
         df3 = pd.concat(dfs_m[result_col]) \
-            .rename_axis('labTrackingNo', axis='index') \
+            .rename_axis('histNo', axis='index') \
             .pipe(rename_cols) \
             .add_suffix(suff[result_col])
         
@@ -157,7 +168,7 @@ def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
         if not keep_cols is None:
             df3 = df3[[col for col in df3.columns if any(col2 in col for col2 in keep_cols)]]
 
-        df = df.merge(df3, on='labTrackingNo')
+        df = df.merge(df3, on='histNo')
 
     # sort flattened cols, (excluding base_cols) so testResult is beside testFlag
     all_cols = df.columns.to_list()
