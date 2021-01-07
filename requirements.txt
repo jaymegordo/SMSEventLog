@@ -19,7 +19,7 @@ helpdev==0.6.10
 idna==2.9
 importlib-metadata==1.5.0
 isodate==0.6.0
-lxml==4.5.0
+lxml==4.6.2
 multidict==4.7.5
 ntlm-auth==1.4.0
 numpy==1.18.2
