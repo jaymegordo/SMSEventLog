@@ -844,6 +844,12 @@ class TSIUserName(PasswordPrompt):
 
         super().__init__(prompt=prompt)
 
+class SMSUserName(PasswordPrompt):
+    def __init__(self):
+        prompt = 'Please enter your SMS username (email) and password'
+
+        super().__init__(prompt=prompt)
+
 class ExchangeLogin(PasswordPrompt):
     def __init__(self, parent=None):
         prompt = 'Please enter your Exchange email and password'
