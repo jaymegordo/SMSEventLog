@@ -2,9 +2,13 @@ from ..queries import FrameCracks
 from .__init__ import *
 
 """
+    Instructions to process/merge SMS and Suncor frame crack data, to be completed monthly for FleetMonthlyReport
+
     1. Load frame cracks from sap (load_framecracks.vbs) + save to /onedrive/desktop/import/frame cracks/Frame Cracks.xlsx
     2. Make sure SMS data has been categorized front, mid, rear from eventlog
     3. run pre_process_framecracks (copies merged data to clipboard)
+        >>> from smseventlog.data import framecracks as frm
+        >>> df = frm.pre_process_framecracks()
     4. paste data back to working xlsx file and remove duplicates/split rows as needed
     5. Paste WO numbers back into EventLog to merge properly in future
     6. Once categorization complete, reset vals in _merge column to 'old'
@@ -33,18 +37,17 @@ def load_df_sun():
     # load new suncor data from sap, save to this location
     p = Path('/Users/Jayme/OneDrive/Desktop/Import/Frame Cracks/Frame Cracks.xlsx')
     df = pd \
-        .read_excel(p, parse_dates=['Created on']) \
+        .read_excel(p, parse_dates=['Created on'], engine='openpyxl') \
         .pipe(format_int, cols=('Order', 'Notification'))
     df['Unit'] = df['Functional Loc.'].str.split('-').str[0].str.replace('F0', 'F')
 
     return df
 
-
 def load_df_old():
     # load processed + combined history
     p = f.resources / 'csv/FH Frame Cracks History.xlsx'
     df = pd \
-        .read_excel(p) \
+        .read_excel(p, engine='openpyxl') \
         .pipe(format_int, cols=('Order', 'Notification', 'SMR'))
 
     df['_merge'] = 'old'
