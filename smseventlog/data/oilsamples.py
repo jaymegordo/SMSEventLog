@@ -11,6 +11,17 @@ log = getlog(__name__)
 
 # NOTE eventually drop records > 1yr old from db
 
+# convert fluidlife customerName to MineSite
+m_customer = dict(
+    FortHills='SUNCOR FORT HILLS ENERGY - MINE MOBILE',
+    BaseMine=['SUNCOR - STEEPBANK HAUL TRUCKS', 'N.A.C.G. (SUNCOR)'],
+    ConumaCoal='CONUMA COAL - WOLVERINE MINE',
+    GahchoKue=['DE BEERS CANADA - GAHCHO KUE PRIMARY', "DE BEERS CANADA - GAHCHO KUE PRIMARY'"],
+    Elkford='TECK COAL LTD. (ELKVIEW TRUCKS)',
+    FordingRiver='TECK COAL LTD. (ELKVIEW TRUCKS)',
+    GreenHills='TECK COAL LTD. (GREENHILLS)'
+)
+
 class OilSamples():
     def __init__(self, fltr=None, login=None):
         _samples = []
@@ -20,7 +31,7 @@ class OilSamples():
 
         f.set_self(vars())
 
-    def load_samples_fluidlife(self, d_lower, d_upper=None):
+    def load_samples_fluidlife(self, d_lower, params=None):
         """Load samples from fluidlife api, save to self._samples as list of dicts"""
         l = self.login
         def _format_date(d):
@@ -31,10 +42,18 @@ class OilSamples():
             l['password'],
             _format_date(d_lower))
 
-        if not d_upper is None:
-            url = f'{url}&endDateTime={_format_date(d_upper)}'
+        for k, v in params.items() or {}:
+            if isinstance(v, dt): v = _format_date(v)
+
+            # convert MineSite to Fluidlife customerName
+            if v in m_customer.keys():
+                v = m_customer[v]
+                if isinstance(v, list): v = v[0]
+
+            url = f'{url}&{k}={v}'
 
         print(url)
+        # return url
         start = timer()
         self._samples = requests.get(url).json()['historyList']
         print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
@@ -62,7 +81,7 @@ class OilSamples():
     
     def df_samples(self, recent=False, flatten=False):
         # only used to upload to db, otherwise use query.OilSamples()
-        cols = ['histNo', 'unitId', 'componentId', 'componentLocation', 'componentType', 'sampleDate', 'processDate', 'meterReading', 'componentService', 'oilChanged', 'sampleRank', 'results', 'recommendations', 'comments', 'testResults']
+        cols = ['histNo', 'customerName', 'unitId', 'componentId', 'componentType', 'sampleDate', 'processDate', 'meterReading', 'componentService', 'oilChanged', 'sampleRank', 'results', 'recommendations', 'comments', 'testResults']
 
         # query lab == lab to drop None keys, (None != itself)
         # .query('histNo == histNo') \ # removes null/duplicates or something?
