@@ -1,5 +1,6 @@
 import functools
 import traceback
+from PyQt5.QtCore import QGenericReturnArgument
 
 import chromedriver_autoinstaller as cdi # checks and auto updates chromedriver version
 from selenium import webdriver
@@ -7,6 +8,7 @@ from selenium.common.exceptions import (InvalidArgumentException,
                                         NoSuchElementException,
                                         NoSuchWindowException,
                                         WebDriverException)
+from selenium.webdriver.common import keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -18,6 +20,10 @@ from .credentials import CredentialManager
 
 log = getlog(__name__)
 
+# make chrome not show console on windows
+# https://stackoverflow.com/questions/33983860/hide-chromedriver-console-in-python
+# https://www.zacoding.com/en/post/python-selenium-hide-console/
+
 # find_element_by_class_name',
 # 'find_element_by_css_selector',
 # 'find_element_by_id',
@@ -28,6 +34,24 @@ log = getlog(__name__)
 # 'find_element_by_xpath',
 
 # %config Completer.use_jedi = False # prevent vscode python interactive from calling @property when using intellisense
+
+def any_of(*expected_conditions):
+    """
+    NOTE this is from selenium 3.141.59 which isn't on pypi yet. Putting the func here works fine
+
+    An expectation that any of multiple expected conditions is true.
+    Equivalent to a logical 'OR'.
+    Returns results of the first matching condition, or False if none do. """
+    def any_of_condition(driver):
+        for expected_condition in expected_conditions:
+            try:
+                result = expected_condition(driver)
+                if result:
+                    return result
+            except WebDriverException:
+                pass
+        return False
+    return any_of_condition
 
 def tsi_form_vals():
     from . import dbtransaction as dbt
@@ -56,7 +80,7 @@ def tsi_form_vals():
     return field_vals
 
 class Web(object):
-    def __init__(self, table_widget=None, mw=None, _driver=None, headless=False, **kw):
+    def __init__(self, table_widget=None, mw=None, _driver=None, headless=False, use_user_settings=True, download_dir=None, **kw):
         pages = {}
         if not table_widget is None: mw = table_widget.mainwindow
 
@@ -95,13 +119,15 @@ class Web(object):
         # user-data-dir specifices the location of default chrome profile, to create browser with user's extensions, settings, etc
         options = webdriver.ChromeOptions()
 
-        if f.is_mac():
-            ext = 'Library/Application Support/Google/Chrome'
-        elif f.is_win():
-            ext = 'AppData/Local/Google/Chrome/User Data'
+        if self.use_user_settings:
+            if f.is_mac():
+                ext = 'Library/Application Support/Google/Chrome'
+            else:
+                ext = 'AppData/Local/Google/Chrome/User Data'
 
-        chrome_profile = Path.home() / ext
-        options.add_argument(f'user-data-dir={chrome_profile}')
+            chrome_profile = Path.home() / ext
+            options.add_argument(f'user-data-dir={chrome_profile}')
+
         if self.headless:
             # options.headless = True
             options.add_argument('--headless')
@@ -112,10 +138,19 @@ class Web(object):
 
         # options.add_argument('--profile-directory=Default')
         
-        prefs = {'profile.default_content_settings.popups': 0,
-                'download.prompt_for_download': False,
-                'download.default_directory': str(Path.home() / 'Downloads'),
-                'directory_upgrade': True}
+        # chrome://settings/content/pdfDocuments
+        # cant use user settings with custom settings!!!!
+        download_dir = self.__dict__.get('download_dir', Path.home() / 'Downloads')
+        prefs = {
+            # 'profile.default_content_settings.popups': 0,
+            'plugins.always_open_pdf_externally': True,
+            # 'plugins.plugins_disabled': ['Chrome PDF Viewer'],
+            # "plugins.plugins_list": [{"enabled": False, "name": "Chrome PDF Viewer"}],
+            # 'download.extensions_to_open': 'applications/pdf',
+            'download.prompt_for_download': False,
+            'download.default_directory': str(download_dir),
+            'download.directory_upgrade': True}
+
         options.add_experimental_option('prefs', prefs)
 
         # disables the 'loading of internal extensions disabled by admin' warning, but stops window resizing
@@ -139,8 +174,17 @@ class Web(object):
                 log.info(f'installing chromedriver: {p_exe}')
                 cdi.install(p_install=f.p_ext / 'chromedriver')
 
-            # kw = dict(executable_path=p_exe) if SYS_FROZEN else {}
-            return webdriver.Chrome(options=options, executable_path=p_exe)
+            kw = dict(executable_path=p_exe)
+            if f.is_win():
+                from selenium.webdriver.chrome.service import Service
+                from subprocess import CREATE_NO_WINDOW
+
+                service = Service(p_exe)
+                service.creationflags = CREATE_NO_WINDOW
+                kw['service'] = service
+                kw['executable_path'] = None
+
+            return webdriver.Chrome(options=options, **kw)
 
         if browser == 'Chrome':
             options = self.get_options()
@@ -222,13 +266,18 @@ class Web(object):
                 log.warning(msg)
             raise
 
-    def set_val(self, element, val, disable_check=False, send_enter=False):
+    def set_val(self, element, val, disable_check=False, send_enter=False, send_keys=False, **kw):
         driver = self.driver
         val = str(val).replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
+            
         try:
-            driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
+            if send_keys:
+                element.send_keys(val)
+            else:
+                driver.execute_script("document.getElementById('{}').value='{}'".format(element.get_attribute('id'), val))
 
-            if send_enter: element.send_keys(Keys.ENTER) # date fields need an ENTER to set val properly
+            if send_enter:
+                element.send_keys(Keys.ENTER) # date fields need an ENTER to set val properly
 
         except:
             log.warning(f'couldn\'t set value: {val}')
@@ -240,6 +289,24 @@ class Web(object):
         driver.set_window_position(0, 0)
         driver.maximize_window()
     
+    def open_url_new_tab(self, url, switch=False):
+        # Open a new window
+        driver = self.driver
+        driver.execute_script("window.open('');")
+        # Switch to the new window and open URL B
+
+        
+        driver.switch_to.window(driver.window_handles[1])
+        driver.get(url)
+
+        # …Do something here
+        # print("Current Page Title is : %s" %browser.title)
+        # Close the tab with URL B
+        # browser.close()
+        # Switch back to the first tab with URL A
+        driver.switch_to.window(driver.window_handles[0])
+        # print("Current Page Title is : %s" %browser.title)
+
     def current_page_name(self):
         # convert current url to nice page name
         pages_lookup = f.inverse(self.pages)
@@ -265,7 +332,7 @@ class Web(object):
 
         if not isinstance(vals, dict):
             # convert list of identifiers to click to dict
-            items = {key: by for key in vals}
+            vals = {key: by for key in vals}
 
         for key, val in vals.items():
             if not isinstance(val, dict):
@@ -282,7 +349,13 @@ class Web(object):
             element = self.wait(wait, EC.element_to_be_clickable((by, key)))
             self.java_click(element)
     
-    def fill_multi(self, vals, wait=20, by=None, inv=False):
+    def fill_multi(self, vals, wait=20, by=None, inv=False, **kw):
+        """Fill multiple fields by key:value + selector
+        
+        Returns
+        ------
+        list : of elements found for further selecting if necessary
+        """
         if by is None:
             by = By.XPATH
         
@@ -290,9 +363,13 @@ class Web(object):
         if inv:
             vals = {v: k for k, v in vals.items()}
 
+        elements = []
         for key, val in vals.items():
             element = self.wait(wait, EC.presence_of_element_located((by, key)))
-            self.set_val(element, val)
+            elements.append(element)
+            self.set_val(element, val, **kw)
+        
+        return elements
 
 
 class SuncorConnect(Web):
@@ -426,26 +503,125 @@ class SuncorWorkRemote(Web):
         }
         self.click_multi(vals=btns)
 
-class TSIWebPage(Web):
+class Komatsu(Web):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+        username, password = CredentialManager('tsi').load()
+        username_sms, password_sms = CredentialManager('sms').load() # need sms pw for new system
+
+        if username is None or username_sms is None:
+            from ..gui import dialogs as dlgs
+            msg = 'Can\'t get TSI uesrname or password!'
+            dlgs.msg_simple(msg=msg, icon='critical')
+            is_init = False
+
+        self.pages.update({
+            'login': 'https://www.komatsuamerica.net/',})
+
+        f.set_self(vars())
+
+    def login_ka(self):
+        """Login to main page (default to ka homepage, subclasses will overwrite)"""
+        driver = self.driver
+        driver.get(self.pages['login'])
+
+        self.fill_multi(vals=dict(
+            txtUserID=self.username,
+            Password=self.password), by=By.ID, disable_check=True)
+
+        driver.find_element_by_id('btnSubmit').submit()
+
+class PSNDownload(Komatsu):
+    def __init__(self, days=14, use_user_settings=False, **kw):
+        download_dir = f.drive / 'Regional/SMS West Mining/PSN/PSNs'
+
+        super().__init__(use_user_settings=use_user_settings, download_dir=download_dir, **kw)
+
+        startdate = (dt.now() + delta(days=days * -1)).strftime('%m/%d/%Y')
+
+        self.pages.update({
+            'login': 'https://www.komatsuamerica.net/northamerica/service/css/csslookup/psnlookup.aspx#',})
+
+        f.set_self(vars())
+
+    def search_psns(self):
+        """Fill psn search page and load table of psns"""
+        self.fill_multi(
+            by=By.ID,
+            vals=dict(tbIssueDate=self.startdate))
+
+        # deselect All, select PSN/FN
+        self.click_multi(
+            by=By.ID,
+            vals=['chkCategory_0', 'chkCategory_4', 'btnSearch'])
+    
+    def df_all_psns(self):
+        """Loop all tables and concat dfs"""
+        element = self.wait(10, EC.presence_of_element_located((By.CSS_SELECTOR, '#dgMain > tbody > tr.data')))
+        pages = element.text.split(' ')
+        dfs = []
+
+        for page_num in pages:
+
+            # first page is already selected
+            if not page_num == '1':
+                css = f'#dgMain > tbody > tr.data > td > a:nth-child({page_num})'
+                element = self.driver.find_element_by_css_selector(css)
+                element.click()
+            
+            dfs.append(self.df_psns())
+
+        # TODO parse models list with json.dumps/loads
+        return pd.concat(dfs)
+
+    def df_psns(self):
+        """Get df of psns info from table"""
+
+        element = self.driver.find_element_by_css_selector('#dgMain')
+        df = pd.read_html(
+                io=element.get_attribute('outerHTML'),
+                header=0)[0] \
+            .iloc[:-1, :6] \
+            .pipe(f.lower_cols) \
+            .pipe(f.parse_datecols) \
+            .rename(columns=dict(reference_number='psn'))
+
+        return df
+
+    def download_all_psns(self, df=None):
+        if df is None:
+            df = self.df_all_psns()
+        self.df = df
+
+        psns = df.psn.unique().tolist()
+
+        # TODO need to compare psns with existing/already downloaded
+
+        for psn in psns:
+            p = self.download_dir / f'{psn}.pdf'
+            if not p.exists():
+                print('downloading psn: ', psn)
+                # self.download_psn(psn)
+            else:
+                print('not downloading psn: ', psn)
+
+        return psns
+
+    def download_psn(self, psn):
+        # url = f'https://www.komatsuamerica.net/northamerica/service/css/csslookup/viewpsn.aspx?psn={psn}.pdf'
+        url = f'https://www.komatsuamerica.net/cssdocs/epsn/{psn}.pdf'
+        # self.open_url_new_tab(url=url)
+        self.driver.get(url)
+        
+
+class TSIWebPage(Komatsu):
     def __init__(self, field_vals={}, serial=None, model=None, table_widget=None, uid=None, docs=None, **kw):
         super().__init__(table_widget=table_widget, **kw)
         tsi_number = None
         is_init = True
         uploaded_docs = 0
         # serial, model = 'A40029', '980E-4'
-
-        # try loading username + pw from QSettings if running in app
-        if not table_widget is None:
-            username, password = CredentialManager('tsi').load()
-
-            if username is None:
-                from ..gui import dialogs as dlgs
-                msg = 'Can\'t get TSI uesrname or password!'
-                dlgs.msg_simple(msg=msg, icon='critical')
-                is_init = False
-
-        else: # get from command line
-            username, password = input('Username:'), input('Password:')
 
         form_vals_default = {
             'Failed Part Qty': 1,
@@ -609,19 +785,56 @@ class TSIWebPage(Web):
 
         def login():
             # these elements exist on same url, harder to separate
-            self.new_browser()
-            driver.get(self.pages['login'])
-
-            element = driver.find_element_by_id('txtUserID')
-            self.set_val(element, self.username)
-            
-            element = driver.find_element_by_id('Password')
-            self.set_val(element, self.password, disable_check=True)
-
-            driver.find_element_by_id('btnSubmit').submit()
+            self.login_ka()
 
             element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'Go to (SQIS)TSR Portal')))
             element.send_keys(Keys.ENTER)
+
+            # this could either be login dialog ('Pick an account' OR 'sign in') OR straight to TSI homepage
+            # need to check which dialog (by title) then either fill, or select from list
+            # sign in\ncan’t access your account?\nsign-in options
+
+            element = wait(20, any_of(
+                EC.presence_of_element_located((By.ID, 'lightbox')),
+                EC.presence_of_element_located((By.LINK_TEXT, 'MACHINE QUALITY INFORMATION')),
+            ))
+            
+            if 'machine' in element.text.lower():
+                # already logged in
+                print('alread logged in')
+                return
+
+            element = wait(20, EC.text_to_be_present_in_element((By.ID, 'lightbox'), 'account'))
+            element = wait(20, EC.presence_of_element_located((By.ID, 'lightbox')))
+
+            if 'pick an account' in element.text.lower():
+                # acccount already saved, select it
+                self.click_multi(vals=[f'//*[text() = "{self.username_sms}"]'], by=By.XPATH)
+            else:
+                # account not saved, fill it in
+                self.fill_multi(vals=dict(i0116=self.username_sms), by=By.ID, send_keys=True)
+                self.click_multi(vals=['idSIButton9'], by=By.ID) # submit button
+
+            self.fill_multi(vals=dict(
+                userNameInput=self.username_sms,
+                passwordInput=self.password_sms), by=By.ID)
+            self.click_multi(vals=['submitButton'], by=By.ID)
+
+            # WAIT for authenticator/other sign in here
+
+            # Stay signed in dialog / dontshowagain checkbox
+            try:
+                log.info('Waiting 60s for staySignedIn dialog')
+                element = self.wait(60, EC.element_to_be_clickable((By.ID, 'KmsiCheckboxField')))
+                if not element.is_selected():
+                    element.click()
+
+                self.click_multi(vals=['idSIButton9'], by=By.ID)
+            except:
+                log.info('No "stay signed in" dialog.')
+                pass
+
+
             
         def home():            
             element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'MACHINE QUALITY INFORMATION')))
