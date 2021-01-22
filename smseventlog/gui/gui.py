@@ -324,6 +324,7 @@ class MainWindow(QMainWindow):
         help_.addSeparator()
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_creds)
+        help_.addAction(self.act_sms_creds)
         help_.addAction(self.act_exchange_creds)
         help_.addAction(self.act_sap_creds)
 
@@ -346,6 +347,8 @@ class MainWindow(QMainWindow):
         act_username = QAction('Reset Username', self, triggered=self.set_username)
         act_tsi_creds = QAction('Reset TSI Credentials', self,
             triggered=lambda: CredentialManager('tsi').prompt_credentials())
+        act_sms_creds = QAction('Reset SMS Credentials', self,
+            triggered=lambda: CredentialManager('sms').prompt_credentials())
         act_exchange_creds = QAction('Reset Exchange Credentials', self,
             triggered=lambda: CredentialManager('exchange').prompt_credentials())
         act_sap_creds = QAction('Reset SAP Credentials', self,
