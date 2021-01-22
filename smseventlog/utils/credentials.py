@@ -19,6 +19,9 @@ class CredentialManager(object):
         'tsi': {
             'id_type': 'username',
             'keys': ['id', 'password']},
+        'sms': {
+            'id_type': 'username',
+            'keys': ['id', 'password']},
         'exchange': {
             'id_type': 'email',
             'keys': ['id', 'password']},
@@ -40,6 +43,8 @@ class CredentialManager(object):
             config_gui = {
                 'tsi': {
                     'prompt': dlgs.TSIUserName},
+                'sms': {
+                    'prompt': dlgs.SMSUserName},
                 'exchange': {
                     'prompt': dlgs.ExchangeLogin},
                 'sap': {
