@@ -232,3 +232,5 @@ There are several extra functions in the menubar, such as:
         * Publish to azure `func azure functionapp publish smseventlog-app --build-native-deps`
         * Test locally `func host start` (must be run in active pipenv shell)
         * Manually trigger timer function `curl --request POST -H "Content-Type:application/json" --data '{"input":""}' http://localhost:7071/admin/functions/az_TimerImportSMR`
+        * check subscriptions `az account list --output table`
+        * change subscription `az account set --subscription Jayme_Personal_Subscription`
