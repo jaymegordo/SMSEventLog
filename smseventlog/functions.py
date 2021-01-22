@@ -477,7 +477,8 @@ def convert_stylemap_index_color(style):
 
     return m_background, m_text
 
-
+def lower_cols(df):
+    return df.pipe(lambda df: df.rename(columns={col: re.sub('[()]', '', col).replace(' ', '_').lower() for col in df.columns}))
 
 # simple obfuscation for db connection string
 def encode(key, string):
