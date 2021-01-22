@@ -15,6 +15,8 @@ from .utils import dbmodel as dbm
 
 log = getlog(__name__)
 
+week_letter = 'W'
+
 """
 - Queries control how data is queried/filtered from database.
 - Can be consumed by tables/views, reports, etc
@@ -1195,14 +1197,16 @@ class AvailSummary(QueryBase):
             'F300 SMR Operated': '{:,.0f}',
             'Variance F300': '{:,.0f}'})
 
-        if not period_name is None:
-            m = dict(month=df_months, week=df_weeks)
-            d_rng = tuple(m[period]().loc[period_name][['StartDate', 'EndDate']])
+        # if not period_name is None:
+        #     m = dict(month=df_months, week=df_weeks)
+        #     d_rng = tuple(m[period]().loc[period_name][['StartDate', 'EndDate']])
 
         if period == 'week':
-            fmt = '%Y-%U-%w'
+            # fmt = f'%Y-%{week_letter}-%w'
+            fmt = f'%G-%V-%w'
             freq = 'W'
-            fmt_str = 'Week %U'
+            # fmt_str = f'Week %{week_letter}'
+            fmt_str = f'Week %V'
         else:
             fmt = '%Y-%m'
             freq = 'M'
@@ -1310,7 +1314,7 @@ class AvailSummary(QueryBase):
         df[numeric_cols] = df[numeric_cols].fillna(0)
         
         # age: add 1 month age to units delivered in first half of the month (<= 15 days)
-
+        
         return df \
             .assign(
                 period=lambda x: pd.to_datetime(x.period, format=self.fmt).dt.to_period(self.freq),
@@ -2083,7 +2087,37 @@ class UnitSMRMonthly(QueryBase):
     def style_f300(self, style):
         return style \
             .pipe(st.highlight_totals_row, n_cols=2)
+
+class UnitSMRReport(QueryBase):
+    """Return Unit SMR on first day of current and next month to calc usage in month"""
+    def __init__(self, d : dt, minesite='FortHills', **kw):
+        super().__init__(**kw)
+        a, b = pk.Tables('UnitID', 'UnitSMR')
+
+        d_lower = dt(d.year, d.month, 1)
+        dates = (d_lower, d_lower + relativedelta(months=1)) # (2020-12-01, 2021-01-01)
+
+        cols = [a.Unit, b.DateSMR, b.SMR]
+
+        q = Query.from_(a).select(*cols) \
+            .left_join(b).on_field('Unit') \
+            .where((a.MineSite==minesite) & (b.DateSMR.isin(dates) & (a.ExcludeMA.isnull())))
+
+        f.set_self(vars())
     
+    def process_df(self, df):
+        """Pivot dates for first of months, then merge unit delivery date/serial from db"""
+        df = df \
+            .assign(DateSMR=lambda x: x.DateSMR.dt.strftime('%Y-%m-%d')) \
+            .pivot(index='Unit', columns='DateSMR', values='SMR') \
+            .rename_axis('Unit', axis=1) \
+            .assign(Difference=lambda x: x.iloc[:, 1] - x.iloc[:, 0]) \
+       
+        return db.get_df_unit(minesite=self.minesite) \
+            .set_index('Unit') \
+            [['Serial', 'DeliveryDate']] \
+            .merge(right=df, how='right', on='Unit') \
+            .reset_index()            
 
 def table_with_args(table, args):
     def fmt(arg):
@@ -2129,15 +2163,17 @@ def df_period(freq, n=0, ytd=False):
     d_lower = d_upper + delta(days=-365)
     idx = pd.date_range(d_lower, d_upper, freq=freq).to_period()
 
+    # fmt_week = f'%Y-%{week_letter}'
+    fmt_week = '%G-%V'
     m = dict(
-        W=dict(fmt_str='%Y-%U'),
+        W=dict(fmt_str=fmt_week),
         M=dict(fmt_str='%Y-%m')) \
         .get(freq)
     
     def _rename_week(df, do=False):
         if not do: return df
         return df \
-            .assign(name=lambda x: x.period.dt.strftime('Week %U'))
+            .assign(name=lambda x: x.period.dt.strftime(f'Week %{week_letter}'))
     
     def _filter_ytd(df, do=ytd):
         if not do: return df
