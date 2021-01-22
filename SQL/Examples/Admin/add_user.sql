@@ -1,0 +1,1 @@
+CREATE USER [mgadsby@smsequip.com] FROM EXTERNAL PROVIDER;
