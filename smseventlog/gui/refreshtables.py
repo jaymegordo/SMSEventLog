@@ -176,7 +176,7 @@ class RefreshTable(InputForm):
 class EventLogBase(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.col_db_startdate, self.col_db_enddate = 'DateAdded', 'DateCompleted'
+        self.col_db_startdate, self.col_db_enddate = 'DateAdded', 'DateAdded'
 
         features = ['last month', 'last week', 'all open', 'minesite', 'unit', 'model', 'title', 'work order', 'start date', 'end date']
         self.add_features(features=features)
@@ -269,15 +269,15 @@ class Availability(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         col_db_startdate, col_db_enddate = 'StartDate', 'EndDate'
-        
-        df_week = qr.df_weeks()
-        df_month = qr.df_months()
 
-        d = dt.now().date() + delta(days=-6)
-        default_week = df_week[df_week.StartDate < d].iloc[-1, :].name #index name
+        df_week = qr.df_period(freq='week')
+        df_month = qr.df_period(freq='month')
+
+        d = dt.now() + delta(days=-6)
+        default_week = df_week[df_week.start_date < d].iloc[-1, :].name #index name
 
         d = dt.now() + delta(days=-30)
-        default_month = df_month[df_month.StartDate < d].iloc[-1, :].name #index name
+        default_month = df_month[df_month.start_date < d].iloc[-1, :].name #index name
 
         f.set_self(vars())
 
