@@ -211,7 +211,7 @@ def chart_avail_rolling(df, period_type='month', title=None):
         fmt_str = '%Y-%m'
         freq = 'M'
     else: # doesnt work not rly needed
-        fmt_str = 'Week %U'
+        fmt_str = 'Week %V'
         freq = 'W'
 
     if not isinstance(df.dtypes['Period'], pd.PeriodDtype) and period_type == 'month':
