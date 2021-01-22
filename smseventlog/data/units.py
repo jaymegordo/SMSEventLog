@@ -77,7 +77,7 @@ def import_unit_hrs(p=None):
     # TODO: could ask to delete file after import?
 
 def read_unit_hrs(p):
-    df = pd.read_excel(p)
+    df = pd.read_excel(p, engine='openpyxl')
     columns = cols.append('Description')
     df.columns = columns
 
@@ -87,38 +87,7 @@ def read_unit_hrs(p):
     df.drop(columns='Description', inplace=True)
 
     return df
-        
-def df_unit_hrs_monthly(month):
-    # return df pivot of unit hrs on specific dates for caculating monthly SMR usage
-    minesite = 'FortHills'
-
-    # convert month (int) to first day of month and next month
-    dtlower = dt(dt.now().year, month, 1)
-    dates = []
-    dates.append(dtlower)
-    dates.append(dtlower + relativedelta(months=1))
-
-    a, b = pk.Tables('UnitID', 'UnitSMR')
-    
-    cols = [a.Unit, b.DateSMR, b.SMR]
-
-    q = Query.from_(a).select(*cols) \
-        .left_join(b).on_field('Unit') \
-        .where((a.MineSite==minesite) & (b.DateSMR.isin(dates) & (a.ExcludeMA.isnull())))
-    
-    df = pd.read_sql(sql=q.get_sql(), con=db.engine)
-
-    # Pivot df to dates as columns
-    df = df.pivot(index='Unit', columns='DateSMR', values='SMR')
-    df['Difference'] = df.iloc[:, 1] - df.iloc[:, 0]
-    df.rename_axis('Unit', inplace=True, axis=1) # have to rename 'DateSMR' index to Unit
-
-    # Merge Serial, DeliveryDate from unit info
-    dfu = db.get_df_unit(minesite=minesite).set_index('Unit')[['Serial', 'DeliveryDate']]
-    df = dfu.merge(right=df, how='right', on='Unit')
-    df.reset_index(inplace=True)
-
-    return df
+       
 
 def update_comp_smr():
     from ..gui import dialogs as dlgs
