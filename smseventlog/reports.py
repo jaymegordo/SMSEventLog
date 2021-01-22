@@ -36,8 +36,16 @@ class Report(object):
         # make sure everything is date not datetime
         if isinstance(d_rng[0], dt):
             d_rng = (d_rng[0].date(), d_rng[1].date())
-            
-        d_rng_ytd = (dt(dt.now().year, 1, 1).date(), d_rng[1])
+        
+        # don't use current ytd until first monthly report end of jan
+        cur_year = dt.now().year
+        d = dt(cur_year, 1, 1)
+        d_end_jan = qr.first_last_month(d)[1].date()
+        
+        if d_rng[1] < d_end_jan:
+            d_rng_ytd = (dt(cur_year - 1, 1, 1), dt(cur_year - 1, 12, 31))
+        else:
+            d_rng_ytd = (dt(cur_year, 1, 1).date(), d_rng[1])
 
         include_items = dict(
             title_page=False,
@@ -748,21 +756,20 @@ class FrameCracks(Section):
 class UnitSMR(Section):
     def __init__(self, report, **kw):
         super().__init__(title='SMR Hours', report=report)
-
+        d_rng = report.d_rng
         query_f300 = qr.UnitSMRMonthly(unit='F300')
 
-        d = report.d_rng[0]
+        d = d_rng[0]
         month = d.month
         sec = SubSection('SMR Hours Operated', self) \
             .add_df(
-                func=un.df_unit_hrs_monthly,
-                da=dict(month=month),
+                query=qr.UnitSMRReport(d=d),
                 caption='SMR hours operated during the report period.')
         
         sec = SubSection('F300 SMR Hours Operated', self) \
             .add_df(
                 func=query_f300.df_monthly,
-                da=dict(max_period='2020-11', n_periods=12, totals=True),
+                da=dict(max_period=d_rng[1].strftime('%Y-%m'), n_periods=12, totals=True),
                 caption='F300 SMR operated, 12 month rolling.<br>*SMR is max SMR value in period.',
                 style_func=query_f300.style_f300)
         
@@ -834,10 +841,15 @@ class AvailBase(Section):
         # needs to be subsec so can be weekly/monthly
         da = {}
         if period_type == 'month':
+
+            # For FleetMonthlyReport re-use F300 query, else create new
+            sec = report.sections.get('SMR Hours', None)
+            query_f300 = sec.query_f300 if not sec is None else qr.UnitSMRMonthly(unit='F300')
+
             da = dict(
                 totals=True,
                 merge_f300=True,
-                query_f300=report.sections['SMR Hours'].query_f300)
+                query_f300=query_f300)
 
         sec = SubSection('Availability History', self) \
             .add_df(
