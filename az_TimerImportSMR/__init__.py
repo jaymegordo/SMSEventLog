@@ -5,16 +5,12 @@ import azure.functions as func
 import sys
 from pathlib import Path
 
-from __app__.smseventlog import ( # noqa
-    functions as f,
+from __app__.smseventlog import (
     errors as er)
-from __app__.smseventlog.data import ( # noqa
+from __app__.smseventlog.data import (
     units as un)
 
-
+@er.errlog(discord=True)
 def main(mytimer: func.TimerRequest) -> None:
-    try:
-        er.init_sentry()
-        un.import_unit_hrs_email_all()
-    except:
-        f.senderror()
+    er.init_sentry()
+    un.import_unit_hrs_email_all()

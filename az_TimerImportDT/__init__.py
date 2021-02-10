@@ -6,17 +6,15 @@ import sys
 from pathlib import Path
 
 from __app__.smseventlog import ( # noqa
-    functions as f)
+    errors as er)
 from __app__.smseventlog.data import ( # noqa
     availability as av)
 
 log = logging.getLogger(__name__)
 
+@er.errlog(discord=True)
 def main(mytimer: func.TimerRequest) -> None:
-    try:
-        av.import_downtime_email()
-        av.import_dt_exclusions_email()
-        log.info('Ran import_downtime_email')
-    except:
-        log.info('failed to run')
-        f.senderror()
+    er.init_sentry()
+    av.import_downtime_email()
+    av.import_dt_exclusions_email()
+    log.info('Ran import_downtime_email')
