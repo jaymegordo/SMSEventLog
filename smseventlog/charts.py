@@ -130,7 +130,7 @@ def chart_fc_history(df, title=None):
     return fig
 
 def chart_fleet_ma(df, title=None):
-    df = df.iloc[:-1] # remove totals row
+    # df = df.iloc[:-1] # remove totals row
     if title is None:
         title = 'Fleet MA - Actual vs Target'
 
@@ -318,7 +318,7 @@ def chart_frame_cracks(df, smr_bin=False, **kw):
             textfont_size=8,
             textangle=0))
 
-    update_fig(fig, title=f'Frame Cracks ({t}) - 2018-01 - 2020-06')
+    update_fig(fig, title=f'Frame Cracks - {t}')
 
     fig.update_layout(
         height=400,
