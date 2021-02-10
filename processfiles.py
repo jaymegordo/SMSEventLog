@@ -41,8 +41,17 @@ CLI.add_argument(
 CLI.add_argument(
     '--all_units',
     type=bool,
-    default=False
-)
+    default=False)
+
+CLI.add_argument(
+    '--minesite',  
+    type=str,
+    default=None)
+
+CLI.add_argument(
+    '--model',  
+    type=str,
+    default=None)
 
 if __name__ == '__main__':
     # def get_units(lower, upper):
@@ -61,7 +70,7 @@ if __name__ == '__main__':
             print(f'fix dls all units, startdate: {d}')
             dls.fix_dls_all_units(d_lower=d)
         elif ftype == 'plm':
-            plm.update_plm_all_units()
+            plm.update_plm_all_units(minesite=a.minesite, model=a.model)
     else:
         print(f'ftype: {ftype}, units: {units}, startdate: {d}')
         utl.process_files(ftype=ftype, units=units, d_lower=d)
