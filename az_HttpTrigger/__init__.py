@@ -15,10 +15,10 @@ from __app__.smseventlog.data import (
     availability as av,
     units as un)
 
-# def err():
-#     msg = 'Http function not triggered.'
-#     log.error(msg, exc_info=True)
-#     return func.HttpResponse(msg, status_code=400)
+def err():
+    msg = 'Http function not triggered.'
+    log.error(msg, exc_info=True)
+    return func.HttpResponse(msg, status_code=400)
 
 @er.errlog(discord=True)
 def main(req: func.HttpRequest) -> func.HttpResponse:
