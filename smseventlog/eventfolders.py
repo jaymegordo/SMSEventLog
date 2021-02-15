@@ -103,7 +103,7 @@ class EventFolder(UnitFolder):
     @classmethod
     def from_model(cls, e, **kw):
         """Create eventfolder from database/row model 'e'. Used when single query to db first is okay.
-        \n NOTE works with row model OR df.itertuples"""
+        - NOTE works with row model OR df.itertuples"""
         efl = cls(unit=e.Unit, dateadded=e.DateAdded, workorder=e.WorkOrder, title=e.Title, **kw)
 
         if hasattr(e, 'Pictures'):
@@ -287,3 +287,62 @@ class EventFolder(UnitFolder):
             self._condition_reports = fl.find_files_partial(p=self._p_event, partial_text='cond')
 
         return self._condition_reports
+
+def get_fc_folders(fc_number='19H086-1', minesite='FortHills'):
+    """Example query to get all event folders for specific FC
+    - Useful to check for existence of docs
+
+    Parameters
+    ----------
+    fc_number : str, optional
+        default '19H086-1'
+    minesite : str, optional
+        default 'FortHills'
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    from . import queries as qr
+    query = qr.FCDetails()
+
+    args = [
+        dict(vals=dict(MineSite=minesite), table=query.d),
+        dict(vals=dict(FCNumber=fc_number))]
+
+    # add extra table + wo column for query
+    t = pk.Table('EventLog')
+    query.q = query.q.left_join(t).on_field('UID')
+
+    query.add_fltr_args(args)
+    query.add_extra_cols([t.WorkOrder, t.Title, t.DateAdded])
+
+    df = query.get_df()
+    # return df
+
+    # list of event folders
+    efs = [EventFolder.from_model(e=row) for row in df.itertuples()]
+    
+    return efs
+
+def collect_pdfs(efs : list, p_dst=None):
+    """Collect/move list of pdfs from event folders
+
+    Parameters
+    ----------
+    efs : list
+        [description]
+    """
+    if p_dst is None:
+        p_dst = f.desktop / 'frame_inspections'
+
+    # find pdfs
+    # super confusing listcomp syntax
+    # list of [('F301', path)]
+    pdfs = [(unit, p) for unit, lst in [(ef.unit, ef._p_event.rglob('*.pdf')) for ef in efs] for p in lst]
+
+    for unit, p in pdfs:
+        fl.copy_file(p_src=p, p_dst=p_dst / f'{unit}_{p.name}')
+
+    return pdfs
