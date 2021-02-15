@@ -3,6 +3,7 @@ import signal
 import subprocess
 from distutils import dir_util
 from io import StringIO
+import re
 
 import psutil
 
@@ -125,8 +126,14 @@ def count_files(p, extensions=None, ftype='pics'):
 def find_files_ext(p, extensions):
     return [p_ for p_ in p.rglob('*') if p_.suffix.lower().replace('.', '') in extensions and len(p_.suffix) > 0]
 
-def find_files_partial(p, partial_text):
-    return [p_ for p_ in p.glob('*') if partial_text.lower() in str(p_).lower()]
+def find_files_partial(p, partial_text, recursive=False):
+    func = 'glob' if not recursive else 'rglob'
+    
+    # regex pattern match option
+    # pattern = re.compile('serial', re.IGNORECASE)
+    # return [p_ for p_ in p.rglob('*.pdf') if re.search(pattern, str(p_))]
+
+    return [p_ for p_ in getattr(p, func)('*') if partial_text.lower() in str(p_).lower()]
 
 def size_readable(nbytes):
     """Return human readable file size string from bytes"""
@@ -232,7 +239,21 @@ def open_folder(p, check_drive=False):
     if platform.startswith('win'):
         os.startfile(p)
     elif platform.startswith('dar'):
-        subprocess.Popen(['open', p])
+        # open finder window, zoom, bring to front
+        if p.is_dir():
+            args = [
+                'osascript',
+                '-e tell application "Finder"',
+                f'-e open ("{p}" as POSIX file)',
+                '-e tell window 1',
+                '-e set zoomed to true',
+                '-e end tell',
+                '-e activate',
+                '-e end tell']
+
+            subprocess.run(args, stdout=subprocess.DEVNULL)
+        else:
+            subprocess.Popen(['open', p])
     else:
         subprocess.Popen(['xdg-open', p])
 
@@ -265,6 +286,37 @@ def from_bytes(bytes):
     - Useful for reading csv/excel data from bytes so far"""
     result = str(bytes, 'UTF-8')
     return StringIO(result)
+
+def read_access_database(p : Path, table_name : str, index_col : str=None, raw_data : bool=False):
+    """Read table from access database to df
+    - NOTE needs 'mdb-export' installed (mac only)
+    - TODO maybe make this work on windows
+
+    Parameters
+    ----------
+    p : Path
+        path to .accdb
+    table_name : str
+        table in database to read
+    index_col : str, optional
+        optional index col, by default None
+    raw_data : bool, optional
+        optional return raw data to pass extra args to read_csv
+
+    Returns
+    -------
+    pd.DataFrame | raw data
+    """    
+    cmd = ['mdb-export', p.as_posix(), table_name]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    data = from_bytes(proc.stdout.read()) # stdout returns io.BufferedReader obj
+
+    if raw_data:
+        return data
+
+    return pd.read_csv(data, index_col=index_col) \
+        .pipe(f.lower_cols) \
+        .pipe(f.default_df)
 
 def find_procs_by_name(name):
     "Return a list of processes matching 'name'."
