@@ -2,7 +2,7 @@ import inspect
 import json
 
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap, DivergingNorm, to_hex
 from seaborn import diverging_palette
 
 from . import errors as er
@@ -228,7 +228,27 @@ class QueryBase(object):
         tablename = self.select_table if self.update_table is None else self.select_table
         return getattr(dbm, tablename) # db model definition, NOT instance
 
+    def add_extra_cols(self, cols : list):
+        """Add extra columns to query
+
+        Parameters
+        ----------
+        cols : list | string
+            Item(s) to add
+        """        
+        if not isinstance(cols, list): cols = [cols]
+        self.cols = self.cols + cols
+
     def add_fltr_args(self, args, subquery=False):
+        """Add multiple filters to self.fltr as list
+
+        Parameters
+        ----------
+        args : list
+            list of key:vals with opional other args
+        subquery : bool, optional
+            use self.fltr2, default False
+        """        
         if not isinstance(args, list): args = [args]
 
         fltr = self.fltr if not subquery else self.fltr2
@@ -270,11 +290,11 @@ class QueryBase(object):
         Parameters
         ----------
         default : bool, optional
-            self.set_default_filter if default=True, default False\n
+            self.set_default_filter if default=True, default False
         base : bool, optional
-            self.set_base_filter, default False\n
+            self.set_base_filter, default False
         prnt : bool, optional
-            Print query sql, default False\n
+            Print query sql, default False
 
         Returns
         ---
@@ -288,8 +308,7 @@ class QueryBase(object):
 
         return pd \
             .read_sql(sql=sql, con=db.engine) \
-            .pipe(f.parse_datecols) \
-            .pipe(f.convert_int64) \
+            .pipe(f.default_df) \
             .pipe(f.convert_df_view_cols, m=self.view_cols) \
             .pipe(f.set_default_dtypes, m=self.default_dtypes) \
             .pipe(self.process_df)
@@ -441,7 +460,7 @@ class ComponentCO(ComponentCOBase):
         super().__init__(**kw)
         a, b, c = self.a, self.b, self.c
 
-        cols = [a.UID, b.MineSite, b.Model, a.Unit, c.Component, c.Modifier, a.GroupCO, a.DateAdded, a.SMR, a.ComponentSMR, a.SNRemoved, a.SNInstalled, a.WarrantyYN, a.CapUSD, a.WorkOrder, a.SuncorWO, a.SuncorPO, a.Reman, a.SunCOReason, a.RemovalReason, a.COConfirmed]
+        cols = [a.UID, b.MineSite, b.Model, a.Unit, c.Component, c.Modifier, a.GroupCO, a.DateAdded, a.SMR, a.ComponentSMR, a.SNRemoved, a.SNInstalled, a.WarrantyYN, a.CapUSD, a.WorkOrder, a.SuncorWO, a.SuncorPO, a.Reman, a.SunCOReason, a.FailureCause, a.COConfirmed]
 
         f.set_self(vars())
 
@@ -894,16 +913,24 @@ class FCOpen(FCBase):
 
         cols = [a.FCNumber, a.Unit, b.MineSite, a.Subject, a.Complete, a.Classification, a.ReleaseDate, a.ExpiryDate]
         q = Query.from_(a).select(*cols) \
-            .left_join(b).on_field('Unit') \
-            .where(
-                (a.Complete==0) &
-                ((a.Classification=='M') | (a.ExpiryDate >= dt.now().date())))
+            .left_join(b).on_field('Unit')
         
         f.set_self(vars())
+
+    def __set_default_filter(self, **kw):
+        # NOTE not used, filtering in db.df_fc currently
+        # super().set_default_filter(**kw)
+        a = self.a
+        ct = ((a.Classification=='M') | (a.ExpiryDate >= dt.now().date()))
+        self.fltr.add(ct=ct)
+        self.fltr.add(vals=dict(Complete=0))
     
     def process_df(self, df):
         return df \
-            .assign(Title=lambda x: x.FCNumber.str.cat(x.Subject, sep=' - ')) \
+            .assign(
+                Title=lambda x: x.FCNumber.str.cat(x.Subject, sep=' - '),
+                # Complete=lambda x: np.where(x.Complete=='True', True, False)
+                ) \
             .rename(columns=dict(
                 FCNumber='FC Number',
                 Classification='Type'))
@@ -2118,6 +2145,78 @@ class UnitSMRReport(QueryBase):
             [['Serial', 'DeliveryDate']] \
             .merge(right=df, how='right', on='Unit') \
             .reset_index()            
+
+
+class FileQuery(QueryBase):
+    """Query based on saved .sql file"""
+    def __init__(self, p : Path, **kw):
+        super().__init__(**kw)
+        """
+        Parameters
+        ----------
+        p : Path
+            Path to .sql file
+        """   
+
+        f.set_self(vars())
+    
+    def get_sql(self, **kw):
+        return f.sql_from_file(p=self.p)
+
+class ACMotorInspections(FileQuery):
+    def __init__(self):
+        p = f.projectfolder / 'SQL/FactoryCampaign/ac_motor_inspections.sql'
+        super().__init__(p=p)
+
+    def save_excel(self, _open=False):
+        p = f.desktop / f'AC Motor Inspections {dt.now().date():%Y-%m-%d}.xlsx'
+        style = st.default_style(self.df) \
+            .pipe(self.update_style)
+
+        style.to_excel(p, index=False, freeze_panes=(1,0))
+
+        if _open:
+            from .utils import fileops as fl
+            fl.open_folder(p)
+    
+    def process_df(self, df):
+
+        return df \
+            .assign(
+                # hrs_pre_12k=lambda x: np.maximum(12000 - x.comp_smr_cur, 0),
+                hrs_since_last_insp=lambda x: np.where(
+                    x.comp_smr_cur > x.comp_smr_at_insp,
+                    x.comp_smr_cur - x.comp_smr_at_insp,
+                    x.comp_smr_cur).astype(int),
+                hrs_till_next_insp=lambda x: np.where(
+                    x.comp_smr_cur > 12000,
+                    3000 - x.hrs_since_last_insp,
+                    np.maximum(12000 - x.comp_smr_cur, 0)).astype(int),
+                date_next_insp=lambda x: (pd.Timestamp.now() + pd.to_timedelta(x.hrs_till_next_insp / 20, unit='day')).dt.date,
+                overdue=lambda x: x.hrs_till_next_insp < 0) \
+            .pipe(f.parse_datecols)
+
+    def background_with_norm(self, s, cmap, center=0, vmin=None, vmax=None):
+        vmin = vmin or s.values.min()
+        vmax = vmax or s.values.max()
+        norm = DivergingNorm(vmin=vmin, vcenter=center, vmax=vmax)
+
+        return ['background-color: {:s}'.format(to_hex(c.flatten())) for c in cmap(norm(s.values))]
+    
+    def update_style(self, style, **kw):
+
+        return style \
+            .apply(
+                self.background_with_norm,
+                subset='hrs_till_next_insp',
+                cmap=self.cmap.reversed(),
+                center=1000,
+                vmax=3000) \
+            .apply(
+                st.highlight_multiple_vals,
+                subset='overdue',
+                m={True: 'bad'},
+                convert=True)
 
 def table_with_args(table, args):
     def fmt(arg):
