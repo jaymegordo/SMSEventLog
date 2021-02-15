@@ -533,6 +533,14 @@ class Komatsu(Web):
         driver.find_element_by_id('btnSubmit').submit()
 
 class PSNDownload(Komatsu):
+    """
+    TODO make table in database
+    TODO make upload func to add new psns not in db
+    TODO Add table to EL
+    TODO Add refresh func/menu
+    TODO Add Download new menu (min date selection)
+    TODO Make email new psns func
+    """
     def __init__(self, days=14, use_user_settings=False, **kw):
         download_dir = f.drive / 'Regional/SMS West Mining/PSN/PSNs'
 
@@ -577,9 +585,9 @@ class PSNDownload(Komatsu):
 
     def df_psns(self):
         """Get df of psns info from table"""
-
         element = self.driver.find_element_by_css_selector('#dgMain')
-        df = pd.read_html(
+
+        return pd.read_html(
                 io=element.get_attribute('outerHTML'),
                 header=0)[0] \
             .iloc[:-1, :6] \
@@ -587,26 +595,21 @@ class PSNDownload(Komatsu):
             .pipe(f.parse_datecols) \
             .rename(columns=dict(reference_number='psn'))
 
-        return df
-
     def download_all_psns(self, df=None):
         if df is None:
             df = self.df_all_psns()
         self.df = df
 
         psns = df.psn.unique().tolist()
-
-        # TODO need to compare psns with existing/already downloaded
+        downloaded = []
 
         for psn in psns:
             p = self.download_dir / f'{psn}.pdf'
             if not p.exists():
-                print('downloading psn: ', psn)
-                # self.download_psn(psn)
-            else:
-                print('not downloading psn: ', psn)
+                downloaded.append(psn)
+                self.download_psn(psn)
 
-        return psns
+        return downloaded
 
     def download_psn(self, psn):
         # url = f'https://www.komatsuamerica.net/northamerica/service/css/csslookup/viewpsn.aspx?psn={psn}.pdf'
