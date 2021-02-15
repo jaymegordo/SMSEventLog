@@ -127,7 +127,8 @@ def convert_header(title, header, inverse_=False):
         return header
 
 def copy_model_attrs(model, target):
-    m = model_dict(model=model, include_none=True)
+    from . import dbtransaction as dbt
+    m = dbt.model_dict(model=model, include_none=True)
     copy_dict_attrs(m=m, target=target)
 
 def copy_dict_attrs(m : dict, target: object):
@@ -350,18 +351,25 @@ def sort_df_by_list(df, lst, lst_col, sort_cols=[]):
 def parse_datecols(df):
     """Convert any columns with 'date' or 'time' in header name to datetime"""
     datecols = list(filter(lambda x: any(s in x.lower() for s in ('date', 'time')) , df.columns))
-    df[datecols] = df[datecols].apply(pd.to_datetime)
+    df[datecols] = df[datecols].apply(pd.to_datetime, errors='coerce')
     return df
 
 def dtypes_dict(dtype, cols):
     return {col: dtype for col in cols}
 
 def set_default_dtypes(df, m):
-    # set column dtype based on dict of defaults
+    """Set column dtype based on dict of defaults"""
     for col, dtype in m.items():
         if col in df.columns:
             df[col] = df[col].astype(dtype)
+            
     return df
+
+def default_df(df):
+    """Simple df date/int conversions to apply to any df"""
+    return df \
+        .pipe(parse_datecols) \
+        .pipe(convert_int64)
 
 def convert_dtypes(df, cols, col_type):
     if not isinstance(cols, list): cols = [cols]
@@ -373,7 +381,7 @@ def convert_int64(df):
     # convert all int64 (numpy) to Int64 (pandas) to better handle null values
     for col, dtype in df.dtypes.items():
         if dtype == 'int64':
-            df[col] = df[col].astype('Int64')
+            df[col] = df[col].astype(pd.Int64Dtype())
 
     return df
 
@@ -477,8 +485,40 @@ def convert_stylemap_index_color(style):
 
     return m_background, m_text
 
+def to_snake(s):
+    """Convert messy camel case to lower snake case"""
+    s = remove_bad_chars(s) # get rid of /<() etc
+    s = re.sub('[\]\[()]', '', s) # remove brackets/parens
+
+    expr = r'(?<!^)(?<![A-Z])(?=[A-Z])' # split on capital letters
+
+    return re \
+        .sub(expr, '_', s) \
+        .lower() \
+        .replace(' ', '') \
+        .replace('__', '_')
+
 def lower_cols(df):
-    return df.pipe(lambda df: df.rename(columns={col: re.sub('[()]', '', col).replace(' ', '_').lower() for col in df.columns}))
+    """Convert df columns to snake case and remove bad characters"""
+    m_cols = {col: to_snake(col) for col in df.columns}
+    return df.pipe(lambda df: df.rename(columns=m_cols))
+
+def sql_from_file(p : Path) -> str:
+    """Read sql string from .sql file
+
+    Parameters
+    ----------
+    p : Path
+        Path to .sql file
+
+    Returns
+    -------
+    str
+        sql string
+    """    
+    with open(p, 'r') as file:
+        return file.read()
+
 
 # simple obfuscation for db connection string
 def encode(key, string):
