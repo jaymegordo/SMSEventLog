@@ -1,7 +1,23 @@
 -- delete duplicates within unit
-
-with t as (
-    select unit, datetime, payload, cycletime, ROW_NUMBER() OVER (Partition By unit, datetime, payload Order By unit, datetime, payload) as RN
-    From temphaul
-)
-Delete From t where RN>1
+WITH
+    t
+    AS
+    (
+        SELECT
+            a.unit,
+            a.DATETIME,
+            a.payload,
+            cycletime,
+            ROW_NUMBER() OVER (
+			PARTITION BY a.unit,
+			a.DATETIME,
+			a.payload ORDER BY unit,
+				a.DATETIME,
+				payload
+			) AS RN
+        FROM
+            temphaul a
+    )
+DELETE
+FROM t
+WHERE RN > 1

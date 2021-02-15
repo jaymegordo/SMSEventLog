@@ -10,6 +10,7 @@ sqlacodegen = "*"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git",ref = "master"}
 bump2version = "*"
 pyupdater-s3-plugin = "*"
+pandas-access = "*"
 # black = "*" # needs allow_prereleases
 
 [packages]

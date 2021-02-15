@@ -64,7 +64,7 @@ class SecretsManager(object):
         file = self.get_secret_file(name=name)
 
         if ext == 'yaml':
-            return yaml.full_load(file)
+            return yaml.load(file, Loader=yaml.Loader)
         elif ext == 'csv':
             return pd.read_csv(fl.from_bytes(file))
 

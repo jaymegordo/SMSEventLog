@@ -73,7 +73,7 @@ def get_func_name_from_tb(tb):
         base_log.warning('Couldn\'t extract function name from traceback.')
         return tb.tb_frame.f_code.co_name
 
-def errlog(msg=None, err=True, warn=False, display=False, default=None, status_msg=False):
+def errlog(msg=None, err=True, warn=False, display=False, default=None, status_msg=False, discord=False):
     """Wrapper to try/except func, log error, don't show to user, and return None
     - NOTE this suppresses the error unless display=True
 
@@ -105,6 +105,10 @@ def errlog(msg=None, err=True, warn=False, display=False, default=None, status_m
                     log.warning(err_msg)
                 elif err:
                     log_error(msg=msg, display=display, func=func, exc_info=sys.exc_info())
+
+                if discord:
+                    from . import functions as f
+                    f.discord(msg=format_traceback(exc_info=sys.exc_info()), channel='err')
 
                 return default # default obj to return
         
@@ -218,9 +222,14 @@ def get_last_func_name():
     except:
         return 'Unknown Function'
 
-def format_traceback(split=False):
+def format_traceback(split=False, exc_info=None):
     """Get current error and format traceback as text"""
-    msg = traceback.format_exc() \
+    if exc_info is None:
+        msg = traceback.format_exc()
+    else:
+        msg = ''.join(traceback.format_exception(*exc_info))
+
+    msg = msg \
         .replace('Traceback (most recent call last):\n', '')
     
     if split:

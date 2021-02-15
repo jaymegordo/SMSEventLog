@@ -14,12 +14,13 @@ def get_config():
             imptable='FaultImport',
             impfunc='ImportFaults',
             read_func=faults.read_fault),
-        'haul': dict(
+        'plm': dict(
             exclude=['dsc', 'chk', 'pictures', 'dnevent', 'sfevent'],
             duplicate_cols=['unit', 'datetime'],
             imptable='PLMImport',
             impfunc='ImportPLM',
-            read_func=plm.read_haul),
+            read_func=plm.read_plm,
+            actual_ftype='haul'),
         'dsc': dict(
             exclude=[]),
         'tr3': dict(
@@ -78,12 +79,12 @@ def unit_from_path(p):
     else:
         log.warning(f'Couldn\'t find unit in path: {p}')
 
-def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype='haul', exclude=[]):
+def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype='plm', exclude=[]):
     # recurse and find fault/haulcycle csv files
     lst = []
 
-    # haul files only need to check date created
-    # date_func_name = 'date_created' #if ftype == 'haul' else 'date_modified'
+    # plm files only need to check date created
+    # date_func_name = 'date_created' #if ftype == 'plm' else 'date_modified'
     # date_func = getattr(sys.modules[__name__], date_func_name)
 
     if depth == 0 and ftype == 'tr3':
@@ -93,14 +94,14 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
     if depth <= maxdepth:
         for p in p_search.iterdir():
             if p.is_dir():
-                if ftype in ('fault', 'haul'):
-                    lst.extend([f for f in p.glob(f'*{ftype}*.csv') if fl.date_created(f) > d_lower])
+                if ftype in ('fault', 'plm'):
+                    lst.extend([f for f in p.glob(f'*{get_config()[ftype].get("actual_ftype", ftype)}*.csv') if fl.date_created(f) > d_lower])
                 elif ftype == 'tr3':
                     lst.extend([f for f in p.glob(f'*.tr3') if fl.date_created(f) > d_lower])
 
-                # exclude vhms folders (8 digits) from haul file search
+                # exclude vhms folders (8 digits) from plm file search
                 if (not (any(s in p.name.lower() for s in exclude)
-                        or (ftype=='haul' and len(p.name) == 8 and p.name.isdigit()))
+                        or (ftype=='plm' and len(p.name) == 8 and p.name.isdigit()))
                     and fl.date_modified(p) > d_lower):
                     
                     lst.extend(recurse_folders(
@@ -115,8 +116,8 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
 
 def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020,1,1), maxdepth=4, import_=True):
     """Top level control function - pass in single unit or list of units
-        1. Get list of files (haul, fault, dsc)
-        2. Process - import haul/fault or 'fix' dsc eg downloads folder structure"""
+        1. Get list of files (plm, fault, dsc)
+        2. Process - import plm/fault or 'fix' dsc eg downloads folder structure"""
     
     if ftype == 'tr3': search_folders.append('vibe tests') # bit sketch
 
@@ -150,7 +151,7 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
             lst = []
 
     # collect all csv files for all units first, then import together
-    if ftype in ('haul', 'fault'):
+    if ftype in ('plm', 'fault'):
         print(f'num files: {len(lst)}')
         if lst:
             df = combine_csv(lst_csv=lst, ftype=ftype, d_lower=d_lower)
@@ -169,7 +170,7 @@ def get_list_files(ftype, p_search, d_lower=dt(2020,1,1), maxdepth=4):
     
     lst = []
     # recurse and find all other folders inside
-    if ftype in ('haul', 'fault', 'tr3'):
+    if ftype in ('plm', 'fault', 'tr3'):
         lst = recurse_folders(p_search=p_search, maxdepth=maxdepth, d_lower=d_lower, exclude=get_config()[ftype]['exclude'], ftype=ftype)
     elif ftype == 'dsc':
         lst = dls.recurse_dsc(p_search=p_search, maxdepth=maxdepth, d_lower=d_lower)

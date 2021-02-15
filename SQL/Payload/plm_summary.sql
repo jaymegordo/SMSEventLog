@@ -1,6 +1,9 @@
 -- Select full summary of all plm records in db
 -- query can take ~1min for single unit, or ~3-5 for all units
 
+DECLARE
+@minesite VARCHAR(50) = 'BaseMine';
+
 WITH t as (
     SELECT
         a.Unit,
@@ -49,9 +52,10 @@ WITH t as (
             LEFT JOIN UnitID b on a.Unit=b.Unit
     WHERE
         -- a.DateTime>='2016-11-01' and
-        a.DateTime BETWEEN '2018-10-22' and '2019-10-22' and -- comment out for full date range
-        a.Unit = 'F301' and -- comment out for ALL units
-        b.MineSite = 'FortHills'
+        -- a.DateTime BETWEEN '2018-10-22' and '2019-10-22' and -- comment out for full date range
+        -- a.Unit = 'F301' and -- comment out for ALL units
+        b.MineSite = @minesite and
+        b.Model like '980%'
 
     GROUP BY a.Unit
 )
