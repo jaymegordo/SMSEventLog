@@ -28,18 +28,18 @@ good_cols = ['unit', 'datetime']
 good_cols.extend([col for col in m_cols.values() if not col in ('date', 'time')])
 
 # PLM
-def update_plm_all_units():
-    units = utl.all_units()
+def update_plm_all_units(minesite='FortHills', model='980'):
+    units = db.unique_units(minesite=minesite, model=model)
 
     # multiprocess
     result = Parallel(n_jobs=-1, verbose=11)(delayed(update_plm_single_unit)(unit=unit, import_=False) for unit in units)
 
-    config = utl.get_config()['haul']
+    config = utl.get_config()['plm']
 
     # could have duplicates from file in wrong unit path, drop again to be safe
     df = pd.concat(m['df'] for m in result) \
         .drop_duplicates(subset=config['duplicate_cols'])
-    
+   
     rowsadded = db.import_df(df=df, imptable=config['imptable'], impfunc=config['impfunc'], prnt=True, chunksize=10000)
 
     new_result = []
@@ -52,7 +52,7 @@ def update_plm_all_units():
     return new_result
 
 def import_plm_csv(lst_csv: list):
-    """Convenience func to import list of haul cycle csvs to db
+    """Convenience func to import list of plm cycle csvs to db
     
     Parameters
     ---
@@ -63,7 +63,7 @@ def import_plm_csv(lst_csv: list):
     ---
         number of rows successfully added to db.
     """
-    ftype = 'haul'
+    ftype = 'plm'
     config = utl.get_config()[ftype]
 
     df = utl.combine_csv(lst_csv=lst_csv, ftype=ftype)
@@ -83,7 +83,7 @@ def update_plm_single_unit(unit, import_=True, maxdate=None):
         maxdate = db.max_date_db(q=q)
         if maxdate is None: maxdate = dt.now() + delta(days=-731)
    
-    result = utl.process_files(ftype='haul', units=unit, d_lower=maxdate, import_=import_)
+    result = utl.process_files(ftype='plm', units=unit, d_lower=maxdate, import_=import_)
 
     # kinda sketch... bad design here
     if import_:
@@ -105,18 +105,18 @@ def get_minesite_from_path(p : Path) -> str:
     else:
         log.warning(f'Couldn\'t get minesite in path: {p}')
 
-def read_haul(p):
-    """Wrap import_haul for errors"""
+def read_plm(p):
+    """Wrap import_plm for errors"""
     try:
-        return import_haul(p)
+        return import_plm(p)
     except Exception as e:
         msg = f'Failed plm import, {e.args[0]}: {p}'
         log.warning(msg)
         utl.write_import_fail(msg)
         return pd.DataFrame(columns=good_cols)
 
-def import_haul(p):
-    """Load single haulcycle file to dataframe"""
+def import_plm(p):
+    """Load single plmcycle file to dataframe"""
 
     # header, try unit, then try getting unit with serial
     df_head = pd.read_csv(p, nrows=6, header=None)
@@ -139,7 +139,7 @@ def import_haul(p):
             if not unit is None:
                 log.warning(f'Falling back to unit from path: {unit}, {p}')
             else:
-                raise Exception('Couldn\'t read serial from haul file.')
+                raise Exception('Couldn\'t read serial from plm file.')
         
         if unit == '':
             unit = db.get_unit(serial=serial, minesite=minesite)
