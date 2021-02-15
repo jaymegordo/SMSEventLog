@@ -280,7 +280,8 @@ class DB(object):
             .where(a.Unit==unit)
         return self.query_single_val(q)
     
-    def get_smr_prev_co(self, unit, date, floc):
+    def get_smr_prev_co(self, unit, date, floc) -> int:
+        """Return UNIT SMR at previous changeout"""
         a = T('EventLog')
         # cols = [a.Unit, a.Floc, a.SMR, a.DateAdded]
         q = Query().from_(a).select(a.SMR) \
@@ -288,6 +289,8 @@ class DB(object):
             .where(a.DateAdded<=date) \
             .where(a.Floc==floc) \
             .orderby(a.DateAdded, order=Order.desc)
+
+        print(q)
         
         return self.query_single_val(q)
 
@@ -300,10 +303,11 @@ class DB(object):
 
     def get_unit_val(self, unit, field):
         # TODO bit messy, should have better structure to get any val from saved table
-        self.set_df_unit()
+        # self.set_df_unit()
+        df = self.get_df_unit()
 
         try:
-            return self.df_unit.loc[unit.strip(), field]
+            return df.loc[unit.strip(), field]
         except KeyError:
             log.warning(f'Couldn\'t get unit "{unit}" in unit table.')
             return None
@@ -337,8 +341,8 @@ class DB(object):
         
         return self.df_equiptype
 
-    def unique_units(self):
-        df = self.get_df_unit()
+    def unique_units(self, **kw):
+        df = self.get_df_unit(**kw)
         return df.Unit.unique()
     
     def filter_database_units(self, df, col='Unit'):
@@ -393,7 +397,7 @@ class DB(object):
 
         return self.lst_minesite
     
-    def get_df_unit(self, minesite=None):
+    def get_df_unit(self, minesite=None, model=None, **kw):
         if self.df_unit is None:
             self.set_df_unit()
         
@@ -402,6 +406,9 @@ class DB(object):
         # sometimes need to filter other minesites due to serial number duplicates
         if not minesite is None:
             df = df[df.MineSite==minesite].copy()
+        
+        if not model is None:
+            df = df[df.Model.str.contains(model)]
         
         return df
 
@@ -421,15 +428,29 @@ class DB(object):
         self.df_equiptype = pd.read_sql(sql=q.get_sql(), con=self.engine) \
             .set_index('Model', drop=False)
 
-    def get_df_fc(self):
+    def get_df_fc(self, minesite=None, unit=None, default=True):
         if self.df_fc is None:
             self.set_df_fc()
         
-        return self.df_fc
+        df = self.df_fc
+
+        if not minesite is None:
+            df = df[df.MineSite==minesite]
+
+        if not unit is None:
+            df = df[df.Unit==unit]
+
+        # kinda sketch to filter here
+        if default:
+            df = df[
+                ((df.Type=='M') | (df.ExpiryDate >= dt.now())) &
+                (df.Complete==False)]
+
+        return df
 
     def set_df_fc(self):
         from .queries import FCOpen
-        self.df_fc = FCOpen().get_df()
+        self.df_fc = FCOpen().get_df(default=False)
     
     def get_df_component(self):
         name = 'component'
@@ -455,7 +476,12 @@ class DB(object):
             return
 
         # .execution_options(autocommit=True)
-        df.to_sql(name=imptable, con=self.engine, if_exists='append', index=index, chunksize=chunksize)
+        df.to_sql(
+            name=imptable,
+            con=self.engine,
+            if_exists='append',
+            index=index,
+            chunksize=chunksize)
 
         cursor = self.cursor
         rowsadded = cursor.execute(impfunc).rowcount
@@ -468,6 +494,42 @@ class DB(object):
         if notification:
             f.discord(msg=msg, channel='sms')
         
+        return rowsadded
+
+    def insert_update(self, a : str, b : str, join_cols : list, df : pd.DataFrame, **kw) -> str:
+        """Insert values from df into temp update table b and merge to a
+
+        Parameters
+        ----------
+        a : str
+            insert into table
+        b : str
+            select from table (temp table)
+        join_cols : str
+            colums to join a/b on
+        df : pd.DataFrame
+
+        Returns
+        -------
+        str
+            sql query string
+        """
+        imptable = b
+        a, b = pk.Tables(a, b)
+        cols = df.columns
+
+        # this builds an import function from scratch, replaces stored proceedures
+        q = Query.into(a) \
+            .columns(*cols) \
+            .from_(b) \
+            .left_join(a).on_field(*join_cols) \
+            .select(*cols) \
+            .where(a.field(join_cols[0]).isnull())
+
+        rowsadded = self.import_df(df=df, imptable=imptable, impfunc=str(q),  **kw)
+        self.cursor.execute(f'TRUNCATE TABLE {b};')
+        self.cursor.commit()
+
         return rowsadded
     
     def query_single_val(self, q):
