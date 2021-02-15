@@ -149,8 +149,9 @@ class Report(object):
             style = style.pipe(st.alternating_rows_outlook)
 
         # general number formats
-        formats = {'Int64': '{:,}', 'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
-        m_fmt = st.format_dtype(df=df, formats=formats)
+        # formats = {'Int64': '{:,}', 'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
+        # m_fmt = st.format_dtype(df=df, formats=formats)
+        m_fmt = {}
 
         if not query is None:
             m_fmt.update(query.formats)
@@ -231,7 +232,7 @@ class Report(object):
         """Return query obj based on df section name"""
         return self.dfs[name].get('query', None)
     
-    def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False, **kw):
+    def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False, open=False, **kw):
         if not self.dfs_loaded:
             self.load_all_dfs()
 
@@ -284,6 +285,10 @@ class Report(object):
 
         self.remove_chart_files()
         self.p_rep = p
+
+        if open:
+            self.open_()
+
         return self
     
     def outlook_table(self, name):
@@ -382,14 +387,14 @@ class SMRReport(Report):
         self.load_sections('UnitSMR')
         self.add_items(['title_page', 'signature_block'])
     
-    def create_pdf(self, p_base=None, csv=True):
+    def create_pdf(self, p_base=None, csv=True, **kw):
         if not self.dfs_loaded:
             self.load_all_dfs()
             
         if csv:
             self.save_csv(p_base=p_base)
 
-        return super().create_pdf(p_base=p_base)
+        return super().create_pdf(p_base=p_base, **kw)
     
     def save_csv(self, p_base=None):
         if p_base is None:
@@ -400,7 +405,18 @@ class SMRReport(Report):
         df.to_csv(p)
 
 class AvailabilityReport(Report):
-    def __init__(self, name, period_type='week', minesite='FortHills', **kw):
+    def __init__(self, name : str, period_type='week', minesite='FortHills', **kw):
+        """Create availability report pdf
+
+        Parameters
+        ----------
+        name : str
+            Period name, week = '2021-34', month = '2021-02'
+        period_type : str, optional
+            default 'week'
+        minesite : str, optional
+            default 'FortHills'
+        """        
         super().__init__()
         df = qr.df_period(freq=period_type)
         d_rng = df.loc[name, 'd_rng']

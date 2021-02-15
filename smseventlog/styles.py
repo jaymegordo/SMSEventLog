@@ -22,7 +22,8 @@ def format_dtype(df, formats):
                 datetime.dt(2020, 3, 1): dtype('int64'),"""
     m = {}
     for key, fmt in formats.items():
-        m.update({col: fmt for col, val in df.dtypes.to_dict().items() if val==key})
+        # need str(val) to convert np dtype to string to avoid failed comparisons to pd.Int64 etc
+        m.update({col: fmt for col, val in df.dtypes.to_dict().items() if str(val)==key})
     
     return m
 
@@ -174,8 +175,13 @@ def default_style(df, outlook=False):
     border = ' border: 1px solid #000000;' if outlook else ''
     table_attrs = f'style="border-collapse: collapse;{border}"'
 
+    # NOTE kinda messy/duplicated here
+    formats = {'Int64': '{:,}', 'int64': '{:,}', 'datetime64[ns]': '{:%Y-%m-%d}'}
+    m_fmt = format_dtype(df=df, formats=formats)
+
     style = df.style \
-        .format(defaut_number_format, subset=pd.IndexSlice[:, df.columns[numeric_mask]])\
+        .format(defaut_number_format, subset=pd.IndexSlice[:, df.columns[numeric_mask]]) \
+        .format(m_fmt) \
         .pipe(add_table_style, s) \
         .pipe(alternating_rows_outlook, outlook=outlook) \
         .pipe(add_table_attributes, s=table_attrs) \
