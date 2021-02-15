@@ -75,8 +75,8 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title, col_db='Classification', table=table), items=['M', 'FAF', 'DO', 'FT'], checkbox=True, cb_enabled=False)
             
         elif name == 'fc number':
-            df = db.get_df_fc()
-            lst = f.clean_series(s=df[df.MineSite==ms]['FC Number'])
+            df = db.get_df_fc(default=True, minesite=ms)
+            lst = f.clean_series(s=df['FC Number'])
             add_input(field=IPF(text='FC Number'), items=lst, checkbox=True, cb_enabled=False)
         
         elif name == 'fc complete':
@@ -85,7 +85,10 @@ class RefreshTable(InputForm):
         elif name == 'manualclosed':
             title = 'Manual Closed'
             table = T('FCSummaryMineSite')
-            add_input(field=IPF(text=title, default='False', table=table), items=['False', 'True'], checkbox=True)
+            add_input(
+                field=IPF(text=title, default='False', table=table), items=['False', 'True'],
+                checkbox=True,
+                tooltip='"Manual Closed = True" means FCs that HAVE been closed/removed from the FC Summary table. This is used to manage which FCs are "active".')
             
         elif name == 'start date':
             # TODO: only set up for eventlog table currently
@@ -124,9 +127,9 @@ class RefreshTable(InputForm):
                 - *MTA* > return "The MTA Broke" and "MTA Failure"')
         
         elif name == 'fc subject':
-            df = db.get_df_fc()
+            df = db.get_df_fc(default=False, minesite=ms)
             lst = f.clean_series(df.Subject)
-            add_input(field=IPF(text='Subject', table=T('FCSummary')), items=lst, checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text='Subject', table=T('FCSummary'), col_db='SubjectShort'), items=lst, checkbox=True, cb_enabled=False)
         
         elif name == 'usergroup':
             u = self.mainwindow.u
@@ -211,12 +214,12 @@ class TSI(EventLogBase):
 class FCBase(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.df = db.get_df_fc()
+        self.df = db.get_df_fc(default=False)
     
-    def toggle(self, state):
-        # filter FC subjects to current minesite
-        # IF minesite is enabled AND subject is enabled
-        # if minesite not enabled, filter to all
+    def toggle(self, state) -> int:
+        """Filter FC subjects to current minesite
+        - If minesite is enabled AND subject is enabled
+        - If minesite not enabled, filter to all"""
         source = self.sender()
         box = source.box
         cb_minesite = self.fMineSite.cb
