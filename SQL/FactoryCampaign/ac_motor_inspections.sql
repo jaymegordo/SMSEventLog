@@ -10,7 +10,9 @@ with t as (
         LEFT JOIN UnitID b on a.Unit=b.Unit
 
     WHERE
-        a.FCNumber in ('17H019-1', '17H019-2') and
+        (
+            a.FCNumber like '17H019-1%' OR
+            a.FCNumber like '17H019-2%') and
         b.MineSite = 'FortHills'
 ),
 
@@ -18,7 +20,7 @@ t2 as (
     SELECT
         t.*,
         CASE WHEN
-            t.FCNumber like '%-1' 
+            t.FCNumber like '%-1%' 
             THEN 'POWRTRN-WHMTLH-ACMOTOR_RH'
             ELSE 'POWRTRN-WHMTLH-ACMOTOR_LH'
         END as Floc
@@ -40,16 +42,17 @@ t_unit_smr as (
 ),
 
 t5 as (
-SELECT
-    t2.*,
-    t3.smr_co_pre_insp,
-    t2.unit_smr_at_insp - ISNULL(t3.smr_co_pre_insp, 0) as comp_smr_at_insp,
-    t4.unit_smr_last_co,
-    t_unit_smr.unit_smr_cur,
-    t_unit_smr.unit_smr_cur - ISNULL(t4.unit_smr_last_co, 0) as comp_smr_cur,
-    t4.cur_SN
+    SELECT
+        t2.*,
+        t3.smr_co_pre_insp,
+        t2.unit_smr_at_insp - ISNULL(t3.smr_co_pre_insp, 0) as comp_smr_at_insp,
+        t4.unit_smr_last_co,
+        t_unit_smr.unit_smr_cur,
+        t_unit_smr.unit_smr_cur - ISNULL(t4.unit_smr_last_co, 0) as comp_smr_cur,
+        t4.cur_SN,
+        ROW_NUMBER() OVER (PARTITION BY t2.Unit, t2.Floc ORDER BY t2.Unit, t2.date_insp DESC) as rn_date_insp
 
-FROM t2
+    FROM t2
 
     LEFT JOIN t_unit_smr on t_unit_smr.Unit = t2.Unit
 
@@ -90,37 +93,49 @@ FROM t2
         
         ON t2.Floc=t4.Floc AND t2.Unit=t4.Unit and t4.rn=1
 
-    ),
+    )
 
-t6 as(
-    SELECT
-        t5.*,
-        CASE WHEN t5.comp_smr_cur >= 12000
-            THEN t5.comp_smr_cur - t5.comp_smr_at_insp
-            ELSE NULL
-        END as hrs_since_last_insp
+-- t5 as(
+--     SELECT
+--         t5.*,
+--         CASE
+--             WHEN t5.comp_smr_at_insp >= 12000
+--             THEN 0
+--             ELSE 12000 - t5.comp_smr_at_insp
+--         END as hrs_pre_12k,
 
-    FROM t5)
+--         -- If component recently CO, can only be max current component smr
+--         CASE
+--             WHEN t5.comp_smr_cur < t5.comp_smr_at_insp
+--             THEN t5.comp_smr_cur
+--             ELSE t5.comp_smr_cur - t5.comp_smr_at_insp
+--         END as hrs_since_last_insp
+
+--     FROM t5)
 
 SELECT
-    t6.Unit,
-    t6.FCNumber,
-    t6.Floc,
-    t6.cur_SN,
-    t6.date_insp,
-    t6.unit_smr_at_insp,
-    t6.smr_co_pre_insp,
-    t6.comp_smr_at_insp,
-    t6.unit_smr_last_co,
-    t6.unit_smr_cur,
-    t6.comp_smr_cur,
-    t6.hrs_since_last_insp,
-    3000 - t6.hrs_since_last_insp as hrs_till_next_insp,
-    CAST(DATEADD(day, (3000 - t6.hrs_since_last_insp) / 20, CURRENT_TIMESTAMP) as DATE) as date_next_insp,
-    CASE WHEN t6.hrs_since_last_insp > 3000 THEN 'TRUE' ELSE 'FALSE' END as overdue
+    t5.Unit,
+    t5.FCNumber,
+    t5.Floc,
+    t5.cur_SN,
+    t5.date_insp,
+    t5.unit_smr_at_insp,
+    t5.smr_co_pre_insp,
+    t5.comp_smr_at_insp,
+    t5.unit_smr_last_co,
+    t5.unit_smr_cur,
+    t5.comp_smr_cur
+    -- t5.hrs_since_last_insp
 
-FROM t6
+    -- 3000 - t5.hrs_since_last_insp + t5.hrs_pre_12k as hrs_till_next_insp,
+    -- CAST(DATEADD(day, (3000 - t5.hrs_since_last_insp) / 20, CURRENT_TIMESTAMP) as DATE) as date_next_insp,
+    -- CASE WHEN t5.hrs_since_last_insp > 3000 THEN 'TRUE' ELSE 'FALSE' END as overdue
+
+FROM t5
+
+WHERE
+    t5.rn_date_insp = 1
 
 ORDER BY
-    t6.Unit,
-    t6.FCNumber
+    t5.Unit,
+    t5.FCNumber
