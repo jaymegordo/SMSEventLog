@@ -80,7 +80,7 @@ class InputForm(BaseDialog):
         add_okay_cancel(dlg=self, layout=self.vLayout)
         f.set_self(vars())
 
-    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None, tooltip=None, cb_spacing=None):
+    def add_input(self, field, items=None, layout=None, checkbox=False, cb_enabled=True, index=None, btn=None, tooltip=None, cb_spacing=None, enabled=True):
         # Add input field to form
         text, dtype = field.text, field.dtype
 
@@ -119,9 +119,9 @@ class InputForm(BaseDialog):
             # btn.setFixedSize(btn.size)
             boxLayout.addWidget(btn)
             btn.box = box
-        # else:
+        else:
         #     # add spacer
-        #     boxLayout.addSpacing(30)
+            box.setEnabled(enabled)
         
         setattr(self, 'f{}'.format(field.text.replace(' ', '')), field)
         field.box = box
@@ -297,7 +297,7 @@ class AddRow(InputForm):
             exclude = [exclude]
 
         for field in self.fields:
-            if not field.text in exclude:
+            if not field.text in exclude and field.box.isEnabled():
                 setattr(row, field.col_db, field.val)
            
     def accept_2(self):
@@ -431,8 +431,7 @@ class AddEvent(AddRow):
 
         unit = self.fUnit.val
 
-        s = db.get_df_fc() \
-            .pipe(lambda df: df[df.Unit==unit]) \
+        s = db.get_df_fc(default=True, unit=unit) \
             .groupby(['Type']).size()
 
         count_m = s.get('M', 0)
@@ -471,6 +470,7 @@ class AddEvent(AddRow):
         row.StatusWO = 'Open'
         row.Seg = 1
         row.Pictures = 0
+
         return row
 
     def create_button(self, name, width=80):
@@ -486,6 +486,10 @@ class AddEvent(AddRow):
             field = self.add_input(field=IPF(text=text, dtype='combobox', col_db='Floc'), checkbox=True, cb_enabled=False)
             field.cb.stateChanged.connect(self.load_components)
             return field
+
+        def _add_removal(text):
+            field = self.add_input(field=IPF(text=text, dtype='combobox', col_db='SunCOReason'), enabled=False)
+            return field
         
         def _add_smr(text):
             btn = self.create_button('Get SMR')
@@ -499,9 +503,11 @@ class AddEvent(AddRow):
         for suff in ('', ' 2'):
             field_comp = _add_component(f'Component CO{suff}')
             field_smr = _add_smr(f'Component SMR{suff}')
+            field_removal = _add_removal(f'Removal Reason{suff}')
 
             field_comp.box_smr = field_smr.box # lol v messy
             field_smr.box_comp = field_comp.box
+            field_comp.box_removal = field_removal.box
 
         add_linesep(self.formLayout)
         self.fComponentCO.box.currentIndexChanged.connect(self.component_changed)
@@ -517,11 +523,13 @@ class AddEvent(AddRow):
         return df[df.Combined==component_combined].Floc.values[0]
    
     def load_components(self, state):
-        # Reload components to current unit when component co toggled
-        # Also toggle smr boxes
+        """Reload components to current unit when component co toggled
+        - Also toggle smr boxes"""
+
         source = self.sender() # source is checkbox
         box = source.box
         box_smr = box.field.box_smr
+        box_removal = box.field.box_removal
 
         if state == Qt.Checked:
             df = self.df_comp
@@ -529,11 +537,20 @@ class AddEvent(AddRow):
             equip_class = db.get_unit_val(unit=unit, field='EquipClass')
             s = df[df.EquipClass==equip_class].Combined
             lst = f.clean_series(s)
-            box.addItems(lst)
+            box.set_items(lst)
+
+            # add removal reason items
+            lst_removal = f.config['Lists']['RemovalReason']
+            box_removal.set_items(lst_removal)
+            box_removal.val = 'High Hour Changeout'
+            box_removal.setEnabled(True)
+
             box.lineEdit().selectAll()
             box_smr.setEnabled(True)
+            box_removal.setEnabled(True)
         else:
             box_smr.setEnabled(False)
+            box_removal.setEnabled(False)
 
     def get_component_smr(self):
         source = self.sender()
@@ -543,9 +560,18 @@ class AddEvent(AddRow):
         unit, smr, date = self.fUnit.val, self.fSMR.val, self.fDate.val
         component = box.field.box_comp.val
 
+        # spinbox returns None if val is 0
+        if smr is None:
+            smr = 0
+
+        if smr <= 0:
+            msg = f'Set Unit SMR first!'
+            msg_simple(msg=msg, icon='warning')
+            return
+
         # get last CO from EL by floc
         floc = self.get_floc(component_combined=component)
-        smr_last = db.get_smr_prev_co(unit=unit, floc=floc, date=date)
+        smr_last = smr - db.get_smr_prev_co(unit=unit, floc=floc, date=date)
 
         if not smr_last is None:
             box.val = smr_last
@@ -593,8 +619,7 @@ class AddEvent(AddRow):
         unit = self.fUnit.val
 
         if self.cb_fc.isChecked():
-            df = db.get_df_fc()
-            df = df[df.Unit==unit]
+            df = db.get_df_fc(default=True, unit=unit)
             prefix = 'FC '
 
             ok, val = inputbox(msg='Select FC:', dtype='choice', items=list(df.Title), editable=True)
@@ -636,7 +661,9 @@ class AddEvent(AddRow):
                 if not self.mainwindow is None:
                     row.TSIAuthor = self.mainwindow.get_username()
 
-        self.set_row_attrs(row=row, exclude=['Component CO 2', 'Component SMR 2'])
+        self.set_row_attrs(
+            row=row,
+            exclude=['Component CO 2', 'Component SMR 2', 'Removal Reason 2'])
 
         # Component CO 1
         if self.fComponentCO.cb.isChecked():
