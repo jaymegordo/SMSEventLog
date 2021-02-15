@@ -293,6 +293,7 @@ class MainWindow(QMainWindow):
 
         edit_ = bar.addMenu('Edit')
         edit_.addAction(self.act_find)
+        edit_.addAction(self.act_paste_date)
         
         table_ = bar.addMenu('Table')
         table_.addAction(self.act_email_table)
@@ -368,6 +369,10 @@ class MainWindow(QMainWindow):
         act_change_minesite = QAction('Change MineSite', self,
             triggered=self.show_changeminesite,
             shortcut=QKeySequence('Ctrl+Shift+M'))
+        act_paste_date = QAction('Insert Current Date', self,
+            triggered=self.paste_date,
+            shortcut=QKeySequence('Ctrl+Shift+D'))
+        
 
         act_open_tsi = QAction('Open TSI', self, triggered=self.open_tsi)
         act_delete_event = QAction('Delete Row', self, triggered=lambda: t().remove_row())
@@ -666,6 +671,10 @@ class MainWindow(QMainWindow):
         msg.add_attachments(docs)
         msg.show()
 
+    def paste_date(self):
+        # TODO not implemented yet
+        d = dt.now().strftime('%Y-%m-%d')
+        return
 
 class TabWidget(QTabWidget):
     def __init__(self, parent):
@@ -748,30 +757,3 @@ class TabWidget(QTabWidget):
     
     def activate_previous(self):
         self.setCurrentIndex(self.prev_index)
-
-      
-# ARCHIVE
-def disable_window_animations_mac(window):
-    # We need to access `.winId()` below. This method has an unwanted (and not
-    # very well-documented) side effect: Calling it before the window is shown
-    # makes Qt turn the window into a "native window". This incurs performance
-    # penalties and leads to subtle changes in behaviour. We therefore wait for
-    # the Show event:
-    def eventFilter(target, event):
-        from objc import objc_object
-        view = objc_object(c_void_p=int(target.winId()))
-        NSWindowAnimationBehaviorNone = 2
-        view.window().setAnimationBehavior_(NSWindowAnimationBehaviorNone)
-    FilterEventOnce(window, QEvent.Show, eventFilter)
-
-class FilterEventOnce(QObject):
-    def __init__(self, parent, event_type, callback):
-        super().__init__(parent)
-        self._event_type = event_type
-        self._callback = callback
-        parent.installEventFilter(self)
-    def eventFilter(self, target, event):
-        if event.type() == self._event_type:
-            self.parent().removeEventFilter(self)
-            self._callback(target, event)
-        return False
