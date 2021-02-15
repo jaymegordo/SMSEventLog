@@ -748,7 +748,9 @@ class TableModel(QAbstractTableModel):
         df = self.df
         index = df[df[col_name]==val].index
         if len(index.values) == 1:
-            irow = index.values[0] # uid exists in df.UID
+            # if df is filtered row and irow will be different
+            row = index.values[0] # uid exists in df.UID, index row number
+            irow = df.index.get_loc(row)
         else:
             irow = None # uid doesn't exist
 
