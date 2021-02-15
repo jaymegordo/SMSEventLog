@@ -5,6 +5,8 @@ FilePaths:
     980E FH: Fort Hills/02. Equipment Files/1. 980E Trucks
     Factory Campaigns: Regional/SMS West Mining/Factory Campaigns
     Availability: Regional/SMS West Mining/Availability/Reports
+    RemanDB: /Volumes/Public/Fort McMurray/service/5. Reliability Department/32. Reman/Condition Report Database
+    BaseMineCompDB: /Volumes/Public/Fort McMurray/service/5. Reliability Department/37. Analytical Tools/ComponentTracker.accdb
 
 EquipPaths:
     FortHills: Fort Hills/02. Equipment Files
@@ -146,6 +148,13 @@ Lists:
         - Water
         - Calibration
         - Customer Request
+    RemovalReason:
+        - High Hour Changeout
+        - Damage/Abuse
+        - Convenience
+        - Failure
+        - Pro Rata Buy-in
+        - Warranty
 
 
 # Convert title to tablename > can select from views but not update them
@@ -295,7 +304,7 @@ Headers:
         Customer PO: SuncorPO
         Reman: Reman
         Removal Reason: SunCOReason
-        Notes: RemovalReason
+        Failure Cause: FailureCause
         Status: COConfirmed
     
     Component SMR:
