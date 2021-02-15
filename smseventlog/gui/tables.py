@@ -1482,8 +1482,7 @@ class ComponentCO(EventLogBase):
 
             self.set_combo_delegate(col='Reman', items=['True', 'False'], allow_blank=False)
 
-            items = ['High Hour Changeout', 'Damage/Abuse', 'Convenience', 'Failure', 'Pro Rata Buy-in', 'Warranty']
-            self.set_combo_delegate(col='Removal Reason', items=items)
+            self.set_combo_delegate(col='Removal Reason', items=f.config['Lists']['RemovalReason'])
 
 class ComponentSMR(TableWidget):
     def __init__(self, parent=None):
