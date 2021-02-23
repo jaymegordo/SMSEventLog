@@ -3,10 +3,10 @@ import re
 from .__init__ import *
 
 if f.is_mac():
-    from aeosa.appscript import app, k # noqa
-    from aeosa.mactypes import Alias # noqa
+    from aeosa.appscript import app, k
+    from aeosa.mactypes import Alias
 elif f.is_win():
-    import win32com.client as win32 # noqa
+    import win32com.client as win32
 
 log = logging.getLogger(__file__)
 
