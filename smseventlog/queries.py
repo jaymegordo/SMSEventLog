@@ -31,6 +31,30 @@ class Filter():
         f.set_self(vars())
 
     def add(self, field=None, val=None, vals=None, opr=None, term=None, table=None, ct=None):
+        """Add query filter
+
+        Parameters
+        ----------
+        field : str, optional
+            field to filter on, default None
+        val : str, optional
+            val to filter on, default None
+        vals : dict, optional
+            dict of {field: val}, default None
+        opr : operator, optional
+            eg opr.eq, default None
+        term : str, optional
+            filter term eg "between", default None
+        table : str | pk.Table, optional
+            table if not using query's default table, default None
+        ct : pk.Criterion, optional
+            fully formed criterion, eg multiple statements or "or" etc, default None
+
+        Returns
+        -------
+        qr.Filter
+            self
+        """        
         if not vals is None:
             # not pretty, but pass in field/val with dict a bit easier
             field = list(vals.keys())[0]
@@ -38,7 +62,8 @@ class Filter():
         
         if table is None:
             table = self.select_table
-            # otherwise must pass in a T()
+        elif isinstance(table, str):
+            table = T(table)
             
         field_ = table.field(field)
         if ct is None:
@@ -358,7 +383,7 @@ class QueryBase(object):
         return f.convert_stylemap_index_color(style=style)
 
     def set_minesite(self):
-        self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
+        self.fltr.add(vals=dict(MineSite=self.minesite), table='UnitID')
 
     def expand_monthly_index(self, df, d_rng=None):
         """Expand monthly PeriodIndex to include missing months"""
@@ -399,7 +424,7 @@ class EventLogBase(QueryBase):
     
     def set_usergroup(self, usergroup=None, **kw):
         if usergroup is None: return
-        self.fltr.add(field='UserGroup', val=usergroup, table=T('UserSettings'))
+        self.fltr.add(field='UserGroup', val=usergroup, table='UserSettings')
 
 class EventLog(EventLogBase):
     def __init__(self, **kw):
@@ -698,11 +723,11 @@ class FCBase(QueryBase):
         f.set_self(vars())
 
     def set_default_filter(self, **kw):
-        self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
+        self.fltr.add(vals=dict(MineSite=self.minesite), table='UnitID')
         self.set_allopen()
     
     def set_allopen(self, **kw):
-        self.fltr.add(vals=dict(ManualClosed=0), table=T('FCSummaryMineSite'))
+        self.fltr.add(vals=dict(ManualClosed=0), table='FCSummaryMineSite')
 
     def process_criterion(self):
         # need to always filter manualclosed to 'OR is null'
@@ -1675,7 +1700,7 @@ class Availability(AvailRawData):
                     theme=self.theme))})
 
     def set_minesite(self):
-        self.fltr.add(vals=dict(MineSite=self.minesite), table=T('UnitID'))
+        self.fltr.add(vals=dict(MineSite=self.minesite), table='UnitID')
     
     def set_default_filter(self, **kw):
         self.set_minesite()
