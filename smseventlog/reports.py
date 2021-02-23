@@ -674,7 +674,7 @@ class ComponentReport(Report):
             sort_component=True,
             da=dict(d_rng=d_rng, minesite=minesite))
 
-        query.fltr.add(vals=dict(Model='980E*'), table=T('UnitID'))
+        query.fltr.add(vals=dict(Model='980E*'), table='UnitID')
 
         self.load_sections([
             dict(name='ComponentHistoryCharts', query=query),

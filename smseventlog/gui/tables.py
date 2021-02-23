@@ -1288,7 +1288,7 @@ class EventLogBase(TableWidget):
         field = dlgs.InputField(
                 text=text,
                 default=db.domain_map_inv.get(self.u.domain, 'SMS'),
-                table=T('UserSettings'))
+                table='UserSettings')
         
         # set so can call later in save/restore settings
         field.box = box
@@ -2053,6 +2053,7 @@ class Availability(TableWidget):
         self.add_action(name='Save Assignments', func=self.save_assignments, btn=True)
         self.add_action(name='Assign Suncor', func=self.assign_suncor, shortcut='Ctrl+Shift+Z')
         self.add_action(name='Show Unit EL', func=self.filter_unit_eventlog, shortcut='Ctrl+Shift+F', btn=True, ctx='filter')
+        self.add_action(name='Find Unit SAP', func=self.find_unit_sap, shortcut='Ctrl+Shift+S', ctx='filter')
 
         self.context_actions['refresh'].extend(['refresh_allopen', 'refresh_lastweek', 'refresh_lastmonth'])
 
@@ -2198,6 +2199,12 @@ class Availability(TableWidget):
 
         table_widget.view.model().filter_by_items(col='Unit', items=[unit])
         tabs.activate_tab(title)
+    
+    def find_unit_sap(self):
+        """Wrapper for fl.find_unit_sap from unit in table"""
+        unit = self.view.create_index_activerow('Unit').data().replace('F', 'F0')
+        self.mainwindow.app.processEvents()
+        fl.find_unit_sap(unit=unit)
 
     def get_report_base(self, period_type):
         return Path(f.drive / f.config['FilePaths']['Availability'] / f'{self.minesite}/{period_type.title()}ly')

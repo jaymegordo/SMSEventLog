@@ -195,12 +195,11 @@ def compare_ac_rotors(df_reman):
     # get df of most last installed SN
     query = qr.ComponentSMR()
     a = query.a
-    b = pk.Table('ComponentType')
 
     ct = (a.MineSite=='BaseMine') | (a.MineSite=='FortHills')
     fltrs = [
         dict(ct=ct),
-        dict(vals=dict(Component='AC Motor'), table=b)]
+        dict(vals=dict(Component='AC Motor'), table='ComponentType')]
 
     query.add_fltr_args(fltrs)
     df_comp = query.get_df()

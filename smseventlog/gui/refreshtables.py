@@ -71,7 +71,7 @@ class RefreshTable(InputForm):
             add_input(field=IPF(text=title, table=table), items=lst, checkbox=True, cb_enabled=False)
             
         elif name == 'type':
-            table=T('FCSummary')
+            table='FCSummary'
             add_input(field=IPF(text=title, col_db='Classification', table=table), items=['M', 'FAF', 'DO', 'FT'], checkbox=True, cb_enabled=False)
             
         elif name == 'fc number':
@@ -129,7 +129,7 @@ class RefreshTable(InputForm):
         elif name == 'fc subject':
             df = db.get_df_fc(default=False, minesite=ms)
             lst = f.clean_series(df.Subject)
-            add_input(field=IPF(text='Subject', table=T('FCSummary'), col_db='SubjectShort'), items=lst, checkbox=True, cb_enabled=False)
+            add_input(field=IPF(text='Subject', table='FCSummary', col_db='SubjectShort'), items=lst, checkbox=True, cb_enabled=False)
         
         elif name == 'usergroup':
             u = self.mainwindow.u
