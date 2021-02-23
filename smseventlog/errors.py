@@ -374,7 +374,10 @@ class FakeError(Error):
 class ExpectedError(Error):
     """Exceptions derrived from this class will not be logged.
     - Usually just show status message and ignore"""
-    pass
+    def __init__(self, msg=None, warn=False, *args, **kw):
+        super().__init__(msg, *args, **kw)
+        if not msg is None:
+            self.update_statusbar(msg, warn=warn)
 
 class SMSDatabaseError(Error):
     """Raised when something goes wrong with the database connection"""
@@ -401,8 +404,14 @@ class NoInternetError(ExpectedError):
 class NoRowSelectedError(ExpectedError):
     """Raised if no internet connection detected."""
     def __init__(self, message='No row selected in table.'):
-        super().__init__(message)
-        self.update_statusbar(msg=message, warn=True)
+        super().__init__(message, warn=True)
+        # self.update_statusbar(msg=message, warn=True)
+
+class SMSNotImplementedError(ExpectedError):
+    """Raised if feature is not enabled for system."""
+    def __init__(self, message='This feature is not implemented on windows.'):
+        super().__init__(message, warn=True)
+        # self.update_statusbar(msg=message, warn=True)
 
 class InputError(ExpectedError):
     """Raised if incorrect input from dialog."""
