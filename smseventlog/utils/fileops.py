@@ -378,3 +378,33 @@ def kill_proc_tree(pid, sig=signal.SIGTERM, include_parent=True,
     gone, alive = psutil.wait_procs(children, timeout=timeout,
                                     callback=on_terminate)
     return (gone, alive)
+
+def find_unit_sap(unit : str):
+    """AppleScript to automate finding unit with cmd+f in citrix sap
+
+    Parameters
+    ----------
+    unit : str
+        unit to find eg 'F0305'
+    """    
+    if not f.is_mac():
+        raise er.SMSNotImplementedError()
+
+    from aeosa.appscript import app, k
+    delay = 0.5
+
+    citrix = app('Citrix Viewer')
+    syst = app('System Events')
+
+    citrix.activate()
+
+    time.sleep(delay)
+    syst.click() # click so sap is 'activated' better..
+    # time.sleep(delay)
+    syst.keystroke('f', using=k.command_down)
+    time.sleep(delay)
+    syst.keystroke(unit)
+    time.sleep(delay)
+    syst.keystroke('\r')
+    time.sleep(delay)
+    syst.key_code(53)
