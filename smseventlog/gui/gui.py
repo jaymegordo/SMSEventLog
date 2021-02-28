@@ -312,6 +312,7 @@ class MainWindow(QMainWindow):
 
         database_ = bar.addMenu('Database')
         database_.addAction(self.act_update_comp_smr)
+        database_.addAction(self.act_update_fc_status_clipboard)
         database_.addSeparator()
         database_.addAction(self.act_reset_db)
         database_.addAction(self.act_reset_db_tables)
@@ -408,6 +409,11 @@ class MainWindow(QMainWindow):
 
         act_update_component = QAction('Update Component', self,
             triggered=lambda: t().show_component())
+        act_update_fc_status_clipboard = QAction('Update FC Status Clipboard', self,
+            triggered=lambda: fc.update_scheduled_sap(
+                exclude=dlgs.inputbox(
+                    msg='1. Enter FCs to exclude\n2. Copy FC Data from SAP to clipboard\n\nExclude:'),
+                table_widget=t()))
         act_email_table = QAction('Email Table', self, 
             triggered=lambda: t().email_table())
         act_export_excel_table = QAction('Export to Excel', self,

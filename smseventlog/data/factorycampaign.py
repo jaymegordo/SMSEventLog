@@ -241,7 +241,22 @@ def read_ka(p):
 
     return df
 
-def update_scheduled(df, scheduled=True):
+def update_scheduled_db(df, **kw):
+    """Update cleaned df scheduled status in FactoryCampaign db table
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        cleaned df
+    """    
+    from .. import dbtransaction as dbt
+    from ..utils.dbmodel import FactoryCampaign
+
+    dbt.DBTransaction(dbtable=FactoryCampaign, table_view=False, **kw) \
+        .add_df(df=df, update_cols='Scheduled') \
+        .update_all()
+
+def update_scheduled_excel(df, scheduled=True):
     """Update "Scheduled" status in FactoryCampaign
 
     Parameters
@@ -255,9 +270,7 @@ def update_scheduled(df, scheduled=True):
     --------
     >>> df = pd.read_clipboard()
     >>> fc.update_scheduled(df=df)
-    """
-    from .. import dbtransaction as dbt
-    from ..utils.dbmodel import FactoryCampaign
+    """   
 
     # parse FC number from title
     # NOTE may need to replace prefixes other than 'FC' eg 'PSN'
@@ -273,7 +286,67 @@ def update_scheduled(df, scheduled=True):
             Scheduled=scheduled) \
         [['Unit', 'FCNumber', 'Scheduled']]
 
-    # bulk update values
-    txn = dbt.DBTransaction(dbtable=FactoryCampaign, table_view=False) \
-        .add_df(df=df, update_cols='Scheduled') \
-        .update_all()
+    update_scheduled_db(df=df)
+
+def update_scheduled_sap(df=None, exclude=None, **kw):
+    """Update scheduled fc status from sap data
+    - copy table in sap, then this func will read clipboard
+    - NOTE rejected notifications get status COMP
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        df, default None
+    kw :
+        used here to pass active table widget to dbtxn for update message
+    
+    Examples
+    --------
+    >>> fc.update_scheduled_sap(exclude=['SMSFH-008'])
+    """
+    if exclude is None:
+        exclude = []
+
+    # if exclude vals came from gui dialog
+    if isinstance(exclude, tuple):
+        ans = exclude[0] # 1 or 0 for dialog accept/reject
+        exclude = exclude[1] if ans == 1 else []
+    
+    # split string items to list
+    if isinstance(exclude, str):
+        exclude = [item.strip() for item in exclude.split(',')]
+
+    df_fc = db.get_df_fc(default=False)
+
+    # read df data from clipboard
+    if df is None:
+        cols = ['notification', 'order', 'date_created', 'title', 'floc', 'status', 'report_by', 'completion_date', 'created_by']
+        df = pd.read_clipboard(names=cols, header=None) \
+            .pipe(f.parse_datecols)
+
+    # extract FCNumber from description with regex expr matching FC or PSN then fc_number
+    # F0314 FC[19H055-1] CHANGE STEERING BRACKET
+    # F0314 PSN[ 19H055-1] CHANGE STEERING BRACKET
+    # https://stackoverflow.com/questions/20089922/python-regex-engine-look-behind-requires-fixed-width-pattern-error
+    expr = r'(?:(?<=FC)|(?<=PSN))(\s*[^\s]+)'
+    expr2 = r'^[^a-zA-Z0-9]+' # replace non alphanumeric chars at start of string eg '-'
+
+    # set Scheduled=True for any rows which dont have 'RJCT'
+    df = df \
+        .assign(
+            FCNumber=lambda x: x.title \
+                .str.extract(expr, flags=re.IGNORECASE)[0] \
+                .str.strip() \
+                .str.replace(expr2, ''),
+            Unit=lambda x: x.floc \
+                .str.split('-', expand=True)[0] \
+                .str.replace('F0', 'F'),
+            Scheduled=lambda x: ~x.status.str.contains('RJCT')) \
+        .sort_values(by=['Unit', 'FCNumber', 'date_created'], ascending=[True, True, False]) \
+        .drop_duplicates(subset=['Unit', 'FCNumber'], keep='first') \
+        .pipe(lambda df: df[~df.FCNumber.isin(exclude)]) \
+        .pipe(lambda df: df[df.FCNumber.isin(df_fc['FC Number'])]) \
+        [['Unit', 'FCNumber', 'Scheduled']]
+
+    # return df
+    update_scheduled_db(df=df, **kw)
