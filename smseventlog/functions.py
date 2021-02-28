@@ -84,8 +84,20 @@ def convert_df_view_cols(df, m):
     df.columns = [m[c] if c in m.keys() else c for c in df.columns]
     return df
 
-def convert_df_db_cols(title, df):
-    # convert df with view_cols to db_cols from dict of conversions. keep original if new col not in dict
+def convert_df_db_cols(title : str, df : pd.DataFrame):
+    """Convert df with view_cols to db_cols from dict of conversions. keep original if new col not in dict
+
+    Parameters
+    ----------
+    title : str
+        table title
+    df : pd.DataFrame
+
+    Returns
+    -------
+    pd.DatFrame
+        dataframe with cols converted to db cols
+    """
     m = get_dict_view_db(title)
     df.columns = [m[c] if c in m.keys() else c for c in df.columns]
     return df
