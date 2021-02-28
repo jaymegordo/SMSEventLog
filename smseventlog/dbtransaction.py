@@ -12,12 +12,30 @@ from .utils import dbmodel as dbm
 log = getlog(__name__)
 
 class DBTransaction():
-    def __init__(self, table_model=None, dbtable=None, title=None):
-        """Bulk update values from table_model to database
-        - need dbtable, df or list of dicts containing appropriate pks and vals to update"""
+    def __init__(self, table_model=None, dbtable=None, title=None, table_view=True):
+        """Database transaction object for bulk updates/deletes etc
+        - need dbtable, df or list of dicts containing appropriate pks and vals to update
+
+        Parameters
+        ----------
+        table_model : smseventlog.gui.tables.TableWidget, optional
+            table model from tables.py, default None
+        dbtable : dbm.Base, optional
+            dbtable definition not instance, default None
+        title : str, optional
+            table view title used for converting between db and table_view column names, default None
+        table_view : bool, optional
+            pass in False if cols are already in db view, default True
+
+        Raises
+        ------
+        AttributeError
+            [description]
+        """
         
         update_items = []
 
+        table_widget = None
         if not table_model is None:
             table_widget = table_model.table_widget
             title = table_widget.title
@@ -27,14 +45,16 @@ class DBTransaction():
 
         pks = get_dbtable_keys(dbtable)
 
-        all_cols = f.convert_list_db_view(title=title, cols=pks) # convert db to view cols first
+        # convert db to view cols first
+        all_cols = f.convert_list_db_view(title=title, cols=pks) if table_view else pks
         
         f.set_self(vars())
 
     def update_statusbar(self, msg, *args, **kw):
         if not self.table_widget is None:
             self.table_widget.mainwindow.update_statusbar(msg=msg, *args, **kw)
-            print(msg)
+            
+        print(msg)
 
     def add_df(self, df, update_cols=None):
         """Add full or sliced df to update queue"""
@@ -44,7 +64,10 @@ class DBTransaction():
 
         # pass in df with all rows to update, then filter update_cols + pk_cols
         df = df[self.all_cols]
-        df = f.convert_df_db_cols(title=self.title, df=df)
+
+        if self.table_view:
+            df = f.convert_df_db_cols(title=self.title, df=df)
+
         self.update_items = df.to_dict(orient='records')
 
         return self
@@ -80,7 +103,7 @@ class DBTransaction():
             log.info(f'No records to update.')
             return
             
-        msg = f'Bulk {operation_type} records: {len(self.update_items)}'
+        msg = f'Bulk {operation_type} records: {num_recs}'
 
         if db.safe_commit():
             self.update_statusbar(msg, success=True)
@@ -210,7 +233,19 @@ def get_dbtable_key_vals(dbtable, vals):
     key_dict = {k:vals[k] for k in pks}
     return key_tuple, key_dict
 
-def get_dbtable_keys(dbtable):
+def get_dbtable_keys(dbtable : dbm.Base) -> list:
+    """Get list of dbtable keys
+
+    Parameters
+    ----------
+    dbtable : dbm.Base
+        eg dbm.FactoryCampaign
+
+    Returns
+    -------
+    list
+        list of dbtable pks eg ['Unit', 'FCNumber']
+    """    
     return dbtable.__table__.primary_key.columns.keys()
 
 def print_model(model, include_none=False):
