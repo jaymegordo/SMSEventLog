@@ -1875,6 +1875,11 @@ class FCSummary(FCBase):
             btn=True,
             ctx='fc',
             tooltip='Set selected FC to "ManualClosed=True" and hide FC from this list.')
+        self.add_action(
+            name='Show FC Details',
+            func=self.show_fc_details,
+            ctx='view',
+            tooltip='Show full list of FCs in FC Details tab.')
 
         # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
@@ -1962,6 +1967,25 @@ class FCSummary(FCBase):
 
         msg = f'FC: "{e.FCNumber}" closed for MineSite: "{e.MineSite}"'
         self.update_statusbar(msg=msg, success=True)
+
+    def show_fc_details(self):
+        """Show selected row FC Number in FC Details tab"""
+        view = self.view
+        fc_number = view.create_index_activerow('FC Number').data()
+
+        title = 'FC Details'
+        tabs = self.mainwindow.tabs
+        table_widget = tabs.get_widget(title)
+        
+        args = [
+            dict(vals=dict(MineSite=self.minesite), table='UnitID'),
+            dict(vals=dict(FCNumber=fc_number))]
+        query = table_widget.query
+        query.add_fltr_args(args)
+
+        table_widget.refresh()
+
+        tabs.activate_tab(title)
 
 class FCDetails(FCBase):
     def __init__(self, parent=None):
