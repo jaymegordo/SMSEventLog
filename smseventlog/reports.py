@@ -1040,7 +1040,7 @@ class FCs(Section):
             .add_df(
                 name='FC Summary (2)',
                 query=qr.FCSummaryReport2(parent=fcsummary),
-                caption='Completion status of FCs per unit. (Extension of previous table, mandatory FCs highlighted navy blue).')
+                caption='Completion status of FCs per unit. (Extension of previous table, mandatory FCs highlighted navy blue).\nY = Complete, N = Not Complete, S = Scheduled')
 
 class SubSection():
     # subsections add dfs/charts/paragraphs
@@ -1057,6 +1057,9 @@ class SubSection():
     def add_df(self, name=None, func=None, query=None, da={}, display=True, has_chart=False, caption=None, style_func=None):
         if name is None:
             name = self.title
+        
+        if not caption is None:
+            caption = caption.replace('\n', '<br>')
 
         self.report.dfs[name] = dict(
             name=name,
