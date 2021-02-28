@@ -12,7 +12,7 @@ from .utils import dbmodel as dbm
 log = getlog(__name__)
 
 class DBTransaction():
-    def __init__(self, table_model=None, dbtable=None, title=None, table_view=True):
+    def __init__(self, table_model=None, dbtable=None, title=None, table_view=True, table_widget=None, **kw):
         """Database transaction object for bulk updates/deletes etc
         - need dbtable, df or list of dicts containing appropriate pks and vals to update
 
@@ -35,7 +35,6 @@ class DBTransaction():
         
         update_items = []
 
-        table_widget = None
         if not table_model is None:
             table_widget = table_model.table_widget
             title = table_widget.title
