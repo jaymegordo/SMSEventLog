@@ -228,7 +228,6 @@ class FCSummary(Base):
     CustomSort = Column(Integer)
     ReleaseDate = Column(Date)
     ExpiryDate = Column(Date)
-    TempCol = Column(String(255, 'SQL_Latin1_General_CP1_CI_AS'))
 
 
 class FCSummaryMineSite(Base):
@@ -632,5 +631,6 @@ class FactoryCampaign(Base):
     Notes = Column(Unicode(255))
     CustomSort = Column(Integer)
     Ignore = Column(BIT, server_default=text("((0))"))
+    Scheduled = Column(BIT, nullable=False)
 
     EventLog = relationship('EventLog')
