@@ -2,13 +2,14 @@ import qdarkstyle
 from PyQt5.QtCore import (QAbstractTableModel, QDate, QDateTime, QEvent, QFile,
                           QItemSelection, QItemSelectionModel, QModelIndex,
                           QObject, QPoint, QSettings, QSize, Qt, QTextStream,
-                          QThreadPool, QTime, QTimer, QVariant, pyqtSignal, pyqtSlot)
+                          QThreadPool, QTime, QTimer, QVariant, pyqtSignal,
+                          pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetrics, QGuiApplication,
                          QIcon, QIntValidator, QKeyEvent, QKeySequence,
                          QPalette, QPixmap, QTextCursor)
 from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction,
                              QApplication, QCheckBox, QComboBox, QDateEdit,
-                             QDateTimeEdit, QTimeEdit, QDesktopWidget, QDialog,
+                             QDateTimeEdit, QDesktopWidget, QDialog,
                              QDialogButtonBox, QErrorMessage, QFileDialog,
                              QFormLayout, QFrame, QGridLayout, QHBoxLayout,
                              QHeaderView, QInputDialog, QItemDelegate, QLabel,
@@ -20,7 +21,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction,
                              QStyleOptionComboBox, QStyleOptionFocusRect,
                              QStyleOptionViewItem, QTableView, QTableWidget,
                              QTableWidgetItem, QTabWidget, QTextEdit,
-                             QVBoxLayout, QWidget, QWidgetAction)
+                             QTimeEdit, QVBoxLayout, QWidget, QWidgetAction)
 from sentry_sdk import configure_scope
 from smseventlog import dbtransaction as dbt
 from smseventlog import errors as er
@@ -28,6 +29,7 @@ from smseventlog import functions as f
 from smseventlog import queries as qr
 from smseventlog import users
 from smseventlog.__init__ import *
+from smseventlog.data import factorycampaign as fc
 from smseventlog.database import db
 from smseventlog.errors import e, wrap_all_class_funcs
 from smseventlog.utils import dbmodel as dbm

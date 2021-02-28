@@ -2,7 +2,6 @@ import re
 
 from .. import eventfolders as efl
 from .. import styles as st
-from ..data import factorycampaign as fc
 from ..data.internal import dls
 from ..utils import email as em
 from . import _global as gbl
