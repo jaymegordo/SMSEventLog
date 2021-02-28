@@ -239,10 +239,19 @@ def highlight_yn(df, color_good='good', theme='light'):
     bg, t = m['bg'], m['text']
     default_bg, default_t = get_defaults(theme)
 
-    m1, m2 = df=='Y', df=='N' # create two boolean masks
+    m1, m2, m3 = df=='Y', df=='N', df=='S' # create three boolean masks
 
     where = np.where
-    data = where(m1, format_cell(bg[color_good], t[color_good]), where(m2, format_cell(bg['bad'], t['bad']), f'background-color: {default_bg}'))
+    data = where(
+        m1,
+        format_cell(bg[color_good], t[color_good]),
+        where(
+            m2,
+            format_cell(bg['bad'], t['bad']),
+            where(
+                m3,
+                format_cell(bg['lightyellow'], 'black'),
+                    f'background-color: {default_bg}')))
 
     return pd.DataFrame(data=data, index=df.index, columns=df.columns)
 
