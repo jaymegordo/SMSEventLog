@@ -253,6 +253,7 @@ Headers:
         Unit: Unit
         FC Number: FCNumber
         Complete: Complete
+        Sched: Scheduled
         Closed: ManualClosed
         Ignore: Ignore
         Type: Classification

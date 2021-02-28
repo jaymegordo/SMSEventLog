@@ -755,7 +755,9 @@ class FCSummary(FCBase):
 
         a, b, c, d = self.a, self.b, self.c, self.d
 
-        complete = Case().when(a.Complete==1, 'Y').else_('N').as_('Complete') # just renaming True to Y
+        # rename Complete True = Y, scheduled = S, else N
+        case_scheduled = Case().when(a.Scheduled==1, 'S').else_('N')
+        complete = Case().when(a.Complete==1, 'Y').else_(case_scheduled).as_('Complete')
         
         cols = [d.MineSite, a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
         f.set_self(vars())
@@ -921,7 +923,7 @@ class FCDetails(FCBase):
         super().__init__(**kw)
         a, b, c, d = self.a, self.b, self.c, self.d
 
-        self.cols = [a.UID, d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, c.ManualClosed, a.Ignore, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Pictures, a.Notes]
+        self.cols = [a.UID, d.MineSite, d.Model, a.Unit, a.FCNumber, a.Complete, a.Scheduled, c.ManualClosed, a.Ignore, a.Classification, a.Subject, a.DateCompleteSMS, a.DateCompleteKA, b.ExpiryDate, a.SMR, a.Pictures, a.Notes]
 
     def set_default_filter(self, **kw):
         super().set_default_filter(**kw)

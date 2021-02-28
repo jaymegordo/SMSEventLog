@@ -2001,17 +2001,21 @@ class FCDetails(FCBase):
 
             self.highlight_funcs['Pics'] = self.highlight_pics
             self.highlight_funcs['Complete'] = self.highlight_by_val
+            self.highlight_funcs['Sched'] = self.highlight_by_val
             self.mcols['disabled'] = ('MineSite', 'Model', 'Unit', 'FC Number', 'Complete', 'Closed', 'Type', 'Subject', 'Pics')
-            self.mcols['fill_enabled'] = ('Date Complete', 'Ignore')
+            self.mcols['fill_enabled'] = ('Date Complete', 'Ignore', 'Sched')
             self.mcols['hide'] = ('UID',)
             self.col_widths.update({
                 'Complete': 60,
+                'Sched': 60,
                 'Closed': 60,
                 'Type': 60,
                 'Subject': 400,
                 'Notes': 400})
 
-            self.set_combo_delegate(col='Ignore', items=f.config['Lists']['TrueFalse'], allow_blank=False)
+            tf = f.config['Lists']['TrueFalse']
+            self.set_combo_delegate(col='Ignore', items=tf, allow_blank=False)
+            self.set_combo_delegate(col='Sched', items=tf, allow_blank=False)
     
     def view_folder(self):
         view, i, e = self.view, self.i, self.e

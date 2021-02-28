@@ -240,3 +240,40 @@ def read_ka(p):
     df.LastSMR = pd.to_datetime(df.LastSMR, format='%m/%d/%Y %H:%M %p')
 
     return df
+
+def update_scheduled(df, scheduled=True):
+    """Update "Scheduled" status in FactoryCampaign
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        df from "SAP Notification Duplicator" table, copied from clipboard
+    scheduled : bool
+        update FCs to be scheduled or not, default True
+
+    Examples
+    --------
+    >>> df = pd.read_clipboard()
+    >>> fc.update_scheduled(df=df)
+    """
+    from .. import dbtransaction as dbt
+    from ..utils.dbmodel import FactoryCampaign
+
+    # parse FC number from title
+    # NOTE may need to replace prefixes other than 'FC' eg 'PSN'
+    df = df \
+        .pipe(f.lower_cols) \
+        .dropna() \
+        .assign(
+            Unit=lambda x: x.unit.str.replace('F0', 'F'),
+            FCNumber=lambda x: x.title.str.split(' - ', expand=True)[1] \
+                .str.replace('FC', '') \
+                .str.replace('PSN', '') \
+                .str.strip(),
+            Scheduled=scheduled) \
+        [['Unit', 'FCNumber', 'Scheduled']]
+
+    # bulk update values
+    txn = dbt.DBTransaction(dbtable=FactoryCampaign, table_view=False) \
+        .add_df(df=df, update_cols='Scheduled') \
+        .update_all()
