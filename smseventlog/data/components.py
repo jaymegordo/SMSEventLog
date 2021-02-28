@@ -179,15 +179,56 @@ def convert_basemine_component(df):
             Title=lambda x: x.Combined + ' - CO') \
         .drop(columns=['Component', 'Modifier', 'Combined'])
 
-def compare_ac_rotors(df_reman):
-    p = Path('/Users/Jayme/Desktop/ac_motor_bands.xlsx')
-    df_ac = pd.read_excel(p, sheet_name=1) \
+def df_ac_motor_wos():
+    p = f.desktop / 'ac_motor_bands.xlsx'
+    return pd.read_excel(p, sheet_name=1) \
         .pipe(f.lower_cols)
 
-    lst = '|'.join(df_ac.fc_rotor)
+def df_srb_wos():
+    p = f.desktop / 'srb_wos.csv'
+    return pd.read_csv(p) \
+        .pipe(f.lower_cols)
+
+def find_latest_serials(df_reman, df_wo, component='AC Motor', name='ac_motor_bands', save_=False):
+    """Match WOs corresponding to a component event (eg latest srb installed) to latest SNs for component from EL database
+
+    Parameters
+    ----------
+    df_reman : pd.DataFrame
+        df of reman's dumb access database
+    df_wo : pd.DataFrame
+        df of WOs to check
+    component : str
+        Component in EL db, default 'AC Motor'
+    name : str, optional
+        name to save output excel as , by default 'ac_motor_bands'
+    save_ : bool, optional
+        save df as excel
+
+    Returns
+    -------
+    pd.DataFrame
+        matched df
+    
+    Examples
+    --------
+    >>> from smseventlog.data import components as cmp
+    >>> df_final = cmp.find_latest_serials(df_reman, df_srb, component='Traction Alternator', name='srb_bearing')
+    """
+
+    lst = '|'.join(df_wo.wo)
+    n_chars = 10
+
+    def split_wo(s):
+        """Remove -seg from WO"""
+        return s.str.split('-', expand=True)[0]
 
     df2 = df_reman \
         .fillna(dict(branch_wo='', smswo='')) \
+        .assign(
+            branch_wo=lambda x: split_wo(x.branch_wo),
+            smswo=lambda x: split_wo(x.smswo),
+            comp_serial=lambda x: x.comp_serial.str[:n_chars]) \
         .pipe(lambda df: df[
             (df.branch_wo.str.contains(lst)) |
             (df.smswo.str.contains(lst))])
@@ -199,18 +240,21 @@ def compare_ac_rotors(df_reman):
     ct = (a.MineSite=='BaseMine') | (a.MineSite=='FortHills')
     fltrs = [
         dict(ct=ct),
-        dict(vals=dict(Component='AC Motor'), table='ComponentType')]
+        dict(vals=dict(Component=component), table='ComponentType')]
 
     query.add_fltr_args(fltrs)
     df_comp = query.get_df()
-    df_comp
 
     df_final = df_comp \
         .assign(
-            has_band=lambda x: x['Last SN Installed'].isin(f.clean_series(df2.comp_serial))) \
+            last_sn=lambda x: x['Last SN Installed'].str[:n_chars],
+            matches_reman=lambda x: x.last_sn.isin(f.clean_series(df2.comp_serial))) \
+        .drop(columns=['Last SN Installed']) \
+        .pipe(f.lower_cols)
     
-    p = f.desktop / 'ac_motor_bands.xlsx'
-    df_final.to_excel(p, index=False, freeze_panes=(1,0))
+    if save_:
+        p = f.desktop / f'{name}.xlsx'
+        df_final.to_excel(p, index=False, freeze_panes=(1, 0))
 
-    return
+    return df_final
     
