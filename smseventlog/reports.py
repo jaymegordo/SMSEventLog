@@ -188,10 +188,7 @@ class Report(object):
         # manually set executable_path for kaleido before trying to render charts
         if SYS_FROZEN:
             import kaleido.scopes.base as kaleido_base
-            if f.is_win():
-                kaleido_base.executable_path = f.kaleido_path
-            elif f.is_mac():
-                kaleido_base.BaseScope.executable_path = lambda: f.kaleido_path # need to make it a callable
+            kaleido_base.BaseScope.executable_path = lambda x: f.kaleido_path # need to make it a callable
 
         p_img = f.temp / 'images'
         if not p_img.exists():
