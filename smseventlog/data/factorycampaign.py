@@ -320,7 +320,7 @@ def update_scheduled_sap(df=None, exclude=None, **kw):
 
     # read df data from clipboard
     if df is None:
-        cols = ['notification', 'order', 'date_created', 'title', 'floc', 'status', 'report_by', 'completion_date', 'created_by']
+        cols = ['notification', 'order', 'pg', 'title', 'sort', 'floc', 'status', 'date_changed', 'changed_by', 'p', 'typ', 'date_created', 'report_by', 'workctr']
         df = pd.read_clipboard(names=cols, header=None) \
             .pipe(f.parse_datecols)
 
