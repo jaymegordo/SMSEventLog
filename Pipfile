@@ -36,7 +36,7 @@ selenium = "*"
 joblib = "*"
 weasyprint = "*" # ==51
 jinja2 = "*"
-cairosvg = "==2.4.2"
+cairosvg = "==2.5.1"
 sentry-sdk = "*"
 pyinstaller = {ref = "master", git = "https://github.com/pyinstaller/pyinstaller.git"}
 pycparser = "==2.14"
