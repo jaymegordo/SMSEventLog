@@ -10,10 +10,6 @@ import yaml
 from . import errors as er
 from .__init__ import *
 
-try:
-    from IPython.display import display
-except ModuleNotFoundError:
-    pass
 
 log = getlog(__name__)
 
@@ -47,7 +43,6 @@ if SYS_FROZEN:
     # Add this to path so plotly can find Kaleido executable
     # win is actually path to kaleido.cmd
     kaleido_path = p_ext / 'kaleido/kaleido'
-
     add_to_path(kaleido_path)
     kaleido_path = str(kaleido_path)
 
