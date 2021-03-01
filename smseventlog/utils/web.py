@@ -176,13 +176,15 @@ class Web(object):
 
             kw = dict(executable_path=p_exe)
             if f.is_win():
-                from selenium.webdriver.chrome.service import Service
-                from subprocess import CREATE_NO_WINDOW
+                # this didn't quite work
+                # from selenium.webdriver.chrome.service import Service
+                # from subprocess import CREATE_NO_WINDOW
 
-                service = Service(p_exe)
-                service.creationflags = CREATE_NO_WINDOW
-                kw['service'] = service
-                kw['executable_path'] = None
+                # service = Service(p_exe)
+                # service.creationflags = CREATE_NO_WINDOW
+                # kw['service'] = service
+                # kw['executable_path'] = None
+                kw['service_args'] = ['hide_console']
 
             return webdriver.Chrome(options=options, **kw)
 
