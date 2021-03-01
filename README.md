@@ -174,7 +174,7 @@ There are several extra functions in the menubar, such as:
             * this needs to be fixed any time pandas is udpated.
             
             1. open [*virtualenv*]/Lib/site-packages/pandas/io/formats/style.py
-            2. change line 135 from:
+            2. change line 141 from:
                 ```
                 template = env.get_template("html.tpl")
                 
@@ -197,12 +197,30 @@ There are several extra functions in the menubar, such as:
                     VERSION = __version__ = ''
                 ```
         
-        2. Matplotlib
+        3. Matplotlib
             * [this isssue](https://stackoverflow.com/questions/63163027/how-to-use-pyinstaller-with-matplotlib-in-use)
             * change `PyInstaller\hooks\hook-matplotlib.py` to:
                 ```
                 datas = [(mpl_data_dir, "matplotlib/mpl-data")]
                 ```
+        4. Tinycss2 / cssselect2
+            * related to `weasyprint`
+            * add `VERSION` file at `.../site-packages/tinycss2/VERSION` and `.../site-packages/cssselect2/VERSION`
+
+        5. Selenium - no console window
+            ```
+            # replace this for no console window on windows, line 72 ish
+            # self.process = subprocess.Popen(cmd, env=self.env,
+            #                                 close_fds=platform.system() != 'Windows',
+            #                                 stdout=self.log_file,
+            #                                 stderr=self.log_file,
+            #                                 stdin=PIPE)
+
+            if any("hide_console" in arg for arg in self.command_line_args()):
+                self.process = subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, creationflags=0x08000000)
+            else:
+                self.process = subprocess.Popen(cmd, env=self.env, close_fds=platform.system() != 'Windows', stdout=self.log_file, stderr=self.log_file, stdin=PIPE)
+            ```
 
 * Code Signing
     * (mac only so far)
