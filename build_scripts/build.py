@@ -14,6 +14,7 @@ import PyInstaller.__main__
 from pathlib import Path
 import sys
 import argparse
+import os
 
 CLI=argparse.ArgumentParser()
 # CLI.add_argument(
@@ -48,19 +49,24 @@ p_dist = f.buildfolder / 'dist'
 
 args = ['--log-level=WARN', '--clean', '--noconfirm', f'--workpath={str(p_build)}', f'--distpath={str(p_dist)}', spec_file]
 
-if f.is_win():
-    # --upx-dir is path to folder containing upx.exe (need to download upx from github)
-    upx = str(Path.home() / 'Desktop/upx-3.96-win64')
-    args.append(f'--upx-dir={upx}')
+# if f.is_win():
+#     # --upx-dir is path to folder containing upx.exe (need to download upx from github)
+#     upx = str(Path.home() / 'Desktop/upx-3.96-win64')
+#     args.append(f'--upx-dir={upx}')
 
 s_args = f'pyinstaller args: {args}'
 print(s_args)
 
+os.environ['RUN_PYINSTALLER'] = 'True'
+
 PyInstaller.__main__.run(args)
 
+os.environ['RUN_PYINSTALLER'] = 'False'
 print(s_args)
+print('**** DONE ****')
 
 # move exe, zip package for distribution to users
+# dont need to do this anymore.. dont need a zipped version for anything
 # if f.is_win() and a.zip:
 #     p_share = f.projectfolder / 'dist'
 #     name_exe = 'SMS Event Log.exe'
