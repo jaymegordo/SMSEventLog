@@ -28,6 +28,9 @@ def date_created(p) -> dt:
 def date_modified(p):
     return dt.fromtimestamp(p.stat().st_mtime)
 
+def delete_folder(p):
+    shutil.rmtree(p)
+
 def move_folder(p_src : Path, p_dst : Path):
     """Move folder or file from p_src to p_dst"""
     try:
