@@ -90,7 +90,7 @@ hidden_modules = [
 for item in hidden_modules:
     hiddenimports.extend(collect_submodules(item))
 
-excludes = ['IPython']
+excludes = ['IPython', 'zmq']
 binaries = []
 
 if f.is_mac():
@@ -136,8 +136,7 @@ if upx:
 
 icon = str(f.resources / f'images/{icon_name}')
 
-run_pyupdater = True
-if run_pyupdater:
+if not eval(os.getenv('RUN_PYINSTALLER', 'False')):
     print('**** PYUPDATER ****')
     name = name_pyu # running from pyupdater
     dist_folder_name = name
