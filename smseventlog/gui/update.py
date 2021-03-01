@@ -25,8 +25,12 @@ class Updater(object):
     """Wrap Pyupdater Client/AppUpdate classes to check, download, and install updates"""
 
     @er.errlog('Failed to initialize updater!')
-    def __init__(self, mw=None, test_version=None, channel='stable'):
+    def __init__(self, mw=None, test_version=None, channel='stable', dev_channel=False):
         client = Client(ClientConfig(), progress_hooks=[self.print_status_info])
+
+        # set dev channel to alpha internally based on bool
+        if dev_channel:
+            channel = 'alpha'
 
         warnings.simplefilter('ignore', DeprecationWarning) # pyupdater turns this on, annoying
 

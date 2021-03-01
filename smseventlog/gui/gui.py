@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
     def warn_not_implemented(self):
         self.update_statusbar('Warning: This feature not yet implemented.')
     
-    def update_statusbar(self, msg=None, warn=False, success=False, *args):
+    def update_statusbar(self, msg=None, warn=False, success=False, log_=False, *args):
         """Statusbar shows temporary messages that disappear on any context event"""
         if not msg is None:
 
@@ -87,6 +87,9 @@ class MainWindow(QMainWindow):
                 warn = msg.get('warn', False)
                 success = msg.get('success', False)
                 msg = msg.get('msg', None) # kinda sketch
+
+            if log_:
+                log.info(msg)
 
             bar = self.statusBar()
             self.prev_status = bar.currentMessage()
@@ -129,8 +132,8 @@ class MainWindow(QMainWindow):
         log.debug('last tab activated')
 
         # initialize updater
-        self.updater = Updater(mw=self)
-        log.debug('updater initialized')
+        self.updater = Updater(mw=self, dev_channel=self.get_setting('dev_channel'))
+        log.debug(f'updater initialized, channel={self.updater.channel}')
 
         self.active_table_widget().refresh(default=True)
         log.debug('last table refreshed')
@@ -212,10 +215,10 @@ class MainWindow(QMainWindow):
         # if self.updater.update_available:
         #     self._install_update(updater=self.updater, ask_user=False)
     
-    def get_setting(self, key):
-        val = self.settings.value(key, defaultValue=None)
+    def get_setting(self, key, default=None):
+        val = self.settings.value(key, defaultValue=default)
         if isinstance(val, str) and val.strip() == '':
-            return None
+            return default
         
         return val
     
@@ -323,6 +326,7 @@ class MainWindow(QMainWindow):
         help_.addAction(self.act_show_about) # this actually goes to main 'home' menu
         help_.addAction(self.act_check_update)
         help_.addAction(self.act_email_err_logs)
+        help_.addAction(self.act_enable_disable_dev)
         help_.addSeparator()
         help_.addAction(self.act_username)
         help_.addAction(self.act_tsi_creds)
@@ -338,6 +342,7 @@ class MainWindow(QMainWindow):
         act_open_sap = QAction('Open SAP', self, triggered=self.open_sap)
         act_check_update = QAction('Check for Update', self, triggered=self.check_update)
         act_email_err_logs = QAction('Email Error Logs', self, triggered=self.email_err_logs)
+        act_enable_disable_dev = QAction('Enable/Disable Dev Channel', self, triggered=self.enable_disable_dev)
 
         # Reports
         act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=self.create_fleet_monthly_report)
@@ -681,6 +686,15 @@ class MainWindow(QMainWindow):
         # TODO not implemented yet
         d = dt.now().strftime('%Y-%m-%d')
         return
+
+    def enable_disable_dev(self):
+        """Enable or disable development channel setting
+        - Enabled means user will get alpha updates"""
+        name = 'dev_channel'
+        val = not self.get_setting(name, False) # flip true/false
+
+        self.settings.setValue(name, val)
+        self.update_statusbar(f'Development channel enabled: {val}', success=True, log_=True)
 
 class TabWidget(QTabWidget):
     def __init__(self, parent):
