@@ -28,7 +28,7 @@ azure-functions = "*"
 openpyxl = "*"
 pyqt5 = "*"
 appscript = {version = "*", sys_platform = "== 'darwin'"}
-# pywin32 = {version = "*", sys_platform = "== 'win32'"}
+pywin32 = {version = "*", sys_platform = "== 'win32'"}
 plotly = "*"
 seaborn = "*"
 matplotlib = "*"
@@ -40,12 +40,13 @@ cairosvg = "==2.4.2"
 sentry-sdk = "*"
 pyinstaller = {ref = "master", git = "https://github.com/pyinstaller/pyinstaller.git"}
 pycparser = "==2.14"
-kaleido = "*"
+kaleido = "==0.1.0"
 chromedriver-autoinstaller = {ref = "master", git = "https://github.com/jaymegordo/python-chromedriver-autoinstaller.git"}
 # onedrivesdk = {git = "https://github.com/OneDrive/onedrive-sdk-python.git", ref = "master"}
 # onedrivesdk-fork = "*"
 pypandoc = "*"
 psutil = "*"
+packaging = "*"
 
 [requires]
 python_version = "3.9"

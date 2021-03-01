@@ -215,7 +215,8 @@ class Row():
             table=self.tbl.tablename,
             pk=self.pk,
             id=self.id)
-        display(m)
+        # display(m)
+        print(m)
 
 def select_row_by_secondary(dbtable, col, val):
     # select single row from table by attr other than pk
@@ -250,7 +251,8 @@ def get_dbtable_keys(dbtable : dbm.Base) -> list:
 def print_model(model, include_none=False):
     m = model_dict(model, include_none=include_none)
     try:
-        display(m)
+        # display(m)
+        print(m)
     except:
         pass
 
