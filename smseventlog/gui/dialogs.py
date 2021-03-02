@@ -1,6 +1,7 @@
 import inspect
 
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView
+from numpy import byte_bounds
 
 from . import _global as gbl
 from . import formfields as ff
@@ -999,7 +1000,7 @@ class MsgBox_Advanced(QDialog):
 
 class DialogTableWidget(QTableWidget):
     """Simple table widget to display as a pop-out dialog"""
-    def __init__(self, df=None, query=None, editable=False, name='table', col_widths=None):
+    def __init__(self, df=None, query=None, editable=False, name='table', col_widths=None, scroll_bar=False, **kw):
         super().__init__()
         self.setObjectName(name)
         self.formats = {}
@@ -1018,7 +1019,12 @@ class DialogTableWidget(QTableWidget):
 
         self.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        
+        if not scroll_bar:
+            self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
         f.set_self(vars())
     
@@ -1027,7 +1033,11 @@ class DialogTableWidget(QTableWidget):
         size = super().sizeHint()
 
         if hasattr(self, 'min_width'):
-            return QSize(self.min_width + 34, size.height())
+            width = self.min_width + 34
+            if self.scroll_bar:
+                width += 15 # width of scrollbar
+
+            return QSize(width, size.height())
         else:
             return size
     
@@ -1037,7 +1047,7 @@ class DialogTableWidget(QTableWidget):
         self.formats.update({col: '{:%Y-%m-%d}' for col in date_cols})
         self.formats.update({col: '{:,.0f}' for col in int_cols})
 
-    def set_df(self, df):
+    def set_df(self, df, resize_cols=False):
         if df is None:
             return
 
@@ -1075,14 +1085,130 @@ class DialogTableWidget(QTableWidget):
 
                 self.setItem(irow, icol, item)
 
-        # self.resizeColumnsToContents()
+        if resize_cols:
+            self.resizeColumnsToContents()
+
         self.resizeRowsToContents()
         self.adjustSize()
 
-class UnitOpenFC(QDialog):
+class TableDialog(BaseDialog):
+    """Base class dialog with table widget for quick/temp table display"""
+    def __init__(self, df=None, cols : Union[dict, list]=None, name='table', parent=None, show=False, **kw):
+        super().__init__(parent, window_title='Unit SMR History')
+
+        # auto resize cols if no dict of col_widths
+        if isinstance(cols, dict):
+            col_widths = cols
+            cols = cols.keys()
+            resize_cols = False
+        else:
+            col_widths = None
+            resize_cols = True
+
+            if not df is None:
+                cols = df.columns.tolist()
+
+        # init table with default cols
+        tbl = DialogTableWidget(
+            df=pd.DataFrame(columns=cols),
+            col_widths=col_widths,
+            name=name,
+            scroll_bar=True,
+            **kw)
+
+        self.vLayout.addWidget(tbl)
+
+        add_okay_cancel(dlg=self, layout=self.vLayout)
+
+        f.set_self(vars())
+
+        if show:
+            self.load_table(df=df)
+
+    def load_table(self, df):
+        tbl = self.tbl
+        tbl.set_df(df, resize_cols=self.resize_cols)
+        tbl.setFocus()
+        self.adjustSize()
+    
+    def add_buttons(self, *btns, func=None):
+        """Add button widgets to top of table
+
+        Parameters
+        ----------
+        *btns : ff.FormFields
+            button widgets to add
+        func : callable, optional
+            function to trigger on value changed, default None
+            - NOTE could make this a dict of name : func
+        """        
+        btn_controls = QHBoxLayout()
+
+        for item in btns:
+
+            # add trigger function
+            if not func is None:
+                item.changed.connect(func)
+
+            btn_controls.addWidget(item)
+
+        btn_controls.addStretch(1) # force buttons to right side
+        self.vLayout.insertLayout(0, btn_controls)
+
+        f.set_self(vars())
+
+class UnitSMRDialog(TableDialog):
+    """Show SMR history per unit"""
+
+    def __init__(self, parent=None, unit=None, **kw):
+        cols = dict(Unit=60, DateSMR=90, SMR=90)
+
+        super().__init__(parent=parent, cols=cols, **kw)
+
+        df_unit = db.get_df_unit()
+        minesite = gbl.get_minesite()
+        cb_unit = ff.ComboBox()
+        items = f.clean_series(df_unit[df_unit.MineSite == minesite].Unit)
+        cb_unit.set_items(items)
+
+        d = dt.now()
+        de_lower = ff.DateEdit(date=d + delta(days=-60))
+        de_upper = ff.DateEdit(date=d)
+
+        self.add_buttons(cb_unit, de_lower, de_upper, func=self.load_table)
+
+        f.set_self(vars())
+
+        if not unit is None:
+            cb_unit.val = unit
+            self.load_table()
+
+    def load_table(self):
+        """Reload table data when unit or dates change"""
+        query = qr.UnitSMR(
+            unit=self.cb_unit.val,
+            d_rng=(self.de_lower.val, self.de_upper.val))
+
+        df = query.get_df() \
+            .sort_values(by='DateSMR', ascending=False)
+
+        super().load_table(df=df)
+
+
+class UnitOpenFC(TableDialog):
     """Show table widget of unit's open FCs"""
     def __init__(self, unit, parent=None):
-        super().__init__(parent)
+
+        cols = {
+            'FC Number': 80,
+            'Type': 40,
+            'Subject': 300,
+            'ReleaseDate': 90,
+            'ExpiryDate': 90,
+            'Age': 60,
+            'Remaining': 70}
+            
+        super().__init__(parent=parent, cols=cols, name='fc_table')
         self.setWindowTitle('Open FCs')
 
         query = qr.FCOpen()
@@ -1093,33 +1219,9 @@ class UnitOpenFC(QDialog):
         btn_controls = QHBoxLayout()
         cb_minesite = ff.ComboBox(items=db.get_list_minesite(), default=minesite)
         cb_unit = ff.ComboBox()
-        btn_controls.addWidget(cb_minesite)
-        btn_controls.addWidget(cb_unit)
-        btn_controls.addStretch(1) # force buttons to right side
-        # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        vLayout = QVBoxLayout(self)
-        # vLayout.setSizeConstraint(QVBoxLayout.SetFixedSize)
-        vLayout.addLayout(btn_controls)
+        self.add_buttons(cb_minesite, cb_unit)
 
-        col_widths = {
-            'FC Number': 80,
-            'Type': 40,
-            'Subject': 300,
-            'ReleaseDate': 90,
-            'ExpiryDate': 90,
-            'Age': 60,
-            'Remaining': 70}
-
-        tbl = DialogTableWidget(
-            df=pd.DataFrame(columns=col_widths.keys()),
-            col_widths=col_widths,
-            query=query,
-            name='fc_table')
-
-        vLayout.addWidget(tbl)
-
-        add_okay_cancel(dlg=self, layout=vLayout)
         f.set_self(vars())
         self.load_table(unit=unit)
         
@@ -1144,10 +1246,7 @@ class UnitOpenFC(QDialog):
         tbl, df, query, layout = self.tbl, self.df_fc, self.query, self.vLayout
 
         df = df.pipe(query.df_open_fc_unit, unit=unit)
-
-        tbl.set_df(df)
-        tbl.setFocus()
-        self.adjustSize()
+        super().load_table(df=df)
 
 class DetailsView(QDialog):
     def __init__(self, parent=None, df=None):
