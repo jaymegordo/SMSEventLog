@@ -310,13 +310,13 @@ class Web(object):
         # print("Current Page Title is : %s" %browser.title)
 
     def current_page_name(self):
-        # convert current url to nice page name
+        """Convert current url to nice page name"""
         pages_lookup = f.inverse(self.pages)
         url = self.driver.current_url.split('?')[0] # remove ? specific args
         return pages_lookup.get(url, None)
     
     def current_page_index(self, page_order):
-        # find index of current page name in given page order
+        """Find index of current page name in given page order"""
         current_page = self.current_page_name()
         print(f'current_page: {current_page}')
         i = page_order.index(current_page) if current_page in page_order else -1
@@ -661,9 +661,10 @@ class TSIWebPage(Komatsu):
             'Jobsite Function': ('kom_casemachinejobsitefunction', 'Carrying'),
             'Parts Returnable': ('kom_partsreturnable', 'No')}
 
+        # https://komatsuna.microsoftcrmportals.com/en-US/tsi/
         homepage = 'https://komatsuna.microsoftcrmportals.com/en-US/'
         self.pages.update({
-            'login': 'https://www.komatsuamerica.net/northamerica/kirc/tsr2/',
+            'login': homepage,
             'home': homepage,
             'tsi_home': f'{homepage}tsi/',
             'tsi_create': f'{homepage}tsi-view/create-tsi-case/',
@@ -801,10 +802,11 @@ class TSIWebPage(Komatsu):
 
         def login():
             # these elements exist on same url, harder to separate
-            self.login_ka()
+            # self.login_ka()
+            self.driver.get(self.pages['home'])
 
-            element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'Go to (SQIS)TSR Portal')))
-            element.send_keys(Keys.ENTER)
+            # element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'Go to (SQIS)TSR Portal')))
+            # element.send_keys(Keys.ENTER)
 
             # this could either be login dialog ('Pick an account' OR 'sign in') OR straight to TSI homepage
             # need to check which dialog (by title) then either fill, or select from list
@@ -851,7 +853,9 @@ class TSIWebPage(Komatsu):
                 pass
 
             
-        def home():            
+        def home():
+            """Press MACHINE QUALITY INFORMATION button
+            - NOTE could also just login to this page but would have to rewrite the "logged in" check"""         
             element = wait(60, EC.presence_of_element_located((By.LINK_TEXT, 'MACHINE QUALITY INFORMATION')))
             element.send_keys(Keys.ENTER)
       
