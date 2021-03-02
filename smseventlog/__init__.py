@@ -1,6 +1,6 @@
+import copy
 import functools
 import logging
-from logging.handlers import RotatingFileHandler
 import operator as op
 import os
 import sys
@@ -10,22 +10,22 @@ from datetime import date
 from datetime import datetime as dt
 from datetime import timedelta as delta
 from functools import partial
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from timeit import default_timer as timer
-import copy
+from typing import Union
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pypika as pk
 from dateutil.relativedelta import relativedelta
-from pypika import Case, Criterion, DatePart
-from pypika.terms import PseudoColumn
+from pypika import Case, Criterion
 from pypika import CustomFunction as cf
-from pypika import Order, Query
+from pypika import DatePart, Order, Query
 from pypika import Table as T
 from pypika import functions as fn
 from pypika.analytics import RowNumber
-
+from pypika.terms import PseudoColumn
 
 __version__ = '3.4.0'
 VERSION = __version__

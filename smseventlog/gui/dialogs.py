@@ -1,7 +1,6 @@
 import inspect
 
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView
-from numpy import byte_bounds
 
 from . import _global as gbl
 from . import formfields as ff
