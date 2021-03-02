@@ -431,6 +431,8 @@ class MainWindow(QMainWindow):
         act_update_smr = QAction('Update SMR', self,
             triggered=lambda: t().update_smr())
         act_update_smr.setToolTip('Update selected event with SMR from database.')
+        act_show_smr_history = QAction('Show SMR History', self,
+            triggered=lambda: t().show_smr_history())
 
         act_find = QAction('Find', self,
             triggered=lambda: tv().show_search(),

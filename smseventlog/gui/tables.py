@@ -779,6 +779,13 @@ class TableWidget(QWidget):
         dlg = dlgs.DetailsView(parent=self, df=df)
         dlg.exec_()
    
+    def show_smr_history(self):
+        """Show SMR history dialog for selected unit"""
+        unit = self.view.create_index_activerow('Unit').data()
+
+        dlg = dlgs.UnitSMRDialog(unit=unit, parent=self)
+        dlg.exec_()
+
     def refresh_lastweek(self, base=True):
         """NOTE default means 'didn't come from refresh menu'"""
         if not self.query.set_lastweek():
@@ -978,6 +985,7 @@ class TableWidget(QWidget):
                 if not val is None:
                     obj.val = val
 
+
 class EventLogBase(TableWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -992,7 +1000,7 @@ class EventLogBase(TableWidget):
 
         self.context_actions['refresh'].extend(['refresh_allopen', 'refresh_lastweek', 'refresh_lastmonth'])
         self.context_actions['view'] = ['viewfolder']
-        self.context_actions['smr'] = ['update_smr']
+        self.context_actions['smr'] = ['show_smr_history', 'update_smr']
 
     class View(TableView):
         def __init__(self, parent):
@@ -1312,7 +1320,7 @@ class EventLog(EventLogBase):
             tooltip='Filter table to rows marked "x" in Passover column.')
         self.add_action(name='Email Passover', func=self.email_passover, btn=True, ctx='passover', tooltip='Create new email with all rows marked "x" for passover.')
 
-        self.context_actions['smr'] = [] # clear from menu
+        self.context_actions['smr'] = ['show_smr_history'] # clear update_smr from menu
 
         self.add_usergroup_filter()
 
@@ -1745,6 +1753,8 @@ class UnitInfo(TableWidget):
         self.view.mcols['check_exist'] = tuple(self.db_col_map.keys())
 
         self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add')
+
+        self.context_actions['smr'] = ['show_smr_history']
 
     class View(TableView):
         def __init__(self, parent):
