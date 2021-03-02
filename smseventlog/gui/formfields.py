@@ -7,17 +7,19 @@ from distutils.util import strtobool
 # map obj: (getter, setter)
 global obj_vals
 obj_vals = {
-    QComboBox: ('currentText', 'setCurrentText'),
-    QTextEdit: ('toPlainText', 'setText'),
-    QLineEdit: ('text', 'setText'),
-    QDateEdit: ('dateTime.toPyDateTime', 'setDate'),
-    QCheckBox: ('isChecked', 'setChecked'),
-    QSpinBox: ('value', 'setValue'),
-    QSlider: ('value', 'setValue'),
-    QRadioButton: ('isChecked', 'setChecked')}
+    QComboBox: ('currentText', 'setCurrentText', 'currentIndexChanged'),
+    QTextEdit: ('toPlainText', 'setText', 'textChanged'),
+    QLineEdit: ('text', 'setText', 'textChanged'),
+    QDateEdit: ('dateTime.toPyDateTime', 'setDate', 'dateChanged'),
+    QCheckBox: ('isChecked', 'setChecked', 'stateChanged'),
+    QSpinBox: ('value', 'setValue', 'valueChanged'),
+    QSlider: ('value', 'setValue', 'valueChanged'),
+    QRadioButton: ('isChecked', 'setChecked', 'toggled')}
 
 class FormFields(object):
     # simplify getting/setting all form field values
+    changed = pyqtSignal(object) # connect all "changed" signals to common signal
+
     def __init__(self, name=None, *args, **kw):
         super().__init__(*args, **kw)
 
@@ -30,6 +32,9 @@ class FormFields(object):
 
         getter, setter = type_[0], type_[1] # currentText, setCurrentText
         f.set_self(vars())
+
+        # changed signal
+        getattr(self, type_[2]).connect(lambda x: self.changed.emit(x))
 
         if not name is None:
             self.set_name(name=name)
