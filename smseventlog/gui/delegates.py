@@ -9,6 +9,7 @@ m_align =  {
     'object': Qt.AlignLeft,
     'float64': Qt.AlignRight,
     'int64': Qt.AlignRight,
+    'Int64': Qt.AlignRight,
     'bool': Qt.AlignCenter,
     'datetime64[ns]': Qt.AlignCenter}
 
@@ -38,7 +39,7 @@ class TableWidgetDelegate(QStyledItemDelegate):
         # col_name = model.get_col_name(icol=icol)
 
         # if not col_name in self.parent.mcols['longtext']:
-        #     alignment |= Qt.AlignVCenter
+        alignment |= Qt.AlignVCenter
 
         option.displayAlignment = alignment
         self._initStyleOption(option, index)
