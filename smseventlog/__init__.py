@@ -27,7 +27,7 @@ from pypika import functions as fn
 from pypika.analytics import RowNumber
 
 
-__version__ = '3.4.0a1'
+__version__ = '3.4.0a2'
 VERSION = __version__
 
 # Set environments
