@@ -788,6 +788,17 @@ class TSIWebPage(Komatsu):
         # get name of current page
         # complete section if index of current page is less than index of name at current position
 
+        def check_logged_in(login_item_id='lightbox'):
+            """Wait for either a part of the login chain, or the machine quality info button"""
+
+            element = wait(20, any_of(
+                EC.presence_of_element_located((By.ID, login_item_id)),
+                EC.presence_of_element_located((By.LINK_TEXT, 'MACHINE QUALITY INFORMATION')),
+            ))
+            
+            # True if already logged in
+            return 'machine' in element.text.lower()
+
         def login():
             # these elements exist on same url, harder to separate
             self.login_ka()
@@ -798,15 +809,8 @@ class TSIWebPage(Komatsu):
             # this could either be login dialog ('Pick an account' OR 'sign in') OR straight to TSI homepage
             # need to check which dialog (by title) then either fill, or select from list
             # sign in\ncan’t access your account?\nsign-in options
-
-            element = wait(20, any_of(
-                EC.presence_of_element_located((By.ID, 'lightbox')),
-                EC.presence_of_element_located((By.LINK_TEXT, 'MACHINE QUALITY INFORMATION')),
-            ))
             
-            if 'machine' in element.text.lower():
-                # already logged in
-                print('alread logged in')
+            if check_logged_in('lightbox'):
                 return
 
             element = wait(20, EC.text_to_be_present_in_element((By.ID, 'lightbox'), 'account'))
@@ -820,6 +824,9 @@ class TSIWebPage(Komatsu):
                 self.fill_multi(vals=dict(i0116=self.username_sms), by=By.ID, send_keys=True)
                 self.click_multi(vals=['idSIButton9'], by=By.ID) # submit button
 
+            if check_logged_in('userNameInput'):
+                return
+
             self.fill_multi(vals=dict(
                 userNameInput=self.username_sms,
                 passwordInput=self.password_sms), by=By.ID)
@@ -828,8 +835,12 @@ class TSIWebPage(Komatsu):
             # WAIT for authenticator/other sign in here
 
             # Stay signed in dialog / dontshowagain checkbox
+            # NOTE probably doesn't need to be in try/except now
             try:
                 log.info('Waiting 60s for staySignedIn dialog')
+                if check_logged_in('KmsiCheckboxField'):
+                    return
+
                 element = self.wait(60, EC.element_to_be_clickable((By.ID, 'KmsiCheckboxField')))
                 if not element.is_selected():
                     element.click()
@@ -838,7 +849,6 @@ class TSIWebPage(Komatsu):
             except:
                 log.info('No "stay signed in" dialog.')
                 pass
-
 
             
         def home():            
