@@ -2083,6 +2083,35 @@ class PLMUnit(QueryBase):
             .pipe(self.format_custom, subset=pd.IndexSlice[df.index[:-1], cols], type_='int') \
             .pipe(self.format_custom, subset=pd.IndexSlice[df.index[-1], cols], type_='pct')
 
+class UnitSMR(QueryBase):
+    """Return all SMR values for single unit"""
+    def __init__(self, unit, d_rng=None, **kw):
+        super().__init__(**kw)
+        a = T('UnitSMR')
+
+        if d_rng is None:
+            d_upper = dt.now()
+            d_lower = d_upper + delta(days=-60)
+            d_rng = (d_lower, d_upper)
+        
+        cols = ['Unit', 'DateSMR', 'SMR']
+
+        q = Query.from_(a) \
+            .where(a.Unit==unit) \
+            .where(a.DateSMR.between(d_rng[0], d_rng[1]))
+
+        f.set_self(vars())
+    
+    def process_df(self, df):
+        """Add index of all dates in d_rng"""
+        return pd.period_range(*self.d_rng, freq='d') \
+            .to_timestamp() \
+            .to_frame(name='DateSMR') \
+            .reset_index(drop=True) \
+            .assign(Unit=self.unit) \
+            .merge(right=df[['DateSMR', 'SMR']], on='DateSMR', how='left') \
+            [['Unit', 'DateSMR', 'SMR']]     
+
 class UnitSMRMonthly(QueryBase):
     """Return max smr per month per unit, grouped monthly"""
     def __init__(self, unit=None, **kw):
