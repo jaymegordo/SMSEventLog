@@ -264,8 +264,8 @@ def getattr_chained(obj, methods):
         return None
 
 def remove_bad_chars(w : str):
-    """Remove any bad chars " : < > | . \ / * ? in string to make safe for filepaths"""
-    return re.sub('[":<>|.\\\/\*\?]', '', str(w))
+    """Remove any bad chars " : < > | . \\ / * ? in string to make safe for filepaths"""
+    return re.sub(r'[\\":<>|.\/\*\?{}]', '', str(w))
 
 def nice_title(title: str) -> str:
     """Remove slashes, capitalize first letter, avoid acronyms"""
@@ -492,17 +492,27 @@ def convert_stylemap_index_color(style):
 
     return m_background, m_text
 
-def to_snake(s):
-    """Convert messy camel case to lower snake case"""
-    s = remove_bad_chars(s) # get rid of /<() etc
-    s = re.sub('[\]\[()]', '', s) # remove brackets/parens
+def to_snake(s : str):
+    """Convert messy camel case to lower snake case
+    
+    Parameters
+    ----------
+    s : str
+        string to convert to special snake case
+
+    Examples
+    --------
+    """
+    s = remove_bad_chars(s).strip() # get rid of /<() etc
+    s = re.sub(r'[\]\[()]', '', s) # remove brackets/parens
 
     expr = r'(?<!^)(?<![A-Z])(?=[A-Z])' # split on capital letters
+    expr = r'(?<!^)((?<![A-Z])|(?<=[A-Z])(?=[A-Z][a-z]))(?=[A-Z])'
 
     return re \
         .sub(expr, '_', s) \
         .lower() \
-        .replace(' ', '') \
+        .replace(' ', '_') \
         .replace('__', '_')
 
 def lower_cols(df):
