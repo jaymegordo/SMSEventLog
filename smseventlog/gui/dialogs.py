@@ -1580,9 +1580,10 @@ class PLMReport(InputForm):
                     default=v,
                     dtype='date'))
 
-class FCReport(InputForm):
+class BaseReportDialog(InputForm):
+    """Report MineSite/Month period selector dialog for monthly reports"""
     def __init__(self, **kw):
-        super().__init__(window_title='FC Report', **kw)
+        super().__init__(**kw)
 
         self.add_input(field=InputField(text='MineSite', default=self.minesite), items=f.config['MineSite'])
 
