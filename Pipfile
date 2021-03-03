@@ -12,6 +12,7 @@ bump2version = "*"
 pyupdater-s3-plugin = "*"
 pandas-access = "*"
 # black = "*" # needs allow_prereleases
+pytest = "*"
 
 [packages]
 pandas = "*"  # ==1.1.2 lock to stop updates to io.formats.style.py
