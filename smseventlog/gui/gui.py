@@ -345,10 +345,10 @@ class MainWindow(QMainWindow):
         act_enable_disable_dev = QAction('Enable/Disable Dev Channel', self, triggered=self.enable_disable_dev)
 
         # Reports
-        act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=self.create_fleet_monthly_report)
+        act_fleet_monthly_report = QAction('Fleet Monthly Report', self, triggered=lambda: self.create_monthly_report('Fleet Monthly'))
         act_plm_report = QAction('PLM Report', self, triggered=self.create_plm_report)
         act_import_plm_manual = QAction('Import PLM Records', self, triggered=self.import_plm_manual)
-        act_fc_report = QAction('FC Report', self, triggered=self.create_fc_report)
+        act_fc_report = QAction('FC Report', self, triggered=lambda: self.create_monthly_report('FC'))
         
         # Reset credentials
         act_username = QAction('Reset Username', self, triggered=self.set_username)
@@ -479,46 +479,35 @@ class MainWindow(QMainWindow):
         row.update(vals=dict(StatusTSI='Open', TSIAuthor=self.username))
         self.update_statusbar(msg=f'TSI opened for: {e.Unit} - {e.Title}', success=True)
     
-    def create_fleet_monthly_report(self, d : dt = None):
-        """Create Fleet Monthly Report in worker thread (FH only).\n
-        TODO may need to make menu to select period
+    def create_monthly_report(self, name : str):
+        """Create report in worker thread from dialog menu
+
         Parameters
         ----------
-        d : dt, optional
-            Date lower, by default None
-        """
-        from ..reports import FleetMonthlyReport
-        rep = FleetMonthlyReport()
+        name : str
+            ['Fleet Monthly', 'FC']
+        """        
+
+        dlg = dlgs.BaseReportDialog(window_title=f'{name} Report')
+        if not dlg.exec_():
+            return
+
+        from ..reports import FleetMonthlyReport, FCReport
+        Report = {
+            'Fleet Monthly': FleetMonthlyReport,
+            'FC': FCReport}.get(name)
+
+        rep = Report(
+            d=dlg.d,
+            minesite=dlg.items['MineSite'])
+
         Worker(func=rep.create_pdf, mw=self) \
-            .add_signals(signals=('result', dict(func=self.handle_fleet_report_result))) \
+            .add_signals(signals=('result', dict(func=self.handle_monthly_report_result))) \
             .start()
 
         self.update_statusbar('Creating Fleet Monthly Report...')
-    
-    def handle_fleet_report_result(self, rep=None):
-        if rep is None: return
-        fl.open_folder(rep.p_rep)
 
-        msg = f'Report:\n\n"{rep.title}"\n\nsuccessfully created. Email now?'
-        if dlgs.msgbox(msg=msg, yesno=True):
-            rep.email()
-
-    def create_fc_report(self):
-        dlg = dlgs.FCReport()
-        if not dlg.exec_():
-            return
-        
-        from ..reports import FCReport
-        rep = FCReport(d=dlg.d, minesite=dlg.items['MineSite'])
-
-        Worker(func=rep.create_pdf, mw=self) \
-            .add_signals(signals=('result', dict(func=self.handle_fc_result))) \
-            .start()
-
-        self.update_statusbar('Creating FC Report...')
-    
-    def handle_fc_result(self, rep=None):
-        # TODO could make handling report results way more dry
+    def handle_monthly_report_result(self, rep=None):
         if rep is None: return
         fl.open_folder(rep.p_rep)
 
