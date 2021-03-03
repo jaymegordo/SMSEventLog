@@ -11,7 +11,8 @@ def test_to_snake():
         ' FC Number': 'fc_number',
         'fc number ': 'fc_number',
         'DateSMR': 'date_smr',
-        ' Da\\te(SMR{': 'date_smr'}
+        ' Da\\te(SMR{': 'date_smr',
+        'IssueCategory': 'issue_category'}
 
     result = [f.to_snake(s) for s in m]
     assert result == list(m.values())
