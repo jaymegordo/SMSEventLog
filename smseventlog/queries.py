@@ -833,8 +833,6 @@ class FCSummaryReport(FCSummary):
         super().__init__(da=da, **kw)
     
     def get_df(self, **kw):
-        # from .database import db
-        # df = db.get_df(query=self, default=default)
         return super().get_df(**kw) \
             .pipe(lambda df: df.loc[:, df.columns[:8]])
 
@@ -851,11 +849,13 @@ class FCSummaryReport(FCSummary):
     def exec_summary(self):
         m, m2 = {}, {}
         df = self.df_orig
-        df = df[df.Complete=='N']
+        df = df[df.Complete.isin(['N', 'S'])]
         s = df.Type
-        mandatory_incomplete = df[s == 'M'].Type.count()
+        
+        df_incomplete = df[s == 'M']
+        mandatory_incomplete = df_incomplete.Type.count()
+        hrs_incomplete = df_incomplete.Hrs.sum()
         # all_else_incomplete = df[s != 'M'].Type.count()
-        hrs_incomplete = df[s == 'M'].Hrs.sum()
 
         m['Outstanding (Mandatory)'] = {
             'Count': mandatory_incomplete,
