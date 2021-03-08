@@ -372,6 +372,21 @@ def set_default_dtypes(df, m):
             
     return df
 
+def read_excel(p, **kw):
+    return pd.read_excel(p, **kw) \
+        .pipe(default_data)
+
+def read_csv(p, **kw):
+    return pd.read_csv(p, **kw) \
+        .pipe(default_data)
+
+def default_data(df):
+    """Default func to read csv and apply transforms"""
+    return df \
+        .pipe(lower_cols) \
+        .pipe(parse_datecols) \
+        .pipe(convert_int64)
+
 def default_df(df):
     """Simple df date/int conversions to apply to any df"""
     return df \
@@ -505,6 +520,8 @@ def to_snake(s : str):
     """
     s = remove_bad_chars(s).strip() # get rid of /<() etc
     s = re.sub(r'[\]\[()]', '', s) # remove brackets/parens
+    s = re.sub(r'[\n-]', '_', s) # replace newline/dash with underscore
+    s = re.sub(r'[%]', 'pct', s)
 
     expr = r'(?<!^)(?<![A-Z])(?=[A-Z])' # split on capital letters
     expr = r'(?<!^)((?<![A-Z])|(?<=[A-Z])(?=[A-Z][a-z]))(?=[A-Z])'
