@@ -64,10 +64,19 @@ def load_stupid_fucking_reman_db(p=None):
 
     # smswo is reman internal wo
     
-    cols = ['rep_date', 'rec_date', 'branch', 'customer', 'unit_num', 'model', 'machine_ser', 'component', 'comp_loc', 'comp_serial', 'machine_hrs', 'comp_hrs', 'report_type', 'smswo', 'branch_wo', 'origination', 'work_type']
+    cols = ['rep_date', 'rec_date', 'branch', 'customer', 'unit_num', 'model', 'machine_ser', 'component', 'comp_loc', 'comp_serial', 'machine_hrs', 'comp_hrs', 'report_type', 'smswo', 'branch_wo', 'origination', 'work_type', 'comp_issue']
+
+    m_cols = dict(
+        smswo='reman_wo',
+        unit_num='unit',
+        machine_ser='unit_serial')
 
     df = fl.read_access_database(p=p, table_name='CondRepTbl', index_col='ID') \
-        [cols]
+        [cols] \
+        .rename(columns=m_cols) \
+        .assign(
+            branch_wo=lambda x: split_wo(x.branch_wo),
+            reman_wo=lambda x: split_wo(x.reman_wo))
 
     return df
 
@@ -189,6 +198,10 @@ def df_srb_wos():
     return pd.read_csv(p) \
         .pipe(f.lower_cols)
 
+def split_wo(s):
+    """Remove -seg from WO"""
+    return s.str.split('-', expand=True)[0]
+
 def find_latest_serials(df_reman, df_wo, component='AC Motor', name='ac_motor_bands', save_=False):
     """Match WOs corresponding to a component event (eg latest srb installed) to latest SNs for component from EL database
 
@@ -219,19 +232,15 @@ def find_latest_serials(df_reman, df_wo, component='AC Motor', name='ac_motor_ba
     lst = '|'.join(df_wo.wo)
     n_chars = 10
 
-    def split_wo(s):
-        """Remove -seg from WO"""
-        return s.str.split('-', expand=True)[0]
-
     df2 = df_reman \
-        .fillna(dict(branch_wo='', smswo='')) \
+        .fillna(dict(branch_wo='', reman_wo='')) \
         .assign(
             branch_wo=lambda x: split_wo(x.branch_wo),
-            smswo=lambda x: split_wo(x.smswo),
+            reman_wo=lambda x: split_wo(x.reman_wo),
             comp_serial=lambda x: x.comp_serial.str[:n_chars]) \
         .pipe(lambda df: df[
             (df.branch_wo.str.contains(lst)) |
-            (df.smswo.str.contains(lst))])
+            (df.reman_wo.str.contains(lst))])
 
     # get df of most last installed SN
     query = qr.ComponentSMR()
@@ -258,3 +267,64 @@ def find_latest_serials(df_reman, df_wo, component='AC Motor', name='ac_motor_ba
 
     return df_final
     
+def read_comp_co_accounting():
+    """Jordan's accounting excel sheet, df_acc"""
+    m_cols = dict(
+        ref_component_code='comp_code',
+        expected_life='bench_smr',
+        smr_at_change_out='unit_smr',
+        smr_component_hours='comp_smr',
+        work_order_number='branch_wo',
+        customer_unit_number='unit',
+        serial_number='serial',
+        job_date_mmm_dd_yy='job_date',
+        date_of_installation_mmm_dd_yy='install_date')
+
+    p = f.desktop / 'accounting_comp_co.xlsx'
+    return pd.read_excel(p, header=2, sheet_name='Transaction Input') \
+        .pipe(f.default_data) \
+        .rename(columns=m_cols)
+
+def read_suncor_comp_sales():
+    p = f.desktop / 'suncor_comp_sales.xlsx'
+    return f.read_excel(p, header=1)
+    
+def merge_sun_comp_reman(df_sms, df_reman, df_acc):
+    """Merge cols from sunc_comp_sales with reman wo info
+
+    >>> df_sms = cm.read_suncor_comp_sales()
+    >>> df_acc = cm.read_comp_co_accounting()
+    >>> p_reman = f.desktop / '2021-03-01 - Master Product Reports_be.accdb'
+    >>> df_reman = cm.load_stupid_fucking_reman_db(p=p_reman)
+    """
+
+    cols_reman = ['branch_wo', 'comp_issue']
+    cols_acc = ['branch_wo', 'unit', 'install_date', 'unit_smr', 'comp_smr', 'changeout_reason'] #, 'bench_smr'
+
+    return df_sms \
+        .merge(right=df_acc[cols_acc].drop_duplicates(cols_acc), on='branch_wo', how='left') \
+        .merge(right=df_reman[cols_reman].drop_duplicates(cols_reman), on='branch_wo', how='left') \
+        .assign(
+            unit=lambda x: x.unit.str.replace('B', ''))
+
+def get_df_comp():
+    query = qr.ComponentCO()
+    a = query.a
+
+    ct = (a.MineSite=='BaseMine') | (a.MineSite=='FortHills')
+    fltrs = [
+        dict(ct=ct),
+        dict(vals=dict(major=1), table='ComponentType')]
+
+    query.add_fltr_args(fltrs)
+    return query.get_df() \
+        .pipe(f.default_data) \
+        .assign(
+            branch_wo=lambda x: split_wo(x.sms_wo)
+        )
+
+def assign_has_wo(df, s_wo, col1, name):
+    m = {f'has_wo_{name}': lambda x: x[col1].isin(s_wo)}
+
+    return df \
+        .assign(**m)
