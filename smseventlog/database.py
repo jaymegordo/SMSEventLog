@@ -289,8 +289,6 @@ class DB(object):
             .where(a.DateAdded<=date) \
             .where(a.Floc==floc) \
             .orderby(a.DateAdded, order=Order.desc)
-
-        print(q)
         
         return self.query_single_val(q)
 
@@ -313,8 +311,9 @@ class DB(object):
             return None
     
     def unit_exists(self, unit):
-        self.set_df_unit()
-        return unit in self.df_unit.Unit
+        df = self.get_df_saved('units')
+
+        return unit in df.Unit
     
     def units_not_in_db(self, units : list):
         """Check list of units in db
@@ -397,11 +396,23 @@ class DB(object):
 
         return self.lst_minesite
     
-    def get_df_unit(self, minesite=None, model=None, **kw):
-        if self.df_unit is None:
-            self.set_df_unit()
-        
-        df = self.df_unit
+    def get_df_unit(self, minesite=None, model=None, force=False, **kw):
+        """Return df of all units in database"""
+        name = 'units'
+        df = self.get_df_saved(name)
+
+        # load if doesn't exist
+        if df is None or force:
+            a, b = pk.Tables('UnitID', 'EquipType')
+            cols = [a.MineSite, a.Customer, a.Model, a.Unit, a.Serial, a.DeliveryDate, b.EquipClass, b.ModelBase]
+            q = Query.from_(a).select(*cols) \
+                .left_join(b).on_field('Model')
+                
+            df = pd.read_sql(sql=q.get_sql(), con=self.engine) \
+                .set_index('Unit', drop=False) \
+                .pipe(f.parse_datecols)
+            
+            self.save_df(df, name)
 
         # sometimes need to filter other minesites due to serial number duplicates
         if not minesite is None:
@@ -411,16 +422,6 @@ class DB(object):
             df = df[df.Model.str.contains(model)]
         
         return df
-
-    def set_df_unit(self):
-        a, b = pk.Tables('UnitID', 'EquipType')
-        cols = [a.MineSite, a.Customer, a.Model, a.Unit, a.Serial, a.DeliveryDate, b.EquipClass, b.ModelBase]
-        q = Query.from_(a).select(*cols) \
-            .left_join(b).on_field('Model')
-            
-        self.df_unit = pd.read_sql(sql=q.get_sql(), con=self.engine) \
-            .set_index('Unit', drop=False) \
-            .pipe(f.parse_datecols)
         
     def set_df_equiptype(self):
         a = T('EquipType')
