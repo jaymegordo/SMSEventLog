@@ -46,6 +46,7 @@ pandas_access = "^0.0.1"
 pytest = "^6.2.2"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git"}
 pyinstaller = {git = "https://github.com/pyinstaller/pyinstaller.git"}
+pytest-cov = "^2.11.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
