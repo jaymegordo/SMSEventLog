@@ -318,8 +318,7 @@ def read_access_database(p : Path, table_name : str, index_col : str=None, raw_d
         return data
 
     return pd.read_csv(data, index_col=index_col) \
-        .pipe(f.lower_cols) \
-        .pipe(f.default_df)
+        .pipe(f.default_data)
 
 def find_procs_by_name(name):
     "Return a list of processes matching 'name'."
