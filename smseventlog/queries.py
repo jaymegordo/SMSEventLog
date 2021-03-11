@@ -390,7 +390,11 @@ class QueryBase(object):
         s = df.index
         if d_rng is None:
             # expand to min and max existing dates
-            d_rng = (s.min().to_timestamp(), s.max().to_timestamp() + relativedelta(months=1))
+            try:
+                d_rng = (s.min().to_timestamp(), s.max().to_timestamp() + relativedelta(months=1))
+            except:
+                log.info('No rows in monthly index to expand.')
+                return df
 
         idx = pd.date_range(d_rng[0], d_rng[1], freq='M').to_period()
 
@@ -851,7 +855,7 @@ class FCSummaryReport(FCSummary):
         df = self.df_orig
         df = df[df.Complete.isin(['N', 'S'])]
         s = df.Type
-        
+
         df_incomplete = df[s == 'M']
         mandatory_incomplete = df_incomplete.Type.count()
         hrs_incomplete = df_incomplete.Hrs.sum()
