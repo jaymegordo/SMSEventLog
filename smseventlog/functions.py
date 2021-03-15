@@ -399,13 +399,18 @@ def convert_dtypes(df, cols, col_type):
         df[col] = df[col].astype(col_type)
     return df
 
-def convert_int64(df):
-    # convert all int64 (numpy) to Int64 (pandas) to better handle null values
+def convert_int64(df, all_numeric=False):
+    """Convert all int64 (numpy) to Int64 (pandas) to better handle null values"""
     for col, dtype in df.dtypes.items():
-        if dtype == 'int64':
+        if dtype == 'int64' or (all_numeric and dtype == 'float64'):
             df[col] = df[col].astype(pd.Int64Dtype())
 
     return df
+
+def format_int64(df):
+    """Get dict for formatting all ints with commas"""
+    m = {col: '{:,.0f}' for col, dtype in df.dtypes.items() if str(dtype).lower() == 'int64'}
+    return m
 
 def clean_series(s, convert_str=False):
     if convert_str:
