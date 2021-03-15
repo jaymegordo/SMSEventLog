@@ -1,4 +1,5 @@
 import inspect
+import re
 
 from PyQt5.QtWidgets import QFileSystemModel, QTreeView
 
@@ -1046,7 +1047,7 @@ class DialogTableWidget(QTableWidget):
         self.formats.update({col: '{:%Y-%m-%d}' for col in date_cols})
         self.formats.update({col: '{:,.0f}' for col in int_cols})
 
-    def set_df(self, df, resize_cols=False):
+    def display_data(self, df, resize_cols=False):
         if df is None:
             return
 
@@ -1092,8 +1093,8 @@ class DialogTableWidget(QTableWidget):
 
 class TableDialog(BaseDialog):
     """Base class dialog with table widget for quick/temp table display"""
-    def __init__(self, df=None, cols : Union[dict, list]=None, name='table', parent=None, show=False, **kw):
-        super().__init__(parent, window_title='Unit SMR History')
+    def __init__(self, df=None, cols : Union[dict, list]=None, name='table', parent=None, show=False, simple_table=True, editable=False, window_title='SMS Event Log', maximized=False, **kw):
+        super().__init__(parent, window_title=window_title)
 
         # auto resize cols if no dict of col_widths
         if isinstance(cols, dict):
@@ -1108,12 +1109,18 @@ class TableDialog(BaseDialog):
                 cols = df.columns.tolist()
 
         # init table with default cols
-        tbl = DialogTableWidget(
-            df=pd.DataFrame(columns=cols),
-            col_widths=col_widths,
-            name=name,
-            scroll_bar=True,
-            **kw)
+        if simple_table:
+            tbl = DialogTableWidget(
+                df=pd.DataFrame(columns=cols),
+                col_widths=col_widths,
+                name=name,
+                scroll_bar=True,
+                **kw)
+        else:
+            # use full TableView for filters/line highlighting etc
+            from . import tables as tbls
+            self.query = kw.get('query', None)
+            tbl = tbls.TableView(parent=self, default_headers=cols, editable=editable)
 
         self.vLayout.addWidget(tbl)
 
@@ -1123,10 +1130,13 @@ class TableDialog(BaseDialog):
 
         if show:
             self.load_table(df=df)
+        
+        if maximized:
+            self.showMaximized()
 
     def load_table(self, df):
         tbl = self.tbl
-        tbl.set_df(df, resize_cols=self.resize_cols)
+        tbl.display_data(df, resize_cols=self.resize_cols)
         tbl.setFocus()
         self.adjustSize()
     
@@ -1156,13 +1166,23 @@ class TableDialog(BaseDialog):
 
         f.set_self(vars())
 
+class ACInspectionsDialog(TableDialog):
+    """Show SMR history per unit"""
+
+    def __init__(self, parent=None, **kw):
+        query = qr.ACMotorInspections()
+        df = query.get_df()
+        super().__init__(parent=parent, df=df, query=query, simple_table=False, window_title='AC Motor Inspections', maximized=True, **kw)
+
+        self.load_table(df=df)
+
 class UnitSMRDialog(TableDialog):
     """Show SMR history per unit"""
 
     def __init__(self, parent=None, unit=None, **kw):
         cols = dict(Unit=60, DateSMR=90, SMR=90)
 
-        super().__init__(parent=parent, cols=cols, **kw)
+        super().__init__(parent=parent, cols=cols, window_title='Unit SMR History', **kw)
 
         df_unit = db.get_df_unit()
         minesite = gbl.get_minesite()
