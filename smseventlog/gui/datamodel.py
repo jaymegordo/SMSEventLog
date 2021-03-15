@@ -34,7 +34,7 @@ class TableModel(QAbstractTableModel):
         _resort = lambda : None # Null resort functon
         _cols = []
         view = parent
-        table_widget = view.parent #sketch
+        table_widget = view.parent #sketch - could also be dlgs.TableDialog
         formats = parent.formats
         highlight_funcs = parent.highlight_funcs
         m_display, m_color_bg, m_color_text = {}, {}, {}
@@ -327,16 +327,16 @@ class TableModel(QAbstractTableModel):
                 return color
             
             # TODO somehow merge complex highlight funcs
-            func = self.parent.highlight_funcs_complex[col]
-            if not func is None:
-                try:
-                    color = func(df=df, row=row, col=col, irow=irow, icol=icol, val=val, role=role, index=index)
+            # func = self.parent.highlight_funcs_complex[col]
+            # if not func is None:
+            #     try:
+            #         color = func(df=df, row=row, col=col, irow=irow, icol=icol, val=val, role=role, index=index)
 
-                    # if color is None need to keep checking if selected
-                    if not color is None:
-                        return color
-                except:
-                    return None
+            #         # if color is None need to keep checking if selected
+            #         if not color is None:
+            #             return color
+            #     except:
+            #         return None
             
             # highlight current selected row manually
             if irow == self.current_row and self.highlight_rows:
