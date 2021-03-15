@@ -24,7 +24,7 @@ class TableView(QTableView):
     dataFrameChanged = pyqtSignal()
     cellClicked = pyqtSignal(int, int)
 
-    def __init__(self, parent=None, *args, **kwargs):
+    def __init__(self, parent=None, default_headers=None, editable=True, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
 
         if not parent is None:
@@ -83,7 +83,10 @@ class TableView(QTableView):
         sel.currentChanged.connect(self.model().row_changed)
 
         f.set_self(vars())
-        self.set_default_headers()
+        self.set_default_headers(default_headers=default_headers)
+        if not editable:
+            self.setEditTriggers(QTableWidget.NoEditTriggers)
+            
         self.setVisible(True)
     
     @property
@@ -110,7 +113,7 @@ class TableView(QTableView):
     def row(self):
         return self.row_from_activerow()
 
-    def display_data(self, df):
+    def display_data(self, df, **kw):
         self.rows_initialized = False
 
         if df.shape[0] > 500:
@@ -278,8 +281,12 @@ class TableView(QTableView):
         else:
             super().keyPressEvent(event)
 
-    def set_default_headers(self):
-        cols = f.get_default_headers(title=self.parent.title)
+    def set_default_headers(self, default_headers=None):
+        if default_headers is None:
+            cols = f.get_default_headers(title=self.parent.title)
+        else:
+            cols = default_headers
+
         df = pd.DataFrame(columns=cols) \
             .pipe(f.parse_datecols) \
             .pipe(f.set_default_dtypes, m=self.parent.query.default_dtypes)
@@ -1889,6 +1896,11 @@ class FCSummary(FCBase):
             func=self.show_fc_details,
             ctx='view',
             tooltip='Show full list of FCs in FC Details tab.')
+        self.add_action(
+            name='Show AC Inspections',
+            func=self.show_ac_motor_inspections,
+            btn=True,
+            tooltip='Show table of AC motor inspection status')
 
         # map table col to update table in db if not default
         tbl_b = 'FCSummaryMineSite'
@@ -1995,6 +2007,10 @@ class FCSummary(FCBase):
         table_widget.refresh()
 
         tabs.activate_tab(title)
+
+    def show_ac_motor_inspections(self):
+        dlg = dlgs.ACInspectionsDialog(parent=self)
+        dlg.exec_()
 
 class FCDetails(FCBase):
     def __init__(self, parent=None):
@@ -2105,7 +2121,7 @@ class Availability(TableWidget):
             self.mcols['sort_filter'] = ('Unit',)
             self.col_widths.update(dict(Comment=600))
             self.add_highlight_funcs(cols=['Category Assigned', 'Assigned'], func=self.highlight_by_val)
-            self.add_highlight_funcs(cols=['StartDate', 'EndDate'], func=self.highlight_ahs_duplicates, cmplx=True)
+            # self.add_highlight_funcs(cols=['StartDate', 'EndDate'], func=self.highlight_ahs_duplicates, cmplx=True)
             self.add_col_funcs(cols=['SMS', 'Suncor'], func=self.update_duration)
 
             self.formats.update({
@@ -2154,16 +2170,16 @@ class Availability(TableWidget):
             model.setData(index=update_index, val=update_val, triggers=False, queue=True)
             model.flush_queue() # this wont be triggered if queue locked > good
         
-        def highlight_ahs_duplicates(self, df, val, row, col, role, **kw):
-            # if row startdate is between prior row's star/end date, highlight red
-            if row == 0 or not role == Qt.BackgroundRole: return
-            row_prev = df.loc[row - 1]
-            if not df.loc[row, 'Unit'] == row_prev.Unit: return
+        # def highlight_ahs_duplicates(self, df, val, row, col, role, **kw):
+        #     # if row startdate is between prior row's star/end date, highlight red
+        #     if row == 0 or not role == Qt.BackgroundRole: return
+        #     row_prev = df.loc[row - 1]
+        #     if not df.loc[row, 'Unit'] == row_prev.Unit: return
 
-            m = dict(StartDate=(op.ge, op.lt), EndDate=(op.lt, op.le))
-            ops = m[col]
-            if ops[0](val, row_prev.StartDate) and ops[1](val, row_prev.EndDate):
-                return QColor('red')
+        #     m = dict(StartDate=(op.ge, op.lt), EndDate=(op.lt, op.le))
+        #     ops = m[col]
+        #     if ops[0](val, row_prev.StartDate) and ops[1](val, row_prev.EndDate):
+        #         return QColor('red')
 
     def email_table(self):
         self.email_assignments(filter_assignments=False)

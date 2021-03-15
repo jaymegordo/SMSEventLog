@@ -2,7 +2,7 @@ import inspect
 import json
 
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap, ListedColormap, DivergingNorm, to_hex
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap, DivergingNorm, TwoSlopeNorm, to_hex
 from seaborn import diverging_palette
 
 from . import errors as er
@@ -2241,9 +2241,32 @@ class ACMotorInspections(FileQuery):
     
     def process_df(self, df):
 
-        return df \
+        import re
+        import string
+        chars = string.ascii_lowercase[1:]
+
+        def get_next_fc(fc_number):
+            """
+            Get current letter suffix of fc
+            Replace with next letter eg 17H019-2b > 17H019-2c
+            """
+            expr = r'(?<=[-])*[a-z]'
+
+            try:
+                letter = re.search(expr, fc_number)[0]
+                next_idx = chars.index(letter) + 1
+                next_char = chars[next_idx]
+                return re.sub(expr, next_char, fc_number)
+            except:
+                return f'{fc_number}b'
+
+        df = df \
+            .pipe(f.lower_cols) \
+            .rename(columns=dict(floc='side')) \
             .assign(
                 # hrs_pre_12k=lambda x: np.maximum(12000 - x.comp_smr_cur, 0),
+                side=lambda x: x.side.str[-2:],
+                date_insp=lambda x: x.date_insp.dt.date,
                 hrs_since_last_insp=lambda x: np.where(
                     x.comp_smr_cur > x.comp_smr_at_insp,
                     x.comp_smr_cur - x.comp_smr_at_insp,
@@ -2253,15 +2276,24 @@ class ACMotorInspections(FileQuery):
                     3000 - x.hrs_since_last_insp,
                     np.maximum(12000 - x.comp_smr_cur, 0)).astype(int),
                 date_next_insp=lambda x: (pd.Timestamp.now() + pd.to_timedelta(x.hrs_till_next_insp / 20, unit='day')).dt.date,
-                overdue=lambda x: x.hrs_till_next_insp < 0) \
+                overdue=lambda x: x.hrs_till_next_insp < 0,
+                fc_number_next=lambda x: x.fc_complete.apply(get_next_fc),
+                scheduled=lambda x: x.fc_number_next == x.last_sched_fc,
+                action_reqd=lambda x: (~x.scheduled) & (x.hrs_till_next_insp <= 1000)) \
+            .pipe(f.convert_int64, all_numeric=True) \
             .pipe(f.parse_datecols)
+        
+        self.formats.update(f.format_int64(df))
+
+        return df
 
     def background_with_norm(self, s, cmap, center=0, vmin=None, vmax=None):
         vmin = vmin or s.values.min()
         vmax = vmax or s.values.max()
         norm = DivergingNorm(vmin=vmin, vcenter=center, vmax=vmax)
+        # TwoSlopeNorm
 
-        return ['background-color: {:s}'.format(to_hex(c.flatten())) for c in cmap(norm(s.values))]
+        return ['background-color: {:s}'.format(to_hex(c.flatten())) for c in cmap(norm(s.astype(float).values))]
     
     def update_style(self, style, **kw):
 
@@ -2274,7 +2306,7 @@ class ACMotorInspections(FileQuery):
                 vmax=3000) \
             .apply(
                 st.highlight_multiple_vals,
-                subset='overdue',
+                subset=['overdue', 'action_reqd'],
                 m={True: 'bad'},
                 convert=True)
 

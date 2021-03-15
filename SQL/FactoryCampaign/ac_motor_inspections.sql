@@ -3,6 +3,7 @@ with t as (
     SELECT
         a.Unit,
         a.FCNumber,
+        a.Scheduled,
         a.DateCompleteSMS as date_insp,
         a.SMR as unit_smr_at_insp
 
@@ -93,29 +94,19 @@ t5 as (
         
         ON t2.Floc=t4.Floc AND t2.Unit=t4.Unit and t4.rn=1
 
-    )
+    ),
 
--- t5 as(
---     SELECT
---         t5.*,
---         CASE
---             WHEN t5.comp_smr_at_insp >= 12000
---             THEN 0
---             ELSE 12000 - t5.comp_smr_at_insp
---         END as hrs_pre_12k,
-
---         -- If component recently CO, can only be max current component smr
---         CASE
---             WHEN t5.comp_smr_cur < t5.comp_smr_at_insp
---             THEN t5.comp_smr_cur
---             ELSE t5.comp_smr_cur - t5.comp_smr_at_insp
---         END as hrs_since_last_insp
-
---     FROM t5)
+t6 as (
+    SELECT
+        t2.*,
+        ROW_NUMBER() OVER(PARTITION BY t2.Scheduled, t2.unit, t2.floc ORDER BY t2.unit, t2.floc, t2.FCNumber desc) as rn
+    
+    FROM t2
+)
 
 SELECT
     t5.Unit,
-    t5.FCNumber,
+    t5.FCNumber as fc_complete,
     t5.Floc,
     t5.cur_SN,
     t5.date_insp,
@@ -124,7 +115,8 @@ SELECT
     t5.comp_smr_at_insp,
     t5.unit_smr_last_co,
     t5.unit_smr_cur,
-    t5.comp_smr_cur
+    t5.comp_smr_cur,
+    t6.FCNumber as last_sched_fc
     -- t5.hrs_since_last_insp
 
     -- 3000 - t5.hrs_since_last_insp + t5.hrs_pre_12k as hrs_till_next_insp,
@@ -132,6 +124,11 @@ SELECT
     -- CASE WHEN t5.hrs_since_last_insp > 3000 THEN 'TRUE' ELSE 'FALSE' END as overdue
 
 FROM t5
+    LEFT JOIN t6 on
+        t5.Unit=t6.Unit and
+        t5.Floc=t6.Floc and
+        t6.Scheduled=1 and
+        t6.rn=1
 
 WHERE
     t5.rn_date_insp = 1
