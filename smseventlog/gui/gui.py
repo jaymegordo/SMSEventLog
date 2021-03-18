@@ -552,7 +552,7 @@ class MainWindow(QMainWindow):
             unit, d_upper = e.Unit, e.DateAdded
         except er.NoRowSelectedError:
             # don't set dialog w unit and date, just default
-            unit, d_upper = None, None
+            unit, d_upper, e = None, None, None
         
         # Report dialog will always set final unit etc
         dlg = dlgs.PLMReport(unit=unit, d_upper=d_upper)
@@ -561,6 +561,12 @@ class MainWindow(QMainWindow):
             return # user exited
 
         m = dlg.get_items(lower=True) # unit, d_upper, d_lower
+
+        # check if unit selected matches event selected
+        if not e is None:
+            if not e.Unit == m['unit']:
+                e = None
+
         m['e'] = e
         # NOTE could make a func 'rename_dict_keys'
         m['d_upper'], m['d_lower'] = m['date upper'], m['date lower']
@@ -579,7 +585,7 @@ class MainWindow(QMainWindow):
 
                 return
 
-            Worker(func=plm.update_plm_single_unit, mw=self, unit=unit) \
+            Worker(func=plm.update_plm_single_unit, mw=self, unit=m['unit']) \
                 .add_signals(
                     signals=('result', dict(
                         func=self.handle_import_result,
