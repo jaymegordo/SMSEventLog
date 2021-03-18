@@ -528,7 +528,7 @@ def to_snake(s : str):
     s = re.sub(r'[\n-]', '_', s) # replace newline/dash with underscore
     s = re.sub(r'[%]', 'pct', s)
 
-    expr = r'(?<!^)(?<![A-Z])(?=[A-Z])' # split on capital letters
+    # split on capital letters
     expr = r'(?<!^)((?<![A-Z])|(?<=[A-Z])(?=[A-Z][a-z]))(?=[A-Z])'
 
     return re \
