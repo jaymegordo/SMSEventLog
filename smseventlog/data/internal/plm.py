@@ -157,3 +157,26 @@ def import_plm(p):
             cycletime=lambda x: x['cycletime'].apply(utl.to_seconds),
             carryback=lambda x: x['carryback'].str.replace(' ', '').astype(float)) \
         [good_cols]
+
+def collect_plm_files(unit: str, d_lower: dt=None, lst: list=None):
+    """Collect PLM files from p drive and save to desktop
+    - Used for uploading to KA PLM report system"""
+    start = time.time()
+
+    p = efl.UnitFolder(unit=unit).p_dls
+
+    if d_lower is None:
+        d_lower = dt.now() + delta(days=-180)
+
+    if lst is None:
+        lst = utl.get_list_files(ftype='plm', p_search=p, d_lower=d_lower)
+    
+    log.info(f'{f.deltasec(start)} | Found {len(lst)} files.')
+
+    p_dst = f.desktop / f'plm/{unit}'
+
+    for p in lst:
+        fl.copy_file(p_src=p, p_dst=p_dst / f'{fl.date_created(p):%Y-%m-%d}_{p.name}')
+
+    log.info(f'{f.deltasec(start)} | {len(lst)} files copied to desktop.')
+    return lst
