@@ -153,3 +153,54 @@ def convert_fh_old(p=None):
         .drop_duplicates(subset=['Unit', 'StartDate', 'EndDate'])
 
     return df
+
+def calc_eng_dt():
+    """Just saving some code to calc dt from specific date for specific units"""
+    from smseventlog.queries import AvailSummary
+    units = """
+    F301
+    F304
+    F308
+    F316
+    F327
+    F337
+    F341
+    F343
+    """.split()
+    dates = """
+    2019-09-29
+    2019-09-21
+    2019-09-18
+    2019-09-01
+    2019-10-07
+    2019-09-30
+    2019-10-16
+    2019-09-30
+    """.split()
+
+    df = pd.DataFrame.from_dict(dict(unit=units, date_upgrade=dates)) \
+        .pipe(f.parse_datecols) \
+        .assign(
+            start_date=lambda x: x.date_upgrade.dt.to_period('W').dt.end_time.dt.date + delta(days=1),
+            end_date=dt(2021,3,14))
+        
+    dfs = []
+
+    for row in df.itertuples():
+        # d_rng = (dt(2019,9,30), dt(2021,3,14))
+        d_rng = (row.start_date, row.end_date)
+        unit = row.unit
+        query = AvailSummary(d_rng=d_rng, unit=unit, period='week')
+        df2 = query.get_df()
+
+        df2 = df2 \
+            .groupby('Unit') \
+            .agg(**query.agg_cols(df2)) \
+            .pipe(f.lower_cols) \
+            .rename_axis('unit')
+
+        dfs.append(df2)
+
+    return df \
+        .set_index('unit') \
+        .merge(right=pd.concat(dfs), how='right', left_index=True, right_index=True)
