@@ -11,7 +11,7 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.integrations.tornado import TornadoIntegration
 
-from .__init__ import SYS_FROZEN, VERSION, getlog
+from smseventlog.__init__ import SYS_FROZEN, VERSION, getlog
 
 base_log = getlog(__name__)
 

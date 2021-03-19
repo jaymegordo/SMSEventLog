@@ -7,8 +7,7 @@ from distutils.util import strtobool
 import six
 import yaml
 
-from . import errors as er
-from .__init__ import *
+from smseventlog.__init__ import *
 
 
 log = getlog(__name__)
@@ -392,6 +391,19 @@ def default_df(df):
     return df \
         .pipe(parse_datecols) \
         .pipe(convert_int64)
+
+def terminal_df(df, date_only=True):
+    """Display df in terminal with better formatting"""
+    from tabulate import tabulate
+
+    if date_only:
+        m = {col: lambda x: x[col].dt.date for col in df.select_dtypes('datetime').columns}
+        df = df.assign(**m)
+        # for col in df.select_dtypes('datetime').columns:
+        #     df.loc[:, col] = df.loc[:, col].dt.date
+
+    s = tabulate(df, headers=df.columns)
+    print(s)
 
 def convert_dtypes(df, cols, col_type):
     if not isinstance(cols, list): cols = [cols]
