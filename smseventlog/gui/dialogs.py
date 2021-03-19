@@ -1182,7 +1182,7 @@ class UnitSMRDialog(TableDialog):
     def __init__(self, parent=None, unit=None, **kw):
         cols = dict(Unit=60, DateSMR=90, SMR=90)
 
-        super().__init__(parent=parent, cols=cols, simple_table=False, window_title='Unit SMR History', **kw)
+        super().__init__(parent=parent, cols=cols, simple_table=True, window_title='Unit SMR History', **kw)
 
         df_unit = db.get_df_unit()
         minesite = gbl.get_minesite()
