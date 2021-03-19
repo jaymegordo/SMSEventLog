@@ -1238,7 +1238,7 @@ class AvailTopDowns(AvailBase):
         return m
 
 class AvailSummary(QueryBase):
-    def __init__(self, d_rng=None, period_name=None, model='980%', minesite='FortHills', period='month'):
+    def __init__(self, d_rng=None, period_name=None, model='980%', minesite='FortHills', period='month', unit=None):
         super().__init__()
         self.view_cols.update(
             ma_target='MA Target',
@@ -1290,16 +1290,17 @@ class AvailSummary(QueryBase):
     
     @property
     def q(self):
-        d_rng, period, model, minesite = self.d_rng, self.period, self.model, self.minesite
+        d_rng, period, model, minesite, unit = self.d_rng, self.period, self.model, self.minesite, self.unit
         a, b = pk.Tables('Downtime', 'UnitID')
 
         hrs_in_period = cf('tblHrsInPeriod', ['d_lower', 'd_upper', 'minesite', 'period'])
         period_range = cf('period_range', ['startdate', 'enddate', 'period'])
-        _year = cf('YEAR', ['date'])
+        # _year = cf('YEAR', ['date'])
         _month = cf('MONTH', ['date'])
         datepart = cf('DATEPART', ['period_type', 'date'])
+        iso_year = cf('dbo.iso_year', ['date'])
 
-        year = _year(a.ShiftDate)
+        year = iso_year(a.ShiftDate)
         month = _month(a.ShiftDate)
         week = datepart(PseudoColumn('iso_week'), a.ShiftDate)
 
@@ -1331,6 +1332,11 @@ class AvailSummary(QueryBase):
                 a.ShiftDate.between(d_rng[0], d_rng[1]),
                 a.Duration > 0.01])) \
             .groupby(a.Unit, _period)
+
+        # in case need historical data for single unit
+        if not unit is None:
+            q_dt = q_dt.where(a.Unit==unit)
+            q_base = q_base.where(b.Unit==unit)
 
         cols1 = [
             q_base.period,
@@ -1379,7 +1385,10 @@ class AvailSummary(QueryBase):
                 d_upper=lambda x: pd.to_datetime(x.period.dt.end_time.dt.date),
                 _age=lambda x: x.d_upper.dt.to_period('M').astype(int) - x.DeliveryDate.dt.to_period('M').astype(int),
                 age=lambda x: np.where(x.DeliveryDate.dt.day <= 15, x._age + 1, x._age),
-                hrs_period=lambda x: ((np.minimum(x.period.dt.end_time, np.datetime64(self.d_rng[1])) - x.period.dt.start_time).dt.days + 1) * 24,
+                hrs_period=lambda x: ((
+                    np.minimum(
+                        x.period.dt.end_time,
+                        np.datetime64(self.d_rng[1])) - x.period.dt.start_time).dt.days + 1) * 24,
                 hrs_period_ma=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_MA, 0),
                 hrs_period_pa=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_PA, 0),
                 MA=lambda x: (x.hrs_period_ma - x.SMS) / x.hrs_period_ma,
@@ -2209,7 +2218,7 @@ class UnitSMRReport(QueryBase):
 
 class FileQuery(QueryBase):
     """Query based on saved .sql file"""
-    def __init__(self, p : Path, **kw):
+    def __init__(self, p: Path=None, sql=None, **kw):
         super().__init__(**kw)
         """
         Parameters
@@ -2221,7 +2230,10 @@ class FileQuery(QueryBase):
         f.set_self(vars())
     
     def get_sql(self, **kw):
-        return f.sql_from_file(p=self.p)
+        if self.sql is None:
+            return f.sql_from_file(p=self.p)
+        else:
+            return self.sql
 
 class ACMotorInspections(FileQuery):
     def __init__(self):
