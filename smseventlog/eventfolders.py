@@ -288,7 +288,7 @@ class EventFolder(UnitFolder):
 
         return self._condition_reports
 
-def get_fc_folders(fc_number='19H086-1', minesite='FortHills'):
+def get_fc_folders(fc_number='19H086-1', minesite='FortHills', units=None, complete=False):
     """Example query to get all event folders for specific FC
     - Useful to check for existence of docs
 
@@ -310,6 +310,13 @@ def get_fc_folders(fc_number='19H086-1', minesite='FortHills'):
     args = [
         dict(vals=dict(MineSite=minesite), table=query.d),
         dict(vals=dict(FCNumber=fc_number))]
+    
+    if complete:
+        args.append(dict(vals=dict(complete=1)))
+    
+    if not units is None:
+        args.append(dict(ct=query.a.unit.isin(units)))
+    
 
     # add extra table + wo column for query
     t = pk.Table('EventLog')
@@ -326,7 +333,7 @@ def get_fc_folders(fc_number='19H086-1', minesite='FortHills'):
     
     return efs
 
-def collect_pdfs(efs : list, p_dst=None):
+def collect_pdfs(efs : list, p_dst=None, name='ac_motor_inspections'):
     """Collect/move list of pdfs from event folders
 
     Parameters
@@ -335,14 +342,14 @@ def collect_pdfs(efs : list, p_dst=None):
         [description]
     """
     if p_dst is None:
-        p_dst = f.desktop / 'frame_inspections'
+        p_dst = f.desktop / name
 
     # find pdfs
     # super confusing listcomp syntax
     # list of [('F301', path)]
-    pdfs = [(unit, p) for unit, lst in [(ef.unit, ef._p_event.rglob('*.pdf')) for ef in efs] for p in lst]
+    pdfs = [(unit, dateadded, p) for unit, dateadded, lst in [(ef.unit, ef.dateadded, ef._p_event.rglob('*.pdf')) for ef in efs] for p in lst]
 
-    for unit, p in pdfs:
-        fl.copy_file(p_src=p, p_dst=p_dst / f'{unit}_{p.name}')
+    for unit, dateadded, p in pdfs:
+        fl.copy_file(p_src=p, p_dst=p_dst / f'{unit}_{dateadded:%Y-%m-%d}_{p.name}')
 
     return pdfs
