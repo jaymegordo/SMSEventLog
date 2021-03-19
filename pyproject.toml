@@ -33,8 +33,8 @@ pypandoc = "^1.5"
 psutil = "^5.8.0"
 packaging = "^20.9"
 chromedriver-autoinstaller = {git = "https://github.com/jaymegordo/python-chromedriver-autoinstaller.git"}
-appscript = {version = "^1.1.2", platform = "darwin"}
-pywin32 = {version = "^300", platform = "win32"}
+appscript = {version = "^1.1.2", markers = "sys_platform == 'darwin'"}
+pywin32 = {version = "^300", markers = "sys_platform == 'win32'"}
 
 [tool.poetry.dev-dependencies]
 ipykernel = "^5.5.0"
@@ -47,6 +47,7 @@ pytest = "^6.2.2"
 pyupdater = {git = "https://github.com/Digital-Sapphire/PyUpdater.git"}
 pyinstaller = {git = "https://github.com/pyinstaller/pyinstaller.git"}
 pytest-cov = "^2.11.1"
+openpyxl = "^3.0.7"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
