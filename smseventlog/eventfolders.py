@@ -41,6 +41,27 @@ class UnitFolder(object):
         
         f.set_self(vars())
     
+    @classmethod
+    def from_model(cls, e, **kw):
+        return cls(unit=e.Unit)
+
+    def check(self):
+        """Check if UnitFolder exists on p drive"""
+        if not fl.drive_exists():
+            return
+
+        return self.p_unit.exists()
+
+    def show(self):
+        if not self.check():
+            from .gui import _global as gbl
+
+            msg = f'Can\'t find unit folder: {self.p_unit}'
+            gbl.update_statusbar(msg=msg, warn=True)
+            return
+
+        fl.open_folder(p=self.p_unit, check_drive=False)
+
     @property
     def equippath(self):
         """Return specific equippath from data/config.yaml if exists for self.minesite, else default
