@@ -1,4 +1,6 @@
-"""Command line script to import fault, haul, or fix dls folders"""
+"""
+Command line script to import fault, haul, or fix dls folders
+"""
 
 import argparse
 import sys
