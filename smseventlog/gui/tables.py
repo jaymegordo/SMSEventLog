@@ -1762,6 +1762,7 @@ class UnitInfo(TableWidget):
         self.add_action(name='Add New', func=self.show_addrow, btn=True, ctx='add')
 
         self.context_actions['smr'] = ['show_smr_history']
+        self.context_actions['view'] = ['viewfolder']
 
     class View(TableView):
         def __init__(self, parent):
@@ -1776,6 +1777,12 @@ class UnitInfo(TableWidget):
             items = f.config['Lists']['EquipClass']
             self.set_combo_delegate(col='Equip Type', items=items, allow_blank=False)
     
+
+    def view_folder(self):
+        """Open event folder of currently active row in File Explorer/Finder"""
+        if not self.check_cummins(): return
+        efl.UnitFolder(unit=self.e.Unit).show()
+
     def show_addrow(self):
         dlg = dlgs.AddUnit(parent=self)
         dlg.exec_()
