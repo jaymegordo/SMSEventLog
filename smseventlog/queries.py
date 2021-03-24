@@ -2319,7 +2319,12 @@ class ACMotorInspections(FileQuery):
             .apply(
                 st.highlight_multiple_vals,
                 subset=['overdue', 'action_reqd'],
-                m={True: 'bad'},
+                m={True: 'bad', False: 'goodgreen'},
+                convert=True) \
+            .apply(
+                st.highlight_multiple_vals,
+                subset=['scheduled'],
+                m={True: 'goodgreen'},
                 convert=True)
 
 def table_with_args(table, args):
