@@ -1,92 +1,38 @@
-import argparse
 import re
 from copy import copy as cp
 from pathlib import Path
 
 import openpyxl as xl
+from datascroller import scroll
 from openpyxl.formatting.formatting import ConditionalFormattingList
 from openpyxl.formula.translate import Translator
 from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from openpyxl.worksheet.table import Table, TableStyleInfo
-from smseventlog import functions as f
-from smseventlog.__init__ import dt, getlog, np, pd
+
+from .__init__ import *
 
 log = getlog(__name__)
 p = Path.home() / 'desktop/Activity Record - Jayme Gordon.xlsx'
 
-cli = argparse.ArgumentParser()
-
-cli.add_argument(
-    '-t',
-    '--task', 
-    type=str,
-    default='',
-    help='Task text.')
-
-cli.add_argument(
-    '-d',
-    '--dur',  
-    type=float,
-    default=1.0,
-    help='Task duration in hours.')
-
-cli.add_argument(
-    '-dt',
-    '--date',
-    type=str,
-    default=dt.now().date().strftime('%Y-%m-%d'))
-
-cli.add_argument(
-    '-c',
-    '--category',
-    type=str,
-    default=None)
-
-cli.add_argument(
-    '--dlt',
-    nargs='?',
-    type=bool,
-    const=True,
-    default=None,
-    help='Delete table row(s).')
-
-cli.add_argument(
-    '-n',
-    '--nrows',
-    type=int,
-    default=1,
-    help='Number of rows to delete.')
-
-cli.add_argument(
-    '-s',
-    '--show',
-    nargs='?',
-    type=bool,
-    const=True,
-    default=None,
-    help='Print table to console.')
-
-cli.add_argument(
-    '-o',
-    '--open',
-    nargs='?',
-    type=bool,
-    const=True,
-    default=None,
-    help=f'Open excel file: {p}')
 
 class ExcelModel():
     def __init__(self):
         wb = xl.load_workbook(p)
-        ws = wb['Sheet1']
+        ws = wb['ActLog'] # default table
         tbl = ws.tables['Table1']
         max_row = ws.max_row
         new_row = ws.max_row + 1
+
+        m_formula_cols = dict(actlog=2)
         
         f.set_self(vars())
     
     def get_vars(self):
         return self.p, self.wb, self.ws, self.tbl
+    
+    def get_tbl(self, ws):
+        """Return first table of worksheet"""
+        return ws.tables[list(ws.tables)[0]]
     
     def close(self, display=True):
         if display:
@@ -95,22 +41,46 @@ class ExcelModel():
         self.wb.save(p)
         self.wb.close()
     
-    def add_row(self, m: dict, n: int=1):
-        """Add row to excel table"""
-        ws, tbl, row = self.ws, self.tbl, self.new_row
+    def add_row(self, m: dict, name: str='ActLog'):
+        """Add row(s) to excel table
+        
+        Parameters
+        ----------
+        m : dict | list
+        """
+        ws = self.wb[name]
+        tbl = self.get_tbl(ws=ws)
+        cols = f.lower_cols(tbl.column_names)
+        row = ws.max_row
 
-        tbl.ref = inc_rng(tbl.ref)
+        # convert dict m to list
+        lst = m if isinstance(m, list) else [m]
+        n = len(lst)
 
-        for col, val in m.items(): 
-            ws.cell(row, col).value = val
+        # adjust table range and cond formats
+        tbl.ref = inc_rng(tbl.ref, n=n)
+        max_col = len(tbl.column_names)
+        self.adjust_cond_formats(n=n, name=name)
+        
+        # fill formula cols down
+        formula_col = self.m_formula_cols.get(name.lower(), None)
+        if not formula_col is None:
+            self.fill_formula(col=formula_col, n=n)
 
-        # NOTE 6 should be max tbl.columns
-        for col in range(1, 6):
-            cell = ws.cell(row - 1, col)
-            new_cell = ws.cell(row, col)
+        for m in lst:
+            row += 1
 
-            new_cell.alignment = cp(cell.alignment)
-            new_cell.number_format = cp(cell.number_format)
+            for col_name, val in m.items():
+                col = cols.index(col_name) + 1 # get col int from colname
+                ws.cell(row, col).value = val
+
+            for col in range(max_col):
+                col += 1
+                cell = ws.cell(row - 1, col)
+                new_cell = ws.cell(row, col)
+
+                new_cell.alignment = cp(cell.alignment)
+                new_cell.number_format = cp(cell.number_format)
     
     def delete_row(self, n: int=1):
         ws, tbl, row = self.ws, self.tbl, self.max_row
@@ -121,34 +91,55 @@ class ExcelModel():
         tbl.ref = inc_rng(tbl.ref, n=-1 * n)
         self.adjust_cond_formats(n=-1 * n)
     
-    def fill_formula(self, col):
+    def fill_formula(self, col, n: int=1, name: str='ActLog'):
         """Copy cell formula down in col"""
-        ws = self.ws
-        c = ws.cell(self.max_row, col)
-        ws.cell(self.new_row, col).value = Translator(c.value, origin=c.coordinate) \
-            .translate_formula(inc_rng(c.coordinate))
+        ws = self.wb[name]
+        # NOTE ws max row kinda messy, checks max row with table/formats, NOT values
+        start_row = self.max_row
 
-    def get_df(self):
-        """Return df from excel table
-        - NOTE should set last col better
-        """
-        ws = self.ws
+        for i in range(n):
+            c = ws.cell(start_row + i, col)
+            ws.cell(start_row + i + 1, col).value = Translator(c.value, origin=c.coordinate) \
+                .translate_formula(inc_rng(c.coordinate))
 
-        data = np.array(list(ws.values)[1:])[:, :5]
-        cols = next(ws.values)[:5]
+    def get_df(self, name='ActLog'):
+        """Return df from excel table"""
+        ws = self.wb[name]
+        tbl = self.get_tbl(ws=ws)
+        max_col = len(tbl.column_names)
 
-        return pd.DataFrame(data=data, columns=cols) \
-            .pipe(f.lower_cols) \
-            .drop(columns='sum_duration')
+        data = np.array(list(ws.values)[1:])[:, :max_col]
+        cols = next(ws.values)[:max_col]
 
-    def display_df(self):
-        """Display last rows of table"""
-        f.terminal_df(self.get_df().tail(10))
+        drop_cols = dict(actlog=['sum_duration']) \
+            .get(name.lower(), None)
 
-    def adjust_cond_formats(self, n: int=1):
+        df = pd.DataFrame(data=data, columns=cols) \
+            .pipe(f.lower_cols)
+        
+        if not drop_cols is None:
+            df = df.drop(columns=drop_cols)
+
+        return df
+    
+    def show_like(self, s):
+        """Show last n items containing search string in task"""
+        df = self.get_df()
+        df = df[df.task.str.contains(s, case=False, na=False)]
+        scroll(df)
+
+    def display_df(self, n: int=10, df: pd.DataFrame=None):
+        """Display last n rows of table"""
+        if df is None:
+            df = self.get_df()
+
+        df = df.tail(n)
+        f.terminal_df(df)
+
+    def adjust_cond_formats(self, n: int=1, name: str='ActLog'):
         """Extend conditional formatting by one row
         - have to delete then re-add cond formats"""
-        ws = self.ws
+        ws = self.wb[name]
         orig_format = cp(ws.conditional_formatting)
         ws.conditional_formatting = ConditionalFormattingList() # clear formats
 
@@ -166,9 +157,31 @@ def get_matching_task(df, task):
     except:
         return ''
 
-def update_time(task, duration: float=1.0, d: dt=None, category=None):
+def add_defaults(d: dt=None, em=None):
+    """Add default rows for current date"""
+    if em is None:
+        em = ExcelModel()
+    
+    if d is None:
+        d = dt.now()
+    
+    day = d.strftime('%a')
+
+    df = em.get_df(name='Default') \
+        .pipe(lambda df: df[df.day==day]) \
+        .drop(columns='day') \
+        .assign(
+            duration=lambda x: x.duration.astype(float),
+            date=dt.now().date())
+
+    lst = list(df.to_dict(orient='index').values())
+    em.add_row(m=lst)
+    em.close()
+
+def update_time(task, duration: float=1.0, d: dt=None, category=None, em=None):
     """Add row to table with new task data"""
-    em = ExcelModel()
+    if em is None:
+        em = ExcelModel()
 
     if isinstance(d, str):
         d = dt.strptime(d, '%Y-%m-%d')
@@ -176,14 +189,19 @@ def update_time(task, duration: float=1.0, d: dt=None, category=None):
     if category is None:
         category = get_matching_task(df=em.get_df(), task=task)
 
-    m = {1: d, 3: duration, 4: task, 5: category}
-    em.add_row(m=m)
-    em.fill_formula(col=2)
-    em.adjust_cond_formats()
+    m = dict(
+        date=d,
+        duration=duration,
+        task=f'{task[0].upper()}{task[1:]}',
+        task_type=category.title())
+
+    em.add_row(m=m, name='ActLog')
     em.close()
 
-def delete_row(n: int=1):
-    em = ExcelModel()
+def delete_row(n: int=1, em=None):
+    if em is None:
+        em = ExcelModel()
+
     em.delete_row(n=n)
     em.close()
 
@@ -193,23 +211,3 @@ def inc_rng(rng: str, n: int=1):
     rng = str(rng)
     row = int(re.search(expr, rng)[0])
     return re.sub(expr, str(row + n), rng)
-
-
-if __name__ == '__main__':
-    a = cli.parse_args()
-    log.info(a)
-    print('\n')
-
-    if a.dlt:
-        delete_row(n=a.nrows)
-    elif a.show:
-        em = ExcelModel()
-        em.display_df()
-    elif a.open:
-        import subprocess
-        args = ['open', str(p)]
-        subprocess.Popen(args)
-    else:
-        update_time(task=a.task, duration=a.dur, d=a.date, category=a.category)
-        print(f'\nWow, {a.dur} hours? That was a great use of your time Jayme! Good work!')
-
