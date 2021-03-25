@@ -1686,7 +1686,7 @@ class AvailRawData(AvailBase):
             .hide_columns(['DownReason'])
 
 class Availability(AvailRawData):
-    # query for availability table in eventlog
+    """Query for availability table in eventlog"""
     def __init__(self, da=None, **kw):
         super().__init__(da=da, **kw)
         a = self.a
@@ -1725,16 +1725,32 @@ class Availability(AvailRawData):
         self.set_default_filter()
  
     def process_df(self, df):
+        where = np.where
         p = f.resources / 'csv'
         df_assigned = pd.read_csv(p / 'avail_assigned.csv')
         df_resp = pd.read_csv(p / 'avail_resp.csv')
 
         # merge category assigned to give a 'pre-assignment' to any null Category Assigned vals
-        df.loc[df['Category Assigned'].isnull(), 'Category Assigned'] = df.merge(df_assigned, how='left', on='DownReason')['Category Assigned_y']
+        new_rows = df['Category Assigned'].isnull()
+
+        df.loc[new_rows, 'Category Assigned'] = df.merge(df_assigned, how='left', on='DownReason')['Category Assigned_y']
+
+        # filter unassigned rows
+        # extract service hrs eg 1000, 4000 from comment
+        # % 2000 to get 0, 1000, 500, 250 etc
+        expr = r'(\d{3,})'
+        serv = df.loc[(
+                new_rows &
+                df.DownReason.str.contains('service', flags=re.IGNORECASE))] \
+            .Comment.str.extract(expr).astype(int) % 2000
+
+        # assign s5, s4, or s1 service to new rows loc
+        df.loc[serv.index, 'Category Assigned'] = \
+            where(serv == 0, 'S5 Service',
+                where(serv == 1000, 'S4 Service', 'S1 Service'))
 
         # match CategoryAssigned to SMS or suncor and fill duration
         df = df.merge(df_resp, on='Category Assigned', how='left')
-        where = np.where
         df.SMS = where(df.SMS.isnull(), where(df.Resp=='SMS', df.Total, 0), df.SMS)
         df.Suncor = where(df.Suncor.isnull(), where(df.Resp=='Suncor', df.Total, 0), df.Suncor)
         df.drop(columns='Resp', inplace=True)
