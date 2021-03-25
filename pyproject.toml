@@ -49,6 +49,7 @@ pyinstaller = {git = "https://github.com/pyinstaller/pyinstaller.git"}
 pytest-cov = "^2.11.1"
 openpyxl = "^3.0.7"
 tabulate = "^0.8.9"
+datascroller = "^1.4.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
