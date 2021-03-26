@@ -76,28 +76,31 @@ def update_dt_exclusions_ma(units, rng_dates=None, dates=None):
     print(f'Rows updated: {rows}')
 
 def process_df_downtime(df):
-    if df is None: return None
-    df = df[df.EqmtModel=='Komatsu 980E-OS'] # filter haul trucks only
+    if df is None:
+        return
 
-    # convert fullshiftname, moment, duration to startdate, enddate, duration
-    df['ShiftDate'] = pd.to_datetime(df.FullShiftName.str.split(' ', expand=True)[0], format='%d-%b-%Y')
-    df.Moment = pd.to_timedelta(df.Moment)
-    df.Duration = pd.to_timedelta(df.Duration)
-    df['StartDate'] = df.apply(lambda x: parse_date(x.ShiftDate, x.Moment), axis=1)
-    df['EndDate'] = df.StartDate + df.Duration
-    df.Duration = df.Duration.dt.total_seconds() / 3600 # convert to hours, eg 1.03
-
-    if not 'Origin' in df.columns:
-        df['Origin'] = 'Staffed'
-
-    cols = ['FieldId', 'StartDate', 'EndDate', 'Duration', 'Reason', 'FieldComment', 'ShiftDate', 'Origin']
-    df = df[cols]
-    df.columns = ['Unit', 'StartDate', 'EndDate', 'Duration', 'DownReason', 'Comment', 'ShiftDate', 'Origin']
-
-    df.Unit = df.Unit.str.replace('F0', 'F')
-    df.drop_duplicates(subset=['Unit', 'StartDate', 'EndDate'], inplace=True)
-
-    return df
+    m_cols = dict(
+        FieldId='Unit',
+        StartDate='StartDate',
+        EndDate='EndDate',
+        Duration='Duration',
+        Reason='DownReason',
+        FieldComment='Comment',
+        ShiftDate='ShiftDate',
+        Origin='Origin')
+    
+    return df \
+        .pipe(lambda df: df[df.EqmtModel=='Komatsu 980E-OS']) \
+        .assign(
+            FieldId=lambda x: x.FieldId.str.replace('F0', 'F'),
+            ShiftDate=lambda x: pd.to_datetime(x.FullShiftName.str.split(' ', expand=True)[0], format='%d-%b-%Y'),
+            Moment=lambda x: pd.to_timedelta(x.Moment),
+            StartDate=lambda x: x.apply(lambda x: parse_date(x.ShiftDate, x.Moment), axis=1),
+            EndDate=lambda x: x.StartDate + pd.to_timedelta(x.Duration),
+            Duration=lambda x: pd.to_timedelta(x.Duration).dt.total_seconds() / 3600) \
+        .drop_duplicates(subset=['FieldId', 'StartDate', 'EndDate']) \
+        .rename(columns=m_cols) \
+        [list(m_cols.values())]
 
 def parse_date(shiftdate, timedelta):
     # if timedelta is < 6am, shift day is next day
