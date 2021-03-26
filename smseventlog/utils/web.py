@@ -636,6 +636,7 @@ class TSIWebPage(Komatsu):
         field_vals = form_vals_default.copy()
 
         form_fields = {
+            'Unit': 'kom_titlesuffix',
             'Failure SMR': 'kom_failuresmr',
             'Hours On Parts': 'kom_hoursonpartsdecimal',
             'Failure Date': 'elogic_failuredate_datepicker_description',
