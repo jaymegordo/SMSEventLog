@@ -1,3 +1,3 @@
-from smseventlog import errors as er
-from smseventlog import functions as f
-from smseventlog.__init__ import *
+from .. import errors as er
+from .. import functions as f
+from ..__init__ import *

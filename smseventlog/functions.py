@@ -7,7 +7,7 @@ from distutils.util import strtobool
 import six
 import yaml
 
-from smseventlog.__init__ import *
+from .__init__ import *
 
 
 log = getlog(__name__)
@@ -551,7 +551,19 @@ def to_snake(s : str):
 
 def lower_cols(df):
     """Convert df columns to snake case and remove bad characters"""
-    m_cols = {col: to_snake(col) for col in df.columns}
+    is_list = False
+
+    if isinstance(df, pd.DataFrame):
+        cols = df.columns
+    else:
+        cols = df
+        is_list = True
+
+    m_cols = {col: to_snake(col) for col in cols}
+    
+    if is_list:
+        return list(m_cols.values())
+
     return df.pipe(lambda df: df.rename(columns=m_cols))
 
 def sql_from_file(p : Path) -> str:

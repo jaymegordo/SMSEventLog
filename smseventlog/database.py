@@ -122,7 +122,7 @@ def e(func):
 class DB(object):
     def __init__(self):
         __name__ = 'SMS Event Log Database'
-        print(f'Initializing database')
+        log.info('Initializing database')
         self.reset(False)
         
         df_unit = None
