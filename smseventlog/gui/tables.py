@@ -1582,6 +1582,7 @@ class TSI(EventLogBase):
         d = e.DateAdded.strftime('%m/%d/%Y')
 
         field_vals = {
+            'Unit': e.Unit,
             'Failure Date': d,
             'Repair Date': d,
             'Failure SMR': e.SMR,
