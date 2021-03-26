@@ -11,7 +11,7 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.integrations.tornado import TornadoIntegration
 
-from smseventlog.__init__ import SYS_FROZEN, VERSION, getlog
+from .__init__ import AZURE_WEB, IS_QT_APP, SYS_FROZEN, VERSION, getlog
 
 base_log = getlog(__name__)
 
@@ -419,7 +419,10 @@ class InputError(ExpectedError):
         super().__init__(message)
         self.show_warn_dialog(msg=message)
 
-sys._excepthook = sys.excepthook # save original excepthook
-init_sentry() # sentry overrides excepthook, need to init first to override it
-sys.sentry_excepthook = sys.excepthook # call events back to sentry if we want
-sys.excepthook = global_exception_hook # assign custom excepthook
+# Only set global excepthook if package is running as app or on azure
+# not locally for scripts
+if IS_QT_APP or AZURE_WEB:
+    sys._excepthook = sys.excepthook # save original excepthook
+    init_sentry() # sentry overrides excepthook, need to init first to override it
+    sys.sentry_excepthook = sys.excepthook # call events back to sentry if we want
+    sys.excepthook = global_exception_hook # assign custom excepthook

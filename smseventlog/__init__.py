@@ -3,6 +3,7 @@ import functools
 import logging
 import operator as op
 import os
+import re
 import sys
 import time
 from collections import defaultdict as dd
@@ -26,14 +27,15 @@ from pypika import Table as T
 from pypika import functions as fn
 from pypika.analytics import RowNumber
 from pypika.terms import PseudoColumn
+from PyQt5.QtWidgets import QApplication
 
 __version__ = '3.4.0'
 VERSION = __version__
 
 # Set environments
-AZURE_LOCAL = os.getenv('AZURE_FUNCTIONS_ENVIRONMENT', False) # dont think these are used
-AZURE_WEB = True if os.getenv('WEBSITE_SITE_NAME', None) else False
-
+AZURE_LOCAL = not os.getenv('AZURE_FUNCTIONS_ENVIRONMENT', None) is None # dont think these are used
+AZURE_WEB = not os.getenv('WEBSITE_SITE_NAME', None) is None
+IS_QT_APP = not os.getenv('IS_QT_APP', None) is None
 SYS_FROZEN = getattr(sys, 'frozen', False)
 
 def getlog(name):
