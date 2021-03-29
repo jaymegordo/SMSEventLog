@@ -1688,9 +1688,17 @@ class TSI(EventLogBase):
         dlg = dlgs.FailureReport(parent=self, p_start=ef.p_pics, text=text)
         if not dlg.exec_(): return
 
-        # create report obj and save as pdf in event folder
-        from .. import reports as rp
-        rep = rp.FailureReport.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text)
+        # create report obj and save as pdf/docx in event folder
+        from ..reports import FailureReport
+        from ..utils.word import FailureReportWord
+        if dlg.word_report:
+            Report = FailureReportWord
+            func = 'create_word'
+        else:
+            Report = FailureReport
+            func = 'create_pdf'
+
+        rep = Report.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text)
 
         def handle_report_result(rep=None):
             if rep is None: return
@@ -1698,7 +1706,7 @@ class TSI(EventLogBase):
             if dlgs.msgbox(msg=msg, yesno=True):
                 fl.open_folder(rep.p_rep)
 
-        Worker(func=rep.create_pdf, mw=self.mw) \
+        Worker(func=getattr(rep, func), mw=self.mw) \
             .add_signals(signals=('result', dict(func=handle_report_result))) \
             .start()
 
