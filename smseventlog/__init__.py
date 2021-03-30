@@ -22,7 +22,9 @@ import pypika as pk
 from dateutil.relativedelta import relativedelta
 from pypika import Case, Criterion
 from pypika import CustomFunction as cf
-from pypika import DatePart, Order, Query
+from pypika import DatePart
+from pypika import MSSQLQuery as Query
+from pypika import Order
 from pypika import Table as T
 from pypika import functions as fn
 from pypika.analytics import RowNumber
