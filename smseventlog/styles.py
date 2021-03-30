@@ -273,13 +273,14 @@ def highlight_multiple_vals(df, m : dict, convert=False, theme='light'):
 
     return df.replace(m_replace)
 
-def highlight_flags(df, m):
+def highlight_flags(df, m, suffix='_fg'):
     """Highlight flagged columns for oil samples"""
     df1 = highlight_multiple_vals(df=df, m=m)
 
-    flagged_cols = [col for col in df.columns if '_f' in col]
+    flagged_cols = [col for col in df.columns if suffix in col]
+
     for col in flagged_cols:
-        col2 = col.replace('_f', '')
+        col2 = col.replace(suffix, '')
         df1[col2] = df1[col]
         df1[col] = ''
 
