@@ -24,6 +24,7 @@ log = getlog(__name__)
 class Report(object):
     def __init__(self, d=None, d_rng=None, minesite=None, mw=None, **kw):
         # dict of {df_name: {func: func_definition, da: **da, df=None}}
+        ext = 'pdf'
         dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
         signatures = []
         self.html_template = 'report_template.html'
@@ -229,6 +230,19 @@ class Report(object):
         """Return query obj based on df section name"""
         return self.dfs[name].get('query', None)
     
+    def check_overwrite(self, p_base=None):
+        if p_base is None:
+            p_base = Path.home() / 'Desktop'
+
+        p = p_base / f'{self.title}.{self.ext}'
+
+        if p.exists():
+            from .gui.dialogs import msgbox
+            msg = f'File "{p.name}" already exists. Overwrite?'
+            return msgbox(msg=msg, yesno=True)
+        
+        return True
+
     def create_pdf(self, p_base=None, template_vars=None, check_overwrite=False, write_html=False, open=False, **kw):
         if not self.dfs_loaded:
             self.load_all_dfs()
