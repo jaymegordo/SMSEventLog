@@ -141,7 +141,12 @@ def set_column_widths(style, vals, hidden_index=True, outlook=False):
         return style.apply(col_width_outlook, axis=None, vals=vals)
 
 def default_style(df, outlook=False):
-    # Dataframe general column alignment/number formatting
+    """Dataframe general column alignment/number formatting"""
+    
+    # allow passing in styler or df
+    if isinstance(df, pd.io.formats.style.Styler):
+        df = df.data
+        
     cols = [k for k, v in df.dtypes.items() if v=='object'] # only convert for object cols
     df[cols] = df[cols].replace('\n', '<br>', regex=True)
 
