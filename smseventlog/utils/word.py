@@ -1,19 +1,24 @@
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
+from docx.enum.table import WD_ALIGN_VERTICAL
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.shared import OxmlElement, qn
 from docx.shared import Cm, Inches, Pt
 
 from .. import reports as rp
+from .. import styles as st
 from . import fileops as fl
 from .__init__ import *
+
+log = getlog(__name__)
 
 
 class WordReport():
     def __init__(self, **kw) -> None:
         doc = Document()
         font_name = 'Calibri'
-        font_size = Pt(12)
+        font_size = Pt(10)
+        ext = 'docx'
 
         font_props = dict(
             size=font_size,
@@ -71,7 +76,7 @@ class WordReport():
             section.left_margin = Cm(1.5)
             section.right_margin = Cm(1.5)
 
-    def add_df(self, df, name: str=None, header: bool=True, index: bool=False, m_bg: dict=None, m_text: dict=None, **kw):
+    def add_df(self, df, name: str=None, header: bool=True, index: bool=False, m_bg: dict=None, m_text: dict=None, header_color: str=f.config['color']['thead'], m_hdrs: dict=None, **kw):
         """Add table to word doc from df
 
         Parameters
@@ -87,6 +92,8 @@ class WordReport():
         
         hdr = 1 if header else 0
         idx = 1 if index else 0
+
+        num_cols = df.select_dtypes('number').columns.tolist()
         
         tbl = self.doc.add_table(
             rows=df.shape[0] + hdr,
@@ -100,33 +107,53 @@ class WordReport():
             for i, col_name in enumerate(df.columns):
                 cell = tbl.rows[0].cells[i + idx]
                 cell.text = col_name
+                self.set_cell_color(cell, bg=header_color)
+                self.set_cell_font(cell=cell, align=WD_ALIGN_PARAGRAPH.CENTER)
+                cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
         
         if index:
+            # set index name
+            if header:
+                cell = tbl.rows[0].cells[0]
+                cell.text = df.index.name
+                cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+
             for i, row_name in enumerate(df.index):
                 cell = tbl.rows[i + hdr].cells[0]
                 cell.text = row_name
         
         # add data
         for i, row in enumerate(df.itertuples(index=False)):
+            row_name = df.index[i]
+
             for j, val in enumerate(row):
                 cell = tbl.rows[i + hdr].cells[j + idx]
-                
+                col_name = df.columns[j]
+
+                int_col = pd.api.types.is_integer_dtype(df.dtypes[col_name])
+
                 # set number formats, don't add None
                 if not val is None:
-                    if isinstance(val, int):
+                    if int_col:
                         val = f'{val:,.0f}'
 
                     cell.text = str(val)
 
+                # align numeric cols right
+                if col_name in num_cols:
+                    self.set_cell_font(cell=cell, align=WD_ALIGN_PARAGRAPH.RIGHT)
+
                 if not m_bg is None:
-                    row_name = df.index[i]
-                    col_name = df.columns[j]
-                    # print(row_name, col_name)
+
+                    # convert btwn original/display column names
+                    if not m_hdrs is None:
+                        col_name = m_hdrs.get(col_name, col_name)
+
                     color = m_bg.get(col_name, {}).get(row_name, None)
                     if color:
                         self.set_cell_color(cell, bg=color)
 
-        self.set_table_style(tbl=tbl, **kw)
+        self.set_table_cell_style(tbl=tbl, **kw)
 
         return tbl
     
@@ -143,12 +170,50 @@ class WordReport():
 
         cell_pr.append(cl_shading)
 
-    def set_table_style(self, tbl, style_name='No Spacing'):
-        """Set font size/name for full table"""
+    def set_table_cell_style(self, tbl, style_name='No Spacing'):
+        """Set font size/name for full table from Paragraph style"""
         for row in tbl.rows:
             for cell in row.cells:
                 p = cell.paragraphs[0]
                 p.style = self.doc.styles[style_name]
+    
+    def autofit_table_window(self, tbl):
+        """
+        <w:tbl>
+            <w:tblPr>
+                <w:tblW w:type="pct" w:w="5000"/>
+        """
+        width = OxmlElement('w:tblW')
+        width.set(qn('w:type'), 'pct')
+        width.set(qn('w:w'), '5000')
+        tbl._tbl.tblPr.append(width)
+
+    def set_table_margins(self, tbl, width: dict=None):
+        """<w:tbl>
+			<w:tblPr>
+				<w:tblStyle w:val="LightShading"/>
+				<w:tblW w:type="auto" w:w="0"/>
+				<w:tblCellMar>
+					<w:left w:type="dxa" w:w="63"/>
+					<w:right w:type="dxa" w:w="63"/>
+				</w:tblCellMar>
+				<w:tblLook w:firstColumn="1" w:firstRow="1" w:lastColumn="0" w:lastRow="0" w:noHBand="0" w:noVBand="1" w:val="04A0"/>
+			</w:tblPr>"""
+        
+        # 67 = Cm(0.11) ...?
+        if width is None:
+            width = dict(left=67, right=67)
+
+        margins = OxmlElement('w:tblCellMar')
+
+        for side, w in width.items():
+            margin = OxmlElement(f'w:{side}')
+            margin.set(qn('w:w'), str(w))
+            margin.set(qn('w:type'), 'dxa')
+
+            margins.append(margin)
+
+        tbl._tbl.tblPr.append(margins)
     
     def add_tbl_border(self, tbl):
         """Add table bottom border with OxmlElement"""
@@ -160,15 +225,19 @@ class WordReport():
 
         tbl._tbl.tblPr.append(borders)
     
-    def set_cell_font(self, cell, props: dict):
+    def set_cell_font(self, cell, props: dict=None, align=None):
         """Set cell font/properties"""
-        para = cell.paragraphs[0]
-        para.paragraph_format.space_after = Pt(0)
+        p = cell.paragraphs[0]
+        p.paragraph_format.space_after = Pt(0)
 
-        for run in para.runs:
-            font = run.font
-            for name, val in props.items():
-                setattr(font, name, val)
+        if not align is None:
+            p.alignment = align
+
+        if not props is None:
+            for run in p.runs:
+                font = run.font
+                for name, val in props.items():
+                    setattr(font, name, val)
     
     def bold_column(self, tbl, cols: list):
         """Set table columns to bold"""
@@ -188,6 +257,7 @@ class WordReport():
     def add_pictures(self, pics: list):
         doc = self.doc
         doc.add_page_break()
+        doc.add_heading('Images', level=2)
 
         for i, pic in enumerate(pics):
             
@@ -234,15 +304,9 @@ class WordReport():
         
         p = p_base / f'{self.title}.docx'
 
-        if check_overwrite and p.exists():
-            from ..gui.dialogs import msgbox
-            msg = f'File "{p.name}" already exists. Overwrite?'
-            if not msgbox(msg=msg, yesno=True):
-                p = p_base / f'{self.title} (1).docx'
-
         self.doc.save(str(p))
         self.p_rep = p
-        return self
+        return self   
 
 
 
@@ -274,7 +338,7 @@ class FailureReportWord(WordReport, rp.FailureReport):
         if not self.query_oil is None:
             self.add_oil_samples()
 
-        # self.add_pictures(pics=sorted(self.pictures))
+        self.add_pictures(pics=sorted(self.pictures))
 
         return super().create_word(
             p_base=self.ef._p_event,
@@ -282,38 +346,61 @@ class FailureReportWord(WordReport, rp.FailureReport):
             **kw)
 
     def add_oil_samples(self):
+        """Add oil samples as two split tables for more room"""
         query = self.query_oil
 
         df = query.df \
-            .assign(sample_date=lambda x: x.sample_date.astype(str)) \
-            .set_index('sample_date')
+            .assign(
+                sample_date=lambda x: x.sample_date.astype(str),
+                oil_changed=lambda x: x.oil_changed.astype(str),
+                opc=lambda x: x.opc.str.replace(' ', '')) \
+            .rename(columns=dict(sample_date='Sample_Date')) \
+            .set_index('Sample_Date')
 
-        style = df.style.pipe(query.update_style)
-        # style = self.style_oil
-        # df = style.data
+        style = df.style \
+            .pipe(st.default_style, outlook=True) \
+            .pipe(query.update_style)
+
+        # set vals for title
+        unit = df.unit.iloc[0]
+        component = df.component_id.iloc[0]
+        modifier = df.modifier.iloc[0]
 
         flag_cols = [col for col in df.columns if '_fg' in col]
-        cols = ['unit', 'component_id', 'modifier', 'unit_smr']
+        drop_cols = ['unit', 'component_id', 'modifier'] #, 'unit_smr']
         # , 'sliding', 'fatigue', 'non_metal', 'fibers', 'cutting_mean', 'sliding_mean', 'fatigue_mean', 'non_metal_mean']
-        # cols.extend(flag_cols)
+        drop_cols.extend(flag_cols)
+
+        # convert headers for snake vs title cols
+        cols = df.columns.tolist()
+        cols_nice = f.lower_cols(cols, title=True)
+        m_hdrs = {nice_col: col for col, nice_col in zip(cols, cols_nice)}
 
         df = df \
-            .drop(columns=flag_cols) \
-            # .assign(sample_date=lambda x: x.sample_date.astype(str)) \
-            # .set_index('sample_date').T
+            .drop(columns=drop_cols) \
+            .pipe(f.lower_cols, title=True)
 
-        m_bg, m_text = f.convert_stylemap_index_color(style, as_qt=False)
+        m_bg, m_text = f.convert_stylemap_index_color(style, as_qt=False, first_val=False)
 
-        split = df.shape[1] // 2
+        split = (df.shape[1] // 2) + 8
 
-        tbl = self.add_df(df.iloc[:, :split], name='oil1', m_bg=m_bg, style_name='SmallFont', index=True)
-        tbl.style = 'Light Shading'
-        # self.doc.paragraphs[-1].add_run('this is a run').add_break()
-        self.doc.add_paragraph()
+        m_tbls = dict(
+            oil1=df.iloc[:, :split],
+            oil2=df.iloc[:, split:])
+        
+        # add header
+        header = f'{unit} - {component}'
+        if not modifier is None:
+            header = f'{header}, {modifier}'
 
-        tbl = self.add_df(df.iloc[:, split:], name='oil2', m_bg=m_bg, style_name='SmallFont', index=True)
-        tbl.style = 'Light Shading'
-        # tbl.style = 'SmallFontTable'
+        self.doc.add_heading('Oil Samples', level=2)
+        self.doc.add_paragraph().add_run(f'{unit} - {component}, {modifier}'.title())
+
+        for name, df in m_tbls.items():
+            tbl = self.add_df(df, name=name, m_bg=m_bg, m_hdrs=m_hdrs, style_name='SmallFont', index=True)
+            self.set_table_margins(tbl=tbl, width=dict(left=50, right=50))
+            self.bold_column(tbl=tbl, cols=(0,))
+            self.doc.add_paragraph()
 
     
     def add_body(self):
