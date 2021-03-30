@@ -535,7 +535,7 @@ class FailureReport(Report):
         return cls(e=e, header_data=header_data, **kw)
 
     @classmethod
-    def example(cls, uid=None):
+    def example(cls, uid=None, **kw):
         pics = []
         e = dbt.Row.example(uid=uid)
 
@@ -550,7 +550,7 @@ class FailureReport(Report):
         ef = efl.EventFolder.example(uid=uid, e=e)
         pics = ef.pics[:3]
 
-        return cls.from_model(e=e, ef=ef, pictures=pics, body=body)
+        return cls.from_model(e=e, ef=ef, pictures=pics, body=body, **kw)
 
     def create_pdf(self, p_base=None, **kw):
         if p_base is None:
@@ -560,14 +560,18 @@ class FailureReport(Report):
             .render()
 
         # convert back to caps, replace newlines
-        body = {k.title(): v.replace('\n', '<br>') for k, v in self.body.items()}       
+        body = {k.title(): v.replace('\n', '<br>') for k, v in self.body.items()}
 
         template_vars = dict(
             df_head=df_head_html,
             body_sections=body,
             pictures=sorted(self.pictures))
 
-        return super().create_pdf(p_base=p_base, template_vars=template_vars, check_overwrite=True, **kw)
+        return super().create_pdf(
+            p_base=p_base,
+            template_vars=template_vars,
+            check_overwrite=True,
+            **kw)
 
     def style_header(self, df):
         return self.style_df(df=df) \
@@ -1096,19 +1100,3 @@ class SubSection():
         return self
 
 
-
-
-# TSI
-    # number of TSIs submitted per month?
-
-# Fault codes
-    # need to bulk import all faults
-
-# PLM
-    # Will need to manually import all units before running report for now. > wont have dls till much later..
-    # df - summary table - total loads, total payload, fleet mean payload
-    # chart - monthly rolling summary
-    # df - summary loads per unit, need to identify max payload date..
-
-# Component CO
-    # df - CO forecast??
