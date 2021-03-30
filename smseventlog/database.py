@@ -456,6 +456,11 @@ class DB(object):
         from .queries import FCOpen
         self.df_fc = FCOpen().get_df(default=False)
     
+    def combine_comp_modifier(self, df, cols: list, target: str='combined', sep: str=', '):
+        """Create combined col for component/modifier"""
+        df[target] = df[cols].apply(
+            lambda x: f'{x[0]}{sep}{x[1]}' if not x[1] is None else x[0], axis=1)
+    
     def get_df_component(self):
         name = 'component'
         df = self.get_df_saved(name)
@@ -464,10 +469,43 @@ class DB(object):
             a = T('ComponentType')
             q = Query.from_(a).select('*')
             df = self.read_query(q=q)
-            df['Combined'] = df[['Component', 'Modifier']].apply(
-                lambda x: f'{x[0]}, {x[1]}' if not x[1] is None else x[0], axis=1)
-            
+
+            self.combine_comp_modifier(df=df, cols=['Component', 'Modifier'], target='Combined')           
             self.save_df(df, name)
+
+        return df
+
+    def get_df_oil_components(self, unit: str=None):
+        """Return uniqe unit/component/modifier combinations from oil samples
+
+        Parameters
+        ----------
+        unit : str, optional
+            filter to unit, default None
+
+        Returns
+        -------
+        pd.DataFrame
+            df of unit, component, modifier
+        """        
+        name = 'oil_comps'
+        df = self.get_df_saved(name)
+
+        if df is None:
+            a = T('OilSamples')
+            cols = [a.unit, a.component_id, a.modifier]
+            q = Query.from_(a) \
+                .select(*cols) \
+                .groupby(*cols)
+
+            df = self.read_query(q=q) \
+                .sort_values(by=['unit', 'component_id', 'modifier'])
+
+            self.combine_comp_modifier(df=df, cols=['component_id', 'modifier'], target='combined', sep=' - ')
+            self.save_df(df, name)
+        
+        if not unit is None:
+            df = df[df.unit==unit]
 
         return df
 
