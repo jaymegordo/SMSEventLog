@@ -1685,23 +1685,40 @@ class TSI(EventLogBase):
             correction='Component replaced with new.',
             details=e.Description)
 
-        dlg = dlgs.FailureReport(parent=self, p_start=ef.p_pics, text=text)
+        dlg = dlgs.FailureReport(parent=self, p_start=ef.p_pics, text=text, unit=e.Unit)
         if not dlg.exec_(): return
 
         # create report obj and save as pdf/docx in event folder
         from ..reports import FailureReport
         from ..utils.word import FailureReportWord
+        kw = {}
+
         if dlg.word_report:
             Report = FailureReportWord
             func = 'create_word'
+            
+            # TODO add oil samples to pdf report too
+            if dlg.oil_samples:
+                query = qr.OilSamplesReport(unit=dlg.unit, component=dlg.component, modifier=dlg.modifier)
+                kw['query_oil'] = query
         else:
             Report = FailureReport
             func = 'create_pdf'
 
-        rep = Report.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text)
+        rep = Report.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text, **kw)
+        log.info('report init')
+
+        # need to msgbox for check overwrite in main thread
+        if not rep.check_overwrite(p_base=ef._p_event):
+            log.info('exiting at overwrite')
+            return
+        
+        log.info('passed overwrite')
+        
 
         def handle_report_result(rep=None):
             if rep is None: return
+            log.info('report created')
             msg = 'Failure report created, open now?'
             if dlgs.msgbox(msg=msg, yesno=True):
                 fl.open_folder(rep.p_rep)
