@@ -183,7 +183,7 @@ TableName:
         AvailTopDowns: Downtime
         AvailBase: Downtime
         UserSettings: UserSettings
-        OilSamples: viewOilSamples
+        OilSamples: OilSamples
     Update:
         FCSummary: FCSummary
         FCDetails: FactoryCampaign
@@ -393,17 +393,36 @@ Headers:
         Phosphorus (P): P
         Zinc (Zn): Zn
         Calcium (Ca): Ca
+        Cadmium (Cd): Cd
         Barium (Ba): Ba
         Magnesium (Mg): Mg
+        Manganese (Mn): Mn
         Molybdenum (Mo): Mo
         Vanadium (V): V
         Antimony (Sb): Sb
         Lithium (Li): Li
         Beryllium (Be): Be
         Water %: water
+        Fuel %: fuel
+        Glycol %: glycol
+        NIT (A/cm): NIT
+        OX (A/cm): OX
+        SUL (A/cm): SUL
+        Soot %: soot
+        Ethylene Glycol (%): eth_glycol
+        Polypropylene Glycol (%): prop_glycol
         Grit: grit
-        Visc 40°C cSt: visc40
-        Visc 100°C cSt: visc100
+        Sediment: sediment
+        Precipitate: precip
+        Clarity: clarity
+        Code: code
+        color: color
+        Conductivity: conductivity
+        Coolant Changed: coolant_changed
+        Freeze Point: freeze_pt
+        Coolant Type: coolant_type
+        Visc 40°C cSt: visc_40
+        Visc 100°C cSt: visc_100
         OPC Code: opc
         OPC > 4µ: opc_4
         OPC > 6µ: opc_6
@@ -414,13 +433,36 @@ Headers:
         'Cutting #/ml': cutting
         'Sliding #/ml': sliding
         'Fatigue #/ml': fatigue
-        'Non-Metal #/ml': nonMetal
+        'Non-Metal #/ml': non_metal
         'Fibers #/ml': fibers
-        Cutting Mean Size µ: cuttingMean
-        Sliding Mean Size µ: slidingMean
-        Fatigue Mean Size µ: fatigueMean
-        Non-Metal Mean Size µ: nonMetalMean
-        Visc Index: viscIndex
+        Cutting Mean Size µ: cutting_mean
+        Sliding Mean Size µ: sliding_mean
+        Fatigue Mean Size µ: fatigue_mean
+        Non-Metal Mean Size µ: non_metal_mean
+        Visc Index: visc_idx
+        AN (FTIR) mgKOH/g: AN
+        BN (FTIR) mgKOH/g: BN
+        ISO Count: iso_count
+        'ISO > 4µ': iso_4
+        'ISO > 6µ': iso_6
+        'ISO > 14µ': iso_14
+        'ISO > 25µ': iso_25
+        'ISO > 38µ': iso_38
+        'ISO > 70µ': iso_70
+        '% Urea DEF': urea_def
+        Boiling Point: boiling_pt
+        Magnetic Precipitate: mag_precip
+        Magnification: magnification
+        Nitrites: nitrates
+        Odor: odor
+        Patch Size µm: patch_size
+        Refractive Index: refractive_idx
+        Solvent: solvent
+        Sulphur in fuel ppm: sulphur_fuel_ppm
+        TAN-E mg/g: TAN-E
+        Total ppm: total_ppm
+
+
 
     FCImport:
         FC Number/Seq: FCNumber
