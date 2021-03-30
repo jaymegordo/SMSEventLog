@@ -2,16 +2,18 @@ import json
 from timeit import default_timer as timer
 
 import requests
+from smseventlog.utils.credentials import CredentialManager
 
 from ..queries import OilReportSpindle, OilSamples
 from .__init__ import *
-from smseventlog.utils.credentials import CredentialManager
 
 log = getlog(__name__)
 
+m_names = f.config['Headers']['OilSamples']
+
 # NOTE eventually drop records > 1yr old from db
 
-# convert fluidlife customerName to MineSite
+# convert fluidlife customer_name to MineSite
 m_customer = dict(
     FortHills='SUNCOR FORT HILLS ENERGY - MINE MOBILE',
     BaseMine=['SUNCOR - STEEPBANK HAUL TRUCKS', 'N.A.C.G. (SUNCOR)'],
@@ -25,38 +27,86 @@ m_customer = dict(
 class OilSamples():
     def __init__(self, fltr=None, login=None):
         _samples = []
+        _samples_full = [] # save all sample history
 
         if login is None:
             login = CredentialManager(name='fluidlife', gui=False).static_creds
 
+        format_date = lambda x: x.strftime('%Y-%m-%d-00:00:00')
+
         f.set_self(vars())
 
-    def load_samples_fluidlife(self, d_lower, params=None):
-        """Load samples from fluidlife api, save to self._samples as list of dicts"""
+    def build_url(self, **kw):
         l = self.login
-        def _format_date(d):
-            return d.strftime('%Y-%m-%d-%H:%M:%S')
+        url = 'https://mylab2.fluidlife.com/mylab/api/history/jsonExport?'
+
+        if not 'd_lower' in kw:
+            kw['d_lower'] = dt.now() + delta(days=-14)
         
-        url = 'https://mylab2.fluidlife.com/mylab/api/history/jsonExport?username={}&password={}&startDateTime={}'.format(
-            l['username'],
-            l['password'],
-            _format_date(d_lower))
+        # convert to suncor unit names
+        if 'unit' in kw:
+            customer = db.get_unit_val(unit=kw['unit'], field='Customer')
+            if customer == 'Suncor':
+                
+                m = {'^F': 'F0', '^3': '03', '^2': '02'}
+                for expr, repl in m.items():
+                    kw['unit'] = re.sub(expr, repl, kw['unit'])
 
-        for k, v in params.items() or {}:
-            if isinstance(v, dt): v = _format_date(v)
+        # convert easier kws to fluidlife kws
+        m_conv = dict(
+            d_lower='startDateTime',
+            d_upper='endDateTime',
+            minesite='customerName',
+            component='componentType',
+            unit='unitId') # NOTE unitId doesn't actually work
 
-            # convert MineSite to Fluidlife customerName
+        m = dict(
+            username=l['username'],
+            password=l['password'])
+        
+        kw.update(m)
+
+        for k, v in kw.items():
+            if isinstance(v, (dt)):
+                v = self.format_date(v)
+
+            # convert MineSite to Fluidlife customer_name
             if v in m_customer.keys():
                 v = m_customer[v]
-                if isinstance(v, list): v = v[0]
+                if isinstance(v, list):
+                    v = v[0]
+            
+            if k in m_conv:
+                k = m_conv[k]
 
-            url = f'{url}&{k}={v}'
+            ampersand = '&' if not url[-1] == '?' else ''
+            url = f'{url}{ampersand}{k}={v}'
+        
+        return url
 
-        print(url)
-        # return url
+    def load_samples_fluidlife(self, d_lower, save_samples=False, **kw):
+        """Load samples from fluidlife api, save to self._samples as list of dicts"""
+
+        url = self.build_url(d_lower=d_lower, **kw)
+        log.info(url)
+
         start = timer()
-        self._samples = requests.get(url).json()['historyList']
-        print('Elapsed time: {}s'.format(f.deltasec(start, timer())))
+
+        new_samples = requests.get(url).json()['historyList']
+
+        self._samples_full.extend(new_samples)
+        if save_samples:
+            self.save_samples()
+
+        self._samples = new_samples
+
+        log.info('Elapsed time: {}s'.format(f.deltasec(start, timer())))
+    
+    def save_samples(self):
+        """Save samples to pkl file"""
+        p = f.desktop / 'samples.pkl'
+        f.save_pickle(obj=self._samples_full, p=p)
+        
     
     def load_samples_db(self, d_lower=None, component=None, recent=False, minesite=None, model=None):
         query = OilSamples(recent=recent, component=component, minesite=minesite, model=model)
@@ -65,13 +115,17 @@ class OilSamples():
     
     def update_db(self):
         # check maxdate in database, query fluidlife api, save new samples to database
-        maxdate = db.max_date_db(table='OilSamples', field='processDate', join_minesite=False) + delta(days=-1)
+        maxdate = db.max_date_db(table='OilSamples', field='process_date', join_minesite=False) + delta(days=-1)
         self.load_samples_fluidlife(d_lower=maxdate)
         return self.to_sql()
    
     @property
     def samples(self):
         s = self._samples
+
+        # not sure how often this happens but samples gets returned nested 1 level deeper
+        if len(s) == 1:
+            s = s[0]
 
         if not self.fltr is None:
             for k, v in self.fltr.items():
@@ -81,46 +135,67 @@ class OilSamples():
     
     def df_samples(self, recent=False, flatten=False):
         # only used to upload to db, otherwise use query.OilSamples()
-        cols = ['histNo', 'customerName', 'unitId', 'componentId', 'componentType', 'sampleDate', 'processDate', 'meterReading', 'componentService', 'oilChanged', 'sampleRank', 'results', 'recommendations', 'comments', 'testResults']
+        cols = ['hist_no', 'customer_name', 'unit_id', 'component_id', 'component_type', 'component_location', 'sample_date', 'process_date', 'meter_reading', 'component_service', 'oil_changed', 'sample_rank', 'results', 'recommendations', 'comments', 'test_results']
 
-        # query lab == lab to drop None keys, (None != itself)
-        # .query('histNo == histNo') \ # removes null/duplicates or something?
-        df = pd.DataFrame.from_dict(self.samples)[cols] \
-            .set_index('histNo') \
-            .pipe(f.parse_datecols) \
-            .pipe(self.most_recent_samples, do=recent) \
-            .pipe(flatten_test_results, do=flatten)
+        # TODO need to rename all ccomponets to 
 
+        m_rename = dict(
+            unit_id='unit',
+            customer_name='customer',
+            meter_reading='unit_smr',
+            component_service='component_smr',
+            component_location='modifier')
+        
         # remove suncor's leading 0s
         m = {'^F0': 'F', '^03': '3', '^02': '2'}
-        df.unitId = df.unitId.replace(m, regex=True)
 
+        # query lab == lab to drop None keys, (None != itself)
+        # .query('hist_no == hist_no') \ # removes null/duplicates or something?
         # return only units which exist in the database
-        df = df[df.unitId.isin(db.unique_units())]
-        
-        # df.index = df.index.str.replace(' ', '')
-        
-        return df
+        return pd.DataFrame.from_dict(self.samples) \
+            .pipe(f.parse_datecols) \
+            .pipe(f.lower_cols) \
+            [cols] \
+            .set_index('hist_no') \
+            .rename(columns=m_rename) \
+            .pipe(reduce_test_results) \
+            .pipe(self.most_recent_samples, do=recent) \
+            .pipe(flatten_test_results, do=flatten) \
+            .assign(
+                unit=lambda x: x.unit.replace(m, regex=True)) \
+            .pipe(lambda df: df[df.unit.isin(db.unique_units())]) \
+            .drop(columns='customer')
+
     
     def to_sql(self):
         # save df to database
-        df = self.df_samples()
-        df.testResults = df.testResults.apply(json.dumps) # testResults is list of dicts, need to serialize
+        # test_results is list of dicts, need to serialize
+        # don't need customer in db
+        df = self.df_samples() \
+            .assign(
+                test_results=lambda x: x.test_results.apply(json.dumps),
+                test_flags=lambda x: x.test_flags.apply(json.dumps)) \
+            .reset_index(drop=False)
 
-        return db.import_df(
-            df=df, imptable='OilSamplesImport', impfunc='ImportOilSamples', notification=True, index=True, prnt=True, chunksize=5000)
+        return db.insert_update(
+            a='OilSamples',
+            join_cols=['hist_no'],
+            df=df,
+            notification=True,
+            import_name='OilSamples',
+            chunksize=5000)
        
     def most_recent_samples(self, df, do=True):
         if not do: return df
         return df \
             .reset_index() \
             .sort_values(
-                by=['unitId', 'componentId', 'componentLocation', 'sampleDate'],
+                by=['unit_id', 'component_id', 'modifier', 'sample_date'],
                 ascending=[True, True, True, False]) \
-            .groupby(['unitId', 'componentId', 'componentLocation']) \
+            .groupby(['unit_id', 'component_id', 'modifier']) \
             .first() \
             .reset_index() \
-            .set_index('histNo')
+            .set_index('hist_no')
 
     def flagged_samples(self, fields=None, recent=False):
         # return flagged samples, either all or only most recent
@@ -128,7 +203,7 @@ class OilSamples():
         # eg: fields = ('Visc 40°C cSt', 'Visc 100°C cSt')
 
         df = self.df_samples(recent=recent)
-        df['flagged'] = df['testResults'].apply(result_flagged, fields=fields)
+        df['flagged'] = df['test_results'].apply(result_flagged, fields=fields)
 
         return df[df.flagged==True]
 
@@ -147,8 +222,38 @@ def result_flagged(test_result, fields=None):
 def rename_cols(df):
     return df.rename(columns=f.config['Headers']['OilSamples'])
 
+def reduce_test_result(lst):
+    """Reduce complexity/char length of test restults dicts"""
+    m_res = {}
+    m_flag = {}
+
+    for m in lst:
+        test = m_names.get(m['testName'], m['testName'])
+        
+        res = m['testResult']
+        if res is None:
+            res = ''
+        res = f.conv_int_float_str(val=res.strip())
+        m_res[test] = res
+
+        flag = m['testFlag']
+        if flag is None:
+            flag = ''
+
+        if not flag == '':
+            m_flag[test] = flag
+
+    return m_res, m_flag
+
+def reduce_test_results(df):
+    """Convert test_results to two cols of results and flags"""
+    s = df.test_results.apply(reduce_test_result).tolist()
+    df[['test_results', 'test_flags']] = pd.DataFrame(s, index=df.index)
+
+    return df
+
 def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
-    # loop through list of dicts for testResults, create col with testName: testResult/testFlag for each row
+    # loop through list of dicts for test_results, create col with testName: testResult/testFlag for each row
     if not do: return df
 
     final_cols = df.columns.to_list()
@@ -164,7 +269,7 @@ def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
 
     dfs_m = dd(list)
     for row in df.itertuples():
-        m = row.testResults
+        m = row.test_results
 
         # get the sort order once
         if sort_order is None:
@@ -179,7 +284,7 @@ def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
 
     for result_col in result_cols:
         df3 = pd.concat(dfs_m[result_col]) \
-            .rename_axis('histNo', axis='index') \
+            .rename_axis('hist_no', axis='index') \
             .pipe(rename_cols) \
             .add_suffix(suff[result_col])
         
@@ -187,7 +292,7 @@ def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
         if not keep_cols is None:
             df3 = df3[[col for col in df3.columns if any(col2 in col for col2 in keep_cols)]]
 
-        df = df.merge(df3, on='histNo')
+        df = df.merge(df3, on='hist_no')
 
     # sort flattened cols, (excluding base_cols) so testResult is beside testFlag
     all_cols = df.columns.to_list()
@@ -202,7 +307,7 @@ def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
     return df[final_cols]
 
 def example():
-    fltr = dict(customerName='fort hills', componentId='spindle', unitModel='980')
+    fltr = dict(customer_name='fort hills', component_id='spindle', unitModel='980')
     oils = OilSamples(fltr=fltr)
     oils.load_samples_fluidlife(d_lower=dt(2020,6,1))
 
@@ -217,3 +322,21 @@ def spindle_report():
         ], subquery=True)
 
     return query.get_df()
+
+def import_history():
+    from .. import queries as qr
+
+    oils = OilSamples()
+    rng = pd.date_range(dt(2020,1,1), dt(2021,4,1), freq='M')
+
+    for d in rng[:1]:
+        d_lower, d_upper = qr.first_last_month(d)
+        d_upper = d_upper + delta(days=1)
+        print(d_lower, d_upper)
+
+        oils.load_samples_fluidlife(d_lower=d_lower, d_upper=d_upper, clear_samples=False)
+        df = oils.df_samples()
+        p = f.desktop / 'fluidlife.csv'
+        df.to_csv(p)
+        print(df.shape)
+        oils.to_sql()
