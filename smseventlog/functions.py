@@ -510,10 +510,20 @@ def convert_stylemap_index(style):
 
     return m
 
-def convert_stylemap_index_color(style, as_qt=True):
+def convert_stylemap_index_color(style, as_qt=True, first_val: bool=True):
     """Convert (irow, icol) stylemap to dict of {col: {row: QColor(value)}}
     
     eg stylemap = {(0, 4): ['background-color: #fef0f0', 'color: #000000']}
+
+
+    Parameters
+    ----------
+    style: pd.Styler
+    as_qt: bool
+        return QColor or just hex
+    first_val: bool
+        style.ctx could have had multiple style_vals set for eg background-color
+        allow selecting first or last val
 
     Returns
     -------
@@ -539,14 +549,31 @@ def convert_stylemap_index_color(style, as_qt=True):
         except:
             return None
 
+    first_last = 0 if first_val else -1
+
     for k, style_vals in style.ctx.items():
         row, col = df.index[k[0]], df.columns[k[1]]
-        m_background[col][row] = set_color(style_vals, i=0)
-        m_text[col][row] = set_color(style_vals, i=1)
+
+        # need to filter style_vals to only include one background-color and one color
+        bg_vals = [item for item in style_vals if item.split(':')[0] == 'background-color']
+
+        text_vals = list(set(style_vals) - set(bg_vals))
+        
+        # NOTE this might fail if two 'inherit'
+        if len(bg_vals) > 1:
+            bg_vals = [item for item in bg_vals if not item.split(': ')[1] == 'inherit']
+
+
+        m_background[col][row] = set_color(bg_vals, i=first_last)
+        m_text[col][row] = set_color(text_vals, i=first_last)
 
     return m_background, m_text
 
-def to_snake(s : str):
+def from_snake(s: str):
+    """Convert from snake case cols to title"""
+    return s.replace('_', ' ').title()
+
+def to_snake(s: str):
     """Convert messy camel case to lower snake case
     
     Parameters
@@ -571,7 +598,7 @@ def to_snake(s : str):
         .replace(' ', '_') \
         .replace('__', '_')
 
-def lower_cols(df):
+def lower_cols(df, title=False):
     """Convert df columns to snake case and remove bad characters"""
     is_list = False
 
@@ -581,7 +608,9 @@ def lower_cols(df):
         cols = df
         is_list = True
 
-    m_cols = {col: to_snake(col) for col in cols}
+    func = to_snake if not title else from_snake
+
+    m_cols = {col: func(col) for col in cols}
     
     if is_list:
         return list(m_cols.values())
