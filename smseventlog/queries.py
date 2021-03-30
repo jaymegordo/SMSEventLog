@@ -1899,7 +1899,7 @@ class OilSamples(QueryBase):
         subset.extend([col.replace(suffix, '') for col in subset])
 
         return style \
-            .background_gradient(cmap=self.cmap, subset='sample_rank', axis=None) \
+            .background_gradient(cmap=self.cmap, subset='sample_rank', axis=None, vmin=0, vmax=10.0) \
             .apply(st.highlight_flags, axis=None, subset=subset, m=m) \
             .hide_columns(flagged_cols)
     
@@ -1945,8 +1945,7 @@ class OilSamplesReport(OilSamples):
         return style \
             .pipe(self.style_flags) \
             .format({k: '{:.1f}' for k in style.data.select_dtypes(float).columns}) \
-            .format(dict(sample_date='{:%Y-%m-%d}')) \
-            .pipe(st.alternating_rows)
+            .format(dict(sample_date='{:%Y-%m-%d}'))
 
 class OilSamplesRecent(OilSamples):
     def __init__(self, recent_days=-120, da=None):
