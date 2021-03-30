@@ -1238,12 +1238,16 @@ class AvailTopDowns(AvailBase):
         return m
 
 class AvailSummary(QueryBase):
+    """Query for calculating availability tables and summary stats for reports"""
     def __init__(self, d_rng=None, period_name=None, model='980%', minesite='FortHills', period='month', unit=None):
         super().__init__()
         self.view_cols.update(
             ma_target='MA Target',
             hrs_period_ma='Hrs Period MA',
             hrs_period_pa='Hrs Period PA')
+        
+        self.default_dtypes.update(
+            **f.dtypes_dict('float', ['ExcludeHours_MA', 'ExcludeHours_PA']))
 
         self.formats.update({
             'MA Target': '{:.2%}',
@@ -1295,18 +1299,19 @@ class AvailSummary(QueryBase):
 
         hrs_in_period = cf('tblHrsInPeriod', ['d_lower', 'd_upper', 'minesite', 'period'])
         period_range = cf('period_range', ['startdate', 'enddate', 'period'])
-        # _year = cf('YEAR', ['date'])
         _month = cf('MONTH', ['date'])
-        datepart = cf('DATEPART', ['period_type', 'date'])
+        _year = cf('YEAR', ['date'])
         iso_year = cf('dbo.iso_year', ['date'])
+        datepart = cf('DATEPART', ['period_type', 'date'])
 
-        year = iso_year(a.ShiftDate)
         month = _month(a.ShiftDate)
         week = datepart(PseudoColumn('iso_week'), a.ShiftDate)
 
         if period == 'month':
+            year = _year(a.ShiftDate)
             _period = fn.Concat(year, '-', month) #.as_('period')
         else:
+            year = iso_year(a.ShiftDate) # only use iso_year (slow custom function) when grouping by week
             _period = fn.Concat(year, '-', week) #.as_('period')
 
         # Create all week/month periods in range crossed with units
@@ -1388,7 +1393,11 @@ class AvailSummary(QueryBase):
                 hrs_period=lambda x: ((
                     np.minimum(
                         x.period.dt.end_time,
-                        np.datetime64(self.d_rng[1])) - x.period.dt.start_time).dt.days + 1) * 24,
+                        np.datetime64(self.d_rng[1])) - 
+                    np.maximum(
+                        x.DeliveryDate,
+                        x.period.dt.start_time)
+                    ).dt.days + 1) * 24,
                 hrs_period_ma=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_MA, 0),
                 hrs_period_pa=lambda x: np.maximum(x.hrs_period - x.ExcludeHours_PA, 0),
                 MA=lambda x: (x.hrs_period_ma - x.SMS) / x.hrs_period_ma,
@@ -1396,6 +1405,7 @@ class AvailSummary(QueryBase):
             .drop(columns=['_age']) \
             .replace([np.inf, -np.inf], np.nan) \
             .fillna(dict(MA=1, PA=1)) \
+            .pipe(lambda df: df[df.hrs_period >= 0]) \
             .sort_values(['age']) \
             .pipe(lambda df: pd.merge_asof(
                 left=df, right=df_ma_gt, on='age', direction='forward', allow_exact_matches=True))
@@ -1452,17 +1462,19 @@ class AvailSummary(QueryBase):
             hrs_period_ma=('hrs_period_ma', 'sum'),
             hrs_period_pa=('hrs_period_pa', 'sum'))
 
-    def df_summary(self, group_ahs=False, period=None):
+    def df_summary(self, group_ahs: bool=False, period: str=None, max_period: bool=True):
         """Group by period and summarise
         - NOTE need to make sure fulll history is loaded to 12 periods back
         - Always exclude F300 from summary calcs
 
         Parameters
         ----------
-        group_ahs : bool\n
+        group_ahs : bool
             group by 'operation' eg ahs/staffed
-        max_period : bool\n
-            filter data to max period only first
+        period : str
+            last or ytd
+        max_period : bool
+            filter only last period or not, default True
 
         Returns
         -------
@@ -1476,7 +1488,8 @@ class AvailSummary(QueryBase):
             if period == 'ytd':
                 df.period = df.period.dt.year
             
-            df = self.filter_max_period(df=df)
+            if max_period:
+                df = self.filter_max_period(df=df)
 
         if group_ahs:
             group_cols.append('Operation')
