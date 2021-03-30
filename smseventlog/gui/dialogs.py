@@ -1324,7 +1324,7 @@ class FailureReport(QDialog):
     """
     Dialog to select pictures, and set cause/correction text to create pdf failure report.
     """
-    def __init__(self, parent=None, p_start=None, text=None):
+    def __init__(self, parent=None, p_start=None, text=None, unit=None):
         super().__init__(parent=parent)
         self.setWindowTitle('Create TSI Report')
         self.setMinimumSize(QSize(800, 800))
@@ -1356,6 +1356,20 @@ class FailureReport(QDialog):
         self.add_textbox(names=names)
         add_linesep(vLayout)
 
+        # oil samples
+        oil_layout = QHBoxLayout()
+        oil_box = ff.ComboBox()
+        oil_box.setFixedSize(QSize(300, oil_box.sizeHint().height()))
+        oil_cb = ff.CheckBox(checked=False)
+        oil_cb.stateChanged.connect(self.toggle_oil_components)
+        oil_box.setEnabled(False)
+        oil_layout.addWidget(oil_cb)
+        oil_layout.addWidget(oil_box)
+        oil_layout.addStretch(1)
+        vLayout.addWidget(QLabel('Oil Samples:'))
+        vLayout.addLayout(oil_layout)
+        add_linesep(vLayout)
+
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(QLabel('Report type:'))
         btn_layout.addWidget(btn_pdf)
@@ -1364,8 +1378,22 @@ class FailureReport(QDialog):
         vLayout.addLayout(btn_layout)
 
         add_okay_cancel(dlg=self, layout=vLayout)
+        f.set_self(vars())
 
         # TODO OilSamples, Faults, PLM?
+    
+    def toggle_oil_components(self, state):
+        """Toggle components when oil cb checked"""
+        oil_box = self.oil_box
+
+        if state == Qt.Checked:
+            oil_box.setEnabled(True)
+            df_comp = db.get_df_oil_components(unit=self.unit)
+            items = f.clean_series(df_comp.combined)
+            oil_box.set_items(items)
+            oil_box.select_all()
+        else:
+            oil_box.setEnabled(False)
     
     def update_statusbar(self, msg, *args, **kw):
         if not self.parent is None:
@@ -1389,13 +1417,30 @@ class FailureReport(QDialog):
             _add_textbox(name)
        
     def accept(self):
-        self.pics = self.dlg.selectedFiles()
-        self.word_report = self.btn_word.isChecked()
+        pics = self.dlg.selectedFiles()
+        word_report = self.btn_word.isChecked()
 
         # convert dict of textbox objects to their plaintext (could also use html)
         for name, textbox in self.text_fields.items():
             self.text[name] = textbox.toPlainText()
 
+        # save oil sample component/modifier
+        oil_samples = False
+        if self.oil_cb.isChecked():
+            oil_samples = True
+            val = self.oil_box.val
+            lst = val.split(' - ')
+            component = lst[0]
+
+            # may or may not have modifier
+            if len(lst) > 1:
+                modifier = lst[1]
+            else:
+                modifier = None
+
+            print(component, modifier)
+
+        f.set_self(vars())
         super().accept()
 
 class QFileDialogPreview(QFileDialog):
