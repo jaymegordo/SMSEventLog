@@ -611,12 +611,13 @@ class AddEvent(AddRow):
             self.dlg_fc = None
     
     def link_fc(self):
-        # add event's UID to FC in FactoryCampaign table
+        """Add event's UID to FC in FactoryCampaign table"""
         unit, uid = self.row.Unit, self.row.UID
         row = dbt.Row(keys=dict(FCNumber=self.FCNumber, Unit=unit), dbtable=dbm.FactoryCampaign)
         row.update(vals=dict(UID=uid))
 
     def create_fc(self):
+        """Show dialog to select FC from list"""
         unit = self.fUnit.val
 
         if self.cb_fc.isChecked():
@@ -1342,10 +1343,25 @@ class FailureReport(QDialog):
         vLayout.addWidget(dlg)
         add_linesep(vLayout)
 
+        # word/pdf radio buttons
+        bg1 = QButtonGroup(self)
+        btn_pdf = QRadioButton('PDF', self)
+        btn_pdf.setChecked(True)
+        btn_word = QRadioButton('Word', self)
+        bg1.addButton(btn_pdf)
+        bg1.addButton(btn_word)
+
         f.set_self(vars())
         names = ['complaint', 'cause', 'correction', 'details']
         self.add_textbox(names=names)
         add_linesep(vLayout)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addWidget(QLabel('Report type:'))
+        btn_layout.addWidget(btn_pdf)
+        btn_layout.addWidget(btn_word)
+        btn_layout.addStretch(1)
+        vLayout.addLayout(btn_layout)
 
         add_okay_cancel(dlg=self, layout=vLayout)
 
@@ -1374,6 +1390,7 @@ class FailureReport(QDialog):
        
     def accept(self):
         self.pics = self.dlg.selectedFiles()
+        self.word_report = self.btn_word.isChecked()
 
         # convert dict of textbox objects to their plaintext (could also use html)
         for name, textbox in self.text_fields.items():

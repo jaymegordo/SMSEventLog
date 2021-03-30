@@ -8,7 +8,7 @@ from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetrics, QGuiApplication,
                          QIcon, QIntValidator, QKeyEvent, QKeySequence,
                          QPalette, QPixmap, QTextCursor)
 from PyQt5.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QAction,
-                             QApplication, QCheckBox, QComboBox, QDateEdit,
+                             QApplication, QButtonGroup, QCheckBox, QComboBox, QDateEdit,
                              QDateTimeEdit, QDesktopWidget, QDialog,
                              QDialogButtonBox, QErrorMessage, QFileDialog,
                              QFormLayout, QFrame, QGridLayout, QHBoxLayout,
