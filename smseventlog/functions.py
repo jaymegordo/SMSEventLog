@@ -1,6 +1,7 @@
 import base64
 import functools
 import json
+import pickle
 import re
 from distutils.util import strtobool
 
@@ -8,7 +9,6 @@ import six
 import yaml
 
 from .__init__ import *
-
 
 log = getlog(__name__)
 
@@ -247,6 +247,17 @@ def cursor_to_df(cursor):
 def isnum(val):
     return str(val).replace('.', '', 1).isdigit()
 
+def conv_int_float_str(val):
+    expr = r'^\d+$' # int
+    expr2 = r'^\d+\.\d+$' # float
+
+    if re.match(expr, val):
+        return int(val)
+    elif re.match(expr2, val):
+        return float(val)
+    else:
+        return str(val)
+
 def greeting():
     val = 'Morning' if dt.now().time().hour < 12 else 'Afternoon'
     return f'Good {val},<br><br>'
@@ -312,6 +323,13 @@ def _input(msg):
         return False
     else:
         return False
+
+def save_pickle(obj, p):
+    """Save object to pickle file"""
+    with open(p, 'wb') as file:
+        pickle.dump(obj, file)
+    
+    log.info(f'Saved pickle: {p}')
 
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
@@ -492,7 +510,7 @@ def convert_stylemap_index(style):
 
     return m
 
-def convert_stylemap_index_color(style):
+def convert_stylemap_index_color(style, as_qt=True):
     """Convert (irow, icol) stylemap to dict of {col: {row: QColor(value)}}
     
     eg stylemap = {(0, 4): ['background-color: #fef0f0', 'color: #000000']}
@@ -509,11 +527,15 @@ def convert_stylemap_index_color(style):
     m_text = dd(dict)
     df = style.data
 
+    if len(style.ctx) == 0:
+        style._compute()
+
     def set_color(style_vals, i):
         # may only have background-color, not color
         try:
             color = style_vals[i].split(' ')[1]
-            return QColor(color) if not color == '' else None
+            color_out = color if not color == '' else None
+            return QColor(color_out) if as_qt and not color_out is None else color_out
         except:
             return None
 
