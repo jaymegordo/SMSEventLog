@@ -1,5 +1,6 @@
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.shared import OxmlElement, qn
 from docx.shared import Cm, Inches, Pt
 
@@ -26,6 +27,11 @@ class WordReport():
         self.set_style_props('Normal', font_props)
         self.set_style_props('No Spacing', font_props)
         self.set_style_props('Normal Table', font_props)
+
+        # small font table
+        s = doc.styles.add_style('SmallFont', WD_STYLE_TYPE.PARAGRAPH)
+        s.base_style = doc.styles['No Spacing']
+        self.set_style_props('SmallFont', dict(size=Pt(6)))
 
         self.doc.styles['Normal'].paragraph_format.line_spacing = 1
         self.doc.styles['Heading 1'].paragraph_format.space_before = Pt(6)
@@ -65,7 +71,7 @@ class WordReport():
             section.left_margin = Cm(1.5)
             section.right_margin = Cm(1.5)
 
-    def add_df(self, df, name: str=None, header: bool=True):
+    def add_df(self, df, name: str=None, header: bool=True, index: bool=False, m_bg: dict=None, m_text: dict=None, **kw):
         """Add table to word doc from df
 
         Parameters
@@ -80,24 +86,30 @@ class WordReport():
             name = f'table_{len(self.tables.keys()) + 1}'
         
         hdr = 1 if header else 0
+        idx = 1 if index else 0
         
         tbl = self.doc.add_table(
             rows=df.shape[0] + hdr,
-            cols=df.shape[1])
+            cols=df.shape[1] + idx)
         
         # save table
         self.tables[name] = tbl
 
         # add column labels
         if header:
-            for i, col in enumerate(df.columns):
-                cell = tbl.rows[0].cells[i]
-                cell.text = col
+            for i, col_name in enumerate(df.columns):
+                cell = tbl.rows[0].cells[i + idx]
+                cell.text = col_name
+        
+        if index:
+            for i, row_name in enumerate(df.index):
+                cell = tbl.rows[i + hdr].cells[0]
+                cell.text = row_name
         
         # add data
         for i, row in enumerate(df.itertuples(index=False)):
             for j, val in enumerate(row):
-                cell = tbl.rows[i + hdr].cells[j]
+                cell = tbl.rows[i + hdr].cells[j + idx]
                 
                 # set number formats, don't add None
                 if not val is None:
@@ -106,16 +118,37 @@ class WordReport():
 
                     cell.text = str(val)
 
-        self.set_table_style(tbl=tbl)
+                if not m_bg is None:
+                    row_name = df.index[i]
+                    col_name = df.columns[j]
+                    # print(row_name, col_name)
+                    color = m_bg.get(col_name, {}).get(row_name, None)
+                    if color:
+                        self.set_cell_color(cell, bg=color)
+
+        self.set_table_style(tbl=tbl, **kw)
 
         return tbl
     
-    def set_table_style(self, tbl):
+    def set_cell_color(self, cell, bg=None, text=None):
+        """Set table cell bg and text color"""
+        cell_pr = cell._element.tcPr
+        cl_shading = OxmlElement('w:shd')
+
+        if bg:
+            cl_shading.set(qn('w:fill'), bg)
+        
+        if text:
+            cl_shading.set(qn('w:color'), text)
+
+        cell_pr.append(cl_shading)
+
+    def set_table_style(self, tbl, style_name='No Spacing'):
         """Set font size/name for full table"""
         for row in tbl.rows:
             for cell in row.cells:
                 p = cell.paragraphs[0]
-                p.style = self.doc.styles['No Spacing']
+                p.style = self.doc.styles[style_name]
     
     def add_tbl_border(self, tbl):
         """Add table bottom border with OxmlElement"""
@@ -193,7 +226,7 @@ class WordReport():
         self.doc.save(p)
     
     def show(self):
-        fl.open_folder(self.p)
+        fl.open_folder(self.p_rep)
 
     def create_word(self, p_base=None, check_overwrite=False, **kw):
         if p_base is None:
@@ -215,7 +248,7 @@ class WordReport():
 
 class FailureReportWord(WordReport, rp.FailureReport):
     """Failure report based on both rp.FailureReport (for data/initialization) and Word report"""
-    def __init__(self, **kw):
+    def __init__(self, query_oil=None, **kw):
         super().__init__(**kw)
         rp.FailureReport.__init__(self, **kw)
 
@@ -223,7 +256,7 @@ class FailureReportWord(WordReport, rp.FailureReport):
 
         f.set_self(vars())
 
-    def create_word(self, **kw):
+    def create_word(self, check_overwrite=True, **kw):
         doc = self.doc
 
         self.set_header_footer()
@@ -238,12 +271,50 @@ class FailureReportWord(WordReport, rp.FailureReport):
 
         self.add_body()
 
-        self.add_pictures(pics=sorted(self.pictures))
+        if not self.query_oil is None:
+            self.add_oil_samples()
+
+        # self.add_pictures(pics=sorted(self.pictures))
 
         return super().create_word(
             p_base=self.ef._p_event,
-            check_overwrite=True,
+            check_overwrite=check_overwrite,
             **kw)
+
+    def add_oil_samples(self):
+        query = self.query_oil
+
+        df = query.df \
+            .assign(sample_date=lambda x: x.sample_date.astype(str)) \
+            .set_index('sample_date')
+
+        style = df.style.pipe(query.update_style)
+        # style = self.style_oil
+        # df = style.data
+
+        flag_cols = [col for col in df.columns if '_fg' in col]
+        cols = ['unit', 'component_id', 'modifier', 'unit_smr']
+        # , 'sliding', 'fatigue', 'non_metal', 'fibers', 'cutting_mean', 'sliding_mean', 'fatigue_mean', 'non_metal_mean']
+        # cols.extend(flag_cols)
+
+        df = df \
+            .drop(columns=flag_cols) \
+            # .assign(sample_date=lambda x: x.sample_date.astype(str)) \
+            # .set_index('sample_date').T
+
+        m_bg, m_text = f.convert_stylemap_index_color(style, as_qt=False)
+
+        split = df.shape[1] // 2
+
+        tbl = self.add_df(df.iloc[:, :split], name='oil1', m_bg=m_bg, style_name='SmallFont', index=True)
+        tbl.style = 'Light Shading'
+        # self.doc.paragraphs[-1].add_run('this is a run').add_break()
+        self.doc.add_paragraph()
+
+        tbl = self.add_df(df.iloc[:, split:], name='oil2', m_bg=m_bg, style_name='SmallFont', index=True)
+        tbl.style = 'Light Shading'
+        # tbl.style = 'SmallFontTable'
+
     
     def add_body(self):
         doc = self.doc
@@ -253,3 +324,15 @@ class FailureReportWord(WordReport, rp.FailureReport):
             self.bold_header(header)
             p = doc.paragraphs[-1]
             p.add_run(text)
+
+
+# from smseventlog.utils import word as wd
+
+# query = qr.OilSamplesReport(unit='F302', component='WHEEL MOTOR', modifier='LEFT')
+# df = query.get_df()
+# style = df.style.pipe(query.update_style)
+
+# uid = 161349647756
+# rep = wd.FailureReportWord.example(uid=uid, style_oil=style)
+# rep.create_word()
+# rep.show()
