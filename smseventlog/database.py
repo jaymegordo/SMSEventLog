@@ -430,10 +430,13 @@ class DB(object):
             .set_index('Model', drop=False)
 
     def get_df_fc(self, minesite=None, unit=None, default=True):
-        if self.df_fc is None:
-            self.set_df_fc()
-        
-        df = self.df_fc
+        name = 'fc'
+        df = self.get_df_saved(name)
+
+        if df is None:
+            from .queries import FCOpen
+            df = FCOpen().get_df(default=False)
+            self.save_df(df, name)
 
         if not minesite is None:
             df = df[df.MineSite==minesite]
@@ -469,7 +472,7 @@ class DB(object):
         return df
 
     @er.errlog('Failed to import dataframe')
-    def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None, index=False):
+    def import_df(self, df, imptable, impfunc, notification=True, prnt=False, chunksize=None, index=False, if_exists='append', import_name=None):
         rowsadded = 0
         if df is None or len(df) == 0:
             fmt = '%Y-%m-%d %H:%M'
@@ -480,7 +483,7 @@ class DB(object):
         df.to_sql(
             name=imptable,
             con=self.engine,
-            if_exists='append',
+            if_exists=if_exists,
             index=index,
             chunksize=chunksize)
 
@@ -488,16 +491,17 @@ class DB(object):
         rowsadded = cursor.execute(impfunc).rowcount
         cursor.commit()
 
-        msg = f'{imptable}: {rowsadded}'
-        if prnt: print(msg)
-        log.info(msg)
+        import_name = import_name if not import_name is None else imptable
+        msg = f'{import_name}: {rowsadded}'
+        if prnt:
+            log.info(msg)
 
         if notification:
             f.discord(msg=msg, channel='sms')
         
         return rowsadded
 
-    def insert_update(self, a : str, b : str, join_cols : list, df : pd.DataFrame, **kw) -> str:
+    def insert_update(self, a : str, join_cols : list, df : pd.DataFrame, b : str='temp_import', **kw) -> str:
         """Insert values from df into temp update table b and merge to a
 
         Parameters
@@ -515,6 +519,9 @@ class DB(object):
         str
             sql query string
         """
+        if b == 'temp_import':
+            kw['if_exists'] = 'replace'
+
         imptable = b
         a, b = pk.Tables(a, b)
         cols = df.columns
@@ -527,9 +534,14 @@ class DB(object):
             .select(*cols) \
             .where(a.field(join_cols[0]).isnull())
 
+
         rowsadded = self.import_df(df=df, imptable=imptable, impfunc=str(q),  **kw)
-        self.cursor.execute(f'TRUNCATE TABLE {b};')
+        # self.cursor.execute(f'TRUNCATE TABLE {b};')
+        self.cursor.execute(f'DROP TABLE {b};')
         self.cursor.commit()
+
+        msg = f'{a}: {rowsadded}'
+        log.info(msg)
 
         return rowsadded
     
