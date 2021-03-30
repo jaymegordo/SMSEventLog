@@ -1,19 +1,40 @@
-Create Table PLM (
-    Unit varchar(50) Not Null,
-    [DateTime] DateTime2(0) Not Null,
-    Payload Float Not Null,
-    Swingloads bigint,
-    StatusFlag varchar(50),
-    Carryback float,
-    CycleTime float,
-    L_HaulDistance float,
-    L_MaxSpeed float,
-    E_MaxSpeed float,
-    MaxSprung float,
-    TruckType varchar(50),
-    SprungWeight float,
-    Payload_Est float,
-    Payload_Quick float,
-    Payload_Gross float
-    CONSTRAINT PK_Unit_DateTime PRIMARY KEY (Unit, [DateTime])
+drop table OilSamples;
+
+Create Table OilSamples (
+    hist_no BIGINT NOT NULL,
+    sample_date DATE NULL,
+    process_date DATE NULL,
+    unit VARCHAR(50) NOT NULL,
+    component_id VARCHAR(50) NULL,
+    component_type VARCHAR(50) NULL,
+    modifier VARCHAR(30) NULL,
+    unit_smr INT NULL,
+    component_smr INT NULL,
+    sample_rank FLOAT NULL,
+    oil_changed BIT NULL,
+    test_results VARCHAR(2000),
+    test_flags VARCHAR(1000),
+    results VARCHAR(MAX),
+    recommendations VARCHAR(MAX),
+    comments VARCHAR(MAX)
+
+    CONSTRAINT PK_hist_no PRIMARY KEY (hist_no)
 )
+
+
+
+-- unit 7
+-- component_id 26
+-- component_type 26
+-- modifier 15
+-- sample_date 10
+-- process_date 10
+-- unit_smr 8
+-- component_smr 8
+-- oil_changed 5
+-- sample_rank 4
+-- results 815
+-- recommendations 1646
+-- comments 68
+-- test_results 702
+-- test_flags 193
