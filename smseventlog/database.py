@@ -299,6 +299,20 @@ class DB(object):
     def save_df(self, df, name):
         self.dfs[name] = df
 
+    def fix_customer_units(self, df, col: str='unit'):
+        """Replace Suncor's leading zeros in unit columnm
+        - Fix fluidlife's complicated units"""
+
+        m = {'^F0': 'F', '^03': '3', '^02': '2', '^06': '6'}
+        df[col] = df[col].replace(m, regex=True)
+
+        # split on " ", "-(", "/" to fix fluidlife units
+        split_tokens = [' ', r'-\(', r'/']
+        for token in split_tokens:
+            df[col] = df[col].str.split(token, expand=True)[0]
+
+        return df
+
     def get_unit_val(self, unit, field):
         # TODO bit messy, should have better structure to get any val from saved table
         # self.set_df_unit()
