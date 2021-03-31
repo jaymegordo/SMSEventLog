@@ -24,7 +24,26 @@ m_customer = dict(
     GreenHills='TECK COAL LTD. (GREENHILLS)'
 )
 
-class OilSamples():
+m_minesite_customer = {
+    # 'carmacks': ('Carmacks', 'Carmacks'),
+    'cnrl': ('CNRL', 'CNRL'),
+    'copper mountain': ('CopperMountain', 'CopperMountain'),
+    'diavik': ('DiavikDiamond', 'DiavikDiamond'),
+    'N.A.C.G. \(SUNCOR\)': ('BaseMine', 'NACG'),
+    'brule mine': ('Brule', 'Conuma Coal'),
+    'willow creek': ('WillowCreek', 'Conuma Coal'),
+    'wolverine': ('Wolverine', 'Conuma Coal'),
+    'rainy river': ('RainyRiver', 'New Gold'),
+    'steepbank': ('BaseMine', 'Suncor'),
+    'fort hills': ('FortHills', 'Suncor'),
+    'taseko': ('Gibraltar', 'Taseko'),
+    'elkview': ('Elkford', 'ElkView'),
+    'fording river': ('Elkford', 'FordingRiver'),
+    'greenhills': ('Elkford', 'GreenHills'),
+    'highland valley': ('HighlandValley', 'Teck')
+}
+
+class OilSamplesDownloader():
     def __init__(self, fltr=None, login=None):
         _samples = []
         _samples_full = [] # save all sample history
@@ -104,8 +123,9 @@ class OilSamples():
     
     def save_samples(self):
         """Save samples to pkl file"""
-        p = f.desktop / 'samples.pkl'
+        p = f.desktop / f'samples_{dt.now():%Y-%m-%d}.pkl'
         f.save_pickle(obj=self._samples_full, p=p)
+        return p
         
     
     def load_samples_db(self, d_lower=None, component=None, recent=False, minesite=None, model=None):
@@ -114,7 +134,7 @@ class OilSamples():
         return query.get_df()
     
     def update_db(self):
-        # check maxdate in database, query fluidlife api, save new samples to database
+        """Check maxdate in database, query fluidlife api, save new samples to database"""
         maxdate = db.max_date_db(table='OilSamples', field='process_date', join_minesite=False) + delta(days=-1)
         self.load_samples_fluidlife(d_lower=maxdate)
         return self.to_sql()
@@ -145,13 +165,7 @@ class OilSamples():
             meter_reading='unit_smr',
             component_service='component_smr',
             component_location='modifier')
-        
-        # remove suncor's leading 0s
-        m = {'^F0': 'F', '^03': '3', '^02': '2'}
 
-        # query lab == lab to drop None keys, (None != itself)
-        # .query('hist_no == hist_no') \ # removes null/duplicates or something?
-        # return only units which exist in the database
         return pd.DataFrame.from_dict(self.samples) \
             .pipe(f.parse_datecols) \
             .pipe(f.lower_cols) \
@@ -161,16 +175,16 @@ class OilSamples():
             .pipe(reduce_test_results) \
             .pipe(self.most_recent_samples, do=recent) \
             .pipe(flatten_test_results, do=flatten) \
-            .assign(
-                unit=lambda x: x.unit.replace(m, regex=True)) \
-            .pipe(lambda df: df[df.unit.isin(db.unique_units())]) \
+            .pipe(db.fix_customer_units, col='unit') \
+            .pipe(db.filter_database_units, col='unit') \
             .drop(columns='customer')
 
     
     def to_sql(self):
-        # save df to database
-        # test_results is list of dicts, need to serialize
-        # don't need customer in db
+        """Save df to database
+        - test_results is list of dicts, need to serialize
+        - don't need customer in db"""
+
         df = self.df_samples() \
             .assign(
                 test_results=lambda x: x.test_results.apply(json.dumps),
@@ -186,6 +200,7 @@ class OilSamples():
             chunksize=5000)
        
     def most_recent_samples(self, df, do=True):
+        """NOTE not used, use query from db now"""
         if not do: return df
         return df \
             .reset_index() \
@@ -206,6 +221,30 @@ class OilSamples():
         df['flagged'] = df['test_results'].apply(result_flagged, fields=fields)
 
         return df[df.flagged==True]
+    
+    def df_missing_units(self):
+        """Return df of all units in fluidlife sample records which aren't in the database"""
+        samples = self._samples
+        cols = ['unitId', 'unitSerial', 'unitModel', 'customerName']
+        data = [[m[col] for col in cols] for m in samples]
+
+        df = pd.DataFrame(data=data, columns=cols) \
+            .drop_duplicates(cols) \
+            .pipe(f.lower_cols) \
+            .pipe(db.fix_customer_units, col='unit_id') \
+            .pipe(lambda df: df[~df.unit_id.isin(db.unique_units())]) \
+            .pipe(lambda df: df[df.unit_id.notna()]) \
+            .sort_values(['customer_name', 'unit_id'])
+
+        # set correct customer/minesite
+        for k, (minesite, customer) in m_minesite_customer.items():
+            m = dict(minesite=minesite, customer=customer)
+            mask = df.customer_name.str.contains(k, case=False)
+
+            for col in m:
+                df.loc[mask, col] = m.get(col)
+
+        return df
 
 def result_flagged(test_result, fields=None):
     # return true if any result is flagged > apply to dataframe
@@ -308,7 +347,7 @@ def flatten_test_results(df, result_cols=None, keep_cols=None, do=True):
 
 def example():
     fltr = dict(customer_name='fort hills', component_id='spindle', unitModel='980')
-    oils = OilSamples(fltr=fltr)
+    oils = OilSamplesDownloader(fltr=fltr)
     oils.load_samples_fluidlife(d_lower=dt(2020,6,1))
 
     return oils
@@ -326,17 +365,16 @@ def spindle_report():
 def import_history():
     from .. import queries as qr
 
-    oils = OilSamples()
+    oils = OilSamplesDownloader()
     rng = pd.date_range(dt(2020,1,1), dt(2021,4,1), freq='M')
 
-    for d in rng[:1]:
+    for d in rng:
         d_lower, d_upper = qr.first_last_month(d)
         d_upper = d_upper + delta(days=1)
-        print(d_lower, d_upper)
 
-        oils.load_samples_fluidlife(d_lower=d_lower, d_upper=d_upper, clear_samples=False)
+        oils.load_samples_fluidlife(d_lower=d_lower, d_upper=d_upper, save_samples=True)
         df = oils.df_samples()
         p = f.desktop / 'fluidlife.csv'
         df.to_csv(p)
-        print(df.shape)
+        print(f'rows downloaded from fluidlife: {df.shape}')
         oils.to_sql()
