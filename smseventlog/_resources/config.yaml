@@ -328,7 +328,6 @@ Headers:
         Equip Type: EquipClass
         Model: Model
         Serial: Serial
-        Engine Serial: EngineSerial
         Unit: Unit
         Current SMR: CurrentSMR
         SMR Measure Date: DateSMR
