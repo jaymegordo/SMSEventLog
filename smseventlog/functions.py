@@ -5,6 +5,10 @@ import pickle
 import re
 from distutils.util import strtobool
 
+from importlib import import_module
+import inspect
+from pkgutil import iter_modules
+
 import six
 import yaml
 
@@ -330,6 +334,23 @@ def save_pickle(obj, p):
         pickle.dump(obj, file)
     
     log.info(f'Saved pickle: {p}')
+
+def import_submodule_classes(name, filename, gbls, parent_class):
+    """Import all Query objects into top level namespace for easier access
+    - eg query = qr.EventLog() instead of qr.el.EventLog()
+    - NOTE issubclass doesn't work when class is defined in __init__"""
+    if not '__init__' in name:
+        package_dir = Path(filename).resolve().parent
+
+        for (_, module_name, _) in iter_modules([package_dir]):
+
+            # import the module and iterate through its attributes
+            module = import_module(f'{name}.{module_name}')
+
+            for cls_name, cls in inspect.getmembers(module, inspect.isclass):
+
+                if parent_class in str(cls):
+                    gbls[cls_name] = cls
 
 # PANDAS
 def multiIndex_pivot(df, index=None, columns=None, values=None):
