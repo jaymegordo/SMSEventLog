@@ -92,9 +92,9 @@ def unzip(p: Path, p_dst: Path = None, delete=False) -> Path:
     Parameters
     ----------
     p : Path
-        File to unzip\n
+        File to unzip
     p_dst : Path, optional
-        Unzip in different dir, by default parent dir\n
+        Unzip in different dir, by default parent dir
     delete : bool, optional
         Delete original zip after unpack, by default False
     """

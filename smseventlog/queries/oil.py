@@ -60,8 +60,6 @@ class OilSamplesReport(OilSamples):
         a, b = self.a, self.b
         cols = [a.unit, a.component_id, a.modifier, a.sample_date, a.unit_smr, a.oil_changed, a.sample_rank, a.test_results, a.test_flags]
 
-        names = 'thingzzzzz'
-
         q = Query \
             .from_(a) \
             .where(
