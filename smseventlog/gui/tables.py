@@ -520,7 +520,7 @@ class TableView(QTableView):
             df = self.model().df.iloc[
                 idx_min.row(): idx_max.row() + 1,
                 idx_min.column(): idx_max.column() + 1]
-            df.to_clipboard(index=False)
+            df.replace({'\n': ''}, regex=True).to_clipboard(index=False, excel=True)
             msg = f'rows: {df.shape[0]}, cols: {df.shape[1]}'
 
         self.update_statusbar(f'Cell data copied - {msg}')
@@ -1678,7 +1678,11 @@ class TSI(EventLogBase):
 
         # get pics, body text from dialog
         cause = e.FailureCause if not e.FailureCause == '' else 'Uncertain.'
-        complaint = f'{e.Title}\n\n{e.TSIDetails}'.rstrip('\n\n')
+        complaint = e.Title
+
+        if not e.TSIDetails is None:
+            complaint = f'{complaint}\n\n{e.TSIDetails}'
+
         text = dict(
             complaint=complaint,
             cause=cause,
