@@ -55,7 +55,7 @@ class OilSamples(QueryBase):
             .apply(st.highlight_alternating, subset=['unit'])
 
 class OilSamplesReport(OilSamples):
-    def __init__(self, unit, component, modifier=None, n=10, **kw):
+    def __init__(self, unit, component, modifier=None, n=10, d_lower=None, **kw):
         super().__init__(**kw)
         a, b = self.a, self.b
         cols = [a.unit, a.component_id, a.modifier, a.sample_date, a.unit_smr, a.oil_changed, a.sample_rank, a.test_results, a.test_flags]
@@ -65,8 +65,12 @@ class OilSamplesReport(OilSamples):
             .where(
                 (a.unit==unit) &
                 (a.component_id==component)) \
-            .orderby(a.sample_date, order=Order.desc) \
-            .top(n)
+            .orderby(a.sample_date, order=Order.desc)
+        
+        if d_lower is None:
+            q = q.top(n)
+        else:
+            q = q.where(a.sample_date >= d_lower)
         
         if not modifier is None:
             q = q.where(a.modifier==modifier)

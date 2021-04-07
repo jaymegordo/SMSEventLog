@@ -1703,7 +1703,12 @@ class TSI(EventLogBase):
             
             # TODO add oil samples to pdf report too
             if dlg.oil_samples:
-                query = qr.OilSamplesReport(unit=dlg.unit, component=dlg.component, modifier=dlg.modifier)
+                query = qr.OilSamplesReport(
+                    unit=dlg.unit,
+                    component=dlg.component,
+                    modifier=dlg.modifier,
+                    d_lower=dlg.d_lower)
+                    
                 kw['query_oil'] = query
         else:
             Report = FailureReport

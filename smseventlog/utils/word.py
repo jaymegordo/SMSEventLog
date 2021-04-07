@@ -257,7 +257,7 @@ class WordReport():
     def add_pictures(self, pics: list):
         doc = self.doc
         doc.add_page_break()
-        doc.add_heading('Images', level=2)
+        doc.add_heading('Pictures', level=2)
 
         for i, pic in enumerate(pics):
             
@@ -338,7 +338,8 @@ class FailureReportWord(WordReport, rp.FailureReport):
         if not self.query_oil is None:
             self.add_oil_samples()
 
-        self.add_pictures(pics=sorted(self.pictures))
+        if self.pictures:
+            self.add_pictures(pics=sorted(self.pictures))
 
         return super().create_word(
             p_base=self.ef._p_event,
@@ -352,10 +353,12 @@ class FailureReportWord(WordReport, rp.FailureReport):
         df = query.df \
             .assign(
                 sample_date=lambda x: x.sample_date.astype(str),
-                oil_changed=lambda x: x.oil_changed.astype(str),
-                opc=lambda x: x.opc.str.replace(' ', '')) \
+                oil_changed=lambda x: x.oil_changed.astype(str)) \
             .rename(columns=dict(sample_date='Sample_Date')) \
             .set_index('Sample_Date')
+
+        if 'opc' in df.columns:
+            df['opc'] = df.opc.str.replace(' ', '')
 
         style = df.style \
             .pipe(st.default_style, outlook=True) \
@@ -394,14 +397,13 @@ class FailureReportWord(WordReport, rp.FailureReport):
             header = f'{header}, {modifier}'
 
         self.doc.add_heading('Oil Samples', level=2)
-        self.doc.add_paragraph().add_run(f'{unit} - {component}, {modifier}'.title())
+        self.doc.add_paragraph().add_run(header.title())
 
         for name, df in m_tbls.items():
             tbl = self.add_df(df, name=name, m_bg=m_bg, m_hdrs=m_hdrs, style_name='SmallFont', index=True)
             self.set_table_margins(tbl=tbl, width=dict(left=50, right=50))
             self.bold_column(tbl=tbl, cols=(0,))
             self.doc.add_paragraph()
-
     
     def add_body(self):
         doc = self.doc
