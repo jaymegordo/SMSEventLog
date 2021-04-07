@@ -2,8 +2,8 @@ import inspect
 import json
 
 import numpy as np
-from matplotlib.colors import (DivergingNorm, LinearSegmentedColormap,
-                               ListedColormap, TwoSlopeNorm, to_hex)
+from matplotlib.colors import (LinearSegmentedColormap,
+                               ListedColormap, TwoSlopeNorm, to_hex, rgb2hex)
 from seaborn import diverging_palette
 
 from .. import errors as er
@@ -180,7 +180,7 @@ class QueryBase():
         elif not self.parent is None:
             return self.parent.minesite
         else:
-            from .gui import _global as gbl
+            from ..gui import _global as gbl
             return gbl.get_minesite()
     
     @minesite.setter

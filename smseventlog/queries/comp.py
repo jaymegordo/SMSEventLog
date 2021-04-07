@@ -112,8 +112,11 @@ class ComponentCOReport(ComponentCOBase):
     def update_style(self, style, **kw):
         df = style.data
         subset = pd.IndexSlice[df['Life Achieved'].notnull(), 'Life Achieved']
-        return style.background_gradient(
-            cmap=self.cmap.reversed(), subset=subset, axis=None, vmin=-4000, vmax=4000) \
+        return style \
+            .apply(
+                st.background_grad_center,
+                cmap=self.cmap.reversed(),
+                subset=subset) \
             .pipe(st.add_table_attributes, s='class="pagebreak_table"')
 
     @property

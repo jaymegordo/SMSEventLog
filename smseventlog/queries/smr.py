@@ -119,4 +119,12 @@ class UnitSMRReport(QueryBase):
             .set_index('Unit') \
             [['Serial', 'DeliveryDate']] \
             .merge(right=df, how='right', on='Unit') \
-            .reset_index()            
+            .reset_index()
+    
+    def update_style(self, style, **kw):
+
+        return style \
+            .apply(
+                st.background_grad_center,
+                subset='Difference',
+                cmap=self.cmap.reversed())

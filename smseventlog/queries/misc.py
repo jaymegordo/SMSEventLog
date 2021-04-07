@@ -112,20 +112,12 @@ class ACMotorInspections(FileQuery):
         self.formats.update(f.format_int64(df))
 
         return df
-
-    def background_with_norm(self, s, cmap, center=0, vmin=None, vmax=None):
-        vmin = vmin or s.values.min()
-        vmax = vmax or s.values.max()
-        norm = DivergingNorm(vmin=vmin, vcenter=center, vmax=vmax)
-        # TwoSlopeNorm
-
-        return ['background-color: {:s}'.format(to_hex(c.flatten())) for c in cmap(norm(s.astype(float).values))]
-    
+   
     def update_style(self, style, **kw):
 
         return style \
             .apply(
-                self.background_with_norm,
+                st.background_grad_center,
                 subset='hrs_till_next_insp',
                 cmap=self.cmap.reversed(),
                 center=1000,
