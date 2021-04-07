@@ -1,6 +1,3 @@
-from ..queries import FrameCracks
-from .__init__ import *
-
 """
     Instructions to process/merge SMS and Suncor frame crack data, to be completed monthly for FleetMonthlyReport
 
@@ -13,6 +10,12 @@ from .__init__ import *
     5. Paste WO numbers back into EventLog to merge properly in future
     6. Once categorization complete, reset vals in _merge column to 'old'
 """
+
+from ..queries import FrameCracks
+from ..utils import fileops as fl
+from .__init__ import *
+
+p_frm_excel = f.resources / 'csv/FH Frame Cracks History.xlsx'
 
 def load_df_smr(d_lower=None):
     if d_lower is None:
@@ -54,9 +57,8 @@ def load_df_sun():
 
 def load_df_old():
     # load processed + combined history
-    p = f.resources / 'csv/FH Frame Cracks History.xlsx'
     df = pd \
-        .read_excel(p, engine='openpyxl') \
+        .read_excel(p_frm_excel, engine='openpyxl') \
         .pipe(format_int, cols=('order', 'notification', 'smr'))
 
     df['_merge'] = 'old'
@@ -71,7 +73,7 @@ def load_processed_excel():
 
     return df
 
-def pre_process_framecracks(d_lower=None):
+def pre_process_framecracks(d_lower=None, open_=True):
     if d_lower is None:
         d_lower = dt.now() + delta(days=-31)
     
@@ -106,6 +108,10 @@ def pre_process_framecracks(d_lower=None):
 
     print(f'Loaded new rows:\n\tdf_sms: {df_sms.shape}, df_sun: {df_sun.shape}, Total: {len(df_new)} \
         \n\tNew Merged: {len(df) - len(df_old)}')
+
+    if open_:
+        fl.open_folder(p_frm_excel)
+
     return df
 
 def merge_sms_sun(df_sms, df_sun, df_smr):
