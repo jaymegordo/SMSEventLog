@@ -4,6 +4,8 @@ from .__init__ import *
 from .. import functions as f
 from distutils.util import strtobool
 
+log = getlog(__name__)
+
 # map obj: (getter, setter)
 global obj_vals
 obj_vals = {
@@ -34,10 +36,14 @@ class FormFields(object):
         f.set_self(vars())
 
         # changed signal
-        getattr(self, type_[2]).connect(lambda x: self.changed.emit(x))
+        getattr(self, type_[2]).connect(self._state_changed)
 
         if not name is None:
             self.set_name(name=name)
+
+    def _state_changed(self, state=None, *args):
+        """Need to use this func to allow None for some states"""
+        self.changed.emit(state)
 
     @property
     def val(self):
@@ -65,7 +71,7 @@ class FormFields(object):
             self.setFocus()
             self.selectAll()
         except:
-            print(f'{self.__class__.__name__}: couldnt select all text')
+            log.warning(f'{self.__class__.__name__}: couldnt select all text')
             pass # NOTE not sure which methods select text in all types of boxes yet
 
 class ComboBox(QComboBox, FormFields):
@@ -184,6 +190,9 @@ class DateEdit(QDateEdit, FormFields):
 
         if date is None:
             date = dt.now().date()
+        
+        if isinstance(date, dt):
+            date = date.date()
         
         self.setDate(date)
 
