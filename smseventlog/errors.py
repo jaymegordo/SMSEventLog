@@ -71,7 +71,11 @@ def get_func_name_from_tb(tb):
         return list(filter(lambda x: not any(item in x for item in exclude), lst_funcs))[0]
     except:
         base_log.warning('Couldn\'t extract function name from traceback.')
-        return tb.tb_frame.f_code.co_name
+
+        if not tb is None:
+            return tb.tb_frame.f_code.co_name
+        else:
+            return '<MISSING FUNCTION NAME>'
 
 def errlog(msg=None, err=True, warn=False, display=False, default=None, status_msg=False, discord=False):
     """Wrapper to try/except func, log error, don't show to user, and return None
