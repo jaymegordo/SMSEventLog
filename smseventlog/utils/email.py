@@ -83,13 +83,13 @@ class Message(object):
                 string=initial_body)
 
         else: # mac
-            try:
-                # NOTE try to force add signature while on new outlook for mac, this could be improved
-                sig = list(filter(lambda x: x.name() == 'Jayme SMS', client.signatures()))[0]
-                sig = sig.content()
-                body = f'{body}{sig}'
-            except:
-                pass
+        #     try:
+        #         # NOTE try to force add signature while on new outlook for mac, this could be improved
+        #         sig = list(filter(lambda x: x.name() == 'Jayme SMS', client.signatures()))[0]
+        #         sig = sig.content()
+        #         body = f'{body}{sig}'
+        #     except:
+        #         pass
 
             _msg = client.make(
                 new=k.outgoing_message,
