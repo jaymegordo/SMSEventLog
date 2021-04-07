@@ -57,6 +57,7 @@ class BaseDialog(QDialog):
         f.set_self(vars())
 
     def show(self):
+        # NOTE should actually be max of window height/width, otherwise dialog can overflow screen
         self.setFixedSize(self.sizeHint())
         return super().show()
 
@@ -70,6 +71,8 @@ class InputForm(BaseDialog):
         name = self.__class__.__name__
         _names_to_avoid = ('minesite_qcombobox') # always want to use 'current' minesite
         _save_items = tuple()
+
+        # NOTE could make formlayout reusable other places (eg oil samples in failure report)
         formLayout = QFormLayout()
         formLayout.setLabelAlignment(Qt.AlignLeft)
         formLayout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -159,17 +162,18 @@ class InputForm(BaseDialog):
         super().accept()
     
     def check_enforce_items(self):
-        # loop all enforceable fields, make sure vals arent blank/default
+        """Loop all enforceable fields, make sure vals arent blank/default"""
         if self.enforce_all:
             fields = self.fields
         else:
             fields = list(filter(
-                lambda field: field.enforce==True and isinstance(field.box.val, str), self.fields))
+                lambda field: field.enforce==True and isinstance(field.box.val, str) and field.box.isEnabled(), self.fields))
 
         for field in fields:
             if len(field.val) == 0:
                 msg = f'"{field.text}" cannot be blank.'
                 dlg = msg_simple(msg=msg, icon='warning')
+                field.box.select_all()
                 return False
         
         return True
@@ -484,12 +488,27 @@ class AddEvent(AddRow):
         IPF = InputField
 
         def _add_component(text):
-            field = self.add_input(field=IPF(text=text, dtype='combobox', col_db='Floc'), checkbox=True, cb_enabled=False)
+            field = self.add_input(
+                field=IPF(
+                    text=text,
+                    dtype='combobox',
+                    col_db='Floc',
+                    enforce=True),
+                checkbox=True,
+                cb_enabled=False)
+
             field.cb.stateChanged.connect(self.load_components)
             return field
 
         def _add_removal(text):
-            field = self.add_input(field=IPF(text=text, dtype='combobox', col_db='SunCOReason'), enabled=False)
+            field = self.add_input(
+                field=IPF(
+                    text=text,
+                    dtype='combobox',
+                    col_db='SunCOReason',
+                    enforce=True),
+                enabled=False)
+
             return field
         
         def _add_smr(text):
@@ -523,7 +542,7 @@ class AddEvent(AddRow):
         df = self.df_comp
         return df[df.Combined==component_combined].Floc.values[0]
    
-    def load_components(self, state):
+    def load_components(self, state, *args):
         """Reload components to current unit when component co toggled
         - Also toggle smr boxes"""
 
@@ -543,7 +562,8 @@ class AddEvent(AddRow):
             # add removal reason items
             lst_removal = f.config['Lists']['RemovalReason']
             box_removal.set_items(lst_removal)
-            box_removal.val = 'High Hour Changeout'
+            # box_removal.val = 'High Hour Changeout'
+            box_removal.val = ''
             box_removal.setEnabled(True)
 
             box.lineEdit().selectAll()
@@ -590,7 +610,7 @@ class AddEvent(AddRow):
         if not smr is None:
             self.fSMR.val = smr
         else:
-            msg = f'No SMR found for\n\nUnit: {unit}\nDate: {date}'
+            msg = f'No SMR found for\n\nUnit: {unit}\nDate: {date}\n\nNote - Daily SMR values are not uploaded to the database until 12:20 MST.'
             msg_simple(msg=msg, icon='warning')
     
     def create_uid(self):
