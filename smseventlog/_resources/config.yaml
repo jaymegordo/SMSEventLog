@@ -155,6 +155,7 @@ Lists:
         - Failure
         - Pro Rata Buy-in
         - Warranty
+        - Unknown
 
 
 # Convert title to tablename > can select from views but not update them
