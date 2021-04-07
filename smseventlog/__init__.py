@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import pypika as pk
 from dateutil.relativedelta import relativedelta
+from icecream import ic
 from pypika import Case, Criterion
 from pypika import CustomFunction as cf
 from pypika import DatePart
@@ -30,6 +31,8 @@ from pypika import functions as fn
 from pypika.analytics import RowNumber
 from pypika.terms import PseudoColumn
 from PyQt5.QtWidgets import QApplication
+
+ic.configureOutput(prefix='')
 
 __version__ = '3.4.0'
 VERSION = __version__
