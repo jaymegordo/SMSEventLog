@@ -378,3 +378,7 @@ def import_history():
         df.to_csv(p)
         print(f'rows downloaded from fluidlife: {df.shape}')
         oils.to_sql()
+
+def update_oilsamples_database():
+    oils = OilSamplesDownloader()
+    oils.update_db()
