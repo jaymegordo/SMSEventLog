@@ -1357,17 +1357,42 @@ class FailureReport(QDialog):
         add_linesep(vLayout)
 
         # oil samples
-        oil_layout = QHBoxLayout()
+
+        oil_form = QFormLayout()
+        oil_form.setLabelAlignment(Qt.AlignLeft)
+        oil_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        # oil_form.setMax
+
+        oil_layout_comp = QHBoxLayout()
         oil_box = ff.ComboBox()
         oil_box.setFixedSize(QSize(300, oil_box.sizeHint().height()))
         oil_cb = ff.CheckBox(checked=False)
         oil_cb.stateChanged.connect(self.toggle_oil_components)
         oil_box.setEnabled(False)
-        oil_layout.addWidget(oil_cb)
-        oil_layout.addWidget(oil_box)
-        oil_layout.addStretch(1)
-        vLayout.addWidget(QLabel('Oil Samples:'))
-        vLayout.addLayout(oil_layout)
+        oil_layout_comp.addWidget(oil_cb)
+        oil_layout_comp.addWidget(oil_box)
+        # oil_layout_comp.addStretch(1)
+        oil_form.addRow(QLabel('Component:'), oil_layout_comp)
+
+        # oil date
+        oil_layout_date = QHBoxLayout()
+        d = dt.now() + delta(days=-365)
+        oil_date = ff.DateEdit(date=d, enabled=False)
+        oil_date_cb = ff.CheckBox(checked=False, enabled=False)
+        oil_date_cb.stateChanged.connect(self.toggle_oil_date)
+        oil_layout_date.addWidget(oil_date_cb)
+        oil_layout_date.addWidget(oil_date)
+        # oil_layout_date.addStretch(1)
+        oil_form.addRow(QLabel('Date Lower:'), oil_layout_date)
+
+        oil_h_layout = QHBoxLayout()
+        oil_h_layout.addLayout(oil_form)
+        oil_h_layout.addStretch(1)
+        
+        vLayout.addWidget(QLabel('Oil Samples'))
+        vLayout.addLayout(oil_h_layout)
+        # vLayout.addLayout(oil_layout)
+        # vLayout.addLayout(oil_layout_date)
         add_linesep(vLayout)
 
         btn_layout = QHBoxLayout()
@@ -1380,7 +1405,7 @@ class FailureReport(QDialog):
         add_okay_cancel(dlg=self, layout=vLayout)
         f.set_self(vars())
 
-        # TODO OilSamples, Faults, PLM?
+        # TODO Faults, PLM?
     
     def toggle_oil_components(self, state):
         """Toggle components when oil cb checked"""
@@ -1388,12 +1413,27 @@ class FailureReport(QDialog):
 
         if state == Qt.Checked:
             oil_box.setEnabled(True)
+            self.oil_date_cb.setEnabled(True)
+            # self.oil_date.setEnabled(True)
+
             df_comp = db.get_df_oil_components(unit=self.unit)
             items = f.clean_series(df_comp.combined)
             oil_box.set_items(items)
             oil_box.select_all()
         else:
             oil_box.setEnabled(False)
+            self.oil_date_cb.setEnabled(False)
+            self.oil_date_cb.setChecked(False)
+            # self.oil_date.setEnabled(False)
+
+    def toggle_oil_date(self, state):
+        """Toggle components when oil cb checked"""
+        oil_date = self.oil_date
+
+        if state == Qt.Checked:
+            oil_date.setEnabled(True)
+        else:
+            oil_date.setEnabled(False)
     
     def update_statusbar(self, msg, *args, **kw):
         if not self.parent is None:
@@ -1438,7 +1478,10 @@ class FailureReport(QDialog):
             else:
                 modifier = None
 
-            print(component, modifier)
+            if self.oil_date_cb.isChecked():
+                d_lower = self.oil_date.val
+            else:
+                d_lower = None
 
         f.set_self(vars())
         super().accept()
