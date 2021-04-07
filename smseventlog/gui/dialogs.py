@@ -1094,7 +1094,7 @@ class DialogTableWidget(QTableWidget):
 
 class TableDialog(BaseDialog):
     """Base class dialog with table widget for quick/temp table display"""
-    def __init__(self, df=None, cols : Union[dict, list]=None, name='table', parent=None, show=False, simple_table=True, editable=False, window_title='SMS Event Log', maximized=False, **kw):
+    def __init__(self, df=None, cols : Union[dict, list]=None, name='table', parent=None, _show=False, simple_table=True, editable=False, window_title='SMS Event Log', maximized=False, **kw):
         super().__init__(parent, window_title=window_title)
 
         # auto resize cols if no dict of col_widths
@@ -1129,7 +1129,7 @@ class TableDialog(BaseDialog):
 
         f.set_self(vars())
 
-        if show:
+        if _show:
             self.load_table(df=df)
         
         if maximized:
