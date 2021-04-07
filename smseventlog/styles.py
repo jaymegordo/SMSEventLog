@@ -1,8 +1,14 @@
 import numpy as np
+from matplotlib.colors import (LinearSegmentedColormap, ListedColormap,
+                               TwoSlopeNorm, rgb2hex, to_hex)
+from pandas.io.formats.style import Styler
+from seaborn import diverging_palette
 
 from . import functions as f
 from .__init__ import *
 
+# default cmap red blue
+cmap_default = diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
 
 # Dataframe format
 def left_justified(df, header=False):
@@ -420,3 +426,65 @@ def convert_color_code(m_color : dict, theme : str='light'):
     default_bg, default_t = get_defaults(theme)
 
     return {k: (bg.get(v, default_bg), t.get(v, default_t)) for k, v in m_color.items()}
+
+def background_grad_center(s, cmap=None, center=0, vmin=None, vmax=None):
+    """Style column with diverging color palette centered at value, including dark/light text formatting
+    - modified from https://github.com/pandas-dev/pandas/blob/b7cb3dc25a5439995d2915171c7d5172836c634e/pandas/io/formats/style.py
+
+    Parameters
+    ----------
+    s : pd.Series
+        Column to style
+    cmap : matplotlib.colors.LinearSegmentedColormap, optional
+        default self.cmap
+    center : int, optional
+        value to center diverging color, default 0
+    vmin : float, optional
+        min value, by default None
+    vmax : float, optional
+        max value, by default None
+
+    Returns
+    -------
+    list
+        list of background colors for styler
+    """
+    if cmap is None:
+        cmap = cmap_default
+
+    vmin = vmin or s.values.min()
+    vmax = vmax or s.values.max()
+
+    # vmin/vmax have to be outside center
+    if vmin > center:
+        vmin = center -1
+    
+    if vmax < center:
+        vmax = center + 1
+
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=center, vmax=vmax)
+
+    text_color_threshold = 0.408 # default from pandas
+
+    def relative_luminance(rgba) -> float:
+        """Check if rgba color is greater than darkness threshold"""
+        r, g, b = (
+            x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4
+            for x in rgba[:3])
+            
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+    def css(rgba) -> str:
+        dark = relative_luminance(rgba) < text_color_threshold
+        text_color = '#f1f1f1' if dark else '#000000'
+        return f'background-color: {rgb2hex(rgba)}; color: {text_color};'
+
+    rgbas = cmap(norm(s.astype(float).values))
+
+    if s.ndim == 1:
+        return [css(rgba) for rgba in rgbas]
+    else:
+        return pd.DataFrame(
+            [[css(rgba) for rgba in row] for row in rgbas],
+            index=s.index,
+            columns=s.columns)
