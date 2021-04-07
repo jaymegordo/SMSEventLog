@@ -34,7 +34,7 @@ from PyQt5.QtWidgets import QApplication
 
 ic.configureOutput(prefix='')
 
-__version__ = '3.4.0'
+__version__ = '3.5.0a0'
 VERSION = __version__
 
 # Set environments

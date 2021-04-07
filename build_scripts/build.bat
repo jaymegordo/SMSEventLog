@@ -1,7 +1,7 @@
 @echo off
 
 set upload=%1
-set version="3.4.0"
+set version="3.5.0a0"
 
 echo version=%version%, upload=%upload%
 
