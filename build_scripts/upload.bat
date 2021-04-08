@@ -6,4 +6,4 @@ for /f "eol=- delims=" %%a in (.vscode\Windows_NT.env) do set "%%a"
 ECHO PYU_AWS_ID=%PYU_AWS_ID%
 ECHO PYU_AWS_SECRET=%PYU_AWS_SECRET%
 
-pipenv run pyupdater upload --service s3
+poetry run pyupdater upload --service s3
