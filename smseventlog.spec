@@ -7,6 +7,14 @@ import sys
 import importlib
 from PyInstaller.utils.hooks import collect_submodules
 from pathlib import Path
+import time
+start = time.time()
+
+import warnings
+warnings.filterwarnings(
+    action='ignore',
+    category=SyntaxWarning,
+    module=r'.*firefox_profile')
 
 # NOTE hookspath and project_path will need to be made dynamic for other devs to build project
 # TODO set up environment variables file for multiple users
@@ -23,16 +31,22 @@ from smseventlog import (
 from smseventlog.utils import (
     fileops as fl)
 
+# check to make sure EL isn't running currently
+procs = fl.find_procs_by_name('sms event log')
+if procs:
+    raise Exception('Close SMS Event Log.exe first!')
+
 datas = [
-    ('smseventlog/_resources', '_resources')]
+    ('smseventlog/_resources', '_resources'),
+    ('SQL/FactoryCampaign/ac_motor_inspections.sql', '_resources/SQL')]
 
 # NOTE could also figure out how to write hooks for some of these instead of *gasp* modifying source files
+    # ['tinycss2', '', ('VERSION',)],
+    # ['cssselect2', '', ('VERSION',)],
+    # ['cairosvg', '', ('VERSION',)],
+    # ['cairocffi', '', ('VERSION',)],
 package_imports = [
     ['pandas', 'io/formats/templates', ('',)],
-    ['tinycss2', '', ('VERSION',)],
-    ['cssselect2', '', ('VERSION',)],
-    ['cairocffi', '', ('VERSION',)],
-    ['cairosvg', '', ('VERSION',)],
     ['pyphen', 'dictionaries', ('',)],
     ['weasyprint', 'css', ('html5_ph.css', 'html5_ua.css')],
     ['plotly', 'package_data', ('',)],   
@@ -55,7 +69,8 @@ hiddenimports = [
     'sentry_sdk.integrations.rq',
     'sentry_sdk.integrations.aiohttp',
     'sentry_sdk.integrations.tornado',
-    'sentry_sdk.integrations.sqlalchemy']
+    'sentry_sdk.integrations.sqlalchemy',
+    'sqlalchemy.sql.default_comparator']
 
 # needed for rendering plotly charts
 # this makes ~6000 hidden imports.. pretty not ideal
@@ -85,10 +100,13 @@ hidden_modules = [
     'plotly.validators.scatterpolar',
     'plotly.validators.scatterternary',
     'plotly.validators.surface',
-    'plotly.validators.table']
+    'plotly.validators.table',
+    'smseventlog.queries']
     
 for item in hidden_modules:
     hiddenimports.extend(collect_submodules(item))
+
+print('Collected submodules:', f.deltasec(start))
 
 excludes = ['IPython', 'zmq']
 binaries = []
@@ -204,3 +222,5 @@ if f.is_mac():
             'CFBundleVersion': VERSION,
             },
         )
+
+print('Finished:', f.deltasec(start))
