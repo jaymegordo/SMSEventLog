@@ -2,18 +2,14 @@ import inspect
 import json
 
 import numpy as np
-from matplotlib.colors import (LinearSegmentedColormap,
-                               ListedColormap, TwoSlopeNorm, to_hex, rgb2hex)
+from matplotlib.colors import (LinearSegmentedColormap, ListedColormap,
+                               TwoSlopeNorm, rgb2hex, to_hex)
 from seaborn import diverging_palette
-
-from .. import errors as er
-from .. import functions as f
-from .. import styles as st
-from ..__init__ import *
-from ..database import db
-from ..errors import errlog
-from ..utils import dbmodel as dbm
-
+from smseventlog import functions as f
+from smseventlog import styles as st
+from smseventlog.__init__ import *
+from smseventlog.database import db
+from smseventlog.utils import dbmodel as dbm
 
 log = getlog(__name__)
 week_letter = 'W'
@@ -131,7 +127,7 @@ class Filter():
         for ct in self.criterion.values():
             print('\t', list(ct.tables_)[0], ct)
 
-class QueryBase():
+class QueryBase(object):
     def __init__(self, parent=None, minesite=None, da=None, theme='light', select_tablename=None):
         formats, default_dtypes, stylemap_cols = {}, {}, {}
         background_gradients = []
