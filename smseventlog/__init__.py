@@ -20,7 +20,6 @@ import numpy as np
 import pandas as pd
 import pypika as pk
 from dateutil.relativedelta import relativedelta
-from icecream import ic
 from pypika import Case, Criterion
 from pypika import CustomFunction as cf
 from pypika import DatePart
@@ -32,7 +31,6 @@ from pypika.analytics import RowNumber
 from pypika.terms import PseudoColumn
 from PyQt5.QtWidgets import QApplication
 
-ic.configureOutput(prefix='')
 
 __version__ = '3.5.0a0'
 VERSION = __version__
@@ -42,6 +40,15 @@ AZURE_LOCAL = not os.getenv('AZURE_FUNCTIONS_ENVIRONMENT', None) is None # dont 
 AZURE_WEB = not os.getenv('WEBSITE_SITE_NAME', None) is None
 IS_QT_APP = not os.getenv('IS_QT_APP', None) is None
 SYS_FROZEN = getattr(sys, 'frozen', False)
+
+try:
+    if SYS_FROZEN:
+        raise Exception()
+
+    from icecream import ic
+    ic.configureOutput(prefix='')
+except Exception as e:
+    ic = lambda *args: print(*args)
 
 def getlog(name):
     """Factory to create logger with 'smseventlog' removed from name"""
