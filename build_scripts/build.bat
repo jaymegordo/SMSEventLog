@@ -9,4 +9,5 @@ poetry run pyupdater build --log-level=WARN --app-version=%version% smseventlog.
 poetry run pyupdater pkg --process --sign
 
 if %upload%==true (
-    call build_scripts\upload.bat)
+    echo "uploading..."
+    call build_scripts/upload.bat)
