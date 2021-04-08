@@ -32,7 +32,7 @@ from pypika.terms import PseudoColumn
 from PyQt5.QtWidgets import QApplication
 
 
-__version__ = '3.5.0a1'
+__version__ = '3.5.0'
 VERSION = __version__
 
 # Set environments

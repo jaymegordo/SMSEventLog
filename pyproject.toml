@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "SMSEventLog"
-version = "3.5.0a1"
+version = "3.5.0"
 description = "The SMS Event Log is a desktop application to create a single source of truth for a variety of technical information related to equipment events/failures/work completed."
 authors = ["Jayme Gordon <jaymegordo@gmail.com>"]
 license = "MIT"
