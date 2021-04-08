@@ -694,7 +694,8 @@ class TableWidget(QWidget):
 
         # get default refresh dialog from refreshtables by name
         refresh_dialog = getattr(rtbls, name, rtbls.RefreshTable)
-        self.query = getattr(qr, name, qr.QueryBase)(parent=self, theme='dark')
+
+        self.query = getattr(qr, name)(parent=self, theme='dark')
         dbtable = self.query.update_table
         db_col_map = {}
 
@@ -1596,20 +1597,22 @@ class TSI(EventLogBase):
             'Cause': e.FailureCause,
             'Notes': e.Description}
 
-        msg = 'Would you like to save the TSI after it is created?'
+        msg = 'Would you like to save the TSI after it is created? (Can\'t attach documents unless TSI saved first).'
         save_tsi = True if dlgs.msgbox(msg=msg, yesno=True) else False
 
-        msg, docs = 'Select documents to attach?', None
-        if dlgs.msgbox(msg=msg, yesno=True):
-            ef = efl.EventFolder.from_model(e=e)
-            ef.check()
-            docs = self.attach_docs(ef=ef)
+        docs = None
+        if save_tsi:
+            msg, docs = 'Select documents to attach?', None
+            if dlgs.msgbox(msg=msg, yesno=True):
+                ef = efl.EventFolder.from_model(e=e)
+                ef.check()
+                docs = self.attach_docs(ef=ef)
 
-            if not docs:
-                msg = 'No documents selected, abort TSI?'
-                if dlgs.msgbox(msg=msg, yesno=True):
-                    return
-            
+                if not docs:
+                    msg = 'No documents selected, abort TSI?'
+                    if dlgs.msgbox(msg=msg, yesno=True):
+                        return
+        
         tsi = TSIWebPage(
             field_vals=field_vals,
             serial=e2.Serial,
@@ -1708,26 +1711,21 @@ class TSI(EventLogBase):
                     component=dlg.component,
                     modifier=dlg.modifier,
                     d_lower=dlg.d_lower)
-                    
+
                 kw['query_oil'] = query
         else:
             Report = FailureReport
             func = 'create_pdf'
 
         rep = Report.from_model(e=e, ef=ef, pictures=dlg.pics, body=dlg.text, **kw)
-        log.info('report init')
 
         # need to msgbox for check overwrite in main thread
         if not rep.check_overwrite(p_base=ef._p_event):
-            log.info('exiting at overwrite')
-            return
-        
-        log.info('passed overwrite')
-        
+            self.update_statusbar(msg='User declined to overwrite existing report.')
+            return       
 
         def handle_report_result(rep=None):
             if rep is None: return
-            log.info('report created')
             msg = 'Failure report created, open now?'
             if dlgs.msgbox(msg=msg, yesno=True):
                 fl.open_folder(rep.p_rep)
