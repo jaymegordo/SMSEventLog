@@ -1,13 +1,13 @@
 import base64
 import functools
+import inspect
 import json
 import pickle
 import re
 from distutils.util import strtobool
-
 from importlib import import_module
-import inspect
 from pkgutil import iter_modules
+import pkgutil
 
 import six
 import yaml
@@ -31,6 +31,7 @@ topfolder = Path(__file__).parent # smseventlog
 projectfolder = topfolder.parent # SMS
 buildfolder = Path.home() / 'Documents/smseventlog'
 desktop = Path.home() / 'Desktop'
+p_sql = projectfolder / 'SQL'
 
 def add_to_path(p):
     os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], str(p)])
@@ -51,6 +52,10 @@ if SYS_FROZEN:
 
 resources = topfolder / '_resources' # data folder location is shifted out of smseventlog for frozen build
 secret = resources / 'secret'
+
+# copy sql files to resources when frozen
+if SYS_FROZEN:
+    p_sql = resources / 'SQL'
 
 def set_config():
     # config is yaml file with config details, dictionary conversions etc
@@ -202,7 +207,6 @@ def truncate(val, max_len):
     if len(val) > max_len: s = f'{s}...'
     return s
 
-
 def is_win():
     ans = True if sys.platform.startswith('win') else False
     return ans
@@ -335,17 +339,37 @@ def save_pickle(obj, p):
     
     log.info(f'Saved pickle: {p}')
 
+def iter_namespace(name):
+    """Get module names from top level package name
+    - Used when app is frozen with PyInstaller
+    - Make sure to add module to pyi's collect_submodules so they're available from it's importer"""
+    prefix = name + '.'
+    toc = set()
+
+    for importer in pkgutil.iter_importers(name.partition('.')[0]):
+        if hasattr(importer, 'toc'):
+            toc |= importer.toc
+
+    for name in toc:
+        if name.startswith(prefix):
+            yield name
+
 def import_submodule_classes(name, filename, gbls, parent_class):
     """Import all Query objects into top level namespace for easier access
     - eg query = qr.EventLog() instead of qr.el.EventLog()
     - NOTE issubclass doesn't work when class is defined in __init__"""
+
     if not '__init__' in name:
         package_dir = Path(filename).resolve().parent
 
-        for (_, module_name, _) in iter_modules([package_dir]):
+        if not SYS_FROZEN:
+            module_names = [f'{name}.{module_name}' for (_, module_name, _) in iter_modules([package_dir])]
+        else:
+            module_names = [n for n in iter_namespace(name) if not 'init' in n]
 
+        for module_name in module_names:
             # import the module and iterate through its attributes
-            module = import_module(f'{name}.{module_name}')
+            module = import_module(module_name)
 
             for cls_name, cls in inspect.getmembers(module, inspect.isclass):
 
@@ -653,6 +677,10 @@ def sql_from_file(p : Path) -> str:
     """    
     with open(p, 'r') as file:
         return file.read()
+
+def get_sql_filepath(name: str):
+    """Find sql file in sql dir for frozen vs not frozen"""
+    return list(p_sql.rglob(f'*{name}.sql'))[0]
 
 
 # simple obfuscation for db connection string
