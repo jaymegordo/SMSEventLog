@@ -107,7 +107,7 @@ There are several extra functions in the menubar, such as:
         * print list of installed packages:
             * `poetry show` or
             * `poetry run pip list`
-        * Create requirements.txt: `poetry lock -r > requirements.txt`
+        * Create requirements.txt: `poetry export -f requirements.txt --output requirements.txt --without-hashes`
         * Update single package: `poetry update <packagename>`
         * Install from custom forked repo: `poetry add git+https://github.com/jaymegordo/python-chromedriver-autoinstaller.git@master#egg=chromedriver-autoinstaller`
             * `#egg` comes from `name` defined in setup.py, will be name of install
