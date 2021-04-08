@@ -2353,6 +2353,14 @@ class UserSettings(TableWidget):
 
             self.mcols['datetime'] = ('LastLogin',)
 
+class OilSamples(TableWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+    class View(TableView):
+        def __init__(self, parent):
+            super().__init__(parent=parent)
+
 # FILTER MENU
 class FilterMenu(QMenu):
     def __init__(self, parent=None):
