@@ -51,7 +51,7 @@ class FileQuery(QueryBase):
 
 class ACMotorInspections(FileQuery):
     def __init__(self):
-        p = f.projectfolder / 'SQL/FactoryCampaign/ac_motor_inspections.sql'
+        p = f.get_sql_filepath('ac_motor_inspections')
         super().__init__(p=p)
 
     def save_excel(self, _open=False):
