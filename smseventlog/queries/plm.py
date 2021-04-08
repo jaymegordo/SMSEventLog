@@ -123,7 +123,6 @@ class PLMUnit(QueryBase):
             .pipe(self.add_totals) \
             .reset_index(drop=False)
 
-    @er.errlog('Failed to get df_summary_report', warn=True)
     def df_summary_report(self):
         """Pivot single row of PLM summary into df for report."""
         # if df is None or not 0 in df.index:

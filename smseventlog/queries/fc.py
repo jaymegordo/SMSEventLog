@@ -64,7 +64,6 @@ class FCSummary(FCBase):
         cols = [d.MineSite, a.Unit, a.FCNumber, a.Subject, b.Classification, c.Resp, b.Hours, b.PartNumber, c.PartAvailability, c.Comments, b.ReleaseDate, b.ExpiryDate, complete]
         f.set_self(vars())
    
-    @errlog('Can\'t pivot fc summary dataframe', err=True)
     def process_df(self, df):
         """Pivot raw df for fc summary table"""
         self.df_orig = df.copy()
