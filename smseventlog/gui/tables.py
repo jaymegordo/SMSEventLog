@@ -503,7 +503,7 @@ class TableView(QTableView):
         self.setUpdatesEnabled(True)
 
     def copy(self):
-        # copy selected cells to clipboard
+        """Copy selected cells to clipboard"""
         sel = self.selectionModel()
         indexes = sel.selectedIndexes() # list of selected index items
 
@@ -2016,6 +2016,7 @@ class FCSummary(FCBase):
         msg.show()
     
     def close_fc(self):
+        """Close single selected FC"""
         e = self.e
 
         msg = f'Would you like close FC "{e.FCNumber}" for MineSite "{e.MineSite}"?'
@@ -2023,7 +2024,7 @@ class FCSummary(FCBase):
 
         row = dbt.Row(table_model=self.view.model(), dbtable=self.get_dbtable(header='ManualClosed'), i=self.i)
 
-        row.update(vals=dict(ManualClosed=True))
+        row.update(vals=dict(ManualClosed=True), check_exists=True)
         self.view.remove_row()
 
         msg = f'FC: "{e.FCNumber}" closed for MineSite: "{e.MineSite}"'
