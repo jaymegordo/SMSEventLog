@@ -220,6 +220,10 @@ class MainWindow(QMainWindow):
         if isinstance(val, str) and val.strip() == '':
             return default
         
+        # windows bool settings saved as strings eg 'true'
+        if val in ('true', 'false'):
+            val = f.str_to_bool(val)
+        
         return val
     
     def get_username(self):
@@ -689,6 +693,7 @@ class MainWindow(QMainWindow):
         - Enabled means user will get alpha updates"""
         name = 'dev_channel'
         val = not self.get_setting(name, False) # flip true/false
+        print('dev_channel:', val)
 
         self.settings.setValue(name, val)
         self.update_statusbar(f'Development channel enabled: {val}', success=True, log_=True)
