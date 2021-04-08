@@ -98,23 +98,21 @@ There are several extra functions in the menubar, such as:
 * [Python 3.8](https://www.python.org/downloads/)
     * Install Python
     * open command prompt, check python installed correctly with `python --version`
-    * [Pipenv](https://github.com/pypa/pipenv)
-        * `pip install pipenv`
-        * Init virtual environment with `pipenv lock` to create Pipfile.lock
-        * Download and sync all packages from Pipfile with `pipenv sync --dev` (run this at any time if things get out of sync or broken)
-        * Use pipenv as main package manager
-        * When working in the cmd line, activate environment with `pipenv shell` to have access to developer packages (eg twine)
+    * [Poetry](https://python-poetry.org/docs/basic-usage/)
+        * `pip install poetry`
+        * Init virtual environment with `poetry lock` to create poetry.lock
+        * Download and sync all packages from poetry.lock with `poetry install` (run this at any time if things get out of sync or broken)
+        * Use poetry as main package manager
+        * When working in the cmd line, activate environment with `poetry shell` to have access to developer packages (eg twine)
         * print list of installed packages:
-            * `pipenv graph` or
-            * `pipenv run pip list`
-        * Create requirements.txt: `pipenv lock -r > requirements.txt`
-        * Update single package: `pipenv update <packagename>`
-        * Install from custom forked repo: `pipenv install git+https://github.com/jaymegordo/python-chromedriver-autoinstaller.git@master#egg=chromedriver-autoinstaller`
+            * `poetry show` or
+            * `poetry run pip list`
+        * Create requirements.txt: `poetry lock -r > requirements.txt`
+        * Update single package: `poetry update <packagename>`
+        * Install from custom forked repo: `poetry add git+https://github.com/jaymegordo/python-chromedriver-autoinstaller.git@master#egg=chromedriver-autoinstaller`
             * `#egg` comes from `name` defined in setup.py, will be name of install
             * `-e` flag makes the package 'editable' and puts in into `src`
-    * twine
-        * `pip install twine`
-        * Used to push build wheel to pypi
+
 * Install pyodbc
 * count lines of code in project: `pygount --suffix=py --format=summary smseventlog`
 
@@ -135,11 +133,11 @@ There are several extra functions in the menubar, such as:
 ## Deployment
 ### Build Process
 1. Commit all changes to git, add comments etc (use github menu in vscode)
-2. Increment version with eg `bumpversion patch --verbose` (must be run inside active pipenv)
+2. Increment version with eg `bumpversion patch --verbose` (must be run inside active poetry shell)
 3. Push tags to git `git push --tags` (only pushes tags, increments version on github)
 4. `git push` > pushes all changes (could also use vscode menu to push)
 5. 
-    * Local testing - Build exe using custom build script `python -m build` (see pyinstaller below for more info)
+    * Local testing - Build exe using custom build script `poetry run python -m build_scripts.build` (see pyinstaller below for more info)
     * Production - Build exe with pyupdater:
         * Note - dev needs to get the .env file with saved settings/passwords (ask jayme)
         * first `cd build_scripts` (location of the build scripts)
@@ -152,16 +150,17 @@ There are several extra functions in the menubar, such as:
     * Use bumpversion to control version increments
     * creates a git tag before pushing
     * testing: `bumpversion patch --dry-run --verbose --allow-dirty`
-    * usage: `bumpversion [major | minor | patch]`
-        * `bumpversion patch` > will increment version from 3.0.1 to 3.0.2
-        * `bumpversion minor` > will increment version from 3.0.1 to 3.1.0       
+    * usage: `bumpversion [major | minor | patch | release | build]`
+        * `bumpversion patch` > will increment version from 3.0.1 > 3.0.2a0
+        * `bumpversion minor` > will increment version from 3.0.1 > 3.1.0a0 > 3.1.0
 
 * [PyUpdater](https://www.pyupdater.org/installation/)
     * PyUpdater handles package build (wraps PyInstaller), signs code, uploads to amazon s3, and handles app update checks/downloads/restarts
     * [AppUpdatesDemo](https://github.com/jameswettenhall/pyupdater-wx-demo/blob/master/run.py)
+    * Build exe and deploy to amazon s3 (windows) - `
 
 * [PyInstaller](https://pyinstaller.readthedocs.io/en/stable/usage.html)
-    * In project dir (SMS) (windows), `pipenv run python build_scripts\build.py` (runs custom build python file which calls PyInstaller with args)
+    * In project dir (SMS) (windows), `poetry run python -m build_scripts.build` (runs custom build python file which calls PyInstaller with args)
     * Only use PyInstaller on its own to create a test build because PyUpdater auto zips everything.
     * This will package app and output files to /dist/[mac|win]
 
@@ -197,7 +196,7 @@ There are several extra functions in the menubar, such as:
                     VERSION = __version__ = ''
                 ```
         
-        3. Matplotlib
+        3. Matplotlib (seems to be resolved)
             * [this isssue](https://stackoverflow.com/questions/63163027/how-to-use-pyinstaller-with-matplotlib-in-use)
             * change `PyInstaller\hooks\hook-matplotlib.py` to:
                 ```
@@ -208,6 +207,8 @@ There are several extra functions in the menubar, such as:
             * add `VERSION` file at `.../site-packages/tinycss2/VERSION` and `.../site-packages/cssselect2/VERSION`
 
         5. Selenium - no console window
+            * `packages\selenium\webdriver\common\service.py`
+            * 
             ```
             # replace this for no console window on windows, line 72 ish
             # self.process = subprocess.Popen(cmd, env=self.env,
