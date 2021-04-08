@@ -9,7 +9,7 @@ import sentry_sdk
 from sentry_sdk import capture_exception, push_scope
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-from sentry_sdk.integrations.tornado import TornadoIntegration
+from sentry_sdk.integrations.tornado import TornadoIntegration # NOTE sentry needs tornado installed as a separate dep in requirements.txt for azure smseventlog-app
 
 from .__init__ import AZURE_WEB, IS_QT_APP, SYS_FROZEN, VERSION, getlog
 

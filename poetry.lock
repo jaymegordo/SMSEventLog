@@ -1875,7 +1875,7 @@ python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 name = "tornado"
 version = "6.1"
 description = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed."
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">= 3.5"
 
@@ -2018,7 +2018,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "d3b845f9b02a87d4f7ed846c37e6ca83fcfb2c5624186266ad5c5a3832355f02"
+content-hash = "665ee828b8be5c69412e0280838be4a43b3b94cb59c19762687617482918a05d"
 
 [metadata.files]
 aiohttp = [

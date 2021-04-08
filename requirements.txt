@@ -76,6 +76,7 @@ six==1.15.0; python_full_version >= "3.7.1" and python_version >= "3.6" and (pyt
 soupsieve==2.2; python_version >= "3.6"
 sqlalchemy==1.4.1; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.6.0")
 tinycss2==1.1.0; python_version >= "3.6"
+tornado==6.1; python_version >= "3.5"
 typing-extensions==3.7.4.3; python_version >= "3.6" and python_full_version >= "3.5.3"
 tzdata==2021.1; python_version >= "3.6"
 tzlocal==2.1; python_version >= "3.6"
