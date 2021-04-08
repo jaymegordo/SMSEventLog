@@ -18,7 +18,6 @@ class WordReport():
         doc = Document()
         font_name = 'Calibri'
         font_size = Pt(10)
-        ext = 'docx'
 
         font_props = dict(
             size=font_size,
@@ -42,7 +41,11 @@ class WordReport():
         self.doc.styles['Heading 1'].paragraph_format.space_before = Pt(6)
         
         self.set_margins()
-    
+
+    @property
+    def ext(self):
+        return 'docx'
+
     def set_header_footer(self):
         
         p = f.resources / 'reports/images'
@@ -298,7 +301,7 @@ class WordReport():
     def show(self):
         fl.open_folder(self.p_rep)
 
-    def create_word(self, p_base=None, check_overwrite=False, **kw):
+    def create_word(self, p_base=None, **kw):
         if p_base is None:
             p_base = Path.home() / 'Desktop'
         
@@ -320,7 +323,7 @@ class FailureReportWord(WordReport, rp.FailureReport):
 
         f.set_self(vars())
 
-    def create_word(self, check_overwrite=True, **kw):
+    def create_word(self, **kw):
         doc = self.doc
 
         self.set_header_footer()
@@ -343,7 +346,6 @@ class FailureReportWord(WordReport, rp.FailureReport):
 
         return super().create_word(
             p_base=self.ef._p_event,
-            check_overwrite=check_overwrite,
             **kw)
 
     def add_oil_samples(self):

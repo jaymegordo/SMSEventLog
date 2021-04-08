@@ -24,7 +24,6 @@ log = getlog(__name__)
 class Report(object):
     def __init__(self, d=None, d_rng=None, minesite=None, mw=None, **kw):
         # dict of {df_name: {func: func_definition, da: **da, df=None}}
-        ext = 'pdf'
         dfs, charts, sections, exec_summary, style_funcs = {}, {}, {}, {}, {}
         signatures = []
         self.html_template = 'report_template.html'
@@ -58,6 +57,10 @@ class Report(object):
         env = Environment(loader=FileSystemLoader(str(p_reports)))
         
         f.set_self(vars())
+
+    @property
+    def ext(self):
+        return 'pdf'
 
     def add_items(self, items : list):
         """Add report items eg Title Page, Executive Summary
@@ -512,9 +515,8 @@ class FailureReport(Report):
         super().__init__()
         self.html_template = 'failure_report.html'
 
-        # need to make image path 'absolute' with file:///
-        if not pictures is None and f.is_win():
-            pictures = [f'file:///{pic}' for pic in pictures]
+        if hasattr(self, 'set_pictures'):
+            self.set_pictures(pictures=pictures)
 
         self.header_fields = [
             ('Failure Date', 'Work Order'),
@@ -565,6 +567,11 @@ class FailureReport(Report):
         pics = ef.pics[:3]
 
         return cls.from_model(e=e, ef=ef, pictures=pics, body=body, **kw)
+
+    def set_pictures(self, pictures: list):
+        """Make image path 'absolute' with file:///, for pdf report only, not word"""
+        if not pictures is None and f.is_win():
+            self.pictures = [f'file:///{pic}' for pic in pictures]
 
     def create_pdf(self, p_base=None, **kw):
         if p_base is None:
