@@ -271,7 +271,7 @@ class EmailList(RefreshTable):
 class Availability(RefreshTable):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        col_db_startdate, col_db_enddate = 'StartDate', 'EndDate'
+        col_db_startdate, col_db_enddate = 'ShiftDate', 'ShiftDate'
 
         df_week = qr.df_period(freq='week')
         df_month = qr.df_period(freq='month')
