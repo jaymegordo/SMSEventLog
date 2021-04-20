@@ -455,7 +455,7 @@ def default_df(df):
         .pipe(parse_datecols) \
         .pipe(convert_int64)
 
-def terminal_df(df, date_only=True):
+def terminal_df(df, date_only=True, show_na=False):
     """Display df in terminal with better formatting"""
     from tabulate import tabulate
 
@@ -466,6 +466,10 @@ def terminal_df(df, date_only=True):
         #     df.loc[:, col] = df.loc[:, col].dt.date
 
     s = tabulate(df, headers=df.columns)
+
+    if not show_na:
+        s = s.replace('nan', '   ')
+    
     print(s)
 
 def convert_dtypes(df, cols, col_type):
