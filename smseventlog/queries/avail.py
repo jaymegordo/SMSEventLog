@@ -587,10 +587,12 @@ class Availability(AvailRawData):
         # filter unassigned rows
         # extract service hrs eg 1000, 4000 from comment
         # % 2000 to get 0, 1000, 500, 250 etc
+        # null comment doesn't have any text to convert eg "2000hr pm"
         expr = r'(\d{3,})'
         serv = df.loc[(
                 new_rows &
-                df.DownReason.str.contains('service', flags=re.IGNORECASE))] \
+                df.DownReason.str.contains('service', flags=re.IGNORECASE) &
+                df.Comment.notnull())] \
             .Comment.str.extract(expr).astype(int) % 2000
 
         # assign s5, s4, or s1 service to new rows loc
