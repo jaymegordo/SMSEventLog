@@ -9,11 +9,12 @@ log = getlog(__name__)
 def get_config():
     return {
         'fault': dict(
-            exclude=['dsc', 'dnevent', 'sfevent'],
+            exclude=['dsc', 'dnevent', 'sfevent', 'ge', 'datapack', 'events', 'gedata', 'stats', 'system'],
             duplicate_cols=['unit', 'code', 'time_from'],
             imptable='FaultImport',
             impfunc='ImportFaults',
-            read_func=faults.read_fault),
+            read_func=faults.read_fault,
+            actual_ftype='fault0'),
         'plm': dict(
             exclude=['dsc', 'chk', 'pictures', 'dnevent', 'sfevent'],
             duplicate_cols=['unit', 'datetime'],
@@ -38,7 +39,8 @@ def combine_csv(lst_csv, ftype, d_lower=None):
         .drop_duplicates(subset=get_config()[ftype]['duplicate_cols'])
 
     # drop old records before importing
-    if not d_lower is None:
+    # faults dont use datetime, but could use 'Time_From'
+    if not d_lower is None and 'datetime' in df.columns:
         df = df[df.datetime >= d_lower]
 
     return df
@@ -95,7 +97,9 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
         for p in p_search.iterdir():
             if p.is_dir():
                 if ftype in ('fault', 'plm'):
-                    lst.extend([f for f in p.glob(f'*{get_config()[ftype].get("actual_ftype", ftype)}*.csv') if fl.date_created(f) > d_lower])
+                    filename = f'*{get_config()[ftype].get("actual_ftype", ftype)}*.csv'
+                    # NOTE kinda sketch way to match case-insensitive csv here [Cc][Ss][Vv]
+                    lst.extend([f for f in p.glob(f'*{get_config()[ftype].get("actual_ftype", ftype)}*.[Cc][Ss][Vv]') if fl.date_created(f) > d_lower])
                 elif ftype == 'tr3':
                     lst.extend([f for f in p.glob(f'*.tr3') if fl.date_created(f) > d_lower])
 
