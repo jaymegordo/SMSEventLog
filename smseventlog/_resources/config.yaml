@@ -375,7 +375,6 @@ Headers:
         UserGroup: UserGroup
         MineSite: MineSite
 
-    
     OilSamples:
         Silicon (Si): Si
         Sodium (Na): Na
@@ -461,8 +460,6 @@ Headers:
         Sulphur in fuel ppm: sulphur_fuel_ppm
         TAN-E mg/g: TAN-E
         Total ppm: total_ppm
-
-
 
     FCImport:
         FC Number/Seq: FCNumber
