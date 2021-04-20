@@ -94,7 +94,7 @@ class ACMotorInspections(FileQuery):
                 side=lambda x: x.side.str[-2:],
                 date_insp=lambda x: x.date_insp.dt.date,
                 hrs_since_last_insp=lambda x: np.where(
-                    x.comp_smr_cur > x.comp_smr_at_insp,
+                    x.comp_smr_cur >= x.comp_smr_at_insp,
                     x.comp_smr_cur - x.comp_smr_at_insp,
                     x.comp_smr_cur).astype(int),
                 hrs_till_next_insp=lambda x: np.where(
