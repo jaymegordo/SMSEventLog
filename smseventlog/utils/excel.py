@@ -120,6 +120,19 @@ class ExcelModel():
         if not drop_cols is None:
             df = df.drop(columns=drop_cols)
 
+        if name == 'ActLog':
+            # add sum duration to first row per date
+            df_sum = df[['date']].drop_duplicates('date', keep='first') \
+                .reset_index() \
+                .merge(right=df.groupby('date', as_index=False).duration.sum()) \
+                .set_index('index')[['duration']] \
+                .rename(columns=dict(duration='sum'))
+
+            cols = ['date', 'sum', 'duration', 'task', 'task_type']
+            df = df.merge(right=df_sum, how='left', left_index=True, right_index=True) \
+                [cols] \
+                # .assign(sum_dur=lambda x: x.sum_dur.astype(str).replace(dict(nan='')))
+
         return df
     
     def show_like(self, s):
