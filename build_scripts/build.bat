@@ -10,4 +10,4 @@ poetry run pyupdater pkg --process --sign
 
 if %upload%==true (
     echo "uploading..."
-    call build_scripts/upload.bat)
+    call build_scripts\upload.bat)

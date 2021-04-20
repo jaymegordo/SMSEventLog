@@ -7,8 +7,8 @@
 . .vscode/.env
 
 export PYU_AWS_ID=$PYU_AWS_ID
-export PYU_AWS_SECRET=$PYU_AWS_SECRET
+export PYU_AWS_SECRET="/$PYU_AWS_SECRET" # need leading / for windows git bash
 echo "PYU_AWS_ID: $PYU_AWS_ID"
 echo "PYU_AWS_SECRET: $PYU_AWS_SECRET"
 
-pipenv run pyupdater upload --service s3
+poetry run pyupdater upload --service s3
