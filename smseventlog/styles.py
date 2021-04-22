@@ -6,6 +6,7 @@ from seaborn import diverging_palette
 
 from . import functions as f
 from .__init__ import *
+from .utils import xterm_color as xc
 
 # default cmap red blue
 cmap_default = diverging_palette(240, 10, sep=10, n=21, as_cmap=True)
@@ -342,15 +343,25 @@ def highlight_val(df, val, bg_color, target_col, t_color=None, other_cols=None, 
 def pipe_highlight_alternating(style, color, theme, subset=None):
     return style.apply(highlight_alternating, subset=subset, color=color, theme=theme)
 
-def highlight_alternating(s, color='navyblue', theme='light'):
+def highlight_alternating(s, color='navyblue', theme='light', is_hex=True, anchor_col: str=None):
     # loop df column and switch active when value changes. Kinda ugly but works.
     # only accept single column for now
     colors = f.config['color']
     default_bg, default_t = get_defaults(theme)
 
-    color = colors['bg'][color]
+    if is_hex:
+        color = colors['bg'][color]
+
     active = 1
     prev = ''
+
+    if isinstance(s, pd.Series):
+        is_series = True
+        df = None
+    else:
+        is_series = False
+        df = s.copy()
+        s = df[anchor_col] # get anchor series from df
 
     s1 = pd.Series(index=s.index, dtype='object') # NOTE could make this s_empty()
 
@@ -369,6 +380,12 @@ def highlight_alternating(s, color='navyblue', theme='light'):
             css = format_cell(bg=default_bg, t=default_t)
 
         s1.loc[idx] = css
+    
+    if not is_series:
+        # duplicate series to entire dataframe
+        n = df.shape[1]
+        data = np.tile(s1.values, (n, 1)).T
+        s1 = pd.DataFrame(data, index=df.index, columns=df.columns)
 
     return s1
 
@@ -488,3 +505,62 @@ def background_grad_center(s, cmap=None, center=0, vmin=None, vmax=None):
             [[css(rgba) for rgba in row] for row in rgbas],
             index=s.index,
             columns=s.columns)
+
+def terminal_color(df, style):
+    """Create string version of df with terminal color codes"""
+    # need to map styler vals to colors
+    # map hex codes to terminal codes
+    # NOTE only uses foreground colors currently
+    df = df.copy()
+
+    palette = dict(
+        black=30,
+        red=31,
+        green=32,
+        yellow=33,
+        blue=34,
+        cyan=36,
+        white=37,
+        royalblue=4,
+        # underline=4,
+        # reset=0
+        )
+    
+    reset = '\033[0m'
+    
+    # 38;5;{color} = foreground
+    # 48;5;{color} = background
+    _fg = lambda x: '\033[38;5;{}m'.format(x) if not x == '' else ''
+    
+    # create full color codes as a dict comp, only used for named colors
+    # palette = {k: f'\033[{color_code}m' for k, color_code in palette.items()}
+    palette = {k: f'{_fg(color_code)}' for k, color_code in palette.items()}
+    # print(palette)
+
+    m = f.convert_stylemap_index(style)
+
+    # convert from ['color: red'] to 'red'
+    m = {k: v[0].split('color: ')[-1].strip() for k, v in m.items()}
+
+    # get unique cols
+    cols = list(set([k[1] for k in m.keys()]))
+
+    df[cols] = df[cols].astype(str)
+
+    for (row, col), color in m.items():
+       
+        # hex, convert to x256
+        if '#' in color:
+            color = xc.rgb2short(color)[0]
+        elif 'inherit' in color:
+            color = ''
+
+        new_color = '{}{}{}'.format(
+            palette.get(color, _fg(color)),
+            df.loc[row, col],
+            reset)
+
+        df.loc[row, col] = new_color
+
+
+    return df
