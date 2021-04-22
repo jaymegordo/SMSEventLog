@@ -28,7 +28,9 @@ cli.add_argument(
     '-dt',
     '--date',
     type=str,
-    default=dt.now().date().strftime('%Y-%m-%d'))
+    nargs='?',
+    const=dt.now().date().strftime('%Y-%m-%d'),
+    default=None)
 
 cli.add_argument(
     '-c',
@@ -39,26 +41,36 @@ cli.add_argument(
 cli.add_argument(
     '--dlt',
     nargs='?',
-    type=bool,
-    const=True,
+    type=int,
+    const=1,
     default=None,
     help='Delete table row(s).')
 
 cli.add_argument(
     '-n',
     '--nrows',
+    nargs='?',
     type=int,
-    default=1,
+    default=None,
+    const=10,
     help='Number of rows to delete.')
 
 cli.add_argument(
     '-s',
     '--show',
     nargs='?',
-    type=bool,
-    const=True,
+    type=int,
+    const=10,
     default=None,
     help='Print table to console.')
+
+cli.add_argument(
+    '--sum',
+    nargs='?',
+    type=int,
+    const=20,
+    default=None,
+    help='Show summary duration of last n dates.')
 
 cli.add_argument(
     '-o',
@@ -89,7 +101,7 @@ cli.add_argument(
 
 if __name__ == '__main__':
     a = cli.parse_args()
-    log.info(a)
+    # log.info(a)
     print('\n')
 
     if a.open:
@@ -101,13 +113,16 @@ if __name__ == '__main__':
     em = ex.ExcelModel()
 
     if a.dlt:
-        ex.delete_row(n=a.nrows, em=em)
+        ex.delete_row(n=a.dlt, em=em)
     elif a.show:
-        em.display_df()
+        em.display_df(n=a.show, d_lower=a.date)
     elif a.like:
         em.show_like(s=a.like)
     elif a.init:
+        # init defaults for ALL missing days
         ex.add_defaults(em=em)
+    elif a.sum:
+        em.show_df_sum(n=a.sum)
     else:
-        ex.update_time(task=a.task, duration=a.dur, d=a.date, category=a.category)
+        ex.update_time(task=a.task, duration=a.dur, d=a.date, category=a.category, n=a.nrows)
         print(f'\nWow, {a.dur} hours? That was a great use of your time Jayme! Good work!')

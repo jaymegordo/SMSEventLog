@@ -10,6 +10,7 @@ from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from .__init__ import *
+from .. import styles as st
 
 log = getlog(__name__)
 p = Path.home() / 'desktop/Activity Record - Jayme Gordon.xlsx'
@@ -34,9 +35,9 @@ class ExcelModel():
         """Return first table of worksheet"""
         return ws.tables[list(ws.tables)[0]]
     
-    def close(self, display=True):
+    def close(self, display=True, **kw):
         if display:
-            self.display_df()
+            self.display_df(**kw)
 
         self.wb.save(p)
         self.wb.close()
@@ -115,7 +116,10 @@ class ExcelModel():
             .get(name.lower(), None)
 
         df = pd.DataFrame(data=data, columns=cols) \
-            .pipe(f.lower_cols)
+            .pipe(f.lower_cols) \
+        
+        if 'date' in df.columns:
+            df = df.sort_values('date')
         
         if not drop_cols is None:
             df = df.drop(columns=drop_cols)
@@ -124,16 +128,57 @@ class ExcelModel():
             # add sum duration to first row per date
             df_sum = df[['date']].drop_duplicates('date', keep='first') \
                 .reset_index() \
-                .merge(right=df.groupby('date', as_index=False).duration.sum()) \
-                .set_index('index')[['duration']] \
+                .assign(day=lambda x: x.date.dt.strftime('%a')) \
+                .merge(right=df.groupby('date', as_index=False)[['duration']].sum()) \
+                .set_index('index')[['duration', 'day']] \
                 .rename(columns=dict(duration='sum'))
 
-            cols = ['date', 'sum', 'duration', 'task', 'task_type']
+            cols = ['date', 'day', 'sum', 'duration', 'task', 'task_type']
             df = df.merge(right=df_sum, how='left', left_index=True, right_index=True) \
-                [cols] \
-                # .assign(sum_dur=lambda x: x.sum_dur.astype(str).replace(dict(nan='')))
+                [cols]
 
         return df
+    
+    def get_df_sum(self, n: int=10):
+        """Return df of summary durations for last n dates"""
+
+        df_sum = self.get_df(name='ActLog') \
+            .groupby('date', as_index=False)[['date', 'day', 'sum']].first() \
+            .set_index('date')
+
+        d = dt.now().date()
+        rng = pd.date_range(d + delta(days=-n), d)
+
+        return pd.DataFrame(index=rng) \
+            .rename_axis('date') \
+            .merge(right=df_sum, left_index=True, right_index=True, how='left') \
+            .reset_index() \
+            .assign(
+                day=lambda x: x.date.dt.strftime('%a'),
+                sum=lambda x: x['sum'].fillna(0).astype(float))
+    
+    def highlight_sum(self, df, color=160):
+        """Highlight sum red if less than 8 hrs"""
+
+        # filter out weekends
+        mask = (~df.date.dt.strftime('%a').isin(('Sat', 'Sun'))) & (df['sum'] < 8)
+        
+        data = np.vstack(
+            [np.array([''] * df.shape[0]),
+            np.where(mask, f'color: {color}', '')]).T
+        
+        return pd.DataFrame(columns=df.columns, index=df.index, data=data)
+    
+    def show_df_sum(self, n: int=10):
+        df = self.get_df_sum(n=n) \
+            .tail(n)
+        
+        style = df.style \
+            .apply(self.highlight_sum, subset=['date', 'sum'], axis=None) \
+            .applymap(lambda x: 'color: 226' if x in ('Sat', 'Sun') else '', subset='day') \
+            # .applymap(lambda x: 'color: royalblue', subset='date')
+
+        self.display_df(df=df, n=n, style=style, showindex=False, floatfmt='.1f')
     
     def show_like(self, s):
         """Show last n items containing search string in task"""
@@ -141,13 +186,31 @@ class ExcelModel():
         df = df[df.task.str.contains(s, case=False, na=False)]
         scroll(df)
 
-    def display_df(self, n: int=10, df: pd.DataFrame=None):
+    def display_df(self, n: int=None, df=None, style=None, d_lower=None, **kw):
         """Display last n rows of table"""
+        if n is None:
+            n = 10
+
         if df is None:
             df = self.get_df()
 
-        df = df.tail(n)
-        f.terminal_df(df)
+            # show last n rows, or whichever date added + n
+            if not d_lower is None:
+                df2 = df[df.date >= d_lower] \
+                    .head(n)
+                
+                df = df2 if df2.shape[0] == n else df.tail(n)
+            else:
+                df = df.tail(n)
+
+            style = df.style \
+                .apply(self.highlight_sum, subset=['date', 'sum'], axis=None) \
+                .apply(st.highlight_alternating, axis=None, color='royalblue', anchor_col='date', is_hex=False)
+        
+        if not style is None:
+            df = st.terminal_color(df, style)
+
+        f.terminal_df(df, **kw)
 
     def adjust_cond_formats(self, n: int=1, name: str='ActLog'):
         """Extend conditional formatting by one row
@@ -171,30 +234,70 @@ def get_matching_task(df, task):
         return ''
 
 def add_defaults(d: dt=None, em=None):
-    """Add default rows for current date"""
+    """Add default rows for all dates till current date with 0 time"""
+    # get df
+    # groupby date
+    # get date_range btwn now and start
+    # merge grouped data
+    # filter dates = 0 or Nan
+
     if em is None:
         em = ExcelModel()
     
-    if d is None:
-        d = dt.now()
-    
-    day = d.strftime('%a')
+    if not d is None:
+        # init specific day
+        day = d.strftime('%a')
 
-    df = em.get_df(name='Default') \
-        .pipe(lambda df: df[df.day==day]) \
-        .drop(columns='day') \
-        .assign(
-            duration=lambda x: x.duration.astype(float),
-            date=dt.now().date())
+        df = em.get_df(name='Default') \
+            .pipe(lambda df: df[df.day==day]) \
+            .drop(columns='day') \
+            .assign(
+                duration=lambda x: x.duration.astype(float),
+                date=d.date())
+    
+    else:
+        # init all blank days
+        d = dt.now().date()
+        n = 90
+        d_lower = d + delta(days=-n)
+        rng = pd.date_range(d_lower, d)
+
+        df_default = em.get_df(name='Default') # defaults per day
+
+        # get sum duration from last n days per day
+        df_sum = em.get_df('ActLog') \
+            .pipe(lambda df: df[df.date.dt.date >= d_lower]) \
+            .groupby('date', as_index=False)[['duration']].sum() \
+            .rename(columns=dict(duration='sum'))
+
+        # merge default values for all days with 0 duration
+        df = pd.DataFrame(dict(date=rng)) \
+            .assign(day=lambda x: x.date.dt.strftime('%a')) \
+            .merge(right=df_sum, on='date', how='left') \
+            .fillna(0) \
+            .merge(right=df_default, on='day', how='outer') \
+            .dropna() \
+            .pipe(lambda df: df[df['sum'] == 0]) \
+            .drop(columns=['day', 'sum']) \
+            .sort_values('date') \
+            .assign(
+                duration=lambda x: x.duration.astype(float))
 
     lst = list(df.to_dict(orient='index').values())
     em.add_row(m=lst)
     em.close()
 
-def update_time(task, duration: float=1.0, d: dt=None, category=None, em=None):
+    n_dates = df.groupby('date').size().shape[0]
+    print('\n')
+    log.info(f'Dates initialized: {n_dates}')
+
+def update_time(task, duration: float=1.0, d: dt=None, category=None, em=None, n: int=None):
     """Add row to table with new task data"""
     if em is None:
         em = ExcelModel()
+    
+    if d is None:
+        d = dt.now().date()
 
     if isinstance(d, str):
         d = dt.strptime(d, '%Y-%m-%d')
@@ -209,7 +312,7 @@ def update_time(task, duration: float=1.0, d: dt=None, category=None, em=None):
         task_type=category.title())
 
     em.add_row(m=m, name='ActLog')
-    em.close()
+    em.close(n=n, d_lower=f.convert_date(d))
 
 def delete_row(n: int=1, em=None):
     if em is None:
