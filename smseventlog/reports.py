@@ -287,13 +287,13 @@ class Report(object):
         if p_base is None:
             p_base = Path.home() / 'Desktop'
 
-        # save pdf
+        # save pdf - NOTE can't raise dialog from worker thread
         p = p_base / f'{self.title}.pdf'
-        if check_overwrite and p.exists():
-            from .gui.dialogs import msgbox
-            msg = f'File "{p.name}" already exists. Overwrite?'
-            if not msgbox(msg=msg, yesno=True):
-                p = p_base / f'{self.title} (1).pdf'
+        # if check_overwrite and p.exists():
+        #     from .gui.dialogs import msgbox
+        #     msg = f'File "{p.name}" already exists. Overwrite?'
+        #     if not msgbox(msg=msg, yesno=True):
+        #         p = p_base / f'{self.title} (1).pdf'
 
         HTML(string=html_out, base_url=str(p_reports)).write_pdf(p, stylesheets=[p_reports / 'report_style.css'])
 
@@ -515,13 +515,17 @@ class FailureReport(Report):
         super().__init__()
         self.html_template = 'failure_report.html'
 
+        if not pictures is None:
+            pictures = self.sort_pics(pictures)
+
+        # sort pictures based on number
         if hasattr(self, 'set_pictures'):
             self.set_pictures(pictures=pictures)
 
         self.header_fields = [
             ('Failure Date', 'Work Order'),
             ('Customer', 'MineSite'),
-            ('Author', None),
+            ('Author', 'TSI'),
             ('Model', 'Part Description'),
             ('Unit', 'Part No'),
             ('Unit Serial', 'Part Serial'),
@@ -573,6 +577,29 @@ class FailureReport(Report):
         if not pictures is None and f.is_win():
             self.pictures = [f'file:///{pic}' for pic in pictures]
 
+    def sort_pics(self, pics: list):
+        """Sort list of strings or path objs with ints first then strings"""
+        
+        # just convert everything to path
+        pics = [Path(p) for p in pics]
+
+        # save as dict
+        # m = {p.stem if isinstance(p, Path) else p: p for p in pics}
+        m = {p.stem: str(p) for p in pics}
+
+        # use keys to sort
+        pics = list(m.keys())
+
+        # get ints
+        int_pics = [p for p in pics if f.isnum(p)]
+
+        # get strings
+        str_pics = set(pics) - set(int_pics)
+
+        out = sorted(int_pics, key=int)
+        out.extend(sorted(str_pics))
+        return [m[item] for item in out]
+
     def create_pdf(self, p_base=None, **kw):
         if p_base is None:
             p_base = self.ef._p_event
@@ -586,7 +613,7 @@ class FailureReport(Report):
         template_vars = dict(
             df_head=df_head_html,
             body_sections=body,
-            pictures=sorted(self.pictures))
+            pictures=self.pictures)
 
         return super().create_pdf(
             p_base=p_base,
