@@ -32,3 +32,34 @@ def read_fault(p : Path) -> pd.DataFrame:
     except:
         print(f'Failed: {p}')
         return pd.DataFrame(columns=newcols)
+
+def combine_fault_header(m_list: dict):
+    dfs = []
+
+    for unit, lst in m_list.items():
+        for p in lst:
+            try:
+                df = read_fault_header(p)
+                dfs.append(df)
+                break
+            except:
+                print(f'failed import: {p}')
+
+    return pd.concat(dfs)
+
+def read_fault_header(p):
+    df = pd.read_csv(p, nrows=12, names=[i for i in range(5)])
+    unit = utl.unit_from_path(p)
+
+    m = dict(
+        serial_no=df.loc[4, 1],
+        eng_model=df.loc[5, 1],
+        eng_sn_1=df.loc[5, 2],
+        eng_sn_2=df.loc[5, 4],
+        prog_ver_1=df.loc[11, 1],
+        prog_ver_2=df.loc[11, 2],
+    )
+
+    return pd.DataFrame \
+        .from_dict(m, orient='index', columns=[unit]).T \
+        .rename_axis('unit')
