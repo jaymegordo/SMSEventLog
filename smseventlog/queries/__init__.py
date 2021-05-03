@@ -341,8 +341,8 @@ class QueryBase(object):
             .read_sql(sql=sql, con=db.engine) \
             .pipe(f.default_df) \
             .pipe(f.convert_df_view_cols, m=self.view_cols) \
-            .pipe(f.set_default_dtypes, m=self.default_dtypes) \
-            .pipe(self._process_df, do=not skip_process)
+            .pipe(self._process_df, do=not skip_process) \
+            .pipe(f.set_default_dtypes, m=self.default_dtypes)
 
     def get_df(self, **kw) -> pd.DataFrame:
         """Wrapper for _get_df
