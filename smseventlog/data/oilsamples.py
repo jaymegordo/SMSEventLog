@@ -9,7 +9,7 @@ from .__init__ import *
 
 log = getlog(__name__)
 
-m_names = f.config['Headers']['OilSamples']
+m_names = f.config['Headers']['Oil Samples']
 
 # NOTE eventually drop records > 1yr old from db
 
