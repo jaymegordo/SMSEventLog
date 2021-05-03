@@ -21,7 +21,7 @@ speedups = ["aiodns", "brotlipy", "cchardet"]
 name = "altgraph"
 version = "0.17"
 description = "Python graph (network) package"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -29,7 +29,7 @@ python-versions = "*"
 name = "appdirs"
 version = "1.4.4"
 description = "A small Python module for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -207,9 +207,9 @@ beautifulsoup4 = "*"
 
 [[package]]
 name = "bsdiff4"
-version = "1.1.5"
+version = "1.2.1"
 description = "binary diff and patch using the BSDIFF4-format"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -448,9 +448,9 @@ trio = ["trio (>=0.14.0)", "sniffio (>=1.1)"]
 
 [[package]]
 name = "dsdev-utils"
-version = "1.0.4"
+version = "1.0.5"
 description = "Various utility functions"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -513,7 +513,7 @@ python-versions = "*"
 name = "future"
 version = "0.18.2"
 description = "Clean single-source support for Python 3 and 2"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
@@ -874,7 +874,7 @@ source = ["Cython (>=0.29.7)"]
 name = "macholib"
 version = "1.14"
 description = "Mach-O header analysis and editing"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -1139,9 +1139,9 @@ testing = ["docopt", "pytest (<6.0.0)"]
 
 [[package]]
 name = "pbr"
-version = "5.5.1"
+version = "5.6.0"
 description = "Python Build Reasonableness"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=2.6"
 
@@ -1149,7 +1149,7 @@ python-versions = ">=2.6"
 name = "pefile"
 version = "2019.4.18"
 description = "Python PE parsing module"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -1284,11 +1284,11 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "pyinstaller"
-version = "4.2"
+version = "4.3"
 description = "PyInstaller bundles a Python application and all its dependencies into a single package."
-category = "dev"
+category = "main"
 optional = false
-python-versions = ">=3.5"
+python-versions = ">=3.6"
 develop = false
 
 [package.dependencies]
@@ -1306,13 +1306,13 @@ hook_testing = ["pytest (>=2.7.3)", "execnet (>=1.5.0)", "psutil"]
 type = "git"
 url = "https://github.com/pyinstaller/pyinstaller.git"
 reference = "master"
-resolved_reference = "40c9abce2d8de879e414fd377c933dccaab1e156"
+resolved_reference = "e20e74c03768d432d48665b8ef1e02511b16e4be"
 
 [[package]]
 name = "pyinstaller-hooks-contrib"
 version = "2021.1"
 description = "Community maintained hooks for PyInstaller"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -1320,7 +1320,7 @@ python-versions = "*"
 name = "pynacl"
 version = "1.4.0"
 description = "Python binding to the Networking and Cryptography (NaCl) library"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
@@ -1475,34 +1475,27 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "PyUpdater"
-version = "3.1.1+55.g282760d"
+name = "pyupdater"
+version = "4.0"
 description = "Python Auto Update Library for Pyinstaller"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
-develop = false
 
 [package.dependencies]
 appdirs = ">=1.4.3"
-bsdiff4 = "1.1.5"
+bsdiff4 = "*"
 certifi = ">=2019.3.9"
 dsdev-utils = ">=1.0.4"
 pyinstaller = ">=3.0"
 pynacl = ">=1.4.0"
-stevedore = ">=1.30.1,<2.0"
+stevedore = ">=1.30.1,<4.0"
 urllib3 = ">=1.24.1,<2.0"
 
 [package.extras]
 all = ["PyUpdater-s3-Plugin (>=4.0.5)", "PyUpdater-scp-Plugin (>=4.0)"]
 s3 = ["PyUpdater-s3-Plugin (>=4.0.5)"]
 scp = ["PyUpdater-scp-Plugin (>=4.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/Digital-Sapphire/PyUpdater.git"
-reference = "master"
-resolved_reference = "282760de71ea6501b90d90d85b5fc6ad1d0c2bd8"
 
 [[package]]
 name = "pyupdater-s3-plugin"
@@ -1527,7 +1520,7 @@ python-versions = "*"
 name = "pywin32-ctypes"
 version = "0.2.0"
 description = ""
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -1803,15 +1796,14 @@ pymysql = ["pymysql (<1)", "pymysql"]
 
 [[package]]
 name = "stevedore"
-version = "1.32.0"
+version = "3.3.0"
 description = "Manage dynamic plugins for Python applications"
-category = "dev"
+category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=3.6"
 
 [package.dependencies]
 pbr = ">=2.0.0,<2.1.0 || >2.1.0"
-six = ">=1.10.0"
 
 [[package]]
 name = "tabulate"
@@ -1878,6 +1870,19 @@ description = "Tornado is a Python web framework and asynchronous networking lib
 category = "main"
 optional = false
 python-versions = ">= 3.5"
+
+[[package]]
+name = "tqdm"
+version = "4.60.0"
+description = "Fast, Extensible Progress Meter"
+category = "main"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
+
+[package.extras]
+dev = ["py-make (>=0.1.0)", "twine", "wheel"]
+notebook = ["ipywidgets (>=6)"]
+telegram = ["requests"]
 
 [[package]]
 name = "traitlets"
@@ -2018,7 +2023,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "665ee828b8be5c69412e0280838be4a43b3b94cb59c19762687617482918a05d"
+content-hash = "39fa16e3c8de0ed59780dffdbf27b3a01f999fd3c06e2a70252372217179b09b"
 
 [metadata.files]
 aiohttp = [
@@ -2148,7 +2153,7 @@ bs4 = [
     {file = "bs4-0.0.1.tar.gz", hash = "sha256:36ecea1fd7cc5c0c6e4a1ff075df26d50da647b75376626cc186e2212886dd3a"},
 ]
 bsdiff4 = [
-    {file = "bsdiff4-1.1.5.tar.gz", hash = "sha256:bbe4758ecde4e9fe7d46c2cf1b6052a8fccb7b6b4dd9eb6ab0133c02e9505526"},
+    {file = "bsdiff4-1.2.1.tar.gz", hash = "sha256:87cffc7522effdda03fd1564b212ad2279c0af50d16c3e65776f80acb6705d4b"},
 ]
 bump2version = [
     {file = "bump2version-1.0.1-py2.py3-none-any.whl", hash = "sha256:37f927ea17cde7ae2d7baf832f8e80ce3777624554a653006c9144f8017fe410"},
@@ -2317,7 +2322,7 @@ dnspython = [
     {file = "dnspython-2.1.0.zip", hash = "sha256:e4a87f0b573201a0f3727fa18a516b055fd1107e0e5477cded4a2de497df1dd4"},
 ]
 dsdev-utils = [
-    {file = "dsdev-utils-1.0.4.tar.gz", hash = "sha256:7d947d47df181286020c7ed313e8ed431313119dcae408ab27057f330ba30bdf"},
+    {file = "dsdev-utils-1.0.5.tar.gz", hash = "sha256:044656ab56b02d10aadcc82cea65eeb7dac2f02028516a8908fdc40241b580be"},
 ]
 entrypoints = [
     {file = "entrypoints-0.3-py2.py3-none-any.whl", hash = "sha256:589f874b313739ad35be6e0cd7efde2a4e9b6fea91edcc34e58ecbb8dbe56d19"},
@@ -2780,8 +2785,8 @@ parso = [
     {file = "parso-0.8.1.tar.gz", hash = "sha256:8519430ad07087d4c997fda3a7918f7cfa27cb58972a8c89c2a0295a1c940e9e"},
 ]
 pbr = [
-    {file = "pbr-5.5.1-py2.py3-none-any.whl", hash = "sha256:b236cde0ac9a6aedd5e3c34517b423cd4fd97ef723849da6b0d2231142d89c00"},
-    {file = "pbr-5.5.1.tar.gz", hash = "sha256:5fad80b613c402d5b7df7bd84812548b2a61e9977387a80a5fc5c396492b13c9"},
+    {file = "pbr-5.6.0-py2.py3-none-any.whl", hash = "sha256:c68c661ac5cc81058ac94247278eeda6d2e6aecb3e227b0387c30d277e7ef8d4"},
+    {file = "pbr-5.6.0.tar.gz", hash = "sha256:42df03e7797b796625b1029c0400279c7c34fd7df24a7d7818a1abb5b38710dd"},
 ]
 pefile = [
     {file = "pefile-2019.4.18.tar.gz", hash = "sha256:a5d6e8305c6b210849b47a6174ddf9c452b2888340b8177874b862ba6c207645"},
@@ -3028,7 +3033,9 @@ pytz = [
     {file = "pytz-2021.1-py2.py3-none-any.whl", hash = "sha256:eb10ce3e7736052ed3623d49975ce333bcd712c7bb19a58b9e2089d4057d0798"},
     {file = "pytz-2021.1.tar.gz", hash = "sha256:83a4a90894bf38e243cf052c8b58f381bfe9a7a483f6a9cab140bc7f702ac4da"},
 ]
-PyUpdater = []
+pyupdater = [
+    {file = "PyUpdater-4.0.tar.gz", hash = "sha256:fd92835eef1a47eface6ff68a48e3d496845f4f43ed431b6077d98cf2783ef65"},
+]
 pyupdater-s3-plugin = [
     {file = "PyUpdater-S3-Plugin-4.1.2.tar.gz", hash = "sha256:9a44494611439156076781639c7d7ad5b6a6c3c108dd1e9d65753f11f263795f"},
     {file = "PyUpdater_S3_Plugin-4.1.2-py2.py3-none-any.whl", hash = "sha256:a80f9c99ec597cfc13f037f1c02a1da63686d5ccb01c421177c5dd7e0ae6d6b3"},
@@ -3244,8 +3251,8 @@ sqlalchemy = [
     {file = "SQLAlchemy-1.4.1.tar.gz", hash = "sha256:a6afdab2d70ef9f9905eba5ba93cf78ed9ed188cde3abda3231cdb8fce005a84"},
 ]
 stevedore = [
-    {file = "stevedore-1.32.0-py2.py3-none-any.whl", hash = "sha256:a4e7dc759fb0f2e3e2f7d8ffe2358c19d45b9b8297f393ef1256858d82f69c9b"},
-    {file = "stevedore-1.32.0.tar.gz", hash = "sha256:18afaf1d623af5950cc0f7e75e70f917784c73b652a34a12d90b309451b5500b"},
+    {file = "stevedore-3.3.0-py3-none-any.whl", hash = "sha256:50d7b78fbaf0d04cd62411188fa7eedcb03eb7f4c4b37005615ceebe582aa82a"},
+    {file = "stevedore-3.3.0.tar.gz", hash = "sha256:3a5bbd0652bf552748871eaa73a4a8dc2899786bc497a2aa1fcb4dcdb0debeee"},
 ]
 tabulate = [
     {file = "tabulate-0.8.9-py3-none-any.whl", hash = "sha256:d7c013fe7abbc5e491394e10fa845f8f32fe54f8dc60c6622c6cf482d25d47e4"},
@@ -3309,6 +3316,10 @@ tornado = [
     {file = "tornado-6.1-cp39-cp39-win32.whl", hash = "sha256:d3d20ea5782ba63ed13bc2b8c291a053c8d807a8fa927d941bd718468f7b950c"},
     {file = "tornado-6.1-cp39-cp39-win_amd64.whl", hash = "sha256:548430be2740e327b3fe0201abe471f314741efcb0067ec4f2d7dcfb4825f3e4"},
     {file = "tornado-6.1.tar.gz", hash = "sha256:33c6e81d7bd55b468d2e793517c909b139960b6c790a60b7991b9b6b76fb9791"},
+]
+tqdm = [
+    {file = "tqdm-4.60.0-py2.py3-none-any.whl", hash = "sha256:daec693491c52e9498632dfbe9ccfc4882a557f5fa08982db1b4d3adbe0887c3"},
+    {file = "tqdm-4.60.0.tar.gz", hash = "sha256:ebdebdb95e3477ceea267decfc0784859aa3df3e27e22d23b83e9b272bf157ae"},
 ]
 traitlets = [
     {file = "traitlets-5.0.5-py3-none-any.whl", hash = "sha256:69ff3f9d5351f31a7ad80443c2674b7099df13cc41fc5fa6e2f6d3b0330b0426"},
