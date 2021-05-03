@@ -9,7 +9,7 @@ log = getlog(__name__)
 def get_config():
     return {
         'fault': dict(
-            exclude=['dsc', 'dnevent', 'sfevent', 'ge', 'datapack', 'events', 'gedata', 'stats', 'system'],
+            exclude=['dsc', 'dnevent', 'sfevent', 'ge', 'datapack', 'events', 'gedata', 'stats', 'system', 'fr'],
             duplicate_cols=['unit', 'code', 'time_from'],
             imptable='FaultImport',
             impfunc='ImportFaults',
@@ -93,21 +93,28 @@ def recurse_folders(p_search, d_lower=dt(2016, 1, 1), depth=0, maxdepth=5, ftype
         # this is sketch, but need to find files in top level dir too
         lst.extend([f for f in p_search.glob(f'*.tr3')])
 
-    if depth <= maxdepth:
-        for p in p_search.iterdir():
-            if p.is_dir():
+    fname = get_config()[ftype].get("actual_ftype", ftype)
+    # filename = f'*{fname}*.csv'
+
+    for p in p_search.iterdir():
+        if p.is_dir():
+            name = p.name.lower()
+            # exclude vhms folders (8 digits) from plm file search
+            if (
+                not (any(s in name for s in exclude)
+                    or (ftype=='plm' and len(name) == 8 and name.isdigit()))
+                and fl.date_modified(p) > d_lower):
+
+                # print(p)
+
                 if ftype in ('fault', 'plm'):
-                    filename = f'*{get_config()[ftype].get("actual_ftype", ftype)}*.csv'
                     # NOTE kinda sketch way to match case-insensitive csv here [Cc][Ss][Vv]
-                    lst.extend([f for f in p.glob(f'*{get_config()[ftype].get("actual_ftype", ftype)}*.[Cc][Ss][Vv]') if fl.date_created(f) > d_lower])
+                    lst.extend([f for f in p.glob(f'*{fname}*.[Cc][Ss][Vv]') if fl.date_created(f) > d_lower])
+
                 elif ftype == 'tr3':
                     lst.extend([f for f in p.glob(f'*.tr3') if fl.date_created(f) > d_lower])
-
-                # exclude vhms folders (8 digits) from plm file search
-                if (not (any(s in p.name.lower() for s in exclude)
-                        or (ftype=='plm' and len(p.name) == 8 and p.name.isdigit()))
-                    and fl.date_modified(p) > d_lower):
-                    
+                
+                if depth < maxdepth:
                     lst.extend(recurse_folders(
                         p_search=p,
                         depth=depth + 1,
@@ -147,7 +154,7 @@ def process_files(ftype, units=[], search_folders=['downloads'], d_lower=dt(2020
         # process all dsc folders per unit as we find them
         if ftype == 'dsc':
             print(f'\n\nProcessing dsc, unit: {unit}\ndsc folders found: {len(lst)}')
-            Parallel(n_jobs=-1, verbose=11)(delayed(dls.fix_dsc)(p=p, p_unit=p_unit, zip_=True) for p in lst)
+            Parallel(n_jobs=-1, verbose=11)(delayed(dls.fix_dsc)(p=p, zip_=True) for p in lst)
 
             lst = [] # need to reset list, only for dsc, this is a bit sketch
         elif ftype == 'tr3':
