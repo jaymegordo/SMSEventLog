@@ -24,7 +24,7 @@ class TableView(QTableView):
     dataFrameChanged = pyqtSignal()
     cellClicked = pyqtSignal(int, int)
 
-    def __init__(self, parent=None, default_headers=None, editable=True, *args, **kwargs):
+    def __init__(self, parent=None, default_headers=None, editable=True, header_margin: int=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
 
         if not parent is None:
@@ -58,7 +58,7 @@ class TableView(QTableView):
         _data_model.dataChanged.connect(self.dataFrameChanged)
         self.dataFrameChanged.connect(self._enable_widgeted_cells) # NOTE or this
 
-        header = HeaderView(self)
+        header = HeaderView(self, margin=header_margin)
         self.setHorizontalHeader(header)
 
         self.setItemDelegate(CellDelegate(parent=self))
@@ -2360,7 +2360,7 @@ class OilSamples(TableWidget):
 
     class View(TableView):
         def __init__(self, parent):
-            super().__init__(parent=parent)
+            super().__init__(parent=parent, header_margin=-10)
 
 # FILTER MENU
 class FilterMenu(QMenu):
@@ -2559,14 +2559,14 @@ class FilterListMenuWidget(QWidgetAction):
 # HEADER
 class HeaderView(QHeaderView):
     """Custom header, allows vertical header labels"""
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, margin: int=None):
         super().__init__(Qt.Horizontal, parent)
 
         from .startup import get_qt_app
         _font = get_qt_app().font()
         _metrics = QFontMetrics(_font)
         _descent = _metrics.descent()
-        _margin = 10
+        vertical_margin = 10
 
         # create header menu bindings
         self.setDefaultAlignment(Qt.AlignCenter | Qt.Alignment(Qt.TextWordWrap))
@@ -2574,6 +2574,10 @@ class HeaderView(QHeaderView):
         self.customContextMenuRequested.connect(parent._header_menu)
         # self.setFixedHeight(30) # NOTE maybe not
         self.setMinimumHeight(30)
+
+        # not sure why but need negative padding for header cells...
+        if not margin is None:
+            self.setStyleSheet(f"QHeaderView::section::horizontal {{ padding-left: {margin}px; padding-right: {margin}px; }}")
 
         f.set_self(vars())
 
@@ -2583,14 +2587,14 @@ class HeaderView(QHeaderView):
         if col in self.parent.mcols['vertical']:
             painter.rotate(-90)
             painter.setFont(self._font)
-            painter.drawText(- rect.height() + self._margin,
+            painter.drawText(- rect.height() + self.vertical_margin,
                             rect.left() + int((rect.width() + self._descent) / 2), col)
         else:
             super().paintSection(painter, rect, index)
 
     def sizeHint(self):
         if self.parent.mcols['vertical']:
-            return QSize(0, self._max_text_width() + 2 * self._margin)
+            return QSize(0, self._max_text_width() + 2 * self.vertical_margin)
         else:
             return super().sizeHint()
 
