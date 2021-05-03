@@ -189,6 +189,12 @@ class TableModel(QAbstractTableModel):
         reset : bool
             reset static dfs if true, else append
         """
+
+        # update all int column display format
+        # NOTE this updates TableView's formats too (shared obj)
+        int_cols = list(df.select_dtypes(int).columns)
+        self.formats.update(**f.dtypes_dict('{:,.0f}', int_cols))
+
         static_dfs_new = self.get_static_dfs(df=df)
         static_dfs_orig = [self.m_display, self.m_color_bg, self.m_color_text]
 
