@@ -1,9 +1,15 @@
 from collections import OrderedDict
+from zipfile import ZipFile
+from tarfile import TarFile
+
+from pandas.core.algorithms import isin
 
 from . import utils as utl
 from .__init__ import *
 
 log = getlog(__name__)
+
+dsc_exclude = ['fr', 'data', 'dnevent', 'sfevent', 'chk', 'plm', 'vhms', 'pic', 'events', 'stats', 'system']
 
 def date_from_title(title) -> dt:
     """Parse date obj from date in folder title"""
@@ -32,14 +38,27 @@ def is_year(name : str) -> bool:
     return not ans is None
 
 def recurse_dsc(p_search : Path, d_lower=dt(2020,1,1), depth=0, maxdepth=5) -> list:
-    """Recurse and find any file/folder paths containing 'dsc'"""
+    """Recurse and find any file/folder paths containing 'dsc'
+    - Sometimes dsc folder are renamed to 'GE'
+    """
     lst = []
+    # print(p_search)
+    
+    for p in p_search.iterdir():
+        # 'dsc' is always a dir or zipped dir
+        # this is ~2x faster if we didn't have to check all filenames (eg for .zip)
+        name = p.name.lower()
 
-    if depth <= maxdepth:
-        for p in p_search.iterdir():
-            if 'dsc' in p.name:
-                lst.append(p) # end recursion
-            elif (p.is_dir() and fl.date_modified(p) > d_lower):
+        if 'dsc' in name or name == 'ge':
+            lst.append(p) # end recursion
+        elif (
+            p.is_dir() and
+            fl.date_modified(p) > d_lower and
+            not any(exclude in name for exclude in dsc_exclude) and
+            not re.match(r'^a\d{5}$', name)):
+            # ^ exclude SN folders
+
+            if depth < maxdepth:
                 lst.extend(recurse_dsc(
                     p_search=p,
                     depth=depth + 1,
@@ -111,10 +130,12 @@ def zip_recent_dls_unit(unit :str, _zip=True) -> Path:
     else:
         return p_dls
 
-def fix_dsc(p : Path, p_unit : Path, zip_=False):
+def fix_dsc(p : Path, zip_=False):
     """Process/fix single dsc/dls folder"""
     start = timer()
-    unit = p_unit.name.split(' - ')[0]
+    unit = utl.unit_from_path(p)
+    uf = efl.UnitFolder(unit=unit)
+    # unit = p_unit.name.split(' - ')[0]
 
     p_parent = p.parent
     d = date_from_dsc(p=p)
@@ -122,7 +143,7 @@ def fix_dsc(p : Path, p_unit : Path, zip_=False):
     # rename dls folder: UUU - YYYY-MM-DD - DLS
     newname = '{} - {} - DLS'.format(unit, d.strftime('%Y-%m-%d'))
 
-    p_new = p_unit / f'Downloads/{d.year}/{newname}'
+    p_new = uf.p_dls / f'{d.year}/{newname}'
 
     # need to make sure there is only one _dsc_ folder in path
     # make sure dsc isn't within 2 levels of 'Downloads' fodler
@@ -178,43 +199,73 @@ def date_from_dsc(p : Path) -> dt:
     
     return d
 
-def get_recent_dsc_single(p_unit=None, d_lower=dt(2020,1,1), unit=None):
-    """Return list of most recent dsc folder from each unit\n
-    TODO fix this to use get_list
+def get_recent_dsc_single(unit, d_lower=dt(2020,1,1), year=None, all_files=False, ftype: str='dls', maxdepth=3):
+    """Return list of most recent dsc folder from each unit
+    - OR most recent fault... could extend this for any filetype
 
     Parameters
     ----------
-    p_unit : Path, optional
-        default None\n
     d_lower : datetime, optional,
-        limit search by date, default dt(2020,1,1)\n
+        limit search by date, default dt(2020,1,1)
     unit : str, optional
+    all_files: bool
+        return dict of unit: list of all sorted files
 
     Returns
     -------
-    list
+    list | dict
     """
-    df = pd.DataFrame
     lst = []
-    if p_unit is None:
-        p_unit = efl.UnitFolder(unit=unit).p_unit
+    uf = efl.UnitFolder(unit=unit)
 
-    p_dls = p_unit / 'Downloads'
-    lst_unit = recurse_dsc(p_search=p_dls, maxdepth=3, d_lower=d_lower)
+    p_dls = uf.p_dls
+
+    if not year is None:
+        p_year = p_dls / year
+        if p_year.exists():
+            p_dls = p_year
+
+    if ftype == 'dls':
+        lst_unit = recurse_dsc(p_search=p_dls, maxdepth=maxdepth, d_lower=d_lower)
+
+    elif ftype == 'fault':
+        lst_unit = utl.recurse_folders(
+            p_search=p_dls,
+            d_lower=d_lower,
+            ftype=ftype,
+            maxdepth=maxdepth,
+            exclude=utl.get_config()[ftype]['exclude'])
     
     if lst_unit:
         lst_unit.sort(key=lambda p: date_from_dsc(p), reverse=True)
-        lst.append(lst_unit[0])
+
+        if not all_files:
+            lst.append(lst_unit[0])
+        else:
+            lst.extend(lst_unit)
     
     return lst
 
-def get_recent_dsc_all(d_lower=dt(2020,1,1)):
+def get_recent_dsc_all(minesite='FortHills', model='980E', all_files=True, **kw):
     """Return list of most recent dsc folders for all units"""
-    p_units = utl.get_unitpaths()
     lst = []
+
+    # keep all files to try and import next most recent if file fails
+    if all_files:
+        lst = {}
+
+    units = db.unique_units(minesite=minesite, model=model)
     
-    for p_unit in p_units:
-        lst.extend(get_recent_dsc_single(p_unit=p_unit, d_lower=d_lower))
+    for unit in tqdm(units):
+        recent_dsc = get_recent_dsc_single(unit=unit, all_files=all_files, **kw)
+
+        if not recent_dsc:
+            print(f'\n\nNo recent dsc for: {unit}')
+
+        if not all_files:
+            lst.extend(recent_dsc)
+        else:
+            lst[unit] = recent_dsc
 
     return lst
 
@@ -265,22 +316,43 @@ def zip_recent_dls(units, d_lower=dt(2020,1,1)):
 # STATS csv
 def stats_from_dsc(p):
     # get stats file path from dsc path
-    try:
-        return list((p / 'stats').glob('SERIAL*csv'))[0]
-    except:
-        return None
-        print(f'Couldn\'t read stats: {p}')
+    if p.is_dir():
+        try:
+            return list((p / 'stats').glob('SERIAL*csv'))[0]
+        except:
+            return None
+            print(f'Couldn\'t read stats: {p}')
+    elif p.suffix == '.zip':
+        return ZipFile(p)
+    elif p.suffix == '.tar':
+        return TarFile(p)
 
-def import_stats(lst=None):
+def import_stats(lst=None, d_lower=dt(2021,1,1)):
     # use list of most recent dsc and combine into dataframe
 
     if lst is None:
-        lst = get_recent_dsc_all(d_lower=dt(2020,1,1))
+        lst = get_recent_dsc_all(d_lower=d_lower)
+    
+    if isinstance(lst, dict):
+        dfs = []
+        for unit, lst_csv in tqdm(lst.items()):
 
-    df = pd.concat([get_stats(stats_from_dsc(p)) for p in lst])
+            # try to find/load csv, or move to next if fail
+            for p in lst_csv:
+                try:
+                    p_csv = stats_from_dsc(p)
+                    df_single = get_stats(p=p_csv)
+                    dfs.append(df_single)
+                    break
+                except Exception as e:
+                    log.warning(f'Failed to load csv: {p}, \n{str(e)}')
+
+        df = pd.concat(dfs)
+
+    else:
+        df = pd.concat([get_stats(stats_from_dsc(p)) for p in lst])
 
     return df
-
 
 def get_list_stats(unit):
     """Return list of STATS csvs for specific unit"""
@@ -295,35 +367,87 @@ def smr_from_stats(lst):
 
     return pd.concat([get_stats(p) for p in lst])
 
+def get_stats(p, all_cols=False):
+    """
+    Read stats csv and convert to single row df of timestamp, psc/tsc versions + inv SNs, to be combined
+    Can read zip or tarfiles"""
 
-def get_stats(p):
-    """read stats csv and convert to single row df of timestamp, psc/tsc versions + inv SNs, to be combined"""
+    # dsc folder could be zipped, just read zipped csv, easy!
+    # super not dry
+    # print(p)
+    if isinstance(p, ZipFile):
+        zf = p
+        p = Path(zf.filename)
+        csv = [str(file.filename) for file in zf.filelist if re.search(r'serial.*csv', str(file), flags=re.IGNORECASE)][0]
+        with zf.open(csv) as reader:
+            df = pd.read_csv(reader, index_col=0)
 
-    # dict to convert messy to nice names
-    m = {
-        'unit': 'unit',
-        'Today\'s date / time': 'timestamp',
-        'Total Hours': 'engine_hours',
-        'PSC code version': 'psc_ver',
-        'TCI code version': 'tsc_ver',
-        'FB187 Serial Number': 'FB187_197_sn',
-        'FB187/197 Serial Number': 'FB187_197_sn',
-        'Inv 1 Serial number': 'inv_1_sn',
-        'Inv 2 Serial number': 'inv_2_sn'}
+    elif isinstance(p, TarFile):
+        tf = p
+        p = Path(tf.name)
+        csv = [file for file in tf.getnames() if re.search(r'serial.*csv', file, flags=re.IGNORECASE)][0]
+        df = pd.read_csv(tf.extractfile(csv), index_col=0)
 
-    cols = list(m.keys())
+    else:
+        df = pd.read_csv(p, index_col=0)
+    
+    df = df \
+        .applymap(lambda x: str(x).strip())
 
-    df = pd.read_csv(p, index_col=0) \
-        .applymap(lambda x: str(x).strip()) \
-        .pipe(lambda df: df[df.iloc[:, 0].isin(cols[1:])]) \
-        .assign(unit=utl.unit_from_path(p))
+    # need to keep original order after pivot
+    orig_cols = df[df.columns[0]].unique().tolist()
+    
+    df = df \
+        .assign(unit=utl.unit_from_path(p)) \
+        .pipe(lambda df: df.drop_duplicates(subset=df.columns[0], keep='first')) \
+        .pipe(lambda df: df.pivot(index='unit', columns=df.columns[0], values=df.columns[1])) \
+        [orig_cols] \
+        .pipe(lambda df: df[[col for col in df.columns if not '-' in col]]) \
+        .pipe(f.lower_cols) \
+        .assign(todays_date_time=lambda x: pd.to_datetime(x.todays_date_time).dt.date) \
+        .rename_axis('', axis=1)
 
-    df = df.pivot(index='unit', columns=df.columns[0], values=df.columns[1]) \
-        .rename_axis('unit', axis=1) \
-        .reset_index() \
-        .rename(columns=m) \
-        .assign(timestamp=lambda x: pd.to_datetime(x.timestamp))
+    # shorten column names
+    m_rename = dict(
+        serial_number='sn',
+        number='no',
+        code_version='ver',
+        version='ver',
+        hours='hrs',
+        inverter='inv')
+    
+    # need to loop instead of dict comp so can update multiple times
+    rename_cols = {}
+    for col in df.columns:
+        orig_col = col
+        for orig, new in m_rename.items():
+            if orig in col:
+                col = col.replace(orig, new)
+        
+        rename_cols[orig_col] = col
 
-    df = df[list(OrderedDict.fromkeys(m.values()))] # reorder, keeping original
+    rename_cols.update({
+        'todays_date_time': 'date',
+        'total_hours': 'engine_hrs',
+        'model++': 'wm_model'})
+
+    drop_cols = [
+        'unit',
+        'truck_identification',
+        'end',
+        'model',
+        'model+',
+        'model+++',
+        'mine_dos_filename',
+        'oem_dos_filename',
+        'ge_dos_filename']
+
+    df = df \
+        .rename(columns=rename_cols) \
+        .drop(columns=drop_cols) \
+        .rename(columns=dict(truck_model='model'))
+        # .assign(truck_model=lambda x: x.truck_model.str.replace("'", '')) \ # keep ' for excel model
+
+    # df = df[list(OrderedDict.fromkeys(m.values()))] # reorder, keeping original
 
     return df
