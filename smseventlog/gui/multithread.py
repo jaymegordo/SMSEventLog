@@ -75,5 +75,5 @@ class Worker(QRunnable):
             log.error('Multithread Worker has no mainwindow or threadpool to start.', exc_info=True)
     
 def send_error(msg=None, exc_info=None):
-    """Wrapper to send **kw args to er.log_error from a signal in different thread"""   
+    """Wrapper to send **kw args to er.log_error from a signal in different thread"""
     er.log_error(msg=msg, exc_info=exc_info, display=True)

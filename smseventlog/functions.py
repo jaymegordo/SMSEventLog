@@ -293,11 +293,11 @@ def nice_title(title: str) -> str:
     if title.strip() == '':
         return title
         
-    excep = 'the a on in of an is'.split(' ')
+    excep = 'the a on in of an is to for'.split(' ')
     title = remove_bad_chars(w=title).strip()
-
+    # TODO lowercase words > 4 chars
     return ' '.join(
-        f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w for w in title.split())  
+        f'{w[0].upper()}{w[1:]}' if not w.lower() in excep else w.lower() for w in title.split())  
     
 def str_to_bool(val):
     if isinstance(val, (np.bool_, np.bool)):
@@ -455,7 +455,7 @@ def default_df(df):
         .pipe(parse_datecols) \
         .pipe(convert_int64)
 
-def terminal_df(df, date_only=True, show_na=False):
+def terminal_df(df, date_only=True, show_na=False, **kw):
     """Display df in terminal with better formatting"""
     from tabulate import tabulate
 
@@ -465,7 +465,7 @@ def terminal_df(df, date_only=True, show_na=False):
         # for col in df.select_dtypes('datetime').columns:
         #     df.loc[:, col] = df.loc[:, col].dt.date
 
-    s = tabulate(df, headers=df.columns)
+    s = tabulate(df, headers=df.columns, **kw)
 
     if not show_na:
         s = s.replace('nan', '   ')
@@ -553,6 +553,7 @@ def convert_stylemap_index(style):
     """**NOT USED** convert irow, icol stylemap to df named index
     m is dict of eg {(0, 4): ['background-color: #fef0f0', 'color: #000000']}
     NOTE styler saves everything, so if multiple styles are applied, this would only use the first"""
+    style._compute()
     stylemap = style.ctx
     df = style.data
     m = {(df.index[k[0]], df.columns[k[1]]):v for k, v in stylemap.items()}
@@ -637,6 +638,8 @@ def to_snake(s: str):
     s = re.sub(r'[\]\[()]', '', s) # remove brackets/parens
     s = re.sub(r'[\n-]', '_', s) # replace newline/dash with underscore
     s = re.sub(r'[%]', 'pct', s)
+    s = re.sub(r"'", '', s)
+    s = re.sub(r'#', 'no', s)
 
     # split on capital letters
     expr = r'(?<!^)((?<![A-Z])|(?<=[A-Z])(?=[A-Z][a-z]))(?=[A-Z])'

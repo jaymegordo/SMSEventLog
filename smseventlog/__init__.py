@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import time
+from tqdm import tqdm
 from collections import defaultdict as dd
 from datetime import date
 from datetime import datetime as dt

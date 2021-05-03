@@ -359,9 +359,6 @@ class FailureReportWord(WordReport, rp.FailureReport):
             .rename(columns=dict(sample_date='Sample_Date')) \
             .set_index('Sample_Date')
 
-        if 'opc' in df.columns:
-            df['opc'] = df.opc.str.replace(' ', '')
-
         style = df.style \
             .pipe(st.default_style, outlook=True) \
             .pipe(query.update_style)
