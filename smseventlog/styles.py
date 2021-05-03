@@ -267,7 +267,7 @@ def highlight_yn(df, color_good='good', theme='light'):
 
     return pd.DataFrame(data=data, index=df.index, columns=df.columns)
 
-def highlight_multiple_vals(df, m : dict, convert=False, theme='light'):
+def highlight_multiple_vals(df, m : dict, convert=False, theme='light', none_inherit=True):
     """Highlight multiple vals in df based on input from style.apply
     
     Parameters
@@ -275,19 +275,25 @@ def highlight_multiple_vals(df, m : dict, convert=False, theme='light'):
     m : dict
         {val: (bg_color, t_color)}
     convert : bool
-        if true, convert color map to bg/text first
+        if true, convert color map to bg/text first eg 'lightorange' to hex color #fffff
+    theme : str
+        used when converting color code
+    none_inherit : bool
+        some tables just want '' instead of 'inherit' for blanks (eg OilSamples table in EL GUI)
     """
     if convert:
         m = convert_color_code(m_color=m, theme=theme)
 
-    m.update({None: ('inherit', 'inherit')})
+    val = 'inherit' if none_inherit else ''
+    m.update({None: (val, val)})
+
     m_replace = {k: format_cell(bg=v[0], t=v[1]) for k, v in m.items()}
 
     return df.replace(m_replace)
 
-def highlight_flags(df, m, suffix='_fg'):
+def highlight_flags(df, m, suffix='_fg', theme='light', **kw):
     """Highlight flagged columns for oil samples"""
-    df1 = highlight_multiple_vals(df=df, m=m)
+    df1 = highlight_multiple_vals(df=df, m=m, theme=theme, **kw)
 
     flagged_cols = [col for col in df.columns if suffix in col]
 
